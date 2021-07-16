@@ -1,0 +1,116 @@
+bron;bestand_id;value;label;kleur
+landgebruiksbestand;niveau1;1;Ruigte en struweel;
+landgebruiksbestand;niveau1;2;Loofbos;
+landgebruiksbestand;niveau1;3;Populieren;
+landgebruiksbestand;niveau1;4;Naaldbos;
+landgebruiksbestand;niveau1;5;Alluviaal bos;
+landgebruiksbestand;niveau1;6;Halfnatuurlijk grasland;
+landgebruiksbestand;niveau1;7;Heide;
+landgebruiksbestand;niveau1;8;Kustduin;
+landgebruiksbestand;niveau1;9;Moeras;
+landgebruiksbestand;niveau1;10;Slik en schorre;
+landgebruiksbestand;niveau1;11;Akker;
+landgebruiksbestand;niveau1;12;Niet geregistreerde landbouw;
+landgebruiksbestand;niveau1;13;Hoogstam boomgaard;
+landgebruiksbestand;niveau1;14;Laagstam boomgaard;
+landgebruiksbestand;niveau1;15;Cultuurgrasland permanent;
+landgebruiksbestand;niveau1;19;Gebouw;
+landgebruiksbestand;niveau1;20;Overig laag groen;
+landgebruiksbestand;niveau1;21;Overig hoog groen;
+landgebruiksbestand;niveau1;22;Weg;
+landgebruiksbestand;niveau1;23;Spoorweg;
+landgebruiksbestand;niveau1;24;Water;
+landgebruiksbestand;niveau1;25;Overig;
+landgebruiksbestand;niveau2;0;;
+landgebruiksbestand;niveau2;1;Overige bebouwde percelen;
+landgebruiksbestand;niveau2;2;Park;
+landgebruiksbestand;niveau2;3;Kerkhof;
+landgebruiksbestand;niveau2;4;Golfterrein;
+landgebruiksbestand;niveau2;5;Zoo & attractiepark;
+landgebruiksbestand;niveau2;6;Sportterreinen;
+landgebruiksbestand;niveau2;7;Campings;
+landgebruiksbestand;niveau2;8;Overige recreatie;
+landgebruiksbestand;niveau2;9;Serres;
+landgebruiksbestand;niveau2;10;Overige onbebouwde terreinen;
+landgebruiksbestand;niveau2;11;Jachthavens;
+landgebruiksbestand;niveau2;12;Residentieel;
+landgebruiksbestand;niveau2;13;Petroleumraffinaderijen;
+landgebruiksbestand;niveau2;14;Chemie;
+landgebruiksbestand;niveau2;15;Elektriciteitsproductie;
+landgebruiksbestand;niveau2;16;Metaalnijverheid;
+landgebruiksbestand;niveau2;17;Afval en afvalwaterzuivering;
+landgebruiksbestand;niveau2;18;Mijnbouw;
+landgebruiksbestand;niveau2;19;Houtindustrie;
+landgebruiksbestand;niveau2;20;Vervaardiging van kunststofproducten;
+landgebruiksbestand;niveau2;21;Waterwinningen en -distributie;
+landgebruiksbestand;niveau2;22;Overige energie;
+landgebruiksbestand;niveau2;23;Voeding;
+landgebruiksbestand;niveau2;24;textiel;
+landgebruiksbestand;niveau2;25;Papier;
+landgebruiksbestand;niveau2;26;Veeteelt;
+landgebruiksbestand;niveau2;27;Akkerbouw en tuinbouw;
+landgebruiksbestand;niveau2;28;Jacht, bosbouw en visserij;
+landgebruiksbestand;niveau2;29;Groothandel;
+landgebruiksbestand;niveau2;30;Transport en verkeer;
+landgebruiksbestand;niveau2;31;Detailhandel;
+landgebruiksbestand;niveau2;32;Horeca;
+landgebruiksbestand;niveau2;33;Gezondheidszorg;
+landgebruiksbestand;niveau2;34;Kantoren en administratie;
+landgebruiksbestand;niveau2;35;Onderwijs;
+landgebruiksbestand;niveau2;36;Overige diensten;
+landgebruiksbestand;niveau2;37;Zelfstandigen;
+landgebruiksbestand;niveau2;38;Overige bedrijventerreinen;
+landgebruiksbestand;niveau2;39;Overige landbouwinfrastructuur;
+landgebruiksbestand;niveau3;0;;
+landgebruiksbestand;niveau3;1;Commerciele luchthaven;
+landgebruiksbestand;niveau3;2;Overige vliegvelden;
+landgebruiksbestand;niveau3;3;Mijnterril;
+landgebruiksbestand;niveau3;4;Groeve;
+landgebruiksbestand;niveau3;5;Stortplaats;
+landgebruiksbestand;niveau3;6;Recreatieparken;
+landgebruiksbestand;niveau4;0;;
+landgebruiksbestand;niveau4;1;Militaire domeinen;
+landgebruiksbestand;niveau4;2;Havens;
+landgebruikskaart;finaal_natuurbeheer;1;Ruigte;
+landgebruikskaart;finaal_natuurbeheer;2;Loofbos;
+landgebruikskaart;finaal_natuurbeheer;3;Populieren;
+landgebruikskaart;finaal_natuurbeheer;4;Naaldbos;
+landgebruikskaart;finaal_natuurbeheer;5;Alluviaal bos;
+landgebruikskaart;finaal_natuurbeheer;6;Halfnatuurlijk grasland;
+landgebruikskaart;finaal_natuurbeheer;7;Heide;
+landgebruikskaart;finaal_natuurbeheer;8;Kustduin;
+landgebruikskaart;finaal_natuurbeheer;9;Moeras;
+landgebruikskaart;finaal_natuurbeheer;10;Slik en schorre;
+landgebruikskaart;finaal_natuurbeheer;11;Akker;
+landgebruikskaart;finaal_natuurbeheer;12;Niet geregistreerde landbouw;
+landgebruikskaart;finaal_natuurbeheer;13;Hoogstam boomgaard;
+landgebruikskaart;finaal_natuurbeheer;14;Laagstam boomgaard;
+landgebruikskaart;finaal_natuurbeheer;15;Cultuurgrasland permanent;
+landgebruikskaart;finaal_natuurbeheer;19;Gebouw;
+landgebruikskaart;finaal_natuurbeheer;20;Overig laag groen;
+landgebruikskaart;finaal_natuurbeheer;21;Overig hoog groen;
+landgebruikskaart;finaal_natuurbeheer;22;Weg;
+landgebruikskaart;finaal_natuurbeheer;23;Spoorweg;
+landgebruikskaart;finaal_natuurbeheer;24;Water;
+landgebruikskaart;finaal_natuurbeheer;25;Overig;
+landgebruikskaart;finaal_natuurbeheer;26;Overgangswater;
+landgebruikskaart;finaal_natuurbeheer;27;Marien;
+landgebruikskaart;finaal_natuurbeheer;30;Struweel;
+landgebruikskaart;vito;1;Huizen en tuinen;#FF0000
+landgebruikskaart;vito;2;Industrie;#8400A8
+landgebruikskaart;vito;3;Commerciele doeleinden;#FF00C5
+landgebruikskaart;vito;4;Diensten;#002673
+landgebruikskaart;vito;5;Transportinfrastructuur;#686868
+landgebruikskaart;vito;6;Recreatie en sport;#FFAA00
+landgebruikskaart;vito;7;Landbouwgebouwen en -infrastructuur;#A87000
+landgebruikskaart;vito;8;Overige bebouwde terreinen;#CCCCCC
+landgebruikskaart;vito;9;Overige onbebouwde terreinen;#828282
+landgebruikskaart;vito;10;Groeves;#DFE6A9
+landgebruikskaart;vito;11;Luchthavens;#DF73FF
+landgebruikskaart;vito;12;Bos;#267300
+landgebruikskaart;vito;13;Akker;#FFFFBE
+landgebruikskaart;vito;14;Grasland;#A3FF73
+landgebruikskaart;vito;15;Struikgewas;#897044
+landgebruikskaart;vito;16;Braakliggend en duinen;#FFD37F
+landgebruikskaart;vito;17;Water;#005CE6
+landgebruikskaart;vito;18;Moeras;#00A884

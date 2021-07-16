@@ -1,0 +1,8 @@
+- location_id: niet te veel naar kijken, is vooral handig als er vragen zijn over een locatie en ik moet in de db duiken
+- regio: wellicht weinig relevant maar het kan soms handig zijn voor de interpretatie (bv Likona, Maasland --> werken nauwelijks via meetnetten)
+- hok: naam van het ABV-hok
+- status: sommige hokken zijn niet langer actief, bv omdat ze in industriegebied of grotendeels in het water liggen. Er zijn ook heel wat hokken die de status 'actief' hebben maar in praktijk helemaal niet actief blijken.
+- gereserveerd: is er momenteel een teller die het hok gereserveerd heeft?
+- jaar: dit is het jaar waarin een hok in theorie zou moeten geteld worden binnen de cyclus 2019-2021
+- laatste bezoek: datum van het laatste bezoek dat werd ingevoerd voor het hok
+- recall: voor hokken die eigenlijk in 2019 of 2020 geteld hadden moeten worden is een nieuwe teloproep gelanceerd in 2021 om toch een zo goed mogelijke dekking te hebben binnen de cyclus. Deze vind je dus hier terug. Het kan een locatie zijn die nog niet geteld werd of die slechts één keer geteld werd in 2019-2020.

@@ -1,0 +1,48 @@
+..generic:
+  git2rdata: 0.2.0
+  optimize: yes
+  NA string: NA
+  sorting: ExternalCode
+  hash: aa47955f281da54fbadc5cf1aa10669e2becff1a
+  data_hash: b379b1d4016f6c33e9e166819a4a8e4a88b6887c
+ExternalCode:
+  class: character
+Landbouw:
+  class: numeric
+Bos:
+  class: numeric
+HeideDuin:
+  class: numeric
+KLE:
+  class: numeric
+OKLE:
+  class: numeric
+MoerasWater:
+  class: numeric
+GeenKartering:
+  class: numeric
+SlikStrandSchor:
+  class: numeric
+Suburbaan:
+  class: numeric
+Urbaan:
+  class: numeric
+Som:
+  class: numeric
+Stratum:
+  class: factor
+  labels:
+  - Bos
+  - Heide en duin
+  - Landbouw
+  - Moeras en water
+  - Suburbaan
+  - Urbaan
+  index:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  ordered: no
