@@ -1,0 +1,312 @@
+---
+title: "Verkenning / overzicht van beschikbare data en bestaande meetnetten relevant voor monitoring biodiversiteit in het agrarisch gebied"
+author: "Hans Van Calster"
+date: "9-7-2021"
+output: html_document
+bibliography: mbag.json
+link-citations: true
+reference-section-title: Referenties
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(echo = FALSE)
+opts_knit$set(root.dir = here::here())
+
+```
+
+```{r}
+source("./R/lucas.R")
+source("./R/c_mon.R")
+source("./R/read_agri_use_parcels.R")
+source("./R/utils.R")
+source("./R/landuse_maps.R")
+source("./R/abv.R")
+library(dplyr)
+library(leaflet)
+library(sf)
+library(arrow)
+library(eurostat)
+library(ggplot2)
+library(terra)
+options(arrow.use_threads = FALSE)
+```
+
+
+```{r}
+flanders <- eurostat::eurostat_geodata_60_2016 %>%
+  filter(id == "BE2")
+```
+
+## LUCAS
+
+```{r}
+lucas_flanders_2018 <- arrow::read_parquet(
+  file = 
+    "./data/lucas_harmonised/1_table/parquet_hive/year=2018/part-4.parquet") %>%
+  dplyr::filter(nuts1 == "BE2") 
+
+lucas_theor_flanders <- lucas_grid(layer = "th") %>%
+  st_filter(flanders)
+
+lucas_gps_flanders <- lucas_grid() %>%
+  janitor::clean_names() %>%
+  semi_join(lucas_flanders_2018)
+```
+
+Ligging van LUCAS meetpunten (selectie uit 2 km x 2 km grid) die in 2018 geïnventariseerd werden (zoals ingemeten met gps, kan afwijken van theoretisch grid):
+
+```{r}
+lucas_gps_flanders %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(clusterOptions = markerClusterOptions())
+```
+
+Theoretisch grid: meetpunten van alle jaren:
+
+```{r}
+lucas_theor_flanders %>%
+  ggplot() +
+  geom_sf(data = flanders) +
+  geom_sf() + 
+  facet_wrap(~YEAR)
+```
+
+Beknopt overzicht van alle beschikbare microdata (Vlaanderen, 2018):
+
+```{r}
+glimpse(lucas_flanders_2018)
+```
+
+
+## Landbouwgebruikspercelen
+
+```{r}
+# https://wcjochem.github.io/sfarrow/articles/example_sfarrow.html
+#optie 1: niet in geheugen laden
+lbg2020_binding <- arrow::open_dataset("data/landbouwgebruikspercelen/parquet/lbgbrprc20.parquet")
+
+#optie2: wel in geheugen laden
+#lbg2020 <- sfarrow::st_read_parquet("data/landbouwgebruikspercelen/parquet/lbgbrprc20.parquet")
+```
+
+Voor 2020 is dit het overzicht per gewasgroep:
+
+```{r}
+lbg2020_binding %>%
+  select(GEWASGROEP, LBLHFDTLT, OPPERVL) %>%
+  group_by(GEWASGROEP, LBLHFDTLT) %>%
+  collect() %>%
+  summarize(oppervlakte_ha = sum(OPPERVL, na.rm = TRUE) / 10000) %>%
+  kable(digits = 1)
+```
+
+
+Voorbeeldkaartje met verspreiding van GEWASGROEP = Aardappelen
+
+```{r}
+# niet in geheugen + filter + read_sf_parquet = eerst filteren en dan pas in geheugen
+
+lbg2020_binding %>%
+  filter(GEWASGROEP == "Aardappelen") %>%
+  sfarrow::read_sf_dataset() %>%
+  sf::st_geometry() %>%
+  plot()
+```
+
+## Landgebruikskaart
+
+Het landgebruiksbestand is een set van 4 rasterkaarten (bodembedekking, verstedelijkt landgebruik, multifunctioneel landgebruik en militaire domeinen & havens).
+Die lagen worden gecombineerd om er 1 landgebruikskaart voor Vlaanderen van te maken.
+Die landgebruikskaart wordt door het Planbureau gebruikt om een aantal afgeleide producten te maken, zoals het ruimtebeslag.
+[Dit document](https://archief-algemeen.omgeving.vlaanderen.be/xmlui/bitstream/handle/acd/449392/Landgebruik_en_Ruimtebeslag_2019_def_correctie.pdf?sequence=1&isAllowed=y) geeft meer uitleg over de opmaak van het landgebruiksbestand en de landgebruikskaart.
+De landgebruikskaart kan je [hier](https://www.geopunt.be/catalogus/datasetfolder/78e82101-8fbc-4a75-b649-b208df2b77be) downloaden.
+Het landgebruiksbestand staat op de NARA-folder op Citrix.
+
+Voor het Natuurrapport 2020 hebben we een eigen landgebruikskaart gemaakt.
+Die staat ook op de Citrix.
+Naast de 4 rasterlagen van het landgebruiksbestand, hebben we ook andere lagen toegevoegd, zoals de ecotopenkaart van de Schelde om slikken en schorren beter in kaart te brengen, de kaart van percelen onder natuurbeheer en de landbouwgebruikspercelen om permanente graslanden te identificeren.
+De uitleg van de aanpassingen staat in de metadata van [deze fiche](https://www.vlaanderen.be/inbo/backgroundindicatoren/landgebruiksverandering-ecosysteemvoorraad-landgebruiksbestand-vlaanderen).
+Het is deze landgebruikskaart (versie 2013 en 2016) die we gebruikt hebben om de landgebruiksveranderingen te valideren (zie [deze fiche](https://www.vlaanderen.be/inbo/backgroundindicatoren/landgebruiksverandering-validatie)).
+
+De 4 niveau-kaarten zijn de 4 basislagen van het landgebruiksbestand:
+
+`LG2013_niveau1` = bodembedekking
+
+`LG2013_niveau2` = stedelijk landgebruik
+
+`LG2013_niveau3` = multifunctioneel landgebruik
+
+`LG2013_niveau4` = militaire domeinen en havens
+
+`LG2013_finaal_natuurbeheer` is de landgebruikskaarten van NARA 2020 (een aparte versie voor 2013 en 2016), gebaseerd op het landgebruiksbestand 2013 en 2016.
+
+Bij het compileren van de NARA landgebruikskaart de procedure/volgorde van Poelmans et al. (2019:49-51) hebben gevolgd voor het stapelen van kaartlagen, dit om de vergelijkbaarheid van de NARA-cijfers met die van RURA te behouden, bv.
+waar het gaat over ruimtebeslag.
+Maar we hebben, de lagen waarmee we stapelden hier en daar wel aangepast, bv.
+om slikken en schorren juister te krijgen of om ingezaaide graslanden die de afgelopen 5 jaar in een teeltrotatie zaten, bij akkers in te delen.
+
+Landgebruikskaart opgemaakt voor NARA 2020: `Z:\Projects\PRJ_NARA_2020\Target_2\Extra_LGdatalagen.gdb`.
+Het gaat om de rasters `LG2016_finaal_natuurbeheer` en `LG2013_finaal_natuurbeheer`.
+Voor de legende kan je terecht in dit mxd-bestand: `Z:\Projects\PRJ_NARA_2020\Basisbestanden\landgebruikskaart_nara2020.mxd`.
+In dat mxd-bestand zijn ook de kaarten toegevoegd die we gebruikt hebben voor de validatie.
+Voor die validatie hebben we een aantal klassen geaggregeerd omdat die op luchtfoto niet te onderscheiden zijn: onze LG-kaart heeft 25 klassen, die werden geclusterd tot 9 klassen op de validatiekaart en voor de validatie zelf, hebben we die nog eens gereduceerd tot 5 omdat de interpretatie door de verschillende evaluatoren te veel afweek.
+
+De 4 niveaus van het landgebruiksbestand 2013 en 2016 staan in deze folder: `Z:\Projects\PRJ_NARA_2020\Basisbestanden`.
+Het gaat om de layer-files met dit soort naam: `LG2013_niveau1.lyr`.
+De bijhorende rasterbestanden staan in de geodatabank `Basisdata.gdb`.
+
+Er is ook een [WCS service](https://www.mercator.vlaanderen.be/raadpleegdienstenmercatorpubliek/wcs?) met o.a.
+landgebruikskaart versie 2013, 2016 en 2019.
+
+Voorbeeld 500 m x 500 m uitsnede van landgebruikskaart 2019 [@poelmans2021]:
+
+```{r}
+lum2019_example <- get_wcs_layer(
+  wcs = "mercator",
+  layername = "lu__lu_landgebruik_vlaa_2019", 
+  bbox = c(180000, 180500, 180000, 180500),
+  resolution = 10)
+
+lum2019_example
+```
+
+```{r}
+terra::plot(lum2019_example)
+```
+
+In @poelmans2021 is een validatie-oefening opgenomen aan de hand van LUCAS meetpunten.
+
+
+Voorbeeld inlezen volledig vito landgebruikskaart 2019:
+
+```{r}
+lum2019vito <- lum_read_from_vito()
+
+terra::plot(lum2019vito)
+```
+
+Voorbeeld inlezen volledig inbo landgebruikskaart 2016:
+(kleurenschema ontbreekt nog)
+
+```{r}
+lum2016inbo <- lum_read_from_inbo(add_levels = TRUE)
+
+
+terra::plot(lum2016inbo)
+```
+
+
+
+## C-mon
+
+<https://zenodo.org/record/2784012#.YPAk5egzZPY>
+
+GRTS steekproef = ruimtelijk gebalanceerd.
+Maakt gebruik van hetzelfde 10 m x 10 m grid als landgebruikskaart.
+Voor de C-mon steekproef werd een master sample getrokken voor een bounding box die Vlaanderen volledig afdekt.
+Dus alle 10m x 10 m grid cellen hebben een GRTS rangordenummer aan de hand waarvan een kleinere steekproef getrokken kan worden.
+Het is mogelijk om dit master sample ook te gebruiken op grotere schaalniveaus door de hokken te aggregeren, dus: 20 m x 20 m, 40 m x 40 m, 80 m x 80 m, ...
+
+Voor C-mon wordt dit master sample gebruikt om per landgebruik een steekproef te trekken.
+De landgebruikskaart wordt gebruikt om te komen tot een stratificatie in één van 5 landgebruiksklassen.
+Definities van landgebruiksklassen gealigneerd met VITO landgebruiksmodel want dient voor opschaling en tracen landgebruiksveranderingen doorheen de tijd.
+De steekproefgrootte werd bepaald om per landgebruik een minimum detecteerbaar verschil te kunnen aantonen.
+Zie @sleutel2018.
+
+![](images/cmon-sample-allocation.png)
+
+Het is een roterend meetnet 10% van locaties wordt jaarlijks bemonsterd over 10 jaar, na 10 jaar T0 meting begint de T1 meting op zelfde locaties (gepaarde metingen).
+Aantal proefvlakken per jaar is in totaal 282, verdeeld tussen INBO en ILVO (elk de helft).
+
+Regular plots voor T0 staalname is 2592 (totaal over 10 jaar).
+Daar komen 100 plots bij om specifieke landgebruiksveranderingen te bekijken (gerichte selectie, los van GRTS).
+Daar komen 130 plots bij uit een 'schaduwmeetnet' van 5% van GRTS plots die binnen hetzelfde jaar (en wellicht zelfde seizoen) herbemonsterd worden door ander team (short-term QAQC).
+
+Actueel landgebruik wordt gecheckt voorafgaand aan staalname.
+Indien niet meer initieel landgebruik, wordt locatie niet meegenomen maar mogelijks wel voor landgebruiksverandering.
+
+## ABV
+
+-   status: sommige hokken zijn niet langer actief, bv omdat ze in industriegebied of grotendeels in het water liggen. Er zijn ook heel wat hokken die de status 'actief' hebben maar in praktijk helemaal niet actief blijken.
+-   gereserveerd: is er momenteel een teller die het hok gereserveerd heeft?
+-   jaar: dit is het jaar waarin een hok in theorie zou moeten geteld worden binnen de cyclus 2019-2021
+-   laatste bezoek: datum van het laatste bezoek dat werd ingevoerd voor het hok
+-   recall: voor hokken die eigenlijk in 2019 of 2020 geteld hadden moeten worden is een nieuwe teloproep gelanceerd in 2021 om toch een zo goed mogelijke dekking te hebben binnen de cyclus. Deze vind je dus hier terug. Het kan een locatie zijn die nog niet geteld werd of die slechts één keer geteld werd in 2019-2020.
+
+```{r}
+abv_grid <- abv_read_utm_squares()
+abv_sampling_frame <- abv_read_sampling_frame()
+```
+
+Stratificatie:
+
+-   Landbouw gedefinieerd als hokken met \> 70% landbouw
+
+```{r}
+abv_sampling_frame %>%
+  filter(Stratum == "Landbouw") %>%
+  mutate(aandeel_landbouw = Landbouw / Som) %>%
+  ggplot() + 
+  geom_histogram(aes(x = aandeel_landbouw))
+```
+
+Jaar van laatste bezoek:
+
+```{r}
+abv_grid_stratum <- abv_grid %>%
+  filter(status == "actief") %>%
+  mutate(jaar_laatste_bezoek = lubridate::year(laatste_bezoek),
+         jaar_gepland_bezoek = pmax(jaar, recall, na.rm = TRUE),
+         reeds_uitgevoerd = !is.na(laatste_bezoek)) %>%
+  inner_join(abv_sampling_frame %>%
+               select(ExternalCode, Stratum),
+             by = c("utm_hok" = "ExternalCode")
+               )
+
+abv_grid_stratum %>%
+  ggplot() + 
+  geom_sf(data = flanders) +
+  geom_sf(aes(colour = Stratum, fill = Stratum)) + 
+  facet_wrap(~jaar_laatste_bezoek)
+```
+
+Jaar waarin bezoek werd gepland, inclusief recall + aanduiding of het effectief werd uitgevoerd:
+
+```{r}
+abv_grid_stratum %>%
+  ggplot() + 
+  geom_sf(data = flanders) +
+  geom_sf(aes(fill = reeds_uitgevoerd, colour = reeds_uitgevoerd)) + 
+  facet_wrap(~jaar_gepland_bezoek)
+```
+
+Zelfde, maar dan enkel landbouwstratum:
+
+```{r}
+abv_grid_stratum %>%
+  filter(Stratum == "Landbouw") %>%
+  ggplot() + 
+  geom_sf(data = flanders) +
+  geom_sf(aes(fill = reeds_uitgevoerd, colour = reeds_uitgevoerd)) + 
+  facet_wrap(~jaar_gepland_bezoek)
+
+```
+
+Aantal actieve hokken:
+
+```{r}
+abv_grid_stratum %>%
+  st_drop_geometry() %>%
+  count(jaar_laatste_bezoek)
+```
+
+```{r}
+abv_grid_stratum %>%
+  st_drop_geometry() %>%
+  count(Stratum)
+```

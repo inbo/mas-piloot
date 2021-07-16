@@ -1,0 +1,82 @@
+[
+    {
+        "URL": "https://pureportal.inbo.be/nl/publications/actualisatie-en-verfijning-van-de-onderbouwing-van-een-methodiek-",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Sleutel",
+                "given": "Steven"
+            },
+            {
+                "family": "D’Hose",
+                "given": "Tommy"
+            },
+            {
+                "family": "Ruysschaert",
+                "given": "Greet"
+            },
+            {
+                "family": "Lettens",
+                "given": "Suzanna"
+            },
+            {
+                "family": "Vos",
+                "given": "Bruno De"
+            }
+        ],
+        "id": "sleutel2018",
+        "issued": {
+            "date-parts": [
+                [
+                    2018
+                ]
+            ]
+        },
+        "key": "4XMMWUUL",
+        "language": "Nederlands",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "pureportal.inbo.be",
+        "title": "Actualisatie en verfijning van de onderbouwing van een methodiek voor de systematische monitoring van koolstofvoorraden in de bodem: Eindverslag Fase I - Monitoringstrategie",
+        "title-short": "Actualisatie en verfijning van de onderbouwing van een methodiek voor de systematische monitoring van koolstofvoorraden in de bodem",
+        "type": "report"
+    },
+    {
+        "URL": "https://archief-algemeen.omgeving.vlaanderen.be/xmlui/bitstream/handle/acd/449392/Landgebruik_en_Ruimtebeslag_2019_def_correctie.pdf?sequence=1&isAllowed=y",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Poelmans",
+                "given": "Lien"
+            },
+            {
+                "family": "Janssen",
+                "given": "Liliane"
+            },
+            {
+                "family": "Hambsch",
+                "given": "Lorenz"
+            }
+        ],
+        "id": "poelmans2021",
+        "issued": {
+            "date-parts": [
+                [
+                    2021
+                ]
+            ]
+        },
+        "key": "6FW9KJHY",
+        "libraryid": "1",
+        "note": "uitgevoerd in opdracht van het Vlaams Planbureau voor Omgeving",
+        "number": "2021/RMA/R/2458",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "VITO",
+        "title": "Landgebruik en ruimtebeslag in Vlaanderen, toestand 2019",
+        "type": "report"
+    }
+]
