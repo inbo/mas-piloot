@@ -1,8 +1,7 @@
 #' Convert a single point location to a grid cell polygon
 #'
-#' @param point_xy a vector with x and y coordinates
+#' @param xy an object of class POINT
 #' @param cell_width_m cell width in meter, default 500
-#' @param cell_height_m  cell height in meter, default equal to cell_width_m
 #' @param point_position default center of grid cell
 #' @param crs default EPSG code 31370
 #'
@@ -11,40 +10,60 @@
 #'
 #' @examples
 point_to_gridcell <- function(
-  point_xy,
+  xy,
   cell_width_m = 500,
-  cell_height_m = cell_width_m,
   point_position = c("center", "lowerleft", "upperleft", "lowerright", "upperright"),
   crs = 31370) {
   point_position <- match.arg(point_position)
 
   if (point_position != "center") stop(point_position, " not yet implemented")
 
-  xy <- sf::st_point(point_xy)
-  pl <- list(
-    rbind(
-      c(xy[1] - cell_width_m / 2, xy[2] - cell_height_m / 2),
-      c(xy[1] - cell_width_m / 2, xy[2] + cell_height_m / 2),
-      c(xy[1] + cell_width_m / 2, xy[2] + cell_height_m / 2),
-      c(xy[1] + cell_width_m / 2, xy[2] - cell_height_m / 2),
-      c(xy[1] - cell_width_m / 2, xy[2] - cell_height_m / 2)
-    )
-  )
-  polygon <- sf::st_polygon(pl)
-  polygon <- sf::st_sfc(polygon, crs = crs)
-  polygon <- sf::st_sf(geometry = polygon)
-  return(polygon)
+  stopifnot(sf::st_is(xy, "POINT"))
+  xy_df <- sf::st_drop_geometry(xy)
+  xy <- sf::st_geometry(xy)
+
+  # buffer with 1 point per quandrant
+  xy_buffer <- sf::st_buffer(x = xy,
+                             dist = cell_width_m / 2,
+                             nQuadSegs = 1)
+
+  # rotate 45 degrees around centroid
+  rot <- function(a) matrix(c(cos(a), sin(a), -sin(a), cos(a)), 2, 2)
+  pl <- (xy_buffer - xy) * rot(pi/4) + xy
+  pl <- sf::st_sf(data.frame(xy_df, pl), crs = crs)
+  return(pl)
 }
 
 
+#' Calculation of land-use metrics within a grid cell
+#'
+#' @param grid_cell A polygon within which boundaries zonal statistics will be
+#' calculated
+#' @param rasterlayer A rasterlayer
+#'
+#' @return
+#' @export
+#'
+#' @examples
 landusemetrics_grid_cell <- function(
   grid_cell,
-  rasterlayer
-
+  rasterlayer,
+  group_by_col = "POINT_ID"
 ) {
+
+  landcoverfraction <- function(df) {
+    df %>%
+      mutate(frac_total = coverage_fraction / sum(coverage_fraction)) %>%
+      group_by(!!sym(group_by_col), value) %>%
+      summarize(freq = sum(frac_total), .groups = "drop_last")
+  }
+
   exactextractr::exact_extract(
     x = rasterlayer,
-    y = grid_cell)
+    y = grid_cell,
+    fun = landcoverfraction,
+    summarize_df = TRUE,
+    include_cols = group_by_col)
 
 }
 

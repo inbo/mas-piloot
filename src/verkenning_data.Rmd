@@ -25,6 +25,7 @@ source("./R/read_agri_use_parcels.R")
 source("./R/utils.R")
 source("./R/landuse_maps.R")
 source("./R/abv.R")
+source("./R/geocomputations.R")
 library(dplyr)
 library(leaflet)
 library(sf)
@@ -40,6 +41,8 @@ options(arrow.use_threads = FALSE)
 flanders <- eurostat::eurostat_geodata_60_2016 %>%
   filter(id == "BE2")
 ```
+
+# Databronnen
 
 ## LUCAS
 
@@ -310,3 +313,50 @@ abv_grid_stratum %>%
   st_drop_geometry() %>%
   count(Stratum)
 ```
+
+# Steekproefkader
+
+## Landschapssamenstelling en -metrieken in hokken van 500 m x 500 m
+
+
+```{r}
+lucas2018_500m <- lucas_theor_flanders %>%
+  filter(YEAR == 2018) %>%
+  st_transform(crs = 31370) %>%
+  point_to_gridcell()
+
+  
+lucas2018_500m %>%
+  ggplot() +
+  geom_sf(data = flanders) +
+  geom_sf()
+```
+
+```{r}
+legend <- read_csv2(
+      "data/landgebruik/legende_landgebruik.csv",
+      col_types = cols(
+        bron = col_character(),
+        bestand_id = col_character(),
+        value = col_double(),
+        label = col_character(),
+        kleur = col_character()
+      ))
+
+lucas2018_metrieken <- landusemetrics_grid_cell(
+  grid_cell = lucas2018_500m, 
+  rasterlayer = lum2019vito)
+
+lucas2018_metrieken <- lucas2018_metrieken %>%
+  left_join(legend %>%
+              filter(bestand_id == "vito"))
+
+
+lucas2018_metrieken %>%
+  ggplot() + 
+  geom_histogram(aes(x = freq)) + 
+  facet_wrap(~label) +
+  labs(y = "Aantal 500 m x 500 m hokken (rond LUCAS punten 2018)",
+       x = "Aandeel van landgebruik 2019 vito in hok")
+```
+
