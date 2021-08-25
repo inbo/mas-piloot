@@ -48,7 +48,8 @@ point_to_gridcell <- function(
 landusemetrics_grid_cell <- function(
   grid_cell,
   rasterlayer,
-  group_by_col = "POINT_ID"
+  group_by_col = "POINT_ID",
+  progress = FALSE
 ) {
 
   landcoverfraction <- function(df) {
@@ -63,7 +64,8 @@ landusemetrics_grid_cell <- function(
     y = grid_cell,
     fun = landcoverfraction,
     summarize_df = TRUE,
-    include_cols = group_by_col)
+    include_cols = group_by_col,
+    progress = progress)
 
 }
 
