@@ -2,7 +2,7 @@
 title: "Verkenning / overzicht van beschikbare data en bestaande meetnetten relevant voor monitoring biodiversiteit in het agrarisch gebied"
 author: "Hans Van Calster"
 date: "9-7-2021"
-output: html_document
+output: bookdown::html_document2
 bibliography: mbag.json
 link-citations: true
 reference-section-title: Referenties
@@ -44,7 +44,17 @@ flanders <- eurostat::eurostat_geodata_60_2016 %>%
 
 # Databronnen
 
-## LUCAS
+## Land-Use and Coverage Area frame Survey (LUCAS)
+
+LUCAS is een door Eurostat gecoördineerd meetnet om landbedekking en -gebruik in heel Europa op te volgen.
+Het LUCAS meetnet heeft een driejaarlijkse cyclus en maakt gebruik van een grid van 2 km x 2 km.
+Een ruimtelijk gebalanceerde steekproef uit deze gridpunten wordt op het terrein bekeken.
+Alle gridpunten (niet alleen deze uit de steekproef) worden in een eerste fase ook via desktop interpretatie aan de hand van orthofoto's beoordeeld.
+Het is dus een two-phase sample.
+De microdata zijn vrij beschikbaar en geaggregeerde verwerkte gegevens (oppervlakteschatting + onzekerheid per landgebruik) kunnen online geraadpleegd worden.
+Voor België worden deze uitspraken gedaan op niveau van een provincie, gewest of land.
+
+
 
 ```{r}
 lucas_flanders_2018 <- arrow::read_parquet(
@@ -60,18 +70,18 @@ lucas_gps_flanders <- lucas_grid() %>%
   semi_join(lucas_flanders_2018)
 ```
 
-Ligging van LUCAS meetpunten (selectie uit 2 km x 2 km grid) die in 2018 geïnventariseerd werden (zoals ingemeten met gps, kan afwijken van theoretisch grid):
+Ligging van LUCAS meetpunten (selectie uit 2 km x 2 km grid) die in 2018 geïnventariseerd werden (zoals ingemeten met gps, kan afwijken van theoretisch grid) (Figuur \@ref(fig:lucas-gps-2018)).
 
-```{r}
+```{r lucas-gps-2018, fig.cap = "LUCAS GPS posities ingemeten in 2018."}
 lucas_gps_flanders %>%
   leaflet() %>%
   addTiles() %>%
   addCircleMarkers(clusterOptions = markerClusterOptions())
 ```
 
-Theoretisch grid: meetpunten van alle jaren:
+Theoretisch grid: meetpunten van alle jaren (Figuur \@ref(fig:lucas-theor-alle-jaren)).
 
-```{r}
+```{r lucas-theor-alle-jaren, fig.cap = "Theoretisch LUCAS grid voor alle jaren."}
 lucas_theor_flanders %>%
   ggplot() +
   geom_sf(data = flanders) +
@@ -83,6 +93,28 @@ Beknopt overzicht van alle beschikbare microdata (Vlaanderen, 2018):
 
 ```{r}
 glimpse(lucas_flanders_2018)
+```
+
+Tabel \@ref(tab:lucas-lu1) geeft het aantal meetpunten in 2018 voor het hoofdlandgebruik.
+Deze aantallen kunnen niet rechtstreeks omgezet worden naar een schatting van oppervlakte-aandeel, hiervoor zijn aangepaste formules voor nodig die rekening houden met de inclusiekansen en stratificatie van de steekproef.
+
+```{r lucas-lu1}
+lucas_flanders_2018 %>%
+  count(lu1_label) %>%
+  arrange(-n) %>%
+  kable(caption = "Aantal meetpunten in 2018 per landgebruiksklasse 1.")
+```
+
+Figuur \@ref(fig:lucas-grazing) toont enkel de LUCAS 2018 meetpunten met landbouw landgebruik.
+Hierbij is nog een verder onderscheid gemaakt tussen begraasde en niet begraasde locaties.
+
+```{r lucas-grazing}
+lucas_gps_flanders %>%
+  left_join(lucas_flanders_2018) %>%
+  filter(grepl("^Agricult", lu1_label)) %>%
+  ggplot() +
+  geom_sf(data = flanders) +
+  geom_sf(aes(colour = grazing))
 ```
 
 
@@ -97,21 +129,36 @@ lbg2020_binding <- arrow::open_dataset("data/landbouwgebruikspercelen/parquet/lb
 #lbg2020 <- sfarrow::st_read_parquet("data/landbouwgebruikspercelen/parquet/lbgbrprc20.parquet")
 ```
 
-Voor 2020 is dit het overzicht per gewasgroep:
+Voor 2020 geeft tabel \@ref(tab:lbg2020-hoofdteelt) de oppervlakte per landbouw hoofdteelt binnen elke gewasgroep.
+Tabel \@ref(tab:lbg2020-gewasgroep) vat dit verder samen per gewasgroep.
 
-```{r}
+```{r lbg2020-hoofdteelt}
 lbg2020_binding %>%
   select(GEWASGROEP, LBLHFDTLT, OPPERVL) %>%
   group_by(GEWASGROEP, LBLHFDTLT) %>%
   collect() %>%
   summarize(oppervlakte_ha = sum(OPPERVL, na.rm = TRUE) / 10000) %>%
-  kable(digits = 1)
+  kable(digits = 1, caption = "Oppervlakte in ha per hoofdteelt volgens de aangifte van landbouwgebruikspercelen in 2020.")
 ```
 
+```{r lbg2020-gewasgroep}
+lbg2020_binding %>%
+  select(GEWASGROEP, OPPERVL) %>%
+  group_by(GEWASGROEP) %>%
+  collect() %>%
+  summarize(opp_totaal_ha = sum(OPPERVL, na.rm = TRUE) / 10000,
+            q05_opp_ha = quantile(OPPERVL, prob = 0.05,  na.rm = TRUE) / 10000,
+            mediaan_opp_ha = median(OPPERVL, na.rm = TRUE) / 10000,
+            q95_opp_ha = quantile(OPPERVL, prob = 0.95, na.rm = TRUE) / 10000,
+            aantal_percelen = n()) %>%
+  arrange(-opp_totaal_ha) %>%
+  kable(digits = c(NA, 1,2,2,2,0), 
+        caption = "Oppervlakte in ha per gewasgroep volgens de aangifte van landbouwgebruikspercelen in 2020.")
+```
 
-Voorbeeldkaartje met verspreiding van GEWASGROEP = Aardappelen
+Figuur \@ref(fig:kaart-aardappelen) toont de landbouwgebruikspercelen met als hoofdteelt aardappelen in 2020.
 
-```{r}
+```{r kaart-aardappelen, fig.cap = "Kaart van landbouwgebruikspercelen waarop in 2020 aardappelen werden geteeld."}
 # niet in geheugen + filter + read_sf_parquet = eerst filteren en dan pas in geheugen
 
 lbg2020_binding %>%
@@ -120,6 +167,23 @@ lbg2020_binding %>%
   sf::st_geometry() %>%
   plot()
 ```
+
+Figuur \@ref(fig:gewasgroep-histogram) geeft de oppervlakteverdeling in are van de percelen in een histogram weer voor elke gewasgroep.
+Het zijn scheve verdelingen met veel meer kleine percelen dan grote percelen.
+Er is echter nog niet nagegaan of en hoe vaak twee of meer naburige percelen dezelfde hoofdteelt of gewasgroep hebben.
+
+```{r gewasgroep-histogram}
+lbg2020_binding %>%
+  select(GEWASGROEP, OPPERVL) %>%
+  group_by(GEWASGROEP) %>%
+  collect() %>%
+  ggplot() +
+  geom_histogram(aes(x = OPPERVL / 100)) + 
+  facet_wrap(~GEWASGROEP, scales = "free") +
+  labs(x = "Oppervlakte in are.", 
+       y = "Aantal percelen") 
+```
+
 
 ## Landgebruikskaart
 
@@ -163,12 +227,11 @@ De 4 niveaus van het landgebruiksbestand 2013 en 2016 staan in deze folder: `Z:\
 Het gaat om de layer-files met dit soort naam: `LG2013_niveau1.lyr`.
 De bijhorende rasterbestanden staan in de geodatabank `Basisdata.gdb`.
 
-Er is ook een [WCS service](https://www.mercator.vlaanderen.be/raadpleegdienstenmercatorpubliek/wcs?) met o.a.
-landgebruikskaart versie 2013, 2016 en 2019.
+Er is ook een [WCS service](https://www.mercator.vlaanderen.be/raadpleegdienstenmercatorpubliek/wcs?) met onder andere landgebruikskaart versie 2013, 2016 en 2019.
 
-Voorbeeld 500 m x 500 m uitsnede van landgebruikskaart 2019 [@poelmans2021]:
+Voorbeeld 500 m x 500 m uitsnede van landgebruikskaart 2019 [@poelmans2021] (Figuur \@ref(fig:lum2019-wcs))
 
-```{r}
+```{r results='hide'}
 lum2019_example <- get_wcs_layer(
   wcs = "mercator",
   layername = "lu__lu_landgebruik_vlaa_2019", 
@@ -178,25 +241,24 @@ lum2019_example <- get_wcs_layer(
 lum2019_example
 ```
 
-```{r}
+```{r lum2019-wcs, fig.cap = "Uitsnede van 500 m x 500 m van de landgebruikskaart 2019 bekomen via bevraging van een web coverage service."}
 terra::plot(lum2019_example)
 ```
 
 In @poelmans2021 is een validatie-oefening opgenomen aan de hand van LUCAS meetpunten.
 
+In plaats van de web coverage service te gebruiken, kunnen we ook de data downloaden en de volledige kaart inlezen.
+Figuur \@ref(fig:lum2019-vito) geeft bijvoorbeeld de volledig vito landgebruikskaart 2019.
 
-Voorbeeld inlezen volledig vito landgebruikskaart 2019:
-
-```{r}
+```{r lum2019-vito, fig.cap = "VITO landgebruikskaart 2019."}
 lum2019vito <- lum_read_from_vito()
 
 terra::plot(lum2019vito)
 ```
 
-Voorbeeld inlezen volledig inbo landgebruikskaart 2016:
-(kleurenschema ontbreekt nog)
+Hetzelfde kunnen we doen voor de inbo landgebruikskaart 2016, maar daar ontbreekt het kleurenschema nog (zie Figuur \@ref(fig:lum2016-inbo)).
 
-```{r}
+```{r lum2016-inbo, fig.cap = "INBO landgebruikskaart 2016."}
 lum2016inbo <- lum_read_from_inbo(add_levels = TRUE)
 
 
@@ -205,7 +267,7 @@ terra::plot(lum2016inbo)
 
 
 
-## C-mon
+## Bodemkoolstofmeetnet (C-mon)
 
 <https://zenodo.org/record/2784012#.YPAk5egzZPY>
 
@@ -233,7 +295,7 @@ Daar komen 130 plots bij uit een 'schaduwmeetnet' van 5% van GRTS plots die binn
 Actueel landgebruik wordt gecheckt voorafgaand aan staalname.
 Indien niet meer initieel landgebruik, wordt locatie niet meegenomen maar mogelijks wel voor landgebruiksverandering.
 
-## ABV
+## Algemene Broedvogelmonitoring (ABV)
 
 -   status: sommige hokken zijn niet langer actief, bv omdat ze in industriegebied of grotendeels in het water liggen. Er zijn ook heel wat hokken die de status 'actief' hebben maar in praktijk helemaal niet actief blijken.
 -   gereserveerd: is er momenteel een teller die het hok gereserveerd heeft?
@@ -242,15 +304,14 @@ Indien niet meer initieel landgebruik, wordt locatie niet meegenomen maar mogeli
 -   recall: voor hokken die eigenlijk in 2019 of 2020 geteld hadden moeten worden is een nieuwe teloproep gelanceerd in 2021 om toch een zo goed mogelijke dekking te hebben binnen de cyclus. Deze vind je dus hier terug. Het kan een locatie zijn die nog niet geteld werd of die slechts één keer geteld werd in 2019-2020.
 
 ```{r}
-abv_grid <- abv_read_utm_squares()
+abv_grid <- abv_read_utm_squares() #connectie met GISdata server nodig
 abv_sampling_frame <- abv_read_sampling_frame()
 ```
 
-Stratificatie:
+Het ABV meetnet is gestratificeerd volgens landgebruik.
+Voor de definitie van het landbouw stratum komen alle UTM hokken met \> 70% landbouw in aanmerking (zie Figuur \@ref(fig:abv-hist-landbouw)).
 
--   Landbouw gedefinieerd als hokken met \> 70% landbouw
-
-```{r}
+```{r abv-hist-landbouw, fig.cap = "Histogram van aandeel landbouw in een hok binnen stratum landbouw."}
 abv_sampling_frame %>%
   filter(Stratum == "Landbouw") %>%
   mutate(aandeel_landbouw = Landbouw / Som) %>%
@@ -258,9 +319,11 @@ abv_sampling_frame %>%
   geom_histogram(aes(x = aandeel_landbouw))
 ```
 
-Jaar van laatste bezoek:
+Figuren \@ref(fig:abv-laatste-bezoek), \@ref(fig:abv-gepland) en \@ref(fig:abv-gepland-landbouw) tonen respectievelijk, het jaar van laatste bezoek, het jaar waarin bezoek werd gepland, inclusief recall + aanduiding of het effectief werd uitgevoerd, en hetzelfde als voorgaande maar dan voor het landbouwstratum.
 
-```{r}
+
+
+```{r abv-laatste-bezoek, fig.cap = "Jaar van laatste bezoek."}
 abv_grid_stratum <- abv_grid %>%
   filter(status == "actief") %>%
   mutate(jaar_laatste_bezoek = lubridate::year(laatste_bezoek),
@@ -278,9 +341,8 @@ abv_grid_stratum %>%
   facet_wrap(~jaar_laatste_bezoek)
 ```
 
-Jaar waarin bezoek werd gepland, inclusief recall + aanduiding of het effectief werd uitgevoerd:
 
-```{r}
+```{r abv-gepland, fig.cap = "Jaar waarin bezoek gepland (panels) werd en al dan niet uitgevoerd (alle strata)."}
 abv_grid_stratum %>%
   ggplot() + 
   geom_sf(data = flanders) +
@@ -290,28 +352,32 @@ abv_grid_stratum %>%
 
 Zelfde, maar dan enkel landbouwstratum:
 
-```{r}
+```{r abv-gepland-landbouw, fig.cap = "Jaar waarin bezoek gepland (panels) werd en al dan niet uitgevoerd (enkel landbouw stratum)."}
 abv_grid_stratum %>%
   filter(Stratum == "Landbouw") %>%
   ggplot() + 
   geom_sf(data = flanders) +
   geom_sf(aes(fill = reeds_uitgevoerd, colour = reeds_uitgevoerd)) + 
   facet_wrap(~jaar_gepland_bezoek)
-
 ```
 
-Aantal actieve hokken:
+Tabel \@ref(tab:aantal-actief) geeft aan dat de laatste jaren rond de 150 - 190 hokken bezocht werden, terwijl er 300 vooropgesteld worden.
 
-```{r}
+```{r aantal-actief}
 abv_grid_stratum %>%
   st_drop_geometry() %>%
-  count(jaar_laatste_bezoek)
+  count(jaar_laatste_bezoek) %>%
+  kable(caption = "Aantal bezochte hokken per jaar")
 ```
 
-```{r}
+In het landbouw stratum zitten bijna 500 (actieve) hokken (Tabel \@ref(tab:abv-n-stratum)).
+
+```{r abv-n-stratum}
 abv_grid_stratum %>%
   st_drop_geometry() %>%
-  count(Stratum)
+  filter(status == "actief") %>%
+  count(Stratum) %>%
+  kable(caption = "Aantal hokken")
 ```
 
 # Steekproefkader
@@ -358,5 +424,20 @@ lucas2018_metrieken %>%
   facet_wrap(~label) +
   labs(y = "Aantal 500 m x 500 m hokken (rond LUCAS punten 2018)",
        x = "Aandeel van landgebruik 2019 vito in hok")
+```
+
+https://nowosad.github.io/post/ent-bp1/
+
+For example, values of marginal entropy orders by the diversity of spatial categories, while values of relative mutual information orders by spatial aggregation. Two or more of the above metrics can be a basis for spatial classification, grouping similar spatial pattern together.
+
+```{r}
+library(landscapemetrics)
+check_landscape(lum2019vito)
+list_lsm(level = "landscape")
+
+test <- sample_lsm(landscape = lum2019vito, 
+           y = lucas2018_500m, 
+           what = c("lsm_l_ent")
+           ) # slow...
 ```
 
