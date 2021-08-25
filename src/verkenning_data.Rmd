@@ -380,12 +380,26 @@ abv_grid_stratum %>%
   kable(caption = "Aantal hokken")
 ```
 
+## Biologische landbouw
+
+Voorlopig geen informatie / kaartmateriaal gevonden dat aangeeft waar in Vlaanderen aan biolandbouw wordt gedaan (of bij uitbreiding niet-kerende bodembewerking).
+
+
 # Steekproefkader
 
 ## Landschapssamenstelling en -metrieken in hokken van 500 m x 500 m
 
+- Zoveel mogelijk samensporen met EMBAL?
+    - vertrekken van 2 km x 2 km LUCAS grid?
+    - 500 m x 500 m hokken met gridpunten als centroïde (zie Figuur \@ref(fig:lucas-500m))?
 
-```{r}
+Binnen elk van deze hokken kunnen we de landgebruikssamenstelling bekijken (info uit landbouwgebruikspercelen of landgebruikskaart), zowel in termen van oppervlakte van landgebruiken (Figuur \@ref(fig:lucas-500m-landgebruik)) als in termen van ruimtelijke complexiteit en diversiteit van het landschap (grootschalig versus kleinschalig landbouwlandschap).
+Deze informatie kunnen we dan gebruiken om ofwel contrasterende landschappen met elkaar te vergelijken ofwel strata te definiëren.
+
+Een eerste stap is echter afbakenen welke hokken we in aanmerking laten komen om deel uit te maken van een meetnet voor biodiversiteit in het agrarisch gebied.
+
+
+```{r lucas-500m, fig.cap = "Omzetting van LUCAS grid-snijpunten naar hokken van 500 m x 500 m."}
 lucas2018_500m <- lucas_theor_flanders %>%
   filter(YEAR == 2018) %>%
   st_transform(crs = 31370) %>%
@@ -398,7 +412,7 @@ lucas2018_500m %>%
   geom_sf()
 ```
 
-```{r}
+```{r lucas-500m-landgebruik, fig.cap = "Histogrammen van het aandeel landgebruik in 500 m x 500 m hokken gecentreerd op LUCAS grid."}
 legend <- read_csv2(
       "data/landgebruik/legende_landgebruik.csv",
       col_types = cols(
@@ -426,18 +440,50 @@ lucas2018_metrieken %>%
        x = "Aandeel van landgebruik 2019 vito in hok")
 ```
 
-https://nowosad.github.io/post/ent-bp1/
+Figuur \@ref(fig:lucas-500m-landgebruik) toont dat er een continuum is in samenstelling van hokken tussen akker, grasland en overige landgebruiken.
+Hokken die meer dan 60% grasland hebben zijn echter minder courant. 
 
-For example, values of marginal entropy orders by the diversity of spatial categories, while values of relative mutual information orders by spatial aggregation. Two or more of the above metrics can be a basis for spatial classification, grouping similar spatial pattern together.
+```{r lucas-500m-landgebruik-tern, fig.cap = "Vereenvoudigde weergave van de samenstelling van landgebruik in de 500 m x 500 m hokken."}
+lucas2018_metrieken %>%
+  mutate(label2 = factor(label, 
+                         levels = c("Akker", "Grasland")),
+         label2 = as.character(label2),
+         label2 = ifelse(is.na(label2), "Overige", label2)) %>%
+  group_by(POINT_ID, label2) %>%
+  summarise(freq = sum(freq), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = label2, values_from = freq, values_fill = 0) %>%
+  ggtern::ggtern(aes(x = Akker, y = Grasland, z = Overige)) + 
+  geom_point()
+
+```
+
+
+De complexiteit van het landschap kunnen we uitdrukken aan de hand van twee complementaire landschapsmetrieken (Figuur \@ref(fig:complexity)).
+Marginale entropie sorteert de landschappen volgens toenemende mate van diversiteit in landgebruiksklassen.
+Relatieve gemeenschappelijke informatie sorteert landschappen volgens ruimtelijke aggregatie (en is in staat om een verder onderscheid te maken tussen landschappen met gelijke marginale entropie) (zie https://nowosad.github.io/post/ent-bp1/).
 
 ```{r}
 library(landscapemetrics)
-check_landscape(lum2019vito)
-list_lsm(level = "landscape")
+#check_landscape(lum2019vito)
+#list_lsm(level = "landscape", type = "complexity metric")
 
-test <- sample_lsm(landscape = lum2019vito, 
-           y = lucas2018_500m, 
-           what = c("lsm_l_ent")
-           ) # slow...
+complexity <- sample_lsm(
+  landscape = lum2019vito, 
+  y = lucas2018_500m, 
+  what = c("lsm_l_ent", "lsm_l_relmutinf"),
+  plot_id = lucas2018_500m$POINT_ID
+) # slow...
 ```
+
+
+```{r complexity, fig.cap="Complexiteit van het landschap in 500 m x 500 m hokken."}
+complexity %>%
+  tidyr::pivot_wider(names_from = metric, 
+                     values_from = value) %>%
+  ggplot() + 
+  geom_point(aes(x = ent, y = relmutinf)) +
+  labs(x = "Diversiteit in landgebruiksklassen",
+       y = "Ruimtelijke aggregatie")
+```
+
 
