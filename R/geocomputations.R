@@ -39,7 +39,9 @@ point_to_gridcell <- function(
 #'
 #' @param grid_cell A polygon within which boundaries zonal statistics will be
 #' calculated
-#' @param rasterlayer A rasterlayer
+#' @param layer A rasterlayer containing land use classes or a polygon layer (sf object)
+#' @param grid_group_by_col
+#' @param layer_group_by_col
 #'
 #' @return
 #' @export
@@ -47,25 +49,51 @@ point_to_gridcell <- function(
 #' @examples
 landusemetrics_grid_cell <- function(
   grid_cell,
-  rasterlayer,
-  group_by_col = "POINT_ID",
+  layer,
+  grid_group_by_col = "POINT_ID",
+  layer_group_by_col = "",
   progress = FALSE
 ) {
+  if (inherits(layer, "SpatRaster") | inherits(layer, "RasterLayer")) {
+    assertthat::assert_that(sf::st_crs(grid_cell)$wkt == crs(layer))
 
-  landcoverfraction <- function(df) {
-    df %>%
-      mutate(frac_total = coverage_fraction / sum(coverage_fraction)) %>%
-      group_by(!!sym(group_by_col), value) %>%
-      summarize(freq = sum(frac_total), .groups = "drop_last")
+    landcoverfraction <- function(df) {
+      df %>%
+        mutate(frac_total = coverage_fraction / sum(coverage_fraction)) %>%
+        group_by(!!sym(grid_group_by_col), value) %>%
+        summarize(freq = sum(frac_total), .groups = "drop_last")
+    }
+
+    res <- exactextractr::exact_extract(
+      x = layer,
+      y = grid_cell,
+      fun = landcoverfraction,
+      summarize_df = TRUE,
+      include_cols = grid_group_by_col,
+      progress = progress)
+
+    return(res)
+
   }
 
-  exactextractr::exact_extract(
-    x = rasterlayer,
-    y = grid_cell,
-    fun = landcoverfraction,
-    summarize_df = TRUE,
-    include_cols = group_by_col,
-    progress = progress)
+  if (inherits(layer, "sf")) {
+    assertthat::assert_that(sf::st_crs(grid_cell)$wkt == sf::st_crs(layer)$wkt)
 
+    int <- st_intersection(layer, grid_cell)
+
+    cell_areas <- grid_cell %>%
+      select(!!sym(grid_group_by_col)) %>%
+      mutate(cell_area = sf::st_area(geometry))
+
+    int$area <- sf::st_area(int$geometry)
+    int <- int %>%
+      sf::st_drop_geometry() %>%
+      inner_join(cell_areas, by = grid_group_by_col) %>%
+      group_by(!!sym(grid_group_by_col), !!sym(layer_group_by_col)) %>%
+      summarise(area_m2 = sum(area),
+                area_prop = area_m2 / first(cell_area))
+
+    return(int)
+  }
 }
 
