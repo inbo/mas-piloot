@@ -25,6 +25,7 @@ source("./R/read_agri_use_parcels.R")
 source("./R/utils.R")
 source("./R/landuse_maps.R")
 source("./R/abv.R")
+source("./R/agro_environment_schemes.R")
 source("./R/geocomputations.R")
 library(dplyr)
 library(leaflet)
@@ -380,9 +381,38 @@ abv_grid_stratum %>%
   kable(caption = "Aantal hokken")
 ```
 
-## Biologische landbouw
+## Biologische landbouw, ecoregelingen, ...
 
-Voorlopig geen informatie / kaartmateriaal gevonden dat aangeeft waar in Vlaanderen aan biolandbouw wordt gedaan (of bij uitbreiding niet-kerende bodembewerking).
+Voorlopig geen vrij beschikbare informatie / kaartmateriaal gevonden dat aangeeft waar in Vlaanderen aan biolandbouw wordt gedaan (of bij uitbreiding niet-kerende bodembewerking).
+
+Uit de volledige verzamelaanvraag die landbouwers jaarlijks invullen kan deze informatie wel gehaald worden.
+In de volledige verzamelaanvraag zit ook informatie over beheerovereenkomsten en in de toekomst ook ecoregelingen.
+Deze data zijn echter niet vrij beschikbaar, maar kunnen aangevraagd worden bij Landbouw & Visserij.
+
+## Beheerovereenkomsten
+
+```{r aes2020}
+aes2020 <- read_aes(year = 2020)
+```
+
+
+Tabel \@ref(tab:aes2020summary) en figuur \@ref(fig:aes2020bo) geven de totale oppervlakte, lengte en ligging in Vlaanderen van beheerovereenkomsten in 2020.
+
+
+```{r aes2020summary}
+aes2020 %>%
+  st_drop_geometry() %>%
+  group_by(BH_DOELST, SRT_OBJECT) %>%
+  summarise(opp_ha = sum(OPP),
+            lengte_km = sum(LENGTE)/1000) %>%
+  kable(caption = "Beheerovereenkomsten in 2020", digits = 1)
+```
+
+```{r aes2020bo}
+aes2020 %>%
+  ggplot() + 
+  geom_sf(aes(fill = BH_DOELST, color = BH_DOELST))
+```
 
 
 # Steekproefkader
@@ -425,7 +455,7 @@ legend <- read_csv2(
 
 lucas2018_metrieken <- landusemetrics_grid_cell(
   grid_cell = lucas2018_500m, 
-  rasterlayer = lum2019vito)
+  layer = lum2019vito)
 
 lucas2018_metrieken <- lucas2018_metrieken %>%
   left_join(legend %>%
@@ -486,4 +516,83 @@ complexity %>%
        y = "Ruimtelijke aggregatie")
 ```
 
+
+## partim Versterking vogelmonitoring
+
+Hier is het interessant om de landschapssamenstelling van ABV hokken te verkennen.
+
+### Beheerovereenkomsten in ABV hokken
+
+```{r}
+aes_in_utm <- landusemetrics_grid_cell(
+  grid_cell = abv_grid %>% st_transform(31370),
+  layer = aes2020 %>% st_transform(31370), 
+  grid_group_by_col = "utm_hok", 
+  layer_group_by_col = "SRT_OBJECT")
+
+```
+
+
+```{r}
+aes_in_utm %>%
+  mutate(area_m2 = ifelse(is.na(area_m2), 0, as.numeric(area_m2))) %>%
+  ggplot() + 
+  geom_histogram(aes(x = as.numeric(area_m2)/100)) + 
+  facet_wrap(~SRT_OBJECT, scales = "free_x") + 
+  labs(y = "Aantal UTM hokken uit ABV meetnet",
+       x = "Oppervlakte in are (100 are = 1% van hok)")
+```
+
+```{r}
+aes_in_utm %>%
+  group_by(utm_hok) %>%
+  summarise(area_tot_ha = sum(as.numeric(area_m2))/10000) %>%
+  ggplot() + 
+  geom_histogram(aes(x = area_tot_ha), binwidth = 1, boundary = 0) +
+  labs(y = "Aantal UTM hokken uit ABV meetnet",
+       x = "Totale oppervlakte beheerovereenkomsten in ha (1ha = 1% van hok)")
+```
+
+
+### Landgebruik in ABV hokken
+
+
+```{r abv-landgebruik, fig.cap = "Histogrammen van het aandeel landgebruik in ABV hokken."}
+abv_metrieken <- landusemetrics_grid_cell(
+  grid_cell = abv_grid %>% st_transform(31370), 
+  layer = lum2019vito, 
+  grid_group_by_col = "utm_hok")
+
+abv_metrieken <- abv_metrieken %>%
+  left_join(legend %>%
+              filter(bestand_id == "vito"))
+
+abv_metrieken %>%
+  left_join(abv_grid_stratum %>%
+              select(utm_hok, Stratum), 
+            by = "utm_hok") %>%
+  ggplot() + 
+  geom_histogram(aes(x = freq, fill = Stratum)) + 
+  facet_wrap(~label) +
+  labs(y = "Aantal UTM hokken uit ABV meetnet",
+       x = "Aandeel van landgebruik 2019 vito in hok")
+```
+
+
+```{r abv-landgebruik-tern, fig.cap = "Vereenvoudigde weergave van de samenstelling van landgebruik in de ABV hokken."}
+abv_metrieken %>%
+  mutate(label2 = factor(label, 
+                         levels = c("Akker", "Grasland")),
+         label2 = as.character(label2),
+         label2 = ifelse(is.na(label2), "Overige", label2)) %>%
+  left_join(abv_grid_stratum %>%
+              select(utm_hok, Stratum), 
+            by = "utm_hok") %>%
+  group_by(Stratum, utm_hok, label2) %>%
+  summarise(freq = sum(freq), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = label2, values_from = freq, values_fill = 0) %>%
+  ggtern::ggtern(aes(x = Akker, y = Grasland, z = Overige)) + 
+  geom_point(aes(color = Stratum))
+
+```
 
