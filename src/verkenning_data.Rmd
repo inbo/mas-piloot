@@ -13,12 +13,15 @@ editor_options:
 
 ```{r setup, include=FALSE}
 library(knitr)
-opts_chunk$set(echo = FALSE)
+opts_chunk$set(echo = FALSE,
+               out.width = "100%",
+               message = FALSE,
+               warning = FALSE)
 opts_knit$set(root.dir = here::here())
 
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 source("./R/lucas.R")
 source("./R/c_mon.R")
 source("./R/read_agri_use_parcels.R")
@@ -27,13 +30,12 @@ source("./R/landuse_maps.R")
 source("./R/abv.R")
 source("./R/agro_environment_schemes.R")
 source("./R/geocomputations.R")
-library(dplyr)
 library(leaflet)
 library(sf)
 library(arrow)
 library(eurostat)
-library(ggplot2)
 library(terra)
+library(tidyverse)
 options(arrow.use_threads = FALSE)
 ```
 
@@ -109,7 +111,7 @@ lucas_flanders_2018 %>%
 Figuur \@ref(fig:lucas-grazing) toont enkel de LUCAS 2018 meetpunten met landbouw landgebruik.
 Hierbij is nog een verder onderscheid gemaakt tussen begraasde en niet begraasde locaties.
 
-```{r lucas-grazing}
+```{r lucas-grazing, fig.cap = "LUCAS 2018 meetpunten met landbouw landgebruik."}
 lucas_gps_flanders %>%
   left_join(lucas_flanders_2018) %>%
   filter(grepl("^Agricult", lu1_label)) %>%
@@ -132,6 +134,14 @@ lbg2020_binding <- arrow::open_dataset("data/landbouwgebruikspercelen/parquet/lb
 
 Voor 2020 geeft tabel \@ref(tab:lbg2020-hoofdteelt) de oppervlakte per landbouw hoofdteelt binnen elke gewasgroep.
 Tabel \@ref(tab:lbg2020-gewasgroep) vat dit verder samen per gewasgroep.
+
+Merk op dat een categorie zoals "begraasde niet-landbouwgrond" bij "Overige gewassen" begrazing in natuurgebieden kan omvatten.
+
+Categorieën met "EAG" = ecologisch aandachtsgebied.
+Zie https://lv.vlaanderen.be/nl/subsidies/perceelsgebonden/vergroeningspremie/ecologisch-aandachtsgebied:
+
+> Als u als land en tuinbouwer 15 ha of meer  bouwland aangeeft, bent u verplicht om over 5% ecologisch aandachtsgebied (EAG) te beschikken en dit aan te geven in uw verzamelaanvraag. Sommige land- en tuinbouwers krijgen echter een vrijstelling. Ook moet u er zich van bewust zijn dat de werkelijk aangegeven oppervlakte niet altijd overeenkomt met de oppervlakte die meetelt als EAG, door het gebruik van wegings- en omzettingsfactoren.
+
 
 ```{r lbg2020-hoofdteelt}
 lbg2020_binding %>%
@@ -173,7 +183,7 @@ Figuur \@ref(fig:gewasgroep-histogram) geeft de oppervlakteverdeling in are van 
 Het zijn scheve verdelingen met veel meer kleine percelen dan grote percelen.
 Er is echter nog niet nagegaan of en hoe vaak twee of meer naburige percelen dezelfde hoofdteelt of gewasgroep hebben.
 
-```{r gewasgroep-histogram}
+```{r gewasgroep-histogram, fig.cap ="Oppervlakteverdeling per gewasgroep."}
 lbg2020_binding %>%
   select(GEWASGROEP, OPPERVL) %>%
   group_by(GEWASGROEP) %>%
@@ -408,7 +418,7 @@ aes2020 %>%
   kable(caption = "Beheerovereenkomsten in 2020", digits = 1)
 ```
 
-```{r aes2020bo}
+```{r aes2020bo, fig.cap="Verspreiding van beheerovereenkomsten in Vlaanderen"}
 aes2020 %>%
   ggplot() + 
   geom_sf(aes(fill = BH_DOELST, color = BH_DOELST))
@@ -594,5 +604,157 @@ abv_metrieken %>%
   ggtern::ggtern(aes(x = Akker, y = Grasland, z = Overige)) + 
   geom_point(aes(color = Stratum))
 
+```
+
+### Hoofdteelten in ABV hokken
+
+```{r}
+lbg_abv <- landusemetrics_grid_cell(
+  grid_cell = abv_grid %>% 
+    st_transform(31370), 
+  layer = lbg2020_binding %>%
+    select(LBLHFDTLT, geometry) %>%
+    sfarrow::read_sf_dataset() %>%
+    st_transform(31370), 
+  grid_group_by_col = "utm_hok", 
+  layer_group_by_col = "LBLHFDTLT")
+
+mapping <- lbg2020_binding %>%
+  select(GEWASGROEP, LBLHFDTLT) %>%
+  collect() %>%
+  distinct()
+
+lbg_abv <- lbg_abv %>%
+  left_join(mapping)
+```
+
+
+```{r gewasgroep-abv-hist, fig.cap = "Histogram per gewasgroep van de oppervlakteverdeling in ABV hokken"}
+lbg_abv %>%
+  left_join(abv_grid_stratum %>% 
+              st_drop_geometry() %>%
+              distinct(utm_hok, Stratum),
+            by = "utm_hok") %>% 
+  group_by(utm_hok, Stratum, GEWASGROEP) %>%
+  summarise(area_ha = sum(as.numeric(area_m2))/10000) %>%
+  ggplot() + 
+  geom_histogram(aes(x = area_ha, fill = Stratum), binwidth = 5, boundary = 0) +
+  facet_wrap(~GEWASGROEP) +
+  labs(x = "Oppervlakte in ha",
+       y = "Aantal UTM hokken uit ABV meetnet",
+       fill = "ABV stratum")
+```
+
+Figuren \@ref(fig:gewasgroep-abv-hist) en \@ref(fig:som-lbg-abv) geven informatie over enerzijds de hoeveelheid landbouw hoofdteelten in ABV hokken (vereenvoudigd tot gewasgroep) en anderzijds hoe de typische samenstelling van deze hoofdteelten verschillend is tussen ABV hokken.
+
+Alle niet-landbouw ABV strata (bos, heide, ...) bevatten zoals verwacht meestal een laag aandeel van hoofdteelten, maar er zijn uitzonderingen (bv voor hoofdteelt begrazing in niet-landbouwgronden).
+
+```{r som-lbg-abv, fig.cap = "Clustering van oppervlakte-aandeel van hoofdteelten in ABV hokken in 49 groepen (self-organising maps). Links: elke cirkel is een cluster en elk punt is een ABV hok (random positie). Rechts: Overeenkomstige samenstelling van hoofdteelten.", fig.height=200/25.4}
+lbg_abv_wide <- lbg_abv %>%
+  left_join(abv_grid_stratum %>% 
+              st_drop_geometry() %>%
+              distinct(utm_hok, Stratum),
+            by = "utm_hok") %>%
+  mutate(area_prop = as.numeric(area_prop)) %>%
+  tidyr::pivot_wider(
+    id_cols = c(Stratum, utm_hok),
+    names_from = LBLHFDTLT,
+    values_from = area_prop,
+    values_fill = 0) %>%
+  ungroup()
+
+stratum_f <- lbg_abv_wide %>%
+                  select(Stratum) %>%
+                  mutate(Stratum = as.factor(Stratum)) %>%
+                  pull(Stratum)
+som <- 
+  kohonen::supersom(
+    data = list(lbg_abv_wide %>%
+                  select(-Stratum, -utm_hok) %>%
+                  as.matrix() 
+                ),
+    grid = kohonen::somgrid(
+      xdim = 7, 
+      ydim = 7))
+
+
+# creating a data frame from the SOMs object
+model_som_values <-
+  data.table::data.table(som$data[[1]],
+                         unit.class = som$unit.classif,
+                         class = stratum_f,
+                         id = (1:nrow(som$data[[1]]))) %>%
+  .[,sum := .(.N), by = "unit.class"]
+
+# calc average distance to neighbors
+ndist <- kohonen::unit.distances(som$grid)
+cddist <- as.matrix(kohonen::object.distances(som, type = "codes"))
+cddist[abs(ndist - 1) > .001] <- NA
+neigh.dists <- colMeans(cddist, na.rm = TRUE)
+
+# creating a data frame from the SOMs object of grid points
+model_som_pts <-
+  data.table::data.table(som$grid$pts,
+                         unit.class = 1:nrow(som$grid$pts)) %>%
+  as_tibble() %>%
+  mutate(neigh_dist = neigh.dists)
+
+# joining the grid points with the SOM object information
+model_som_values <- model_som_pts %>%
+  right_join(model_som_values, by =  'unit.class')
+
+model_som_features <- model_som_values %>%
+  pivot_longer(cols = 5:(last_col() - 3),
+               names_to = "hoofdteelt",
+               values_to = "values")
+
+p1 <- model_som_pts %>% 
+  ggplot(aes(x0 = x, y0 = y)) +
+  ggforce::geom_circle(aes(r = 0.5)) +
+  geom_jitter(data = model_som_values,
+              aes(x, y, color = class),
+              alpha = 0.5) +
+  coord_equal() +
+  theme(panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.title = element_blank()) +
+  theme(legend.position = 'bottom')
+
+
+q25 <- function(x) {
+  res <- quantile(x, 0.25, na.rm = TRUE)
+  ifelse(res < 0.0001, NA, res)
+}
+q75 <- function(x) {
+  res <- quantile(x, 0.75, na.rm = TRUE)
+  ifelse(res < 0.0001, NA, res)
+}
+q50 <- function(x) {
+  res <- quantile(x, 0.50, na.rm = TRUE)
+  ifelse(res < 0.0001, NA, res)
+}
+
+p2 <- model_som_features %>%
+  left_join(mapping,
+            by = c("hoofdteelt" = "LBLHFDTLT")) %>%
+  arrange(GEWASGROEP, hoofdteelt) %>%
+  mutate(hoofdteelt = forcats::fct_inorder(factor(hoofdteelt))) %>%
+  ggplot() +
+  stat_summary(
+    fun = q50, fun.min = q25, fun.max = q75,
+    aes(x = hoofdteelt, y = values, colour = GEWASGROEP)) + 
+  facet_grid(y ~ x, labeller = label_parsed, as.table = FALSE) +
+  theme(axis.text.x = element_blank()) +
+  scale_colour_viridis_d() +
+  labs(y = "Oppervlakte-aandeel van hoofdteelt (mediaan +/- q25 en q75")  +
+  theme(legend.position = 'bottom')
+
+  
+library(patchwork)
+
+p1 + p2 + plot_layout(guides = "collect")  &
+  theme(legend.position = 'bottom')
 ```
 
