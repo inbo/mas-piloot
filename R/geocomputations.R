@@ -40,8 +40,9 @@ point_to_gridcell <- function(
 #' @param grid_cell A polygon within which boundaries zonal statistics will be
 #' calculated
 #' @param layer A rasterlayer containing land use classes or a polygon layer (sf object)
-#' @param grid_group_by_col
-#' @param layer_group_by_col
+#' @param grid_group_by_col A character vector of columns to group by for zones
+#' @param layer_group_by_col A character vector of columns to group by for
+#' layer
 #'
 #' @return
 #' @export
@@ -60,7 +61,7 @@ landusemetrics_grid_cell <- function(
     landcoverfraction <- function(df) {
       df %>%
         mutate(frac_total = coverage_fraction / sum(coverage_fraction)) %>%
-        group_by(!!sym(grid_group_by_col), value) %>%
+        group_by(!!!syms(grid_group_by_col), value) %>%
         summarize(freq = sum(frac_total), .groups = "drop_last")
     }
 
@@ -82,14 +83,14 @@ landusemetrics_grid_cell <- function(
     int <- st_intersection(layer, grid_cell)
 
     cell_areas <- grid_cell %>%
-      select(!!sym(grid_group_by_col)) %>%
+      select(!!!syms(grid_group_by_col)) %>%
       mutate(cell_area = sf::st_area(geometry))
 
     int$area <- sf::st_area(int$geometry)
     int <- int %>%
       sf::st_drop_geometry() %>%
       inner_join(cell_areas, by = grid_group_by_col) %>%
-      group_by(!!sym(grid_group_by_col), !!sym(layer_group_by_col)) %>%
+      group_by(!!!syms(grid_group_by_col), !!!syms(layer_group_by_col)) %>%
       summarise(area_m2 = sum(area),
                 area_prop = area_m2 / first(cell_area))
 
