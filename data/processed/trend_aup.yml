@@ -1,0 +1,25 @@
+..generic:
+  git2rdata: 0.3.1
+  optimize: yes
+  NA string: NA
+  sorting:
+  - naam
+  - jaar
+  - gewasgroep
+  - lblhfdtlt
+  - area_m2
+  hash: 1e1cd790c01332a76e2806d0080275d3581e5bc8
+  data_hash: 2ff3158580b272684ca3507b53892e5565bee6cf
+naam:
+  class: character
+jaar:
+  class: Date
+  origin: '1970-01-01'
+gewasgroep:
+  class: character
+lblhfdtlt:
+  class: character
+area_m2:
+  class: numeric
+area_prop:
+  class: numeric
