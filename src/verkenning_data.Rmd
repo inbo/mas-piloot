@@ -123,6 +123,45 @@ lucas_gps_flanders %>%
 
 ## Landbouwgebruikspercelen
 
+```{r eval=FALSE, warning=FALSE}
+# download data
+for (yr in 2008:2020) {
+  aup_download(yr)
+}
+download_landbouwstreken()
+
+
+options(arrow.use_threads = FALSE)
+
+# write to parquet files
+shapefiles <- fs::dir_ls("data/landbouwgebruikspercelen/Shapefile", 
+                         glob = "*.shp")
+# sort shapefiles
+years <- stringr::str_extract(shapefiles, "\\d+")
+years <- ifelse(nchar(years) == 2, paste0("20", years), years)
+orderyears <- order(years)
+
+shapefiles <- shapefiles[orderyears]
+
+parquetfiles <- file.path("data/landbouwgebruikspercelen/parquet", 
+                          paste0("lbgbrprc",2008:2020,
+                                 ".parquet"))
+# below not working. Bug in arrow::Table$create???
+purrr::walk2(
+  .x = shapefiles, 
+  .y = parquetfiles, 
+  .f = ~aup_sf_to_parquet(input = .x, dsn = .y, 
+                          query = paste0("SELECT LBLHFDTLT, GEWASGROEP FROM \"",
+                                         fs::path_ext_remove(
+                                           fs::path_file(.x)
+                                         ),
+                                         "\""))
+)
+
+```
+
+### Toestand 2020
+
 ```{r}
 # https://wcjochem.github.io/sfarrow/articles/example_sfarrow.html
 #optie 1: niet in geheugen laden
@@ -193,6 +232,155 @@ lbg2020_binding %>%
   facet_wrap(~GEWASGROEP, scales = "free") +
   labs(x = "Oppervlakte in are.", 
        y = "Aantal percelen") 
+```
+
+### Trend 2008 - 2020
+
+```{r calc-trend-aup, eval = !file.exists("data/processed/trend_aup.csv")}
+shapefiles <- fs::dir_ls("data/landbouwgebruikspercelen/Shapefile", 
+                         glob = "*.shp")
+# sort shapefiles
+years <- stringr::str_extract(shapefiles, "\\d+")
+years <- ifelse(nchar(years) == 2, paste0("20", years), years)
+orderyears <- order(years)
+
+shapefiles <- shapefiles[orderyears]
+
+
+# alternative via lazysf
+mapfunction <- function(shapefile) {
+  landbouwstreken <- sf::read_sf("data/landbouwstreken/Lbstrbel.shp")
+  year <- stringr::str_extract(shapefile, "\\d+")
+  year <- ifelse(nchar(year) == 2, paste0("20", year), year)
+  aup <- aup_read(path = shapefile)
+  aup <- aup %>%
+    select(LBLHFDTLT, GEWASGROEP) %>%
+    mutate(jaar = year) %>%
+    st_as_sf()
+  
+  # 20 minutes per year-layer (all years = 4 hours)
+  # TODO crop landbouwstreken to Vlaanderen
+  out <- landusemetrics_grid_cell(
+    grid_cell = landbouwstreken, 
+    layer = aup, 
+    grid_group_by_col = "NAAM", 
+    layer_group_by_col = c("jaar", "GEWASGROEP", "LBLHFDTLT"))
+  return(out)
+}
+
+trend_aup <- map_dfr(shapefiles, mapfunction)
+trend_aup <- janitor::clean_names(trend_aup) %>% 
+  ungroup() %>%
+  units::drop_units()
+
+# encoding problems
+trend_aup$lblhfdtlt <- gsub("<ef>", "ï", trend_aup$lblhfdtlt)
+trend_aup$lblhfdtlt <- gsub("<eb>", "ë", trend_aup$lblhfdtlt)
+trend_aup$gewasgroep <- gsub("<eb>", "ë", trend_aup$gewasgroep)
+trend_aup$gewasgroep <- gsub("<ef>", "ï", trend_aup$gewasgroep)
+# jaar als date variabele
+trend_aup$jaar <- lubridate::make_date(trend_aup$jaar, 1, 1)
+
+git2rdata::write_vc(
+  trend_aup, 
+  file = "trend_aup",
+  root = "data/processed",
+  sorting = c("naam", "jaar", "gewasgroep", "lblhfdtlt", "area_m2"))
+```
+
+
+```{r read-trend-aup, eval = file.exists("data/processed/trend_aup.csv")}
+trend_aup <- git2rdata::read_vc(file = "trend_aup",
+                                root = "data/processed")
+```
+
+
+Figuur \@ref(fig:plot-trend-aup)
+
+```{r plot-trend-aup, fig.cap = "Evolutie van oppervlaktepercentage (t.o.v. totale oppervlakte van de landbouwstreek) van elke gewasgroep in elke landbouwstreek."}
+plot_trend_aup <- trend_aup %>%
+  units::drop_units() %>%
+  group_by(naam, jaar, gewasgroep) %>%
+  summarize(area_prop = sum(area_prop),
+            area_m2 = sum(area_m2)) %>%
+  group_by(naam) %>%
+  nest() %>%
+  mutate(plot = map2(.x = data,
+                     .y = naam,
+                     .f =  ~ggplot(.x) + 
+                       geom_line(aes(x = jaar, y = area_prop, group = gewasgroep,
+                                     colour = gewasgroep)) +
+                       ggrepel::geom_text_repel(
+                         aes(x = lubridate::as_date("2020-01-01"), 
+                             y = area_prop,
+                             colour = gewasgroep,
+                             label = gewasgroep),
+                         data = .x %>%
+                           filter(jaar == lubridate::as_date("2020-01-01"))) +
+                       scale_y_continuous(labels = scales::percent) +
+                       scale_x_date(date_labels = "%Y") +
+                       labs(title = .y,
+                            y = "Oppervlaktepercentage van landbouwstreek")
+                     )
+         )
+
+plot_trend_aup$plot
+```
+
+Figuur \@ref(fig:trend-aup-landbouwstreek)
+
+
+```{r trend-aup-landbouwstreek, fig.cap = "Gesommeerde oppervlakte landbouwteelten van 2008 tot 2020 voor elke landbouwstreek."}
+trend_aup %>%
+  ggplot() + 
+  geom_bar(aes(x = jaar, y = area_m2/1e6, fill = gewasgroep), stat = "sum") +
+  labs(y = "Oppervlakte in km²") +
+  facet_wrap(~naam, scales = "free_y")
+```
+
+
+
+Figuur \@ref(fig:trend-aup-vlaanderen)
+
+```{r trend-aup-vlaanderen, fig.cap = "Gesommeerde oppervlakte landbouwteelten in Vlaanderen van 2008 tot 2020."}
+trend_aup %>%
+  ggplot() + 
+  geom_bar(aes(x = jaar, y = area_m2/1e6, fill = gewasgroep), stat = "sum") +
+  labs(y = "Oppervlakte in km²")
+```
+
+Uit Tabel \@ref(tab:lm-trend-aup) en Tabel \@ref(tab:lm-trend-aup-na-10j) blijkt dat de oppervlaktewijzigingen in hoofdteelt, zowel in absolute termen als relatief, bijzonder klein te noemen zijn.
+Dit sluit natuurlijk niet uit dat er ruimtelijk doorheen de tijd een behoorlijk grote dynamiek kan zijn (teeltwissel).
+
+```{r lm-trend-aup}
+lm_result <- trend_aup %>%
+  group_by(naam, gewasgroep, lblhfdtlt) %>%
+  filter(n_distinct(jaar) > 7,
+         var(area_m2) > 0) %>%
+  nest() %>%
+  mutate(lm_model = map(data, ~lm(area_m2 ~ scale(as.numeric(jaar),
+                                                  scale = FALSE),
+                                  data = .x)),
+         r2 = map_dbl(lm_model, ~summary(.x)$r.squared),
+         ha_per_jaar = map_dbl(lm_model, ~coef(.x)[2]/1e4),
+         ha_gemiddeld = map_dbl(lm_model, ~coef(.x)[1]/1e4))
+
+lm_result %>%
+  arrange(desc(abs(ha_per_jaar))) %>%
+  select(r2, ha_per_jaar, ha_gemiddeld) %>%
+  head(n = 20) %>%
+  kable(caption = "Top 20 van grootste dalers and stijgers volgens een eenvoudig lineair model (minstens 8 jaar data).")
+```
+
+```{r lm-trend-aup-na-10j}
+lm_result %>%
+  arrange(desc(abs(ha_per_jaar)/ha_gemiddeld)) %>%
+  select(r2, ha_per_jaar, ha_gemiddeld) %>%
+  mutate(
+    totale_proc_ver_na_10_jaar = sprintf("%1.2f%%", ha_per_jaar/ha_gemiddeld * 100 * 10)) %>%
+  head(n = 20) %>%
+  select(-gewasgroep) %>%
+  kable(caption = "Top 20 van grootste jaarlijkse procentuele verandering volgens een eenvoudig lineair model (minstens 8 jaar data).")
 ```
 
 
