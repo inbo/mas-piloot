@@ -236,7 +236,7 @@ lbg2020_binding %>%
 
 ### Trend 2008 - 2020
 
-```{r calc-trend-aup, eval=!file.exists("data/processed/trend_aup.tsv")}
+```{r calc-trend-aup, eval=!file.exists(here::here("data/processed/trend_aup.tsv"))}
 shapefiles <- fs::dir_ls("data/landbouwgebruikspercelen/Shapefile", 
                          glob = "*.shp")
 # sort shapefiles
@@ -289,7 +289,7 @@ git2rdata::write_vc(
 ```
 
 
-```{r read-trend-aup, eval = file.exists("data/processed/trend_aup.tsv")}
+```{r read-trend-aup, eval = file.exists(here::here("data/processed/trend_aup.tsv"))}
 trend_aup <- git2rdata::read_vc(file = "trend_aup",
                                 root = "data/processed")
 ```
