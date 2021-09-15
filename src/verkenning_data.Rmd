@@ -236,7 +236,7 @@ lbg2020_binding %>%
 
 ### Trend 2008 - 2020
 
-```{r calc-trend-aup, eval = !file.exists("data/processed/trend_aup.csv")}
+```{r calc-trend-aup, eval=!file.exists("data/processed/trend_aup.tsv")}
 shapefiles <- fs::dir_ls("data/landbouwgebruikspercelen/Shapefile", 
                          glob = "*.shp")
 # sort shapefiles
@@ -289,7 +289,7 @@ git2rdata::write_vc(
 ```
 
 
-```{r read-trend-aup, eval = file.exists("data/processed/trend_aup.csv")}
+```{r read-trend-aup, eval = file.exists("data/processed/trend_aup.tsv")}
 trend_aup <- git2rdata::read_vc(file = "trend_aup",
                                 root = "data/processed")
 ```
@@ -369,7 +369,7 @@ lm_result %>%
   arrange(desc(abs(ha_per_jaar))) %>%
   select(r2, ha_per_jaar, ha_gemiddeld) %>%
   head(n = 20) %>%
-  kable(caption = "Top 20 van grootste dalers and stijgers volgens een eenvoudig lineair model (minstens 8 jaar data).")
+  knitr::kable(caption = "Top 20 van grootste dalers and stijgers volgens een eenvoudig lineair model (minstens 8 jaar data).")
 ```
 
 ```{r lm-trend-aup-na-10j}
@@ -380,7 +380,7 @@ lm_result %>%
     totale_proc_ver_na_10_jaar = sprintf("%1.2f%%", ha_per_jaar/ha_gemiddeld * 100 * 10)) %>%
   head(n = 20) %>%
   select(-gewasgroep) %>%
-  kable(caption = "Top 20 van grootste jaarlijkse procentuele verandering volgens een eenvoudig lineair model (minstens 8 jaar data).")
+  knitr::kable(caption = "Top 20 van grootste jaarlijkse procentuele verandering volgens een eenvoudig lineair model (minstens 8 jaar data).")
 ```
 
 
