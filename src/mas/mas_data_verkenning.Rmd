@@ -1,0 +1,98 @@
+---
+title: "MAS data verkenning"
+author: "Hans Van Calster"
+date: "5-1-2022"
+output:
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(sf)
+library(mapview)
+library(here)
+library(readxl)
+```
+
+```{r inlezen}
+telpunten_moeren <- read_excel(here("data/mas/mas_punten_de_moeren.xlsx")) %>%
+  st_as_sf(coords = c("lon", "lat"),
+           crs = 4326)
+
+tellingen_leemstreek_moeren <- read_excel(
+  here("data/mas/mas_2018_2021 maxaantallen_vlaanderen.xlsx")) %>%
+  rename(teller = waarneme) %>%
+  mutate(type_teller = case_when(
+    teller %in% c("WVNT00", "JJNN16", "NOVN00") ~ "professioneel",
+    is.na(teller) ~ "niet geteld",
+    TRUE ~ "vrijwilliger"),
+    jaar = as.integer(jaar)) %>%
+  st_as_sf(coords = c("x", "y"),
+           crs = 28992)
+
+telpunten_mas <- foreign::read.dbf(
+  here("data/mas/avimap_514_0_mas_wg_grauwe_kiekendief_be_telpunten_xy.dbf"),
+  as.is = TRUE
+  ) %>%
+  as_tibble() %>%
+  mutate(type_teller = case_when(
+    teller %in% c("WVNT00", "JJNN16", "NOVN00") ~ "professioneel",
+    is.na(teller) ~ "niet geteld",
+    TRUE ~ "vrijwilliger")) %>%
+  st_as_sf(coords = c("st_x", "st_y"),
+           crs = 28992)
+
+```
+
+# MAS-data
+
+## Plan kiekendief
+
+Onderzoek naar prooiaanbod (akkervogels) voor grauwe kiekendief.
+Deze MAS-data werden verzameld door vrijwilligers en professionelen (gestuurd door Werkgroep Grauwe Gors en Kenniscentrum akkervogels Grauwe Kiekendief GKA), via Avimap, zowel in de Leemstreek als in de (rand van) de Moeren.
+Na 4 jaar tellen hebben we hierover een eindrapport gepubliceerd, en werd een extra MAS-jaar toegevoegd (2021) om de continuïteit te verzekeren.
+Een update met het extra MAS-jaar is in voorbereiding.
+Dit is het grootste deel van de MAS-data en is "eigendom" van ANB (plan kiekendief), waarbij we nog aan de vrijwillige tellers moeten vragen of ze akkoord zijn dat hun data voor de pilot MAS door INBO mag gebruikt worden.
+
+GKA legt geen restricties of voorwaarden op qua gebruik.
+Het is wel gangbaar dat de vrijwilligers die voor de data hebben gezorgd nog worden ingelicht en bezwaar kunnen maken als ze dit niet zouden willen.
+Johannes zal daarvoor vandaag nog een aanzet geven voor de communicatie naar de vrijwilligers.
+We zouden ze dan max een week de tijd geven om te laten weten als hun data niet voor de analyse ter voorbereiding van dit pilootproject zou mogen dienen.
+
+## Plan Leeuwerik
+
+MAS data verzameld door vrijwilligers en professionelen (gestuurd door Werkgroep Grauwe Gors), via Avimap, in de regio Bilzen.
+De data is "eigendom" van WGG, project betaald door stad Bilzen, waarbij we nog aan de vrijwillige tellers en aan WGG moeten vragen of ze akkoord zijn dat hun data voor de pilot MAS door INBO mag gebruikt worden.
+Dit project loopt nog (minstens) 4 jaar.
+
+## Akkervogelonderzoek UHasselt
+
+MAS data verzameld door UHasselt in de Moeren en Leefdaal, volledig professioneel geteld.
+Dit project is afgelopen, en er werd 3 jaar geteld.
+De eigenaar is ANB, van hen en de UH is er goedkeuring om de data van de Moeren op een gelijkaardige manier als de Leemstreek te analyseren.
+De tellingen zitten in een excel (werden (nog) niet in avimap gestopt).
+We zouden nog aan UH moeten vragen of ze akkoord zijn dat hun data ook voor de pilot MAS door INBO mag gebruikt worden.
+
+## Kaarten
+
+```{r}
+mapview(telpunten_moeren)
+```
+
+
+```{r}
+getelde_telpunten_leemstreek_moeren <- tellingen_leemstreek_moeren %>%
+  group_by(jaar, plotid, plotnaam, teller, type_teller) %>%
+  summarise(.groups = "drop")
+
+mapview(getelde_telpunten_leemstreek_moeren %>%
+          mutate(jaar = as.character(jaar)),
+        zcol = c("jaar", "type_teller"))
+```
+
+```{r}
+mapview(telpunten_mas, zcol = "type_teller")
+```
+
