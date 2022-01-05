@@ -441,7 +441,7 @@ lum2019_example
 ```
 
 ```{r lum2019-wcs, fig.cap = "Uitsnede van 500 m x 500 m van de landgebruikskaart 2019 bekomen via bevraging van een web coverage service."}
-terra::plot(lum2019_example)
+terra::plot(lum2019_example, type = "classes")
 ```
 
 In @poelmans2021 is een validatie-oefening opgenomen aan de hand van LUCAS meetpunten.
@@ -452,7 +452,7 @@ Figuur \@ref(fig:lum2019-vito) geeft bijvoorbeeld de volledig vito landgebruiksk
 ```{r lum2019-vito, fig.cap = "VITO landgebruikskaart 2019."}
 lum2019vito <- lum_read_from_vito()
 
-terra::plot(lum2019vito)
+terra::plot(lum2019vito, type = "classes")
 ```
 
 Hetzelfde kunnen we doen voor de inbo landgebruikskaart 2016, maar daar ontbreekt het kleurenschema nog (zie Figuur \@ref(fig:lum2016-inbo)).
@@ -461,7 +461,7 @@ Hetzelfde kunnen we doen voor de inbo landgebruikskaart 2016, maar daar ontbreek
 lum2016inbo <- lum_read_from_inbo(add_levels = TRUE)
 
 
-terra::plot(lum2016inbo)
+terra::plot(lum2016inbo, type = "classes")
 ```
 
 
