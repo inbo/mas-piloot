@@ -14,36 +14,101 @@ library(sf)
 library(mapview)
 library(here)
 library(readxl)
+library(gt)
 ```
 
+De tellerscode bij max aantallen geeft per jaar aan wie hoofdteller was.
+Die drie codes zijn dus professioneel geteld.
+De werknemer van UH zit daar niet in met een code, dus als je die ook wil weergeven, dan kan je de punten van de moeren en Leefdal labelen met een UHtellercode, die punten zitten allemaal in het avimap bestand
+
+De avimap database geeft dan weer de huidige actuele tellerscode weer, zoals .
+Als er een teller van een punt geschrapt is (vb door tijdsgebrek, of een vrijwilliger die is weggevallen) dan staat dat punt nu leeg.
+Er zijn dus wel punten in die database die ooit een of meerdere keren geteld zijn, maar die nu als "niet geteld" gelabeld staan.
+
 ```{r inlezen}
-telpunten_moeren <- read_excel(here("data/mas/mas_punten_de_moeren.xlsx")) %>%
-  st_as_sf(coords = c("lon", "lat"),
-           crs = 4326)
-
-tellingen_leemstreek_moeren <- read_excel(
-  here("data/mas/mas_2018_2021 maxaantallen_vlaanderen.xlsx")) %>%
-  rename(teller = waarneme) %>%
-  mutate(type_teller = case_when(
-    teller %in% c("WVNT00", "JJNN16", "NOVN00") ~ "professioneel",
-    is.na(teller) ~ "niet geteld",
-    TRUE ~ "vrijwilliger"),
-    jaar = as.integer(jaar)) %>%
-  st_as_sf(coords = c("x", "y"),
-           crs = 28992)
-
+# CRS avimap en max-aantallen CRS EPSG:28992 (amesfoort)
+# wordt in avimap standaard gebruikt
 telpunten_mas <- foreign::read.dbf(
   here("data/mas/avimap_514_0_mas_wg_grauwe_kiekendief_be_telpunten_xy.dbf"),
   as.is = TRUE
   ) %>%
   as_tibble() %>%
   mutate(type_teller = case_when(
-    teller %in% c("WVNT00", "JJNN16", "NOVN00") ~ "professioneel",
-    is.na(teller) ~ "niet geteld",
+    teller %in% c("WVNT00", "JJNN16", "NOVN00") |
+      regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+    is.na(teller) &
+      regio != "Vlaanderen - Leefdaal" ~ "niet geteld",
     TRUE ~ "vrijwilliger")) %>%
   st_as_sf(coords = c("st_x", "st_y"),
            crs = 28992)
 
+dichtstbij <- read_excel(here("data/mas/mas_punten_de_moeren.xlsx")) %>%
+  st_as_sf(coords = c("lon", "lat"),
+           crs = 4326) %>%
+  st_transform(crs = 28992) %>%
+  st_nearest_feature(., telpunten_mas)
+
+dichtstbij_afstanden <- read_excel(here("data/mas/mas_punten_de_moeren.xlsx")) %>%
+  st_as_sf(coords = c("lon", "lat"),
+           crs = 4326) %>%
+  st_transform(crs = 28992) %>%
+  st_distance(
+    telpunten_mas[
+      dichtstbij,
+    ],
+    by_element = TRUE)
+
+telpunten_moeren_uh <- read_excel(here("data/mas/mas_punten_de_moeren.xlsx")) %>%
+  st_as_sf(coords = c("lon", "lat"),
+           crs = 4326) %>%
+  st_transform(crs = 28992) %>%
+  bind_cols(telpunten_mas[dichtstbij, ]) %>%
+  rename(id.moeren = id...1,
+         geometry.moeren = geometry...2,
+         id.avimap = id...3,
+         geometry.avimap = geometry...11) %>%
+  st_as_sf(sf_column_name = "geometry.moeren", crs = 28992) %>%
+  mutate(afstand = dichtstbij_afstanden)
+  
+tellingen_leemstreek_moeren <- read_excel(
+  here("data/mas/mas_2018_2021 maxaantallen_vlaanderen.xlsx")) %>%
+  rename(teller = waarneme) %>%
+  left_join(telpunten_mas %>%
+              st_drop_geometry() %>%
+              select(plotid, regio),
+            by = "plotid") %>%
+  mutate(type_teller = case_when(
+    teller %in% c("WVNT00", "JJNN16", "NOVN00") |
+      (regio == "Vlaanderen - Leefdaal" &
+         jaar %in% 2018:2020) ~ "professioneel",
+    is.na(teller) &
+      !(regio == "Vlaanderen - Leefdaal" &
+         jaar %in% 2018:2020) ~ "niet geteld",
+    TRUE ~ "vrijwilliger"),
+    jaar = as.integer(jaar)) %>%
+  st_as_sf(coords = c("x", "y"),
+           crs = 28992) 
+
+
+moeren_leefdaal_shp <- read_sf(
+  here("data/mas/mas_leefdaal_moeren_2018-2020.shp"))
+moeren_shp <- read_sf(
+  here("data/mas/mas_moeren_observatiepunten_buffer300.shp")) %>%
+  mutate(area = st_area(.),
+         straal = sqrt(area / pi))
+leefdaal_shp <- read_sf(
+  here("data/mas/mas_leefdaal_observatiepunten_buffer300.shp")) %>%
+  mutate(area = st_area(.),
+         straal = sqrt(area / pi))
+
+#De punten van UH werden in avimap geïmporteerd
+# er is daar in avimap geen tellerscode bij vermeld bij de punten die door UH
+# professioneel geteld werden (want ze hebben dat in excel bijgehouden),
+#maar die 21 punten mogen dus op professioneel geteld komen
+#(voor de periode 2018-2020).
+#Hetzelfde voor de punten in Leefdal, die zijn ook in avimap geïmporteerd 
+#(voorlopig zijn daar geen vrijwilligers voor aangesproken om die over te nemen)
+#, en werden dus ook professioneel geteld voor dezelfde 3 jaar.
 ```
 
 # MAS-data
@@ -77,9 +142,38 @@ We zouden nog aan UH moeten vragen of ze akkoord zijn dat hun data ook voor de p
 
 ## Kaarten
 
+De coördinaten van de Moeren (21 punten) werden allemaal 3 jaar aan een stuk professioneel geteld door een medewerker van UH.
+Dit was een erg dens puntennetwerk, dekkend, met telcirkels die elkaar raakten.
+Het jaar ervoor (enkele punten) en het jaar erna (2021) werden een aantal punten overgenomen door de vrijwillige tellers om de continuïteit van een aantal punten te verzekeren.
+Daarvoor werden twee punten licht verplaatst.
+De oorspronkelijke puntenlijst, en de nieuwe (vrijwillig) getelde puntenlijst zitten inderdaad ook samen in de avimap dataset (je laatste kaartje telpunten_mas - type teller).
+
 ```{r}
-mapview(telpunten_moeren)
+telcirkels_moeren_uh <- telpunten_moeren_uh %>% 
+  st_buffer(dist = 300)
+moeren_shp_punten <- moeren_leefdaal_shp %>%
+            filter(Area == "Moeren")
+mapview(telcirkels_moeren_uh, col.regions = "red") + 
+  mapview(moeren_shp) +
+  mapview(moeren_shp_punten, col.regions = "green")
 ```
+
+
+```{r}
+telpunten_moeren_uh %>%
+  st_drop_geometry() %>%
+  select(-regio, -type_teller, -geometry.avimap) %>%
+  mutate(afstand = as.numeric(afstand)) %>%
+  gt() %>%
+  fmt_number(c(afstand), decimals = 0)
+```
+
+
+de max aantallen van Leemstreek / Moeren zijn inderdaad in kader van Plan Kiekendief berekend (dat plan beslaat zowel de Moeren als de Leemstreek), maar de opdrachthouder voor de twee deelgebieden was anders (studiebureau Antea voor de Moeren, en GKA+WGG voor de Leemstreek).
+De max aantallen werden geanalyseerd samen met GKA, en zijn vooral relevant voor de Leemstreek, maar de weinige vrijwilligerspunten van de Moeren werden ook meegenomen (omdat Antea dat zelf niet had gedaan en geen bezwaar had).
+Dit zijn de max aantallen voor de eerste 4 jaar, zonder de UH tellingen in beschouwing te nemen.
+We werken nu aan een update voor die aantallen, met het extra MAS jaar er bij (dus 5 jaar data), en zowel voor de data van de Leemstreek als voor de Moeren (combinatie van vrijwilligerspunten en UH punten)
+
 
 
 ```{r}
