@@ -2,8 +2,9 @@
 title: "MAS data verkenning"
 author: "Hans Van Calster"
 date: "5-1-2022"
+bibliography: mas.json
 output:
-  html_document:
+  bookdown::html_document2:
     code_folding: hide
 ---
 
@@ -17,6 +18,7 @@ library(readxl)
 library(gt)
 ```
 
+```{=html}
 <!--
 De tellerscode bij max aantallen geeft per jaar aan wie hoofdteller was.
 Die drie codes zijn dus professioneel geteld.
@@ -27,7 +29,7 @@ Het geeft dus enkel aan welke punten er dat jaar, en door wie (pro/vrijwilliger)
 Als er een teller van een punt geschrapt is (vb door tijdsgebrek, of een vrijwilliger die is weggevallen) dan staat dat punt nu leeg.
 Er zijn dus wel punten in die database die ooit een of meerdere keren geteld zijn, maar die nu als "niet geteld" gelabeld staan.
 -->
-
+```
 ```{r inlezen}
 # CRS avimap en max-aantallen CRS EPSG:28992 (amesfoort)
 # wordt in avimap standaard gebruikt
@@ -96,6 +98,8 @@ leefdaal_shp <- read_sf(
 
 ## Plan kiekendief
 
+Zie @wiersma2021.
+
 Onderzoek naar prooiaanbod (akkervogels) voor grauwe kiekendief.
 Deze MAS-data werden verzameld door vrijwilligers en professionelen (gestuurd door Werkgroep Grauwe Gors en Kenniscentrum akkervogels Grauwe Kiekendief GKA), via Avimap, zowel in de Leemstreek als in de (rand van) de Moeren.
 Na 4 jaar tellen werd hierover een eindrapport gepubliceerd, en werd een extra MAS-jaar toegevoegd (2021) om de continuïteit te verzekeren.
@@ -118,7 +122,6 @@ De MAS punten voor plan Kiekendief werden gestratificeerd random uitgestrooid ve
 Na het uitstrooien van de punten werden de punten vervolgens licht verplaatst (indien nodig) zodat ze vlot bereikbaar zijn en voldoende zicht bieden op het landschap, en eventueel nog bijgesteld na een terreinbezoek door de tellers (controle door coördinator).
 Dit alvorens een punt voor een eerste keer werd geteld.
 Dus eenmaal geteld, dan werd een punt niet meer verplaatst.
-
 
 ```{r avimap-plan-kiekendief}
 telpunten_mas %>%
@@ -156,8 +159,7 @@ Ze werden nog nooit geteld (oa omdat een vrijwilligernetwerk in deze gebieden mo
 
 MAS data verzameld door vrijwilligers en professionelen (gestuurd door Werkgroep Grauwe Gors), via Avimap, in de regio Bilzen.
 De data is "eigendom" van WGG, project betaald door stad Bilzen.
-<!--, waarbij we nog aan de vrijwillige tellers en aan WGG moeten vragen of ze akkoord zijn dat hun data voor de pilot MAS door INBO mag gebruikt worden.-->
-Dit project loopt nog (minstens) 4 jaar.
+<!--, waarbij we nog aan de vrijwillige tellers en aan WGG moeten vragen of ze akkoord zijn dat hun data voor de pilot MAS door INBO mag gebruikt worden.--> Dit project loopt nog (minstens) 4 jaar.
 
 ```{r kaart-bilzen}
 telpunten_mas %>%
@@ -182,7 +184,7 @@ Dit was een erg dens puntennetwerk, dekkend, met telcirkels die elkaar raakten.
 De telcirkels hebben echter een straal van 188 m in plaats van 300 m.
 Het jaar ervoor (enkele punten) en het jaar erna (2021) werden een aantal punten overgenomen door de vrijwillige tellers om de continuïteit van een aantal punten te verzekeren.
 Daarvoor werden twee punten licht verplaatst.
-De oorspronkelijke puntenlijst, en de nieuwe (vrijwillig) getelde puntenlijst zitten  ook samen in de avimap dataset.
+De oorspronkelijke puntenlijst, en de nieuwe (vrijwillig) getelde puntenlijst zitten ook samen in de avimap dataset.
 
 ```{r moeren-uh}
 moeren_shp_punten <- moeren_leefdaal_shp %>%
@@ -205,6 +207,7 @@ max_aantallen_moeren_leefdaal <- moeren_leefdaal_shp %>%
 
 Een aantal punten van de UH uit de Moeren werden voor 2018 al geteld of in 2021 overgenomen door vrijwilligers.
 
+```{=html}
 <!--
 Er is geen 1-op-1 koppeling als ik een ruimtelijke join maak tussen de telcirkels en de avimap telpunten. Zie id.moeren 1, 5 en 17. Welke koppeling behoort tot de UH studie?
 Het punt id.moeren 1 en 5 werd al voor 2018 geteld (met iets ander coördinaat) dan door de UH, en werd vervolgens in 2021 door diezelfde vrijwilliger verder geteld.
@@ -214,8 +217,7 @@ Het punt id.moeren 17 werd in 2021 nieuw overgenomen door een vrijwilliger, maar
 De koppeling hier is id.moeren 17 ( VL0548 UH punt in avimap) met VL0548 (vrijwilligerspunt in avimap 250 m verder).
 Gezien de verplaatsing zou ik de koppeling niet maken, en ze als gescheiden (niet continu getelde vrijwilligers-) punten beschouwen.
 -->
-
-
+```
 ```{r koppeling-avimap-moeren-uh}
 # geen perfecte 1 op 1 match (zie id.moeren 1, 5, 17)
 moeren_shp %>%
@@ -300,7 +302,6 @@ tellingen_leemstreek_moeren %>%
   gt(caption = "(ref:check-jaren-geteld)")
 ```
 
-
 ```{r}
 tellingen_leemstreek_moeren %>%
   st_drop_geometry() %>%
@@ -338,7 +339,6 @@ diversiteit %>%
   geom_boxplot(aes(x = regio, y = exp_shannon,
                    fill = factor(jaar)))
 ```
-
 
 ```{r eval=FALSE}
 pca_hellinger <- princomp(
@@ -379,10 +379,10 @@ Perceelsgrootte
 
 # Vogelkenmerken
 
-- Akkervogels
-     - open Landschappen Akkervogels (OLA's) 
-     - Kleinschalige Landschappen Akkervogels (KLA's)
+-   Akkervogels
 
+    -   open Landschappen Akkervogels (OLA's)
+    -   Kleinschalige Landschappen Akkervogels (KLA's)
 
 # Telprotocol
 
@@ -392,49 +392,80 @@ In principe worden vogels die buiten de telcirkel vallen uit de data weggeknipt.
 
 Naast vogelsoort en aantal individuen ook extra indicatoren die relevant zijn voor microbeheermonitoringschaal:
 
-- stapelvoedselindicatoren: zaadbeschikbaarheid / insectenabundantie
+-   stapelvoedselindicatoren: zaadbeschikbaarheid / insectenabundantie
 
+cf [@roodbergen2011]
 
 # Rapport outline
 
-1. Inleiding
-1. Overzicht lopende meetnetten Vlaanderen
-    1. Projecten
-        - ABV
-        - MAS
-            - Plan kiekendief
-            - Plan Leeuwerik
-            - Akkervogelonderzoek UHasselt
-    1. Veldprotocol
-        - telling vogels
-            - ABV
-            - MAS
-        - andere indicatoren
-    1. Steekproefontwerp
-        - ABV
-        - MAS
-1. Aanpak akkervogel meetnetten in buitenland
-    - Lessons learned MAS Nederland
-    - UK
-    - ...
-1. Ontwerp inzameling pilootgegevens 2022 - 2023
-    - Informatiebehoefteanalyse
-        - Wat weten we al?
-        - Wat willen we nog weten?
-    - Selectie telpunten in functie van informatiebehoefte
-1. Analyse beschikbare ABV en MAS gegevens akkervogels
-    - Berekening verklarende variabelen (GIS analyse)
-    - Resultaten
-1. Ontwerp meetnet voor akkervogels Vlaanderen
-    - Informatiebehoefteanalyse
-    - Ontwerp van de gegevensinzameling
-        - Afbakening steekproefkader
-        - Stratificatie / inclusiekansen
-        - Steekproefgrootteberekening
-        - Allocatie steekproefgrootte over strata
-        - Steekproeftrekking
-    - Plannen van de gegevensanalyse
-    - Plannen van de rapportering en communicatie
-    - Implementatie en kwaliteitszorg
-1. Discussie
-1. Conclusies
+1.  Inleiding
+
+2.  Overzicht lopende meetnetten Vlaanderen
+
+    1.  Projecten
+
+        -   ABV
+
+        -   MAS
+
+            -   Plan kiekendief
+            -   Plan Leeuwerik
+            -   Akkervogelonderzoek UHasselt
+
+    2.  Veldprotocol
+
+        -   telling vogels
+
+            -   ABV
+            -   MAS
+
+        -   andere indicatoren
+
+    3.  Steekproefontwerp
+
+        -   ABV
+        -   MAS
+
+3.  Aanpak akkervogel meetnetten in buitenland
+
+    -   Lessons learned MAS Nederland
+    -   UK
+    -   ...
+
+4.  Ontwerp inzameling pilootgegevens 2022 - 2023
+
+    -   Informatiebehoefteanalyse
+
+        -   Wat weten we al?
+        -   Wat willen we nog weten?
+
+    -   Selectie telpunten in functie van informatiebehoefte
+
+5.  Analyse beschikbare ABV en MAS gegevens akkervogels
+
+    -   Berekening verklarende variabelen (GIS analyse)
+    -   Resultaten
+
+6.  Ontwerp meetnet voor akkervogels Vlaanderen
+
+    -   Informatiebehoefteanalyse
+
+    -   Ontwerp van de gegevensinzameling
+
+        -   Afbakening steekproefkader
+        -   Stratificatie / inclusiekansen
+        -   Steekproefgrootteberekening
+        -   Allocatie steekproefgrootte over strata
+        -   Steekproeftrekking
+
+    -   Plannen van de gegevensanalyse
+
+    -   Plannen van de rapportering en communicatie
+
+    -   Implementatie en kwaliteitszorg
+
+7.  Discussie
+
+8.  Conclusies
+
+# Referenties

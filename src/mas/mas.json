@@ -1,0 +1,96 @@
+[
+    {
+        "author": [
+            {
+                "family": "Roodbergen",
+                "given": "Maja"
+            },
+            {
+                "family": "Scharenburg",
+                "given": "Kees",
+                "non-dropping-particle": "van"
+            },
+            {
+                "family": "Soldaat",
+                "given": "Leo"
+            },
+            {
+                "family": "Teunissen",
+                "given": "Wolf"
+            },
+            {
+                "family": "Koks",
+                "given": "Ben"
+            },
+            {
+                "family": "Leeuwen",
+                "given": "Merijn",
+                "non-dropping-particle": "van"
+            }
+        ],
+        "genre": "SOVON Onderzoeksrapport",
+        "id": "roodbergen2011",
+        "issued": {
+            "date-parts": [
+                [
+                    2011
+                ]
+            ]
+        },
+        "key": "YZ26UM2L",
+        "language": "nl",
+        "libraryid": "1",
+        "number": "2011/08",
+        "page": "74",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "SOVON Vogelonderzoek",
+        "publisher-place": "Nijmegen, Nederland",
+        "source": "Zotero",
+        "title": "Achtergronddocument Meetnet Agrarische Soorten (MAS)",
+        "type": "report"
+    },
+    {
+        "author": [
+            {
+                "family": "Wiersma",
+                "given": "Popko"
+            },
+            {
+                "family": "Jansen",
+                "given": "Johannes"
+            },
+            {
+                "family": "Erens",
+                "given": "Remar"
+            },
+            {
+                "family": "Vansteelant",
+                "given": "Wouter"
+            },
+            {
+                "family": "Postma",
+                "given": "Madeleine"
+            }
+        ],
+        "genre": "GKA-Rapport",
+        "id": "wiersma2021",
+        "issued": {
+            "date-parts": [
+                [
+                    2021
+                ]
+            ]
+        },
+        "key": "XJQT2K55",
+        "language": "nl",
+        "libraryid": "1",
+        "number": "2021-03",
+        "page": "77",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Grauwe Kiekendief – Kenniscentrum Akkervogels, Scheemda, Nederland en Werkgroep Grauwe Gors vzw",
+        "publisher-place": "Riemst",
+        "source": "Zotero",
+        "title": "Voedselsituatie voor de grauwe kiekendief en het effect van beheermaatregelen in de oostelijke Leemstreek, 2017-2020",
+        "type": "report"
+    }
+]
