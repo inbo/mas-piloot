@@ -114,6 +114,12 @@ De max aantallen werden geanalyseerd samen met GKA, en zijn vooral relevant voor
 Dit zijn de max aantallen voor de eerste 4 jaar, zonder de UH tellingen in beschouwing te nemen.
 <!--We werken nu aan een update voor die aantallen, met het extra MAS jaar er bij (dus 5 jaar data), en zowel voor de data van de Leemstreek als voor de Moeren (combinatie van vrijwilligerspunten en UH punten)-->
 
+De MAS punten voor plan Kiekendief werden gestratificeerd random uitgestrooid verspreid over het kerngebied van Plan Kiekendief (moeren en leemstreek), dat kerngebied werd door het INBO afgebakend als meest succesvolle gebied voor vestiging van grauwe kiekendief (zie SBP grauwe kiekendief).
+Na het uitstrooien van de punten werden de punten vervolgens licht verplaatst (indien nodig) zodat ze vlot bereikbaar zijn en voldoende zicht bieden op het landschap, en eventueel nog bijgesteld na een terreinbezoek door de tellers (controle door coördinator).
+Dit alvorens een punt voor een eerste keer werd geteld.
+Dus eenmaal geteld, dan werd een punt niet meer verplaatst.
+
+
 ```{r avimap-plan-kiekendief}
 telpunten_mas %>%
   filter(!regio %in% c("Vlaanderen - Limburg",
@@ -135,10 +141,16 @@ mapview(getelde_telpunten_leemstreek_moeren %>%
         zcol = c("jaar", "type_teller"))
 ```
 
-**Vragen**
+### Limburg
 
-- Hoe werden deze punten geselecteerd (steekproefontwerp)?
-- Is er een rapport beschikbaar?
+```{r}
+telpunten_mas %>%
+  filter(regio == "Vlaanderen - Limburg") %>%
+  mapview(zcol = "type_teller_2021")
+```
+
+Deze punten behoren tot Plan Kiekendief en werden op dezelfde manier uitgestrooid, maar het deelgebied werd later afgevoerd als monitoringsgebied (zie eindrapport).
+Ze werden nog nooit geteld (oa omdat een vrijwilligernetwerk in deze gebieden moeilijk realiseerbaar was, en er geen budget was om deze professioneel te laten tellen).
 
 ## Plan Leeuwerik
 
@@ -153,10 +165,9 @@ telpunten_mas %>%
   mapview(zcol = "type_teller_2021")
 ```
 
-**Vragen**
-
-- Kunnen deze punten beschouwd worden als horend bij Leemstreek?
-
+De punten kunnen niet beschouwd worden als horend bij de Leemstreek, geografisch wel, maar niet als proefopzet.
+Ze zijn niet op dezelfde manier als Plan Kiekendief uitgestrooid, maar puur manueel uitgezet verdeeld over het gebied, en telkens op een weg.
+<!--Johannes vraagt na of er een achtergronddocument is hiervan.-->
 
 ## Akkervogelonderzoek UHasselt
 
@@ -180,11 +191,30 @@ mapview(moeren_shp) +
   mapview(moeren_shp_punten, col.regions = "green")
 ```
 
-**Vragen**
+```{r}
+max_aantallen_moeren_leefdaal <- moeren_leefdaal_shp %>%
+  st_join(moeren_shp %>%
+            rbind(leefdaal_shp),
+          left = FALSE) %>%
+  st_drop_geometry() %>%
+  group_by(Point, Year, Species, Gebied = Area) %>%
+  filter(!is.na(Number)) %>%
+  summarise(max_aantal = max(Number),
+            .groups = "drop")
+```
 
-- De locaties waar een vogel gezien werd zijn hier beschikbaar. Soms liggen deze buiten de telcirkels. Ik veronderstel dat deze waarnemingen dan verwijderd moeten worden?
-- Er is geen 1-op-1 koppeling als ik een ruimtelijke join maak tussen de telcirkels en de avimap telpunten. Zie id.moeren 1, 5 en 17. Welke koppeling behoort tot de UH studie?
-- Kan Leefdaal beschouwd worden als horend bij de Leemstreek?
+Een aantal punten van de UH uit de Moeren werden voor 2018 al geteld of in 2021 overgenomen door vrijwilligers.
+
+<!--
+Er is geen 1-op-1 koppeling als ik een ruimtelijke join maak tussen de telcirkels en de avimap telpunten. Zie id.moeren 1, 5 en 17. Welke koppeling behoort tot de UH studie?
+Het punt id.moeren 1 en 5 werd al voor 2018 geteld (met iets ander coördinaat) dan door de UH, en werd vervolgens in 2021 door diezelfde vrijwilliger verder geteld.
+De koppeling is dus id.moeren 1 (VL0532 UH punt in avimap) met VL0049 (vrijwilligerspunt in avimap 45 m verder).
+De koppeling id.moeren 5 (VL0536 UH punt in avimap) met VL0084 ( vrijwilligerspunt in avimap 80 m verder).
+Het punt id.moeren 17 werd in 2021 nieuw overgenomen door een vrijwilliger, maar op vraag van de teller licht verplaatst, omwille van de zichtbaarheid.
+De koppeling hier is id.moeren 17 ( VL0548 UH punt in avimap) met VL0548 (vrijwilligerspunt in avimap 250 m verder).
+Gezien de verplaatsing zou ik de koppeling niet maken, en ze als gescheiden (niet continu getelde vrijwilligers-) punten beschouwen.
+-->
+
 
 ```{r koppeling-avimap-moeren-uh}
 # geen perfecte 1 op 1 match (zie id.moeren 1, 5, 17)
@@ -205,7 +235,7 @@ leefdaal_shp %>%
   mapview(leefdaal_shp_punten, col.regions = "green")
 ```
 
-Voor Leefdaal is er wel een 1-op-1 koppeling.
+Leefdal kan beschouwd worden als de Leemstreek (geografisch), maar ook hier werden de punten anders uitgezet (veel denser, door UH), en behoort Leefdal niet tot het kerngebied van Plan Kiekendief.
 
 ```{r koppeling-avimap-leefdaal-uh}
 # hier wel een 1 op 1 koppeling
@@ -217,23 +247,194 @@ leefdaal_shp %>%
   gt()
 ```
 
+# Verkenning maximum aantallen
 
-## Limburg??
+Voor alle soorten zijn er nulwaarnemingen, behalve voor Cetti's zanger (werd twee keer gezien).
+Cetti's zanger verwijderen uit dataset of veronderstellen dat de soort niet gezien werd in alle overige jaar x locatie combinaties?
 
-**Vragen**
+(ref:check-soortenlijst) Overzicht min en max lengte van de soortenlijst en min-max aantal soorten in elk van de telpunten. Cetti's zanger werd verwijderd.
 
-- Horen deze punten bij één van bovenstaande plannen?
-- Zijn deze punten ooit geteld geweest?
+```{r check-soortenlijst}
+tellingen_leemstreek_moeren %>%
+  st_drop_geometry() %>%
+  filter(naam != "cetti's_zanger") %>%
+  group_by(regio, jaar, plotid) %>%
+  summarise(lengte_soortenlijst_incl0 = n(),
+            aantal_soorten = sum(Aantal_max > 0),
+            .groups = "drop_last") %>%
+  summarise(across(c(lengte_soortenlijst_incl0, aantal_soorten),
+                   list(min = min,
+                        max = max)),
+            .groups = "drop_last") %>%
+  gt(caption = "(ref:check-soortenlijst)")
+```
+
+(ref:check-telpuntenlijst) Overzicht min - max aantal getelde telpunten per jaar en min - max aantal aanwezige soorten in deze telpunten. Cetti's zanger werd verwijderd.
+
+```{r check-telpuntenlijst}
+tellingen_leemstreek_moeren %>%
+  st_drop_geometry() %>%
+  filter(naam != "cetti's_zanger") %>%
+  group_by(regio, jaar, naam) %>%
+  summarise(lengte_plotid_incl0 = n(),
+            aantal_plotid = sum(Aantal_max > 0),
+            .groups = "drop_last") %>%
+  summarise(across(c(lengte_plotid_incl0, aantal_plotid),
+                   list(min = min,
+                        max = max)),
+            .groups = "drop_last") %>%
+  gt(caption = "(ref:check-telpuntenlijst)")
+```
+
+(ref:check-jaren-geteld) Aantal telpunten per regio (n) in functie van het aantal jaren dat het telpunt geteld werd.
+
+```{r check-jaren-geteld}
+tellingen_leemstreek_moeren %>%
+  st_drop_geometry() %>%
+  filter(naam != "cetti's_zanger") %>%
+  group_by(regio, plotid) %>%
+  summarise(aantal_jaren_geteld = n_distinct(jaar),
+            .groups = "drop_last") %>%
+  count(regio, aantal_jaren_geteld) %>%
+  ungroup() %>%
+  gt(caption = "(ref:check-jaren-geteld)")
+```
+
 
 ```{r}
-telpunten_mas %>%
-  filter(regio == "Vlaanderen - Limburg") %>%
-  mapview(zcol = "type_teller_2021")
+tellingen_leemstreek_moeren %>%
+  st_drop_geometry() %>%
+  filter(naam != "cetti's_zanger") %>%
+  pivot_wider(id_cols = c(jaar, regio, plotid),
+              names_from = naam, 
+              values_from = Aantal_max) -> tellingen_breed
 ```
+
+```{r}
+tellingen_leemstreek_moeren %>%
+  st_drop_geometry() %>%
+  filter(naam != "cetti's_zanger") %>%
+  group_by(regio, jaar, plotid) %>%
+  filter(Aantal_max > 0) %>%
+  summarise(aantal_soorten = n(),
+            exp_shannon =
+              exp(
+                -sum(
+                  Aantal_max / sum(Aantal_max) *
+                       log(Aantal_max / sum(Aantal_max))
+                  )
+                ),
+            .groups = "drop_last"
+            ) -> diversiteit
+
+diversiteit %>%
+  ggplot() +
+  geom_boxplot(aes(x = regio, y = aantal_soorten,
+                   fill = factor(jaar)))
+
+
+diversiteit %>%
+  ggplot() +
+  geom_boxplot(aes(x = regio, y = exp_shannon,
+                   fill = factor(jaar)))
+```
+
+
+```{r eval=FALSE}
+pca_hellinger <- princomp(
+  vegan::decostand(tellingen_breed[, -(1:3)],
+                   method = "hellinger"))
+
+plot(pca_hellinger)
+```
+
+```{r eval=FALSE}
+unique(tellingen_leemstreek_moeren$naam) %>%
+  as_tibble() %>%
+  rename(naam = value) %>%
+  write_excel_csv2("data/mas/soortenlijst.csv")
+```
+
+# Verklarende variabelen
+
+Voedsel (winter en zomer) - Veiligheid (dekking) - Nestgelegenheid
+
+Landgebruik - lokaal
+
+Voorteelt, hoofdteelt, nateelt
+
+Ecoregelingen
+
+Beheerovereenkomsten
+
+Bio vs niet bio
+
+Gewasbeschermingsmiddelen
+
+Bemestingsniveau
+
+Landgebruik - ruimer landschap
+
+Perceelsgrootte
+
+# Vogelkenmerken
+
+- Akkervogels
+     - open Landschappen Akkervogels (OLA's) 
+     - Kleinschalige Landschappen Akkervogels (KLA's)
+
 
 # Telprotocol
 
+Is er gewerkt met een vaste lijst van soorten?
+
+In principe worden vogels die buiten de telcirkel vallen uit de data weggeknipt.
+
+Naast vogelsoort en aantal individuen ook extra indicatoren die relevant zijn voor microbeheermonitoringschaal:
+
+- stapelvoedselindicatoren: zaadbeschikbaarheid / insectenabundantie
 
 
-# Verkenning maximum aantallen
+# Rapport outline
 
+1. Inleiding
+1. Overzicht lopende meetnetten Vlaanderen
+    1. Projecten
+        - ABV
+        - MAS
+            - Plan kiekendief
+            - Plan Leeuwerik
+            - Akkervogelonderzoek UHasselt
+    1. Veldprotocol
+        - telling vogels
+            - ABV
+            - MAS
+        - andere indicatoren
+    1. Steekproefontwerp
+        - ABV
+        - MAS
+1. Aanpak akkervogel meetnetten in buitenland
+    - Lessons learned MAS Nederland
+    - UK
+    - ...
+1. Ontwerp inzameling pilootgegevens 2022 - 2023
+    - Informatiebehoefteanalyse
+        - Wat weten we al?
+        - Wat willen we nog weten?
+    - Selectie telpunten in functie van informatiebehoefte
+1. Analyse beschikbare ABV en MAS gegevens akkervogels
+    - Berekening verklarende variabelen (GIS analyse)
+    - Resultaten
+1. Ontwerp meetnet voor akkervogels Vlaanderen
+    - Informatiebehoefteanalyse
+    - Ontwerp van de gegevensinzameling
+        - Afbakening steekproefkader
+        - Stratificatie / inclusiekansen
+        - Steekproefgrootteberekening
+        - Allocatie steekproefgrootte over strata
+        - Steekproeftrekking
+    - Plannen van de gegevensanalyse
+    - Plannen van de rapportering en communicatie
+    - Implementatie en kwaliteitszorg
+1. Discussie
+1. Conclusies
