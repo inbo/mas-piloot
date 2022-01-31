@@ -48,11 +48,11 @@ Er zijn dus wel punten in die database die ooit een of meerdere keren geteld zij
 ```{r inlezen, message=FALSE, warning=FALSE}
 # CRS avimap en max-aantallen CRS EPSG:28992 (amesfoort)
 # wordt in avimap standaard gebruikt
-telpunten_avimap <- foreign::read.dbf(
-  here("data/mas/avimap_514_0_mas_wg_grauwe_kiekendief_be_telpunten_xy.dbf"),
-  as.is = TRUE
-  ) %>%
-  as_tibble() %>%
+#  "st_x" en  "st_y" is volgens crs = 28992
+telpunten_avimap <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
+) %>%
   rename(teller_2021 = teller) %>%
   mutate(
     regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
@@ -62,8 +62,12 @@ telpunten_avimap <- foreign::read.dbf(
       is.na(teller_2021) &
         regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
       TRUE ~ "vrijwilliger")) %>%
-  st_as_sf(coords = c("st_x", "st_y"),
-           crs = 28992)
+  select(-st_x, -st_y)
+
+tellingen_avimap <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
+)
 
 max_aantallen_vlaanderen <- read_excel(
   here("data/mas/mas_2018_2021 maxaantallen_vlaanderen.xlsx")) %>%
@@ -297,7 +301,6 @@ Gezien de verplaatsing zou ik de koppeling niet maken, en ze als gescheiden (nie
 ```{r koppeling-avimap-moeren-uh}
 # geen perfecte 1 op 1 match (zie id.moeren 1, 5, 17)
 telcirkels_uh_moeren %>%
-  st_transform(crs = 28992) %>%
   st_join(telpunten_avimap,
           suffix = c(".moeren", ".avimap")) %>%
   st_drop_geometry() %>%
@@ -320,7 +323,6 @@ Leefdal is ook in de Leemstreek gelegen, maar ook hier werden de punten anders u
 ```{r koppeling-avimap-leefdaal-uh}
 # hier wel een 1 op 1 koppeling
 telcirkels_uh_leefdaal %>%
-  st_transform(crs = 28992) %>%
   st_join(telpunten_avimap,
           suffix = c(".leefdaal", ".avimap")) %>%
   st_drop_geometry() %>%
@@ -470,7 +472,6 @@ abv_grid_stratum <- abv_grid %>%
                select(ExternalCode, Stratum),
              by = c("utm_hok" = "ExternalCode")
                )
-
 abv_grid_stratum %>%
   mapview(zcol = "Stratum",
           burst = TRUE)
@@ -499,7 +500,7 @@ Tabel \@ref(tab:aantal-actief) geeft aan dat de laatste jaren rond de 150 - 190 
 abv_grid_stratum %>%
   st_drop_geometry() %>%
   count(jaar_laatste_bezoek) %>%
-  kable(caption = "Aantal bezochte hokken per jaar")
+  gt(caption = "Aantal bezochte hokken per jaar")
 ```
 
 In het landbouw stratum zitten bijna 500 (actieve) hokken (Tabel \@ref(tab:abv-n-stratum)).
@@ -509,7 +510,7 @@ abv_grid_stratum %>%
   st_drop_geometry() %>%
   filter(status == "actief") %>%
   count(Stratum) %>%
-  kable(caption = "Aantal hokken")
+  gt(caption = "Aantal hokken")
 ```
 
 
