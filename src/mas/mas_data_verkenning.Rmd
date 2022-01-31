@@ -9,14 +9,28 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(
+library(knitr)
+library(here)
+opts_chunk$set(
   echo = TRUE)
+opts_knit$set(root.dir = here::here())
+source(here("R", "read_agri_use_parcels.R"))
+source(here("R", "utils.R"))
+source(here("R", "landuse_maps.R"))
+source(here("R", "abv.R"))
+source(here("R", "agro_environment_schemes.R"))
+source(here("R", "geocomputations.R"))
 library(tidyverse)
 library(sf)
 library(mapview)
 library(here)
 library(readxl)
 library(gt)
+```
+
+```{r}
+flanders <- eurostat::eurostat_geodata_60_2016 %>%
+  filter(id == "BE2")
 ```
 
 ```{=html}
@@ -418,9 +432,101 @@ unique(tellingen_leemstreek_moeren$naam) %>%
   write_excel_csv2("data/mas/soortenlijst.csv")
 ```
 
+# ABV data
+
+-   status: sommige hokken zijn niet langer actief, bv omdat ze in industriegebied of grotendeels in het water liggen. Er zijn ook heel wat hokken die de status 'actief' hebben maar in praktijk helemaal niet actief blijken.
+-   gereserveerd: is er momenteel een teller die het hok gereserveerd heeft?
+-   jaar: dit is het jaar waarin een hok in theorie zou moeten geteld worden binnen de cyclus 2019-2021
+-   laatste bezoek: datum van het laatste bezoek dat werd ingevoerd voor het hok
+-   recall: voor hokken die eigenlijk in 2019 of 2020 geteld hadden moeten worden is een nieuwe teloproep gelanceerd in 2021 om toch een zo goed mogelijke dekking te hebben binnen de cyclus. Deze vind je dus hier terug. Het kan een locatie zijn die nog niet geteld werd of die slechts één keer geteld werd in 2019-2020.
+
+```{r message=FALSE}
+abv_grid <- abv_read_utm_squares() #connectie met GISdata server nodig
+abv_sampling_frame <- abv_read_sampling_frame()
+```
+
+Het ABV meetnet is gestratificeerd volgens landgebruik.
+Voor de definitie van het landbouw stratum komen alle UTM hokken met \> 70% landbouw in aanmerking (zie Figuur \@ref(fig:abv-hist-landbouw)).
+
+```{r abv-hist-landbouw, fig.cap = "Histogram van aandeel landbouw in een hok binnen stratum landbouw."}
+abv_sampling_frame %>%
+  filter(Stratum == "Landbouw") %>%
+  mutate(aandeel_landbouw = Landbouw / Som) %>%
+  ggplot() + 
+  geom_histogram(aes(x = aandeel_landbouw))
+```
+
+Figuren \@ref(fig:abv-strata), \@ref(fig:abv-gepland) en \@ref(fig:abv-gepland-landbouw) tonen respectievelijk, de verschillende strata, het jaar waarin bezoek werd gepland voor alle strata en voor het landbouwstratum apart.
+
+
+
+```{r abv-strata, out.width = "100%", fig.cap = "Strata ABV hokken."}
+abv_grid_stratum <- abv_grid %>%
+  filter(status == "actief") %>%
+  mutate(jaar_laatste_bezoek = lubridate::year(laatste_bezoek),
+         jaar_gepland_bezoek = pmax(jaar, recall, na.rm = TRUE),
+         reeds_uitgevoerd = !is.na(laatste_bezoek)) %>%
+  inner_join(abv_sampling_frame %>%
+               select(ExternalCode, Stratum),
+             by = c("utm_hok" = "ExternalCode")
+               )
+
+abv_grid_stratum %>%
+  mapview(zcol = "Stratum",
+          burst = TRUE)
+```
+
+
+```{r abv-gepland, out.width = "100%", fig.cap = "Jaar waarin bezoek gepland (panels) werd (alle strata)."}
+abv_grid_stratum %>%
+  mapview(zcol = "jaar_gepland_bezoek",
+          burst = TRUE)
+```
+
+Zelfde, maar dan enkel landbouwstratum:
+
+```{r abv-gepland-landbouw, out.width = "100%", fig.cap = "Jaar waarin bezoek gepland (panels) werd en al dan niet uitgevoerd (enkel landbouw stratum). Ter referentie is ook de perimeter van plan kiekendief toegevoegd."}
+mapview(plan_kiekendief_perimeter, legend = FALSE) +
+abv_grid_stratum %>%
+  filter(Stratum == "Landbouw") %>%
+  mapview(zcol = "jaar_gepland_bezoek",
+          burst = TRUE)
+```
+
+Tabel \@ref(tab:aantal-actief) geeft aan dat de laatste jaren rond de 150 - 190 hokken bezocht werden, terwijl er 300 vooropgesteld worden.
+
+```{r aantal-actief}
+abv_grid_stratum %>%
+  st_drop_geometry() %>%
+  count(jaar_laatste_bezoek) %>%
+  kable(caption = "Aantal bezochte hokken per jaar")
+```
+
+In het landbouw stratum zitten bijna 500 (actieve) hokken (Tabel \@ref(tab:abv-n-stratum)).
+
+```{r abv-n-stratum}
+abv_grid_stratum %>%
+  st_drop_geometry() %>%
+  filter(status == "actief") %>%
+  count(Stratum) %>%
+  kable(caption = "Aantal hokken")
+```
+
+
+
+
 # Verklarende variabelen
 
+
+
 Voedsel (winter en zomer) - Veiligheid (dekking) - Nestgelegenheid
+
+Schaalniveaus:
+
+- individuele observatie (indien locatie binnen telcirkel vastgelegd)
+- niveau van telcirkel
+- ruimer landschap rond telcirkel (of rond observatie)
+
 
 Landgebruik - lokaal
 
@@ -473,6 +579,9 @@ Naast vogelsoort en aantal individuen ook extra indicatoren die relevant zijn vo
 -   stapelvoedselindicatoren: zaadbeschikbaarheid / insectenabundantie
 
 cf [@roodbergen2011]
+
+
+Via avimap worden exacte locaties vastgelegd binnen de telcirkel, is dit ook het geval bij het ABV telprotocol (sinds welk jaar?)?
 
 # Rapport outline
 
