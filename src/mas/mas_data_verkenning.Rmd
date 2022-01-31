@@ -151,7 +151,6 @@ Dus eenmaal geteld, dan werd een punt niet meer verplaatst.
 **Vragen**
 
 - Sommige punten liggen buiten het kerngebied en werden op enkele uitzonderingen na nooit geteld. Waarom?
-- Zijn de individuele teldata (locatie binnen telcirkel, telronde, tijdstip, soort, aantal) ook beschikbaar?
 - Er zitten patronen in jaar / type teller. Dit kan vertekening geven. Verwacht je daar effecten van?
 
 ```{r avimap-plan-kiekendief, out.width="100%"}
@@ -160,6 +159,7 @@ mapview(plan_kiekendief_perimeter, legend = NULL) +
   filter(!regio %in% c("Vlaanderen - Limburg",
                        "Vlaanderen - Leefdaal",
                        "Vlaanderen - Bilzen")) %>%
+  st_buffer(dist = 300) %>%
   mapview(zcol = "type_teller_2021", burst = TRUE)
 ```
 
@@ -175,11 +175,23 @@ getelde_telpunten_leemstreek_moeren <- max_aantallen_vlaanderen %>%
 
 ```{r tellingen-leemstreek-moeren, out.width="100%"}
 mapview(plan_kiekendief_perimeter, legend = NULL) +
-mapview(getelde_telpunten_leemstreek_moeren %>%
-          mutate(jaar = as.character(jaar)),
-        zcol = c("jaar"),
+getelde_telpunten_leemstreek_moeren %>%
+          mutate(jaar = as.character(jaar)) %>%
+  st_buffer(dist = 300) %>%
+  mapview(zcol = c("jaar"),
         burst = TRUE)
 ```
+
+```{r}
+tellingen_avimap %>%
+  filter(aantal > 0) %>%
+  select(naam, aantal, jaar, maand, dag) %>%
+  mapview(zcol = "jaar",
+          burst = TRUE)
+```
+
+
+- Zijn de patronen die we zien in de bezoekpunten (clustering langs paden of wegen) werkelijk of een gevolg van de manier hoe de telcirkel bezocht werd?
 
 ### Limburg
 
@@ -197,6 +209,7 @@ plan_kiekendief_perimeter %>%
   mapview(legend = NULL) +
   telpunten_avimap %>%
   filter(regio == "Vlaanderen - Limburg") %>%
+  st_buffer(dist = 300) %>%
   mapview(zcol = "type_teller_2021",
           burst = TRUE)
 ```
@@ -213,6 +226,7 @@ De data is "eigendom" van WGG, project betaald door stad Bilzen.
 ```{r kaart-bilzen, out.width="100%"}
 telpunten_avimap %>%
   filter(regio == "Vlaanderen - Bilzen") %>%
+  st_buffer(dist = 300) %>%
   mapview(zcol = "type_teller_2021", burst = TRUE)
 ```
 
@@ -229,7 +243,8 @@ getelde_telpunten_bilzen <- max_aantallen_vlaanderen %>%
 
 ```{r getelde-punten-bilzen, out.width="100%"}
 getelde_telpunten_bilzen %>%
-          mutate(jaar = as.character(jaar)) %>% 
+          mutate(jaar = as.character(jaar)) %>%
+  st_buffer(dist = 300) %>%
   mapview(zcol = c("jaar"),
           burst = TRUE)
 ```
