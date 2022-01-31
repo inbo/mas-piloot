@@ -9,7 +9,8 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  echo = TRUE)
 library(tidyverse)
 library(sf)
 library(mapview)
@@ -30,10 +31,10 @@ Als er een teller van een punt geschrapt is (vb door tijdsgebrek, of een vrijwil
 Er zijn dus wel punten in die database die ooit een of meerdere keren geteld zijn, maar die nu als "niet geteld" gelabeld staan.
 -->
 ```
-```{r inlezen}
+```{r inlezen, message=FALSE, warning=FALSE}
 # CRS avimap en max-aantallen CRS EPSG:28992 (amesfoort)
 # wordt in avimap standaard gebruikt
-telpunten_mas <- foreign::read.dbf(
+telpunten_avimap <- foreign::read.dbf(
   here("data/mas/avimap_514_0_mas_wg_grauwe_kiekendief_be_telpunten_xy.dbf"),
   as.is = TRUE
   ) %>%
@@ -50,10 +51,10 @@ telpunten_mas <- foreign::read.dbf(
   st_as_sf(coords = c("st_x", "st_y"),
            crs = 28992)
 
-tellingen_leemstreek_moeren <- read_excel(
+max_aantallen_vlaanderen <- read_excel(
   here("data/mas/mas_2018_2021 maxaantallen_vlaanderen.xlsx")) %>%
   rename(teller = waarneme) %>%
-  left_join(telpunten_mas %>%
+  left_join(telpunten_avimap %>%
               st_drop_geometry() %>%
               select(plotid, regio),
             by = "plotid") %>%
@@ -71,85 +72,115 @@ tellingen_leemstreek_moeren <- read_excel(
   st_as_sf(coords = c("x", "y"),
            crs = 28992) 
 
-moeren_leefdaal_shp <- read_sf(
+tellingen_uh <- read_sf(
   here("data/mas/mas_leefdaal_moeren_2018-2020.shp"))
 
-moeren_shp <- read_sf(
+telcirkels_uh_moeren <- read_sf(
   here("data/mas/mas_moeren_observatiepunten_buffer200.shp")) %>%
   mutate(area = st_area(.),
          straal = sqrt(area / pi))
 
-leefdaal_shp <- read_sf(
+telcirkels_uh_leefdaal <- read_sf(
   here("data/mas/mas_leefdaal_observatiepunten_buffer200.shp")) %>%
   mutate(area = st_area(.),
          straal = sqrt(area / pi))
 
-#De punten van UH werden in avimap geïmporteerd
-# er is daar in avimap geen tellerscode bij vermeld bij de punten die door UH
-# professioneel geteld werden (want ze hebben dat in excel bijgehouden),
-#maar die 21 punten mogen dus op professioneel geteld komen
-#(voor de periode 2018-2020).
-#Hetzelfde voor de punten in Leefdal, die zijn ook in avimap geïmporteerd 
-#(voorlopig zijn daar geen vrijwilligers voor aangesproken om die over te nemen)
-#, en werden dus ook professioneel geteld voor dezelfde 3 jaar.
+
+plan_kiekendief_perimeter <- read_sf(
+  here("data/mas/Grauwe_kiekendief_VLM3.kml")
+) %>%
+  select(-Description) %>%
+  st_simplify()
+
+plan_kiekendief_prioritair_bo <- read_sf(
+  here("data/mas/Grauwe_kiekendief_prioritaire_maatregelenzones_VLM2.kml")
+) %>%
+  select(-Description, -Name) %>%
+  st_simplify()
 ```
+
+
 
 # MAS-data
 
 ## Plan kiekendief
 
-Zie @wiersma2021.
+### Leemstreek en Moeren
 
 Onderzoek naar prooiaanbod (akkervogels) voor grauwe kiekendief.
 Deze MAS-data werden verzameld door vrijwilligers en professionelen (gestuurd door Werkgroep Grauwe Gors en Kenniscentrum akkervogels Grauwe Kiekendief GKA), via Avimap, zowel in de Leemstreek als in de (rand van) de Moeren.
-Na 4 jaar tellen werd hierover een eindrapport gepubliceerd, en werd een extra MAS-jaar toegevoegd (2021) om de continuïteit te verzekeren.
-Een update met het extra MAS-jaar is in voorbereiding.
 Dit is het grootste deel van de MAS-data en is "eigendom" van ANB (plan kiekendief).
 <!--, waarbij we nog aan de vrijwillige tellers moeten vragen of ze akkoord zijn dat hun data voor de pilot MAS door INBO mag gebruikt worden.-->
 
+De opdrachthouder voor de twee deelgebieden was anders (studiebureau Antea voor de Moeren, en GKA+WGG voor de Leemstreek).
 GKA legt geen restricties of voorwaarden op qua gebruik.
 <!--Het is wel gangbaar dat de vrijwilligers die voor de data hebben gezorgd nog worden ingelicht en bezwaar kunnen maken als ze dit niet zouden willen.
 Johannes zal daarvoor vandaag nog een aanzet geven voor de communicatie naar de vrijwilligers.
 We zouden ze dan max een week de tijd geven om te laten weten als hun data niet voor de analyse ter voorbereiding van dit pilootproject zou mogen dienen.
 -->
 
-De max aantallen van Leemstreek / Moeren zijn in kader van Plan Kiekendief berekend (dat plan beslaat zowel de Moeren als de Leemstreek), maar de opdrachthouder voor de twee deelgebieden was anders (studiebureau Antea voor de Moeren, en GKA+WGG voor de Leemstreek).
+Na 4 jaar tellen werd hierover een eindrapport gepubliceerd, dat echter enkel de leemstreek behandelt [Zie @wiersma2021], en werd een extra MAS-jaar toegevoegd (2021) om de continuïteit te verzekeren.
+De maximum aantallen van Leemstreek / Moeren zijn in kader van Plan Kiekendief berekend.
 De max aantallen werden geanalyseerd samen met GKA, en zijn vooral relevant voor de Leemstreek, maar de weinige vrijwilligerspunten van de Moeren werden ook meegenomen (omdat Antea dat zelf niet had gedaan en geen bezwaar had).
 Dit zijn de max aantallen voor de eerste 4 jaar, zonder de UH tellingen in beschouwing te nemen.
-<!--We werken nu aan een update voor die aantallen, met het extra MAS jaar er bij (dus 5 jaar data), en zowel voor de data van de Leemstreek als voor de Moeren (combinatie van vrijwilligerspunten en UH punten)-->
+Er wordt ook gewerkt aan een update voor die maximum aantallen, met het extra MAS jaar er bij (dus 5 jaar data), en dit zowel voor de data van de Leemstreek als voor de Moeren (combinatie van vrijwilligerspunten en UH punten).
 
 De MAS punten voor plan Kiekendief werden gestratificeerd random uitgestrooid verspreid over het kerngebied van Plan Kiekendief (moeren en leemstreek), dat kerngebied werd door het INBO afgebakend als meest succesvolle gebied voor vestiging van grauwe kiekendief (zie SBP grauwe kiekendief).
 Na het uitstrooien van de punten werden de punten vervolgens licht verplaatst (indien nodig) zodat ze vlot bereikbaar zijn en voldoende zicht bieden op het landschap, en eventueel nog bijgesteld na een terreinbezoek door de tellers (controle door coördinator).
 Dit alvorens een punt voor een eerste keer werd geteld.
 Dus eenmaal geteld, dan werd een punt niet meer verplaatst.
 
-```{r avimap-plan-kiekendief}
-telpunten_mas %>%
+**Vragen**
+
+- Sommige punten liggen buiten het kerngebied en werden op enkele uitzonderingen na nooit geteld. Waarom?
+- Zijn de individuele teldata (locatie binnen telcirkel, telronde, tijdstip, soort, aantal) ook beschikbaar?
+- Er zitten patronen in jaar / type teller. Dit kan vertekening geven. Verwacht je daar effecten van?
+
+```{r avimap-plan-kiekendief, out.width="100%"}
+mapview(plan_kiekendief_perimeter, legend = NULL) +
+  telpunten_avimap %>%
   filter(!regio %in% c("Vlaanderen - Limburg",
                        "Vlaanderen - Leefdaal",
                        "Vlaanderen - Bilzen")) %>%
-  mapview(zcol = "type_teller_2021")
+  mapview(zcol = "type_teller_2021", burst = TRUE)
 ```
 
-```{r tellingen-leemstreek-moeren}
-getelde_telpunten_leemstreek_moeren <- tellingen_leemstreek_moeren %>%
+```{r cache=TRUE}
+getelde_telpunten_leemstreek_moeren <- max_aantallen_vlaanderen %>%
   filter(!regio %in% c("Vlaanderen - Limburg",
                        "Vlaanderen - Leefdaal",
                        "Vlaanderen - Bilzen")) %>%
   group_by(jaar, plotid, plotnaam, teller, type_teller) %>%
   summarise(.groups = "drop")
+```
 
+
+```{r tellingen-leemstreek-moeren, out.width="100%"}
+mapview(plan_kiekendief_perimeter, legend = NULL) +
 mapview(getelde_telpunten_leemstreek_moeren %>%
           mutate(jaar = as.character(jaar)),
-        zcol = c("jaar", "type_teller"))
+        zcol = c("jaar"),
+        burst = TRUE)
 ```
 
 ### Limburg
 
-```{r}
-telpunten_mas %>%
+```{r limburg-map, out.width="100%"}
+plan_kiekendief_perimeter %>%
+    filter(
+      Name %in% 
+        c("Militair domein en de vallei van de Zwarte Beek",
+          "Mangelbeek en heide- en vengebieden tussen Houthalen en Gruitrode",
+          "Mangelbeek militair domein Houthalen",
+          "Houthalen-Helchteren, Meeuwen-Gruitrode en Peer",
+          "Bocholt, Hechtel-Eksel, Meeuwen-Gruitrode, Neerpelt en Peer"
+        )
+    ) %>% 
+  mapview(legend = NULL) +
+  telpunten_avimap %>%
   filter(regio == "Vlaanderen - Limburg") %>%
-  mapview(zcol = "type_teller_2021")
+  mapview(zcol = "type_teller_2021",
+          burst = TRUE)
 ```
 
 Deze punten behoren tot Plan Kiekendief en werden op dezelfde manier uitgestrooid, maar het deelgebied werd later afgevoerd als monitoringsgebied (zie eindrapport).
@@ -161,17 +192,36 @@ MAS data verzameld door vrijwilligers en professionelen (gestuurd door Werkgroep
 De data is "eigendom" van WGG, project betaald door stad Bilzen.
 <!--, waarbij we nog aan de vrijwillige tellers en aan WGG moeten vragen of ze akkoord zijn dat hun data voor de pilot MAS door INBO mag gebruikt worden.--> Dit project loopt nog (minstens) 4 jaar.
 
-```{r kaart-bilzen}
-telpunten_mas %>%
+```{r kaart-bilzen, out.width="100%"}
+telpunten_avimap %>%
   filter(regio == "Vlaanderen - Bilzen") %>%
-  mapview(zcol = "type_teller_2021")
+  mapview(zcol = "type_teller_2021", burst = TRUE)
 ```
 
 De punten kunnen niet beschouwd worden als horend bij de Leemstreek, geografisch wel, maar niet als proefopzet.
 Ze zijn niet op dezelfde manier als Plan Kiekendief uitgestrooid, maar puur manueel uitgezet verdeeld over het gebied, en telkens op een weg.
 <!--Johannes vraagt na of er een achtergronddocument is hiervan.-->
 
+```{r cache=TRUE}
+getelde_telpunten_bilzen <- max_aantallen_vlaanderen %>%
+  filter(regio %in% c("Vlaanderen - Bilzen")) %>%
+  group_by(jaar, plotid, plotnaam, teller, type_teller) %>%
+  summarise(.groups = "drop")
+```
+
+```{r getelde-punten-bilzen, out.width="100%"}
+getelde_telpunten_bilzen %>%
+          mutate(jaar = as.character(jaar)) %>% 
+  mapview(zcol = c("jaar"),
+          burst = TRUE)
+```
+
 ## Akkervogelonderzoek UHasselt
+
+<!--
+De punten van UH werden in avimap geïmporteerd er is daar in avimap geen tellerscode bij vermeld bij de punten die door UH professioneel geteld werden (want ze hebben dat in excel bijgehouden), maar die 21 punten mogen dus op professioneel geteld komen (voor de periode 2018-2020).
+Hetzelfde voor de punten in Leefdal, die zijn ook in avimap geïmporteerd(voorlopig zijn daar geen vrijwilligers voor aangesproken om die over te nemen), en werden dus ook professioneel geteld voor dezelfde 3 jaar.
+-->
 
 MAS data verzameld door UHasselt in de Moeren en Leefdaal, volledig professioneel geteld.
 Dit project is afgelopen, en er werd 3 jaar geteld.
@@ -179,30 +229,42 @@ De eigenaar is ANB, van hen en de UH is er goedkeuring om de data van de Moeren 
 De tellingen zitten in een excel (werden (nog) niet in avimap gestopt).
 <!--We zouden nog aan UH moeten vragen of ze akkoord zijn dat hun data ook voor de pilot MAS door INBO mag gebruikt worden.-->
 
-De coördinaten van de Moeren (21 punten) werden allemaal 3 jaar aan een stuk professioneel geteld door een medewerker van UH.
+De coördinaten van de Moeren (21 punten) werden in 2018, 2019 en 2020 professioneel geteld door een medewerker van UH.
 Dit was een erg dens puntennetwerk, dekkend, met telcirkels die elkaar raakten.
 De telcirkels hebben echter een straal van 188 m in plaats van 300 m.
 Het jaar ervoor (enkele punten) en het jaar erna (2021) werden een aantal punten overgenomen door de vrijwillige tellers om de continuïteit van een aantal punten te verzekeren.
 Daarvoor werden twee punten licht verplaatst.
 De oorspronkelijke puntenlijst, en de nieuwe (vrijwillig) getelde puntenlijst zitten ook samen in de avimap dataset.
 
-```{r moeren-uh}
-moeren_shp_punten <- moeren_leefdaal_shp %>%
+```{r moeren-uh, out.width="100%"}
+tellingen_uh_moeren <- tellingen_uh %>%
             filter(Area == "Moeren")
-mapview(moeren_shp) +
-  mapview(moeren_shp_punten, col.regions = "green")
+mapview(telcirkels_uh_moeren) +
+  mapview(tellingen_uh_moeren,
+          zcol = "Year",
+          burst = TRUE)
 ```
 
 ```{r}
-max_aantallen_moeren_leefdaal <- moeren_leefdaal_shp %>%
-  st_join(moeren_shp %>%
-            rbind(leefdaal_shp),
+max_aantallen_uh_moeren_leefdaal <- tellingen_uh %>%
+  st_join(telcirkels_uh_moeren %>%
+            rbind(telcirkels_uh_leefdaal),
           left = FALSE) %>%
   st_drop_geometry() %>%
   group_by(Point, Year, Species, Gebied = Area) %>%
   filter(!is.na(Number)) %>%
   summarise(max_aantal = max(Number),
             .groups = "drop")
+
+# naamgeving omzetten overeenkostig max_aantallen_vlaanderen
+max_aantallen_uh_moeren_leefdaal %>%
+  rename(id_telpunt_uh = Point,
+         jaar = Year,
+         naam = Species,
+         gebied = Gebied) %>%
+  mutate(naam = gsub(pattern = " ", replacement = "_", x = .$naam,
+                     fixed = TRUE),
+         naam = tolower(naam))
 ```
 
 Een aantal punten van de UH uit de Moeren werden voor 2018 al geteld of in 2021 overgenomen door vrijwilligers.
@@ -220,36 +282,38 @@ Gezien de verplaatsing zou ik de koppeling niet maken, en ze als gescheiden (nie
 ```
 ```{r koppeling-avimap-moeren-uh}
 # geen perfecte 1 op 1 match (zie id.moeren 1, 5, 17)
-moeren_shp %>%
+telcirkels_uh_moeren %>%
   st_transform(crs = 28992) %>%
-  st_join(telpunten_mas,
+  st_join(telpunten_avimap,
           suffix = c(".moeren", ".avimap")) %>%
   st_drop_geometry() %>%
   gt()
 ```
 
-```{r leefdaal-uh}
-leefdaal_shp_punten <- moeren_leefdaal_shp %>%
+```{r leefdaal-uh, out.width="100%"}
+tellingen_uh_leefdaal <- tellingen_uh %>%
             filter(Area == "Leefdaal")
 
-leefdaal_shp %>%
+telcirkels_uh_leefdaal %>%
   mapview() + 
-  mapview(leefdaal_shp_punten, col.regions = "green")
+  mapview(tellingen_uh_leefdaal,
+          zcol = "Year",
+          burst = TRUE)
 ```
 
-Leefdal kan beschouwd worden als de Leemstreek (geografisch), maar ook hier werden de punten anders uitgezet (veel denser, door UH), en behoort Leefdal niet tot het kerngebied van Plan Kiekendief.
+Leefdal is ook in de Leemstreek gelegen, maar ook hier werden de punten anders uitgezet (veel denser, door UH), en behoort Leefdal niet tot het kerngebied van Plan Kiekendief.
 
 ```{r koppeling-avimap-leefdaal-uh}
 # hier wel een 1 op 1 koppeling
-leefdaal_shp %>%
+telcirkels_uh_leefdaal %>%
   st_transform(crs = 28992) %>%
-  st_join(telpunten_mas,
+  st_join(telpunten_avimap,
           suffix = c(".leefdaal", ".avimap")) %>%
   st_drop_geometry() %>%
   gt()
 ```
 
-# Verkenning maximum aantallen
+# Verkenning maximum aantallen 
 
 Voor alle soorten zijn er nulwaarnemingen, behalve voor Cetti's zanger (werd twee keer gezien).
 Cetti's zanger verwijderen uit dataset of veronderstellen dat de soort niet gezien werd in alle overige jaar x locatie combinaties?
@@ -257,7 +321,7 @@ Cetti's zanger verwijderen uit dataset of veronderstellen dat de soort niet gezi
 (ref:check-soortenlijst) Overzicht min en max lengte van de soortenlijst en min-max aantal soorten in elk van de telpunten. Cetti's zanger werd verwijderd.
 
 ```{r check-soortenlijst}
-tellingen_leemstreek_moeren %>%
+max_aantallen_vlaanderen %>%
   st_drop_geometry() %>%
   filter(naam != "cetti's_zanger") %>%
   group_by(regio, jaar, plotid) %>%
@@ -274,7 +338,7 @@ tellingen_leemstreek_moeren %>%
 (ref:check-telpuntenlijst) Overzicht min - max aantal getelde telpunten per jaar en min - max aantal aanwezige soorten in deze telpunten. Cetti's zanger werd verwijderd.
 
 ```{r check-telpuntenlijst}
-tellingen_leemstreek_moeren %>%
+max_aantallen_vlaanderen %>%
   st_drop_geometry() %>%
   filter(naam != "cetti's_zanger") %>%
   group_by(regio, jaar, naam) %>%
@@ -291,7 +355,7 @@ tellingen_leemstreek_moeren %>%
 (ref:check-jaren-geteld) Aantal telpunten per regio (n) in functie van het aantal jaren dat het telpunt geteld werd.
 
 ```{r check-jaren-geteld}
-tellingen_leemstreek_moeren %>%
+max_aantallen_vlaanderen %>%
   st_drop_geometry() %>%
   filter(naam != "cetti's_zanger") %>%
   group_by(regio, plotid) %>%
@@ -303,16 +367,16 @@ tellingen_leemstreek_moeren %>%
 ```
 
 ```{r}
-tellingen_leemstreek_moeren %>%
+max_aantallen_vlaanderen %>%
   st_drop_geometry() %>%
   filter(naam != "cetti's_zanger") %>%
   pivot_wider(id_cols = c(jaar, regio, plotid),
               names_from = naam, 
-              values_from = Aantal_max) -> tellingen_breed
+              values_from = Aantal_max) -> max_aantallen_vl_breed
 ```
 
 ```{r}
-tellingen_leemstreek_moeren %>%
+max_aantallen_vlaanderen %>%
   st_drop_geometry() %>%
   filter(naam != "cetti's_zanger") %>%
   group_by(regio, jaar, plotid) %>%
@@ -332,7 +396,6 @@ diversiteit %>%
   ggplot() +
   geom_boxplot(aes(x = regio, y = aantal_soorten,
                    fill = factor(jaar)))
-
 
 diversiteit %>%
   ggplot() +
@@ -376,6 +439,21 @@ Bemestingsniveau
 Landgebruik - ruimer landschap
 
 Perceelsgrootte
+
+
+```{r bo-2021}
+bo_2021 <- read_sf(
+  here("data/bo_vlm/BO_2021_VLM_EXTERN.shp")) %>%
+  janitor::clean_names() %>%
+  mutate(start = lubridate::ymd(start),
+         stop = lubridate::ymd(stop))
+```
+
+```{r bo2021plot, out.width="100%"}
+bo_2021 %>%
+  ggplot() +
+  geom_sf(aes(fill = bh_doelst, colour = bh_doelst))
+```
 
 # Vogelkenmerken
 
@@ -467,5 +545,10 @@ cf [@roodbergen2011]
 7.  Discussie
 
 8.  Conclusies
+
+# Vragen
+
+- Welke data zitten er in de verzamelaanvraag landbouw? Welke zijn relevant voor dit project? Hoe vragen we deze aan?
+- Onderscheid vrijwilliger / professioneel is misschien niet altijd relevant. Is het mogelijk om de ervaring van elke teller aan te geven (beginner, gemiddeld, specialist)?
 
 # Referenties
