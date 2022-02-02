@@ -739,6 +739,13 @@ In principe worden vogels die buiten de telcirkel vallen uit de data weggeknipt.
 
 # Vragen
 
+- Focus gegevensinzameling 2022 - 2023 hangt af van welke vragen we willen kunnen beantwoorden:
+    - zicht krijgen op variabilitiet in volledige strata: volledige leemstreek en volledige polderstreek?
+    - zicht krijgen op temporele autocorrelatie: balans verderzetting huidige MAS telpunten versus uitbreiding naar nieuwe telpunten?
+    - zicht krijgen op ABV telprotocol versus MAS telprotocol: vergelijkingen beide methoden op dezelfde locaties nodig?
+    - zicht krijgen op effect van verschil in ervaring van teller: herhaalde tellingen nodig van dezelfde telpunten door tellers met verschillende ervaring op hetzelfde tijdstip?
+    - zicht krijgen op effect beheerovereenkomsten (= dynamische strata, tenzij in de toekomst er meer gericht in focusgebieden gewerkt zal worden?): vereist dit bijkomende telpunten in functie van deze vraagstelling of komen we er ook door een goede ruimtelijke spreiding en voldoende grote steekproefgrootte?
+
 - Welke data zitten er in de verzamelaanvraag landbouw? Welke zijn relevant voor dit project? Hoe vragen we deze aan?
 
 
