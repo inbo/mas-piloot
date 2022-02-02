@@ -28,10 +28,6 @@ library(readxl)
 library(gt)
 ```
 
-```{r}
-flanders <- eurostat::eurostat_geodata_60_2016 %>%
-  filter(id == "BE2")
-```
 
 ```{=html}
 <!--
@@ -91,30 +87,34 @@ max_aantallen_vlaanderen <- read_excel(
            crs = 28992) 
 
 tellingen_uh <- read_sf(
-  here("data/mas/mas_leefdaal_moeren_2018-2020.shp"))
+  here("data", "mas", "mas_leefdaal_moeren_2018-2020.shp"))
 
 telcirkels_uh_moeren <- read_sf(
-  here("data/mas/mas_moeren_observatiepunten_buffer200.shp")) %>%
+  here("data", "mas", "mas_moeren_observatiepunten_buffer200.shp")) %>%
   mutate(area = st_area(.),
          straal = sqrt(area / pi))
 
 telcirkels_uh_leefdaal <- read_sf(
-  here("data/mas/mas_leefdaal_observatiepunten_buffer200.shp")) %>%
+  here("data", "mas", "mas_leefdaal_observatiepunten_buffer200.shp")) %>%
   mutate(area = st_area(.),
          straal = sqrt(area / pi))
 
 
 plan_kiekendief_perimeter <- read_sf(
-  here("data/mas/Grauwe_kiekendief_VLM3.kml")
+  here("data", "mas", "Grauwe_kiekendief_VLM3.kml")
 ) %>%
   select(-Description) %>%
   st_simplify()
 
 plan_kiekendief_prioritair_bo <- read_sf(
-  here("data/mas/Grauwe_kiekendief_prioritaire_maatregelenzones_VLM2.kml")
+  here("data", "mas", "Grauwe_kiekendief_prioritaire_maatregelenzones_VLM2.kml")
 ) %>%
   select(-Description, -Name) %>%
   st_simplify()
+
+landbouwstreken <- sf::read_sf(
+  here("data", "landbouwstreken", "Lbstrbel.shp"))
+
 ```
 
 
@@ -148,12 +148,20 @@ Na het uitstrooien van de punten werden de punten vervolgens licht verplaatst (i
 Dit alvorens een punt voor een eerste keer werd geteld.
 Dus eenmaal geteld, dan werd een punt niet meer verplaatst.
 
-**Vragen**
+Een aantal telpunten zijn gelegen buiten de perimeter van de kerngebieden.
+Deze punten zijn bedoeld als controle punten, maar die zijn nooit geteld omdat prioriteit moest worden gegeven aan voldoende dekking binnen de perimeter.
 
-- Sommige punten liggen buiten het kerngebied en werden op enkele uitzonderingen na nooit geteld. Waarom?
-- Er zitten patronen in jaar / type teller. Dit kan vertekening geven. Verwacht je daar effecten van?
+Er zitten patronen in jaar / type teller.
+Dit kan vertekening geven, maar volgens de experten is het twijfelachtig of dit effectief het geval gaat zijn.
+Er zijn ook punten die in één jaar door een professioneel zijn geteld, en in een volgend jaar door een vrijwilliger, en omgekeerd.
+Herhaalde tellingen binnen hetzelfde jaar door tellers met verschillende ervaring ontbreken echter.
+
 
 ```{r avimap-plan-kiekendief, out.width="100%"}
+mapview(landbouwstreken, 
+        zcol = "NAAM",
+        alpha.regions = 0.3,
+        legend = FALSE) +
 mapview(plan_kiekendief_perimeter, legend = NULL) +
   telpunten_avimap %>%
   filter(!regio %in% c("Vlaanderen - Limburg",
@@ -174,6 +182,10 @@ getelde_telpunten_leemstreek_moeren <- max_aantallen_vlaanderen %>%
 
 
 ```{r tellingen-leemstreek-moeren, out.width="100%"}
+mapview(landbouwstreken, 
+        zcol = "NAAM",
+        alpha.regions = 0.3,
+        legend = FALSE) +
 mapview(plan_kiekendief_perimeter, legend = NULL) +
 getelde_telpunten_leemstreek_moeren %>%
           mutate(jaar = as.character(jaar)) %>%
@@ -182,7 +194,11 @@ getelde_telpunten_leemstreek_moeren %>%
         burst = TRUE)
 ```
 
-```{r}
+```{r bezoekstippen-avimap, out.width="100%"}
+mapview(landbouwstreken, 
+        zcol = "NAAM",
+        alpha.regions = 0.3,
+        legend = FALSE) +
 tellingen_avimap %>%
   filter(aantal > 0) %>%
   select(naam, aantal, jaar, maand, dag) %>%
@@ -190,8 +206,10 @@ tellingen_avimap %>%
           burst = TRUE)
 ```
 
-
-- Zijn de patronen die we zien in de bezoekpunten (clustering langs paden of wegen) werkelijk of een gevolg van de manier hoe de telcirkel bezocht werd?
+De clustering langs paden of wegen is de effectieve verzameling van vogels langs die wegen.
+Dat valt vooral op als je de satelietlaag er onder legt.
+Vaak zijn dat bermen, holle wegen of houtkanten, en zitten de vogels daar te zingen/foerageren.
+Je ziet ook in gebieden waar veel maatregelen liggen (zoals de moeren of het plateau van Outgaarden) dat er een clustering is in stroken op velden, dat is soms nog niet te zien op de satelietbeelden, maar daar liggen vaak stroken braak of graskruiden strook, wat aantrekt.
 
 ### Limburg
 
@@ -348,6 +366,8 @@ telcirkels_uh_leefdaal %>%
 
 Voor alle soorten zijn er nulwaarnemingen, behalve voor Cetti's zanger (werd twee keer gezien).
 Cetti's zanger verwijderen uit dataset of veronderstellen dat de soort niet gezien werd in alle overige jaar x locatie combinaties?
+
+> de soortenlijst kunnen we nog eens overlopen, want er staan soorten bij die zeker niet relevant zijn. Cetti's zanger kunnen we gerust nog erin houden, want die heeft zo'n karakteristieke zang (en laat zich ook goed frequent horen), dat die met grote zekerheid wel geteld maar niet opgemerkt is in de andere punten.
 
 (ref:check-soortenlijst) Overzicht min en max lengte van de soortenlijst en min-max aantal soorten in elk van de telpunten. Cetti's zanger werd verwijderd.
 
@@ -509,6 +529,16 @@ abv_grid_stratum %>%
           burst = TRUE)
 ```
 
+```{r abv-gereserveerd-landbouw, out.width = "100%", fig.cap = "Jaar van het laatste bezoek voor enkel het landbouwstratum en gereserveerde hokken."}
+mapview(plan_kiekendief_perimeter, legend = FALSE) +
+abv_grid_stratum %>%
+  filter(Stratum == "Landbouw",
+         as.logical(gereserveerd)) %>%
+  mapview(zcol = "jaar_laatste_bezoek",
+          burst = TRUE)
+```
+
+
 Tabel \@ref(tab:aantal-actief) geeft aan dat de laatste jaren rond de 150 - 190 hokken bezocht werden, terwijl er 300 vooropgesteld worden.
 
 ```{r aantal-actief}
@@ -540,9 +570,9 @@ Voedsel (winter en zomer) - Veiligheid (dekking) - Nestgelegenheid
 Schaalniveaus:
 
 - individuele observatie (indien locatie binnen telcirkel vastgelegd)
+    - dit is zeker van belang aangezien we clustering zien van tellingen (stippenkaart) langs bv holle wegen, braakliggende terreinen, houtkanten, ...
 - niveau van telcirkel
 - ruimer landschap rond telcirkel (of rond observatie)
-
 
 Landgebruik - lokaal
 
@@ -586,18 +616,54 @@ bo_2021 %>%
 
 # Telprotocol
 
-Is er gewerkt met een vaste lijst van soorten?
 
-In principe worden vogels die buiten de telcirkel vallen uit de data weggeknipt.
 
-Naast vogelsoort en aantal individuen ook extra indicatoren die relevant zijn voor microbeheermonitoringschaal:
-
--   stapelvoedselindicatoren: zaadbeschikbaarheid / insectenabundantie
+## MAS
 
 cf [@roodbergen2011]
 
+Is er gewerkt met een vaste lijst van soorten?
 
-Via avimap worden exacte locaties vastgelegd binnen de telcirkel, is dit ook het geval bij het ABV telprotocol (sinds welk jaar?)?
+> Enkel vogels die 'binding vertonen' met het landschap werden geteld. Dwz als ze zitten, foerageren, of jagen boven de percelen die je telt. Slaaptrek, voorjaarstrek, en hoog overvliegende vogels werden niet geteld. Alle vogelsoorten werden geteld (dus geen vaste lijst), alsook zoogdieren (ree, haas, evt andere (marters))
+
+
+MAS is in principe ook een punttelling, van waar op een centraal punt alle waarnemingen op kaart worden aangestipt.
+Een teller mag/moet zich niet verplaatsen tijdens het tellen.
+Wel wordt gevraagd om, als je het punt benaderd (te voet, met de fiets of met de wagen), de vogels die je daarbij opstoot ook in te geven bij de start van je telling.
+Maar dat valt in het broedseizoen heel goed mee, vaak keren die vogels ook later weer terug (territorium) zodat die alsnog een broedcode mee krijgen
+De clustering van broedvogels langs onder andere wegen, bermkanten, ..., is dus niet het gevolg van de manier waarop de gegevens worden ingezameld, maar een reflectie van de reeële verspreiding van territoria langs deze geprefereerde landschapstructuren.
+
+Via avimap worden exacte locaties vastgelegd binnen de telcirkel.
+
+
+## ABV
+
+- Reserveer één van de 1200 willekeurig geselecteerde hokken van 1x1 km (UTM).
+- 6 punttellingen per hok (uitvoeren op één bezoek)
+- 3 bezoeken per hok per seizoen.
+- 5 minuten tellen per punt, totale ti jdsbesteding per plot van 1x1 km is 30 minuten per hok en dus 90 minuten per jaar.
+- 3-jaarlijkse cyclus, je telt elk hok ééns om de drie jaar.
+  Idealiter tel je drie hokken, jaarlijks een ander hok.
+  Het vierde jaar begin je opnieuw met het eerste hok.
+- Tellen van alle soorten en invullen op voorgedrukte formulieren of meteen online via www.meetnetten.be.
+
+Worden exacte locaties vastgelegd binnen het UTM hok?
+
+> Op zes punten per ABV-hok worden vogels geteld. Deze worden geturfd (dus gewoon per punt alles opschrijven dat je kan zien) en er wordt dus geen specifieke locatie vastgelegd.
+
+<!--te checken of dit effectief juist is-->
+
+
+# Analyse
+
+## MAS
+
+In principe worden vogels die buiten de telcirkel vallen uit de data weggeknipt.
+
+
+## ABV
+
+
 
 # Rapport outline
 
@@ -674,6 +740,14 @@ Via avimap worden exacte locaties vastgelegd binnen de telcirkel, is dit ook het
 # Vragen
 
 - Welke data zitten er in de verzamelaanvraag landbouw? Welke zijn relevant voor dit project? Hoe vragen we deze aan?
+
+
+- Naast vogelsoort en aantal individuen ook extra indicatoren die relevant zijn voor microbeheermonitoringschaal? Welke?
+
+<!--stapelvoedselindicatoren: zaadbeschikbaarheid / insectenabundantie-->
+
 - Onderscheid vrijwilliger / professioneel is misschien niet altijd relevant. Is het mogelijk om de ervaring van elke teller aan te geven (beginner, gemiddeld, specialist)?
+
+> De vrijwillige tellers kunnen we eigenlijk allemaal als gemiddeld/specialist beschouwen. Het zijn een voor een vogelkijkers die al zeer lang meedraaien in een VWG, en veel ervaring hebben.  Voor zowel de Moeren als de Leemstreek kunnen we die lijst wel makkelijk opmaken. In het project Plan Veldleeuwerik (Bilzen) zijn er wel een paar beginnende vogelkijkers aan te wijzen.
 
 # Referenties
