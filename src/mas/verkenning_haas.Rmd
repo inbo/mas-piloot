@@ -1,0 +1,228 @@
+---
+title: "MAS verkenning gegevens haas"
+author: "Hans Van Calster"
+date: "7-2-2022"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  out.width = "100%")
+opts_knit$set(root.dir = here::here())
+library(tidyverse)
+library(sf)
+library(mapview)
+library(readxl)
+library(gt)
+library(brms)
+```
+
+```{r inlezen, message=FALSE, warning=FALSE}
+# CRS avimap en max-aantallen CRS EPSG:28992 (amesfoort)
+# wordt in avimap standaard gebruikt
+#  "st_x" en  "st_y" is volgens crs = 28992
+telpunten_avimap <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
+) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger")) %>%
+  select(-st_x, -st_y)
+
+tellingen_avimap <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
+) 
+
+tellingen_zoogdier <- tellingen_avimap %>%
+  filter(soortgrp == 1L)
+
+tellingen_haas <- tellingen_zoogdier %>%
+  filter(naam == "Haas")
+
+bezoekenlijst_avimap <- 
+  tellingen_avimap %>%
+  st_drop_geometry() %>%
+  distinct(projectid, plotid, plotnaam, jaar, maand, dag, doy, rondenr)
+
+plan_kiekendief_perimeter <- read_sf(
+  here("data", "mas", "Grauwe_kiekendief_VLM3.kml")
+) %>%
+  select(-Description) %>%
+  st_simplify()
+
+landbouwstreken <- sf::read_sf(
+  here("data", "landbouwstreken", "Lbstrbel.shp"))
+```
+
+# Tellingen haas
+
+Er zijn `r nrow(tellingen_haas)` waarnemingen van hazen voor een totaal van `r sum(tellingen_haas$aantal)` getelde individuen.
+Een waarneming kan één of meerdere individuen tellen en komt overeen met een bepaalde lokatie binnen een telcirkel met straal 300 meter tijdens een telronde in een bepaald jaar.
+
+Aantal waarnemingen in functie van telronde (periode in het jaar):
+
+```{r}
+tellingen_haas %>%
+  ggplot() + 
+  geom_bar(aes(x = rondenr, fill = factor(jaar))) +
+  labs(y = "Aantal waarnemingen van Haas")
+```
+
+Aantal waarnemingen in functie van dag in het jaar:
+
+```{r}
+tellingen_haas %>%
+  ggplot() + 
+  geom_histogram(aes(x = doy, fill = factor(jaar)),
+                 binwidth = 14) +
+  labs(y = "Aantal observaties van Haas",
+       x = "Dagnummer in jaar")
+```
+
+Aantal getelde hazen in functie van afstand van het telpunt:
+
+```{r}
+tellingen_haas %>%
+  ggplot(aes(x = distance2p, y = aantal)) +
+  geom_point() +
+  labs(x = "Afstand in meter van telpunt",
+       y = "Aantal getelde hazen per telcirkel (300 m straal)")
+```
+
+Verspreiding van de waarnemingen van haas:
+
+```{r}
+mapview(plan_kiekendief_perimeter, legend = FALSE) +
+tellingen_haas %>%
+  mapview(zcol = "jaar", burst = TRUE)
+```
+
+Niet altijd duidelijk of elke haas afzonderlijk is ingevoerd, dan wel een benaderende locatie voor een cluster van hazen.
+
+```{r}
+telcirkel_haas <- tellingen_haas %>%
+  group_by(plotid, naam, jaar, rondenr) %>%
+  summarise(aantal_in_telcirkel = sum(aantal),
+            .groups = "drop")
+```
+
+Totaal aantal getelde hazen per telcirkel met aanduiding van gemiddelde en 95% betrouwbaarheidsinterval.
+Dit is op basis van enkel de gegevens waar haas geteld gezien werd (zonder afwezigheden).
+
+```{r}
+telcirkel_haas %>%
+  ggplot(aes(x = jaar, y = aantal_in_telcirkel)) + 
+  stat_sum() +
+  stat_summary(fun.data = mean_cl_boot, 
+               colour = "red") +
+  labs(y = "Totaal aantal getelde hazen per telcirkel (300 m straal)")
+```
+
+Nulwaarnemingen toevoegen:
+
+
+```{r}
+cirkelopp <- pi * 300^2
+
+telcirkel_haas_nulw <- telcirkel_haas %>%
+  st_drop_geometry() %>%
+  full_join(bezoekenlijst_avimap,
+            by = c("plotid", "jaar", "rondenr")) %>%
+  mutate(aantal_in_telcirkel = ifelse(is.na(aantal_in_telcirkel),
+                                      0,
+                                      aantal_in_telcirkel)) %>%
+  left_join(telpunten_avimap %>%
+              st_drop_geometry() %>%
+              select(plotid, regio),
+            by = "plotid") %>%
+  mutate(fjaar = factor(jaar),
+         ronde_eenvoudig = factor(rondenr > 3,
+                                  levels = c(FALSE, TRUE),
+                                  labels = c("Vroeg op het jaar",
+                                             "Laat in het seizoen"))) %>%
+  filter(regio != "Vlaanderen - Bilzen")
+```
+
+Aantal waarnemingen, inclusief nulwaarnemingen (vroeg op het jaar = rondenr 1, 2 of 3):
+
+```{r}
+telcirkel_haas_nulw %>%
+  count(jaar, regio, ronde_eenvoudig) %>%
+  kable()
+```
+
+Met deze data fitten we een model waarbij de aantallen getelde hazen per telcirkel afhangen van regio in interactie met jaar en een effect van tijdstip van de telling in het jaar.
+Jaar wordt gefit als factorvariabele.
+Als random effect wordt plotid in het model gestoken om rekening te houden met eventuele gepaardheid van de waarnemingen (doorheen seizoen en tussen jaren).
+We veronderstellen dat de aantallen een Poisson verdeling volgen.
+
+```{r mod-haas, message=FALSE, warning=FALSE}
+mod_haas <- brm(
+  bf(aantal_in_telcirkel ~ 
+       regio
+     + ronde_eenvoudig
+     + fjaar
+     + regio:fjaar
+     + (1 | plotid)
+  ),
+  data = telcirkel_haas_nulw,
+  family = poisson(),
+  cores = 4,
+  silent = 2,
+  backend = "cmdstanr",
+  file = "mod_haas",
+  file_refit = "on_change"
+)
+```
+
+Overzicht van de gefitte modelparameters, hun onzekerheid en enkele maten die aangeven of het model geconvergeerd is.
+
+
+```{r}
+summary(mod_haas)
+```
+
+Posterior predictive check (Is het model in staat om de geobserveerde aantallen te genereren?):
+
+```{r}
+pp_check(mod_haas, type = "bars_grouped", ndraws = 100, group = "regio",
+         facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Visualisatie van de modelpredicties voor de interactie tussen regio en jaar en voor het effect van tijdstip in het jaar.
+
+```{r}
+rj <- conditional_effects(mod_haas,
+                    effects = "regio:fjaar")
+plot(rj, plot = FALSE)[[1]] + 
+  scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6,
+                                          name = "Aantal hazen per 100 ha"))
+```
+
+```{r}
+re <- conditional_effects(mod_haas,
+                    effects = "ronde_eenvoudig")
+plot(re, plot = FALSE)[[1]] + 
+  scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6,
+                                          name = "Aantal hazen per 100 ha"))
+```
+
+
+N.B. model houdt geen rekening met detectiekans afnemend met afstand.
+Zie bv https://discourse.mc-stan.org/t/deriving-abundance-from-a-distance-sampling-model/24565/7?u=hansvancalster
