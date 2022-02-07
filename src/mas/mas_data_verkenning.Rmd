@@ -6,6 +6,9 @@ bibliography: mas.json
 output:
   bookdown::html_document2:
     code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
 ---
 
 ```{r setup, include=FALSE}
@@ -23,7 +26,6 @@ source(here("R", "geocomputations.R"))
 library(tidyverse)
 library(sf)
 library(mapview)
-library(here)
 library(readxl)
 library(gt)
 ```
@@ -369,12 +371,11 @@ Cetti's zanger verwijderen uit dataset of veronderstellen dat de soort niet gezi
 
 > de soortenlijst kunnen we nog eens overlopen, want er staan soorten bij die zeker niet relevant zijn. Cetti's zanger kunnen we gerust nog erin houden, want die heeft zo'n karakteristieke zang (en laat zich ook goed frequent horen), dat die met grote zekerheid wel geteld maar niet opgemerkt is in de andere punten.
 
-(ref:check-soortenlijst) Overzicht min en max lengte van de soortenlijst en min-max aantal soorten in elk van de telpunten. Cetti's zanger werd verwijderd.
+(ref:check-soortenlijst) Overzicht min en max lengte van de soortenlijst en min-max aantal soorten in elk van de telpunten.
 
 ```{r check-soortenlijst}
 max_aantallen_vlaanderen %>%
   st_drop_geometry() %>%
-  filter(naam != "cetti's_zanger") %>%
   group_by(regio, jaar, plotid) %>%
   summarise(lengte_soortenlijst_incl0 = n(),
             aantal_soorten = sum(Aantal_max > 0),
@@ -386,19 +387,15 @@ max_aantallen_vlaanderen %>%
   gt(caption = "(ref:check-soortenlijst)")
 ```
 
-(ref:check-telpuntenlijst) Overzicht min - max aantal getelde telpunten per jaar en min - max aantal aanwezige soorten in deze telpunten. Cetti's zanger werd verwijderd.
+(ref:check-telpuntenlijst) Overzicht min - max aantal getelde telpunten per jaar.
 
 ```{r check-telpuntenlijst}
 max_aantallen_vlaanderen %>%
   st_drop_geometry() %>%
-  filter(naam != "cetti's_zanger") %>%
-  group_by(regio, jaar, naam) %>%
-  summarise(lengte_plotid_incl0 = n(),
-            aantal_plotid = sum(Aantal_max > 0),
-            .groups = "drop_last") %>%
-  summarise(across(c(lengte_plotid_incl0, aantal_plotid),
-                   list(min = min,
-                        max = max)),
+  filter(Aantal_max > 0) %>%
+  distinct(regio, jaar, plotid) %>%
+  group_by(regio, jaar) %>%
+  summarise(aantal_plotid = n(),
             .groups = "drop_last") %>%
   gt(caption = "(ref:check-telpuntenlijst)")
 ```
@@ -408,7 +405,6 @@ max_aantallen_vlaanderen %>%
 ```{r check-jaren-geteld}
 max_aantallen_vlaanderen %>%
   st_drop_geometry() %>%
-  filter(naam != "cetti's_zanger") %>%
   group_by(regio, plotid) %>%
   summarise(aantal_jaren_geteld = n_distinct(jaar),
             .groups = "drop_last") %>%
@@ -420,16 +416,15 @@ max_aantallen_vlaanderen %>%
 ```{r}
 max_aantallen_vlaanderen %>%
   st_drop_geometry() %>%
-  filter(naam != "cetti's_zanger") %>%
   pivot_wider(id_cols = c(jaar, regio, plotid),
               names_from = naam, 
-              values_from = Aantal_max) -> max_aantallen_vl_breed
+              values_from = Aantal_max,
+              values_fill = list(Aantal_max = 0)) -> max_aantallen_vl_breed
 ```
 
 ```{r}
 max_aantallen_vlaanderen %>%
   st_drop_geometry() %>%
-  filter(naam != "cetti's_zanger") %>%
   group_by(regio, jaar, plotid) %>%
   filter(Aantal_max > 0) %>%
   summarise(aantal_soorten = n(),
@@ -482,6 +477,23 @@ abv_grid <- abv_read_utm_squares() #connectie met GISdata server nodig
 abv_sampling_frame <- abv_read_sampling_frame()
 ```
 
+```{r meetnetten-db}
+#connectie met meetnetten db nodig
+meetnettendb <- inbodb::connect_inbo_dbase("S0008_00_Meetnetten")
+abv_visits <- abv_get_visits(meetnettendb)
+abv_observations <- abv_get_observations(meetnettendb)
+
+abv_visits <- abv_visits %>%
+  left_join(abv_observations %>%
+              count(visit_id, datum, precisie, source) %>%
+              collect() %>%
+              select(-n),
+            by = c("visit_id", "datum"))
+
+inbodb::dbDisconnect(meetnettendb)
+```
+
+
 Het ABV meetnet is gestratificeerd volgens landgebruik.
 Voor de definitie van het landbouw stratum komen alle UTM hokken met \> 70% landbouw in aanmerking (zie Figuur \@ref(fig:abv-hist-landbouw)).
 
@@ -494,8 +506,6 @@ abv_sampling_frame %>%
 ```
 
 Figuren \@ref(fig:abv-strata), \@ref(fig:abv-gepland) en \@ref(fig:abv-gepland-landbouw) tonen respectievelijk, de verschillende strata, het jaar waarin bezoek werd gepland voor alle strata en voor het landbouwstratum apart.
-
-
 
 ```{r abv-strata, out.width = "100%", fig.cap = "Strata ABV hokken."}
 abv_grid_stratum <- abv_grid %>%
@@ -536,6 +546,18 @@ abv_grid_stratum %>%
          as.logical(gereserveerd)) %>%
   mapview(zcol = "jaar_laatste_bezoek",
           burst = TRUE)
+```
+
+```{r eval=FALSE}
+abv_visits %>%
+  mutate(jaar = lubridate::year(datum)) %>%
+  group_by(telhok, jaar) %>%
+  summarise(aantal_bezoeken = n(),
+            .groups = "drop_last") %>%
+  summarise(aantal_jaren = n(),
+            tot_aantal_bezoeken = sum(aantal_bezoeken),
+            eerste_jaar = min(jaar),
+            laatste_jaar = max(jaar))
 ```
 
 
@@ -647,12 +669,10 @@ Via avimap worden exacte locaties vastgelegd binnen de telcirkel.
   Het vierde jaar begin je opnieuw met het eerste hok.
 - Tellen van alle soorten en invullen op voorgedrukte formulieren of meteen online via www.meetnetten.be.
 
-Worden exacte locaties vastgelegd binnen het UTM hok?
-
-> Op zes punten per ABV-hok worden vogels geteld. Deze worden geturfd (dus gewoon per punt alles opschrijven dat je kan zien) en er wordt dus geen specifieke locatie vastgelegd.
-
-<!--te checken of dit effectief juist is-->
-
+Op zes punten per ABV-hok worden vogels geteld.
+Deze worden meestal geturfd (dus gewoon per punt alles opschrijven dat je kan zien) en er wordt dus geen specifieke locatie vastgelegd.
+Voor de observaties die via de app worden ingevoerd is het wel mogelijk om exacte locaties in te voeren.
+Deze mogelijkheid wordt voorlopig echter maar zeer beperkt gebruikt (minder dan 1% van alle bezoeken) en bovendien lijken deze exacte locaties vaak gewoon de werkelijke positie van het telpunt te reflecteren in plaats van de plaats waar de vogel gezien werd binnen het ruimer gebied rond het telpunt.
 
 # Analyse
 
