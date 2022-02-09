@@ -23,6 +23,18 @@ library(mapview)
 library(readxl)
 library(gt)
 library(brms)
+library(lubridate)
+```
+
+```{r ronde-intervallen}
+r1_start <- "04-01"
+r1_stop <- "04-20"
+r2_start <- "04-21"
+r2_stop <- "05-10"
+r3_start <- "05-11"
+r3_stop <- "06-10"
+r4_start <- "06-21"
+r4_stop <- "07-15"
 ```
 
 ```{r inlezen, message=FALSE, warning=FALSE}
@@ -44,10 +56,28 @@ telpunten_avimap <- read_sf(
       TRUE ~ "vrijwilliger")) %>%
   select(-st_x, -st_y)
 
+
+
 tellingen_avimap <- read_sf(
   here("data", "mas",
        "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
-) 
+) %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    ))
 
 tellingen_zoogdier <- tellingen_avimap %>%
   filter(soortgrp == 1L)
@@ -79,12 +109,28 @@ Een waarneming kan één of meerdere individuen tellen en komt overeen met een b
 
 Aantal waarnemingen in functie van telronde (periode in het jaar):
 
-```{r effect-ronde}
+```{r effect-periode}
 tellingen_haas %>%
   ggplot() + 
-  geom_bar(aes(x = rondenr, fill = factor(jaar))) +
+  geom_bar(aes(x = periode_in_jaar, fill = factor(jaar))) +
   labs(y = "Aantal waarnemingen van Haas")
 ```
+
+De rondes hebben in principe een vast datumvenster:
+
+- ronde 1: 1 – 20 april (doy 91 - 110)
+- ronde 2: 21 april – 10 mei (doy 111 - 130)
+- ronde 3: 11 mei – 10 juni (doy 131 - 161)
+- ronde 4: 21 juni – 15 juli (doy 172 - 196)
+
+Een klein aantal waarnemingen valt buiten de officiële datumvensters van de telrondes.
+Deze filteren we weg.
+
+```{r}
+tellingen_haas <- tellingen_haas %>%
+  filter(!is.na(periode_in_jaar))
+```
+
 
 Aantal waarnemingen in functie van dag in het jaar:
 
@@ -100,18 +146,36 @@ tellingen_haas %>%
 ```{r ronde-doy}
 tellingen_haas %>%
   st_drop_geometry() %>%
-  distinct(plotid, rondenr, doy, jaar, plotid) %>%
-  ggplot(aes(x = rondenr, y = doy, colour  = factor(jaar))) + 
+  distinct(plotid, periode_in_jaar, doy, jaar, plotid) %>%
+  ggplot(aes(x = periode_in_jaar, y = doy, colour  = factor(jaar))) + 
   geom_point() +
   geom_line(aes(group = interaction(plotid, factor(jaar))))
 ```
 
-De rondes hebben in principe een vast datumvenster:
+In een aantal gevallen werd er meer dan één keer geteld in een bepaalde ronde.
+In die gevallen selecteren we de laatste telling.
 
-- ronde 1: 1 – 20 april
-- ronde 2: 21 april – 10 mei
-- ronde 3: 11 mei – 10 juni
-- ronde 4: 21 juni – 15 juli
+```{r check-dubbeltelling}
+dubbels <- tellingen_haas %>%
+  st_drop_geometry() %>%
+  group_by(plotid, jaar, periode_in_jaar) %>%
+  summarize(aantal_teldagen = n_distinct(doy),
+            .groups = "drop") %>%
+  filter(aantal_teldagen > 1)
+
+dubbels %>%
+  kable()
+
+tellingen_haas <- tellingen_haas %>%
+  semi_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")) %>%
+  group_by(plotid, jaar, periode_in_jaar) %>%
+  filter(doy == max(doy)) %>%
+  ungroup() %>%
+  bind_rows(tellingen_haas %>%
+              anti_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")))
+```
+
+
 
 Aantal getelde hazen in functie van afstand van het telpunt:
 
@@ -127,7 +191,7 @@ Verspreiding van de waarnemingen van haas.
 Telcirkels hebben straal 300m.
 Waarnemingen van haas binnen telcirkel hebben een straal proportioneel aan het aantal hazen geteld op die locatie:
 
-```{r verspreidingskaart}
+```{r verspreidingskaart, warning=FALSE}
 plan_kiekendief_leemstreek_moeren <- plan_kiekendief_perimeter %>%
     filter(
       !Name %in% 
@@ -291,6 +355,6 @@ plot(hyp)
 
 De evidence ratio is zeer groot wat er op duidt dat er een significant hoger aantal hazen in de moeren aanwezig zijn.
 De evidence ratio is de verhouding tussen posterior probability a > b tov posterior probability a < b.
-De schatting is 1.35.
-Dit is een verschil in de log-schaal, dus exp(1.35) = 3.86 keer meer hazen per 100 ha in de Moeren (in 2021 vroeg op het seizoen).
+De schatting is `r round(hyp$hypothesis$Estimate, 2)`.
+Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we `r round(exp(hyp$hypothesis$Estimate), 1)` keer meer hazen per 100 ha in de Moeren (in 2021 vroeg op het seizoen).
 

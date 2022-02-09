@@ -43,6 +43,20 @@ Als er een teller van een punt geschrapt is (vb door tijdsgebrek, of een vrijwil
 Er zijn dus wel punten in die database die ooit een of meerdere keren geteld zijn, maar die nu als "niet geteld" gelabeld staan.
 -->
 ```
+
+
+```{r ronde-intervallen}
+r1_start <- "04-01"
+r1_stop <- "04-20"
+r2_start <- "04-21"
+r2_stop <- "05-10"
+r3_start <- "05-11"
+r3_stop <- "06-10"
+r4_start <- "06-21"
+r4_stop <- "07-15"
+```
+
+
 ```{r inlezen, message=FALSE, warning=FALSE}
 # CRS avimap en max-aantallen CRS EPSG:28992 (amesfoort)
 # wordt in avimap standaard gebruikt
@@ -65,7 +79,24 @@ telpunten_avimap <- read_sf(
 tellingen_avimap <- read_sf(
   here("data", "mas",
        "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
-)
+) %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    ))
+
 
 max_aantallen_vlaanderen <- read_excel(
   here("data/mas/mas_2018_2021 maxaantallen_vlaanderen.xlsx")) %>%
@@ -202,7 +233,8 @@ mapview(landbouwstreken,
         alpha.regions = 0.3,
         legend = FALSE) +
 tellingen_avimap %>%
-  filter(aantal > 0) %>%
+  filter(aantal > 0,
+         !is.na(periode_in_jaar)) %>%
   select(naam, aantal, jaar, maand, dag) %>%
   mapview(zcol = "jaar",
           burst = TRUE)
@@ -657,6 +689,12 @@ De clustering van broedvogels langs onder andere wegen, bermkanten, ..., is dus 
 
 Via avimap worden exacte locaties vastgelegd binnen de telcirkel.
 
+Telrondes:
+
+- ronde 1: 1 – 20 april
+- ronde 2: 21 april – 10 mei
+- ronde 3: 11 mei – 10 juni
+- ronde 4: 21 juni – 15 juli
 
 ## ABV
 
