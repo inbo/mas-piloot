@@ -8,13 +8,17 @@ abv_read_utm_squares <- function() {
   require(dplyr)
   abv_grid <- readr::read_csv("./data/abv/data-1626258505755.csv",
                               na = c("", "NA", "NULL"))
-  utm1belgium <- read_utm_sf()
-  abv_grid_sf <- utm1belgium %>%
+  # Er werd een foutief UTM raster gebruikt dat verschoven is tov officiële
+  # raster
+  utm1_verschoven <- read_sf(here::here("data", "abv",
+                                  "abv_raster_verschoven_utm",
+                                  "Steekproeven1.shp"))
+  abv_grid_sf <- utm1_verschoven %>%
     inner_join(abv_grid,
                by = c("TAG" = "hok")) %>%
     relocate(TAG, geometry, .after = recall) %>%
-    rename(utm_hok = TAG) %>%
-    select(-Shape_Area, -Shape_Area)
+    rename(utm_hok = TAG, stratum = TOEGEWEZEN) %>%
+    select(-TAG_1, -OID_)
   return(abv_grid_sf)
 }
 
