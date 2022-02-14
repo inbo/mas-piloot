@@ -505,7 +505,8 @@ unique(tellingen_leemstreek_moeren$naam) %>%
 -   recall: voor hokken die eigenlijk in 2019 of 2020 geteld hadden moeten worden is een nieuwe teloproep gelanceerd in 2021 om toch een zo goed mogelijke dekking te hebben binnen de cyclus. Deze vind je dus hier terug. Het kan een locatie zijn die nog niet geteld werd of die slechts één keer geteld werd in 2019-2020.
 
 ```{r message=FALSE}
-abv_grid <- abv_read_utm_squares() #connectie met GISdata server nodig
+# het UTM1 raster gebruikt voor ABV is verschoven tov het officiële UTM1 raster
+abv_grid <- abv_read_utm_squares()
 abv_sampling_frame <- abv_read_sampling_frame()
 ```
 
@@ -521,6 +522,19 @@ abv_visits <- abv_visits %>%
               collect() %>%
               select(-n),
             by = c("visit_id", "datum"))
+
+abv_one_square <- abv_observations %>%
+  filter(precisie == "telpunt",
+         visit_id == 858) %>%
+  distinct(visit_id, datum, telpunt, lon, lat) %>%
+  collect() %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+abv_locations <- abv_observations %>%
+  distinct(visit_id, datum, telpunt, lon, lat, precisie, source) %>%
+  collect() %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
 
 inbodb::dbDisconnect(meetnettendb)
 ```
@@ -549,8 +563,14 @@ abv_grid_stratum <- abv_grid %>%
                select(ExternalCode, Stratum),
              by = c("utm_hok" = "ExternalCode")
                )
+
+## stratum volgens shapefile en tsv bestand komen perfect overeen
+#abv_grid_stratum %>%
+#  st_drop_geometry() %>%
+#  count(stratum, Stratum)
+
 abv_grid_stratum %>%
-  mapview(zcol = "Stratum",
+    mapview(zcol = "Stratum",
           burst = TRUE)
 ```
 
@@ -707,10 +727,30 @@ Telrondes:
   Het vierde jaar begin je opnieuw met het eerste hok.
 - Tellen van alle soorten en invullen op voorgedrukte formulieren of meteen online via www.meetnetten.be.
 
-Op zes punten per ABV-hok worden vogels geteld.
+Op zes punten per ABV-hok worden vogels geteld (Figuur \@ref(fig:ligging-telpunten-hok)).
 Deze worden meestal geturfd (dus gewoon per punt alles opschrijven dat je kan zien) en er wordt dus geen specifieke locatie vastgelegd.
 Voor de observaties die via de app worden ingevoerd is het wel mogelijk om exacte locaties in te voeren.
 Deze mogelijkheid wordt voorlopig echter maar zeer beperkt gebruikt (minder dan 1% van alle bezoeken) en bovendien lijken deze exacte locaties vaak gewoon de werkelijke positie van het telpunt te reflecteren in plaats van de plaats waar de vogel gezien werd binnen het ruimer gebied rond het telpunt.
+Het ABV telprotocol maakt geen gebruik van een maximale zoekafstand.
+Als we elk telpunt in een hok bufferen met een straal van 300m zien we dat er tamelijk veel overlap is tussen de telcirkels.
+De NO en ZW (punten 3_2 en 1_1) of NW en ZO (3_1 en 1_2) gelegen telpuntenparen binnen een hok overlappen niet wanneer een maximum zoekafstand van 300 m wordt genomen.
+
+(ref:ligging-telpunten-hok) Voorbeeld van de ligging van telpunten in een telhok. Dit is de theoretische ligging en daarvan kan afgeweken worden. Er wordt geen maximum zoekafstand toegepast, maar voor de vergelijkbaarheid met het MAS protocol is rond elk telpunt een buffer van 300 meter getrokken.
+
+```{r ligging-telpunten-hok, out.width="100%", fig.cap = "(ref:ligging-telpunten-hok)"}
+abv_grid_stratum %>%
+  filter(utm_hok == "FS2629") %>%
+  mapview(zcol = "Stratum",
+          alpha.regions = 0.2) + 
+abv_locations %>%
+  filter(str_detect(telpunt, "FS2629")) %>%
+  st_buffer(dist = 300) %>%
+  mapview(zcol = "telpunt", alpha.regions = 0) +
+abv_locations %>%
+  filter(str_detect(telpunt, "FS2629")) %>%
+  mapview()
+```
+
 
 # Analyse
 
@@ -721,7 +761,7 @@ In principe worden vogels die buiten de telcirkel vallen uit de data weggeknipt.
 
 ## ABV
 
-
+Zie rapport
 
 # Rapport outline
 
