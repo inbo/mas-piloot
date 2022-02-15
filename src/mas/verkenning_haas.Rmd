@@ -7,7 +7,6 @@ output:
     code_folding: hide
     toc: true
     toc_float: true
-    toc_collapsed: true
 ---
 
 ```{r setup, include=FALSE}
@@ -24,6 +23,7 @@ library(readxl)
 library(gt)
 library(brms)
 library(lubridate)
+library(Distance)
 ```
 
 ```{r ronde-intervallen}
@@ -88,7 +88,7 @@ tellingen_haas <- tellingen_zoogdier %>%
 bezoekenlijst_avimap <- 
   tellingen_avimap %>%
   st_drop_geometry() %>%
-  distinct(projectid, plotid, plotnaam, jaar, maand, dag, doy, rondenr)
+  distinct(projectid, plotid, plotnaam, jaar, maand, dag, doy, periode_in_jaar)
 
 plan_kiekendief_perimeter <- read_sf(
   here("data", "mas", "Grauwe_kiekendief_VLM3.kml")
@@ -187,6 +187,13 @@ tellingen_haas %>%
        y = "Aantal getelde hazen per telcirkel (300 m straal)")
 ```
 
+```{r hist-afstand}
+tellingen_haas %>%
+  ggplot(aes(x = distance2p)) +
+  geom_histogram()
+```
+
+
 Verspreiding van de waarnemingen van haas.
 Telcirkels hebben straal 300m.
 Waarnemingen van haas binnen telcirkel hebben een straal proportioneel aan het aantal hazen geteld op die locatie:
@@ -220,11 +227,11 @@ We aggregeren de data per telcirkel en voegen nulwaarnemingen toe.
 
 ```{r aggregatie-per-telcirkel}
 telcirkel_haas <- tellingen_haas %>%
-  group_by(plotid, naam, jaar, rondenr) %>%
+  group_by(plotid, naam, jaar, periode_in_jaar) %>%
   summarise(aantal_in_telcirkel = sum(aantal),
             .groups = "drop")
 ```
-
+Periode R4 verwijderd.
 
 ```{r nulwaarnemingen}
 cirkelopp <- pi * 300^2
@@ -232,7 +239,7 @@ cirkelopp <- pi * 300^2
 telcirkel_haas_nulw <- telcirkel_haas %>%
   st_drop_geometry() %>%
   full_join(bezoekenlijst_avimap,
-            by = c("plotid", "jaar", "rondenr")) %>%
+            by = c("plotid", "jaar", "periode_in_jaar")) %>%
   mutate(aantal_in_telcirkel = ifelse(is.na(aantal_in_telcirkel),
                                       0,
                                       aantal_in_telcirkel)) %>%
@@ -240,19 +247,17 @@ telcirkel_haas_nulw <- telcirkel_haas %>%
               st_drop_geometry() %>%
               select(plotid, regio),
             by = "plotid") %>%
-  mutate(fjaar = factor(jaar),
-         ronde_eenvoudig = factor(rondenr > 3,
-                                  levels = c(FALSE, TRUE),
-                                  labels = c("Vroeg op het jaar",
-                                             "Laat in het seizoen"))) %>%
-  filter(regio != "Vlaanderen - Bilzen")
+  mutate(fjaar = factor(jaar)) %>%
+  filter(regio != "Vlaanderen - Bilzen",
+         !is.na(periode_in_jaar),
+         periode_in_jaar != "R4")
 ```
 
-Aantal waarnemingen, inclusief nulwaarnemingen (vroeg op het jaar = rondenr 1, 2 of 3):
+Aantal waarnemingen, inclusief nulwaarnemingen:
 
 ```{r aantal-waarnemingen-incl-nul}
 telcirkel_haas_nulw %>%
-  count(jaar, regio, ronde_eenvoudig) %>%
+  count(jaar, regio, periode_in_jaar) %>%
   kable()
 ```
 
@@ -260,7 +265,7 @@ Totaal aantal getelde hazen per telcirkel met aanduiding van gemiddelde en 95% b
 
 ```{r effect-jaar}
 telcirkel_haas_nulw %>%
-  ggplot(aes(x = jaar, y = aantal_in_telcirkel, colour = ronde_eenvoudig)) +
+  ggplot(aes(x = jaar, y = aantal_in_telcirkel, colour = periode_in_jaar)) +
   stat_sum(position = position_dodge(width = 0.5), alpha = 0.5) +
   stat_summary(fun.data = mean_cl_boot,
                position = position_dodge(width = 0.5),
@@ -269,7 +274,7 @@ telcirkel_haas_nulw %>%
   labs(y = "Totaal aantal getelde hazen per telcirkel (300 m straal)")
 ```
 
-## Model
+## Model voor aantal hazen per telcirkel
 
 Met deze data fitten we een model waarbij de aantallen getelde hazen per telcirkel afhangen van regio in interactie met jaar en een effect van tijdstip van de telling in het jaar.
 Jaar en regio worden gefit als factorvariabelen.
@@ -280,7 +285,7 @@ We veronderstellen dat de aantallen een Poisson verdeling volgen.
 mod_haas <- brm(
   bf(aantal_in_telcirkel ~ 
        regio
-     + ronde_eenvoudig
+     + periode_in_jaar
      + fjaar
      + regio:fjaar
      + (1 | plotid)
@@ -324,7 +329,7 @@ plot(rj, plot = FALSE)[[1]] +
 
 ```{r ce-ronde}
 re <- conditional_effects(mod_haas,
-                    effects = "ronde_eenvoudig")
+                    effects = "periode_in_jaar")
 plot(re, plot = FALSE)[[1]] + 
   scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6,
                                           name = "Aantal hazen per 100 ha"))
@@ -357,4 +362,144 @@ De evidence ratio is zeer groot wat er op duidt dat er een significant hoger aan
 De evidence ratio is de verhouding tussen posterior probability a > b tov posterior probability a < b.
 De schatting is `r round(hyp$hypothesis$Estimate, 2)`.
 Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we `r round(exp(hyp$hypothesis$Estimate), 1)` keer meer hazen per 100 ha in de Moeren (in 2021 vroeg op het seizoen).
+
+## Distance sampling (design-based schattingen)
+
+In voorgaande sectie hadden we de data geaggregeerd per telcirkel, in deze sectie werken we met de directe observaties: waarnemingen van x aantal hazen op een afstand van x meter van het telpunt.
+
+```{r dataprep}
+areas <- plan_kiekendief_leemstreek_moeren %>%
+  mutate(regio = ifelse(Name == "moeren",
+                        "Vlaanderen - De Moeren",
+                        "Vlaanderen - Leemstreek"),
+         Area = as.numeric(st_area(.$geometry)) / 1e6) %>%
+  st_drop_geometry()
+
+areas_leemstreek_moeren <- areas %>%
+  group_by(regio) %>%
+  summarise(Area = sum(Area))
+
+tellingen_haas_nulw <- tellingen_haas %>%
+  st_drop_geometry() %>%
+  filter(periode_in_jaar != "R4") %>%
+  # indien geen haas: aantal en afstand NA
+  full_join(
+    bezoekenlijst_avimap %>%
+      filter(periode_in_jaar != "R4"),
+    by = c("projectid", "plotid", "plotnaam", "jaar", "maand", "dag", "doy",
+           "periode_in_jaar")) %>%
+  left_join(telpunten_avimap %>%
+              st_drop_geometry() %>%
+              select(plotid, regio),
+            by = "plotid") %>%
+  left_join(areas_leemstreek_moeren, by = "regio") %>%
+  mutate(fjaar = factor(jaar)) %>%
+  filter(regio != "Vlaanderen - Bilzen") %>%
+  select(
+    object = id,
+    distance = distance2p,
+    size = aantal,
+    regio,
+    Area,
+    Sample.Label = plotid,
+    fjaar,
+    periode_in_jaar) %>%
+  group_by(Sample.Label, fjaar) %>%
+  mutate(Effort = n_distinct(periode_in_jaar),
+         Region.Label = paste(regio, fjaar, sep = "_"))
+
+# distance, size, Region.label, Area, Sample.Label, Region.Label, Effort, object
+```
+
+We fitten een model voor regio-specifieke detectiekans (alle jaren worden samen gebruikt om detectiekans per regio in te schatten).
+Voor dit model veronderstellen we dat de detectiekans 1 is bij afstand 0 en monotoon afneemt volgens een half-normale verdeling met de afstand.
+In het model stellen we in dat afstanden groter dan 300 m worden afgetopt (aangezien dit ook de maximale zoekafstand is).
+We beschouwen enkel de drie eerste telrondes en elk van deze telrondes binnen een jaar beschouwen we als een herhaling (bepaalt de "Effort" in het model).
+Nadat de detectiekans is ingeschat, laat het model toe om hiermee abundanties (totale aantallen hazen in een stratum) en densiteiten (aantal hazen per 100 ha) te schatten die gecorrigeerd worden voor de detectiekans.
+We beschouwen elke combinatie van jaar en regio als een apart stratum waarvoor we deze schattingen willen.
+
+```{r half-normal}
+conversion_factor <- convert_units("meter", NULL, "Square kilometer")
+
+haas_hn <- ds(
+  data = tellingen_haas_nulw,
+  formula = ~ regio,
+  key = "hn",
+  convert.units = conversion_factor,
+  adjustment = NULL,
+  transect = "point",
+  truncation = 300)
+```
+
+### Detectiekans
+
+```{r detectiekans-summary, results = "asis"}
+summary_hhn <- summary(haas_hn)
+summary_hhn$ds$coeff$key.scale %>%
+  kable(digits = 2)
+```
+
+Visuele check en Cramer-von Mises test voor goodness of fit.
+
+```{r diagnose}
+gof_ds(haas_hn)
+cutpoints <- c(0, 10, 20, 50, 100, 150, 200, 250, 300)
+plot(haas_hn, breaks = cutpoints, pdf = TRUE)
+```
+
+Plot van de detectiekans:
+
+```{r detectiekans-plot}
+plot(haas_hn, subset= regio == "Vlaanderen - Leemstreek",
+     main = "Leemstreek")
+plot(haas_hn, subset= regio == "Vlaanderen - De Moeren",
+     main = "De Moeren")
+```
+
+Mogelijk hangt de detectiekans ook af van het aantal minuten na zonsopkomst.
+Dit is niet bekeken.
+
+
+### Densiteiten en abundanties
+
+```{r tidy-results}
+summary_results <- bind_rows(
+  summary_hhn$dht$clusters$D %>%
+    mutate(variable = "density",
+           type = "clusters"),
+  summary_hhn$dht$clusters$N %>%
+    mutate(variable = "abundance",
+           type = "clusters"),
+  summary_hhn$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "individuals"),
+  summary_hhn$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "individuals")
+  ) %>%
+  as_tibble() %>%
+  separate(Label, c("regio", "jaar"), sep = "_") %>%
+  filter(!is.na(jaar))
+```
+
+
+De schattingen van abundantie (totaal aantal individuen voor de volledige regio) en voor densiteit (aantal per 100 ha).
+
+De schattingen van densiteit liggen duidelijk hoger dan bij de analyse waarbij het aantal hazen per telcirkel werd geschat, maar de relatieve verschillen tussen de jaren en regio's blijven wel dezelfde.
+Deze hogere densiteitschatting komt doordat we nu rekening houden met detectiekans.
+
+Wellicht zijn deze resultaten nog steeds een onderschatting.
+Mogelijke redenen hiervoor zijn:
+
+- de detectiekans van hazen ligt wellicht hoger bij valavond
+- de volledige telcirkel wordt beschouwd als waarneembaar, terwijl er in het landschap visuele obstructies kunnen zijn die een volledig overzicht belemmeren
+
+```{r hhn-estimates}
+summary_results %>%
+  filter(type == "clusters") %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+  geom_pointrange(aes(ymin = lcl, ymax = ucl, colour = jaar),
+                  position = position_dodge(width = 0.5)) + 
+  facet_wrap(~variable, scales = "free_y")
+```
 
