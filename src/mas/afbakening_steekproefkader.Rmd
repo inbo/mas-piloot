@@ -1,0 +1,111 @@
+---
+title: "MAS afbakening steekproefkader"
+author: "Hans Van Calster"
+date: "`r Sys.Date()`"
+bibliography: mas.json
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE)
+opts_knit$set(root.dir = here::here())
+library(tidyverse)
+library(sf)
+library(mapview)
+library(readxl)
+library(gt)
+library(httr)
+source(here("R", "wfs_wcs.R"))
+```
+
+# Gebieden perimeter
+
+Leemstreek
+
+```{r warning=FALSE}
+landbouwstreken <- read_sf(
+  here("data", "landbouwstreken", "Lbstrbel.shp")) %>%
+  st_transform(crs = 31370) %>%
+  select(NAAM)
+
+vlaanderen <- get_feature_wfs(
+  wfs = "https://eservices.minfin.fgov.be/arcgis/services/R2C/Regions/MapServer/WFSServer",
+  layername = "regions",
+  crs = "EPSG:31370",
+  filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
+  select(NameDUT)
+
+westkustpolder <- get_feature_wfs(
+  wfs = "https://geoservices.informatievlaanderen.be/overdrachtdiensten/Polders/wfs",
+  version = "1.1.0",
+  layername = "Polders:Polder",
+  crs = "urn:x-ogc:def:crs:EPSG:31370",
+  ) %>%
+  st_cast(to = "GEOMETRYCOLLECTION") %>%
+  mutate(id = seq_len(nrow(.))) %>%
+  st_collection_extract("POLYGON") %>%
+  aggregate(list(.$id), first, do_union = FALSE) %>%
+  select(NAAMPOL) %>%
+  filter(NAAMPOL == "Westkustpolder") %>%
+  as_tibble %>%
+  st_as_sf(crs = 31370)
+
+plan_kiekendief_perimeter <- read_sf(
+  here("data", "mas", "Grauwe_kiekendief_VLM3.kml")
+) %>%
+  select(-Description) %>%
+  st_simplify() %>%
+  st_transform(crs = 31370) %>%
+  mutate(regio = case_when(
+    Name == "moeren" ~ "Moeren",
+    Name %in% c(
+      "akkerplateau omgeving Gingelom",
+      "akkerplateaus Heers-Riemst",
+      "landbouwgebieden ruime omgeving Hoegaarden"
+    ) ~ "Leemstreek",
+    TRUE ~ "Limburg"
+  )) %>%
+  filter(regio != "Limburg")
+
+leemstreek <- landbouwstreken %>%
+  filter(NAAM == "Leemstreek") %>%
+  st_intersection(vlaanderen)
+
+polders <- landbouwstreken %>%
+  filter(NAAM == "Polders") %>%
+  st_intersection(vlaanderen)
+```
+
+```{r}
+mapview(leemstreek) +
+  mapview(polders) +
+  mapview(plan_kiekendief_perimeter)
+
+```
+
+```{r}
+leemstreek_pk <- leemstreek %>%
+  st_cast("POLYGON") %>%
+  st_filter(plan_kiekendief_perimeter)
+
+polders_pk <- polders %>%
+  st_cast("POLYGON") %>%
+  st_filter(plan_kiekendief_perimeter)
+  
+```
+
+```{r}
+mapview(leemstreek_pk, color = "brown", col.regions = "brown") +
+  mapview(polders_pk) +
+  mapview(plan_kiekendief_perimeter, zcol = "regio")
+
+```
+
