@@ -34,7 +34,7 @@ cmon_extract_sample <- function(
   bbox = rbind(x = c(22000, 258880), y = c(153050, 244030)),
   cellsize = 10) {
   # https://zenodo.org/record/2784012#.YOMk2OgzZPY
-  # https://doi.org/10.5281/zenodo.2784016
+  # https://zenodo.org/record/5833399#.YefuKv7MJPY
   # extract the sample from the database
   conn <- grtsdb::connect_db(database)
   sample <- grtsdb::extract_sample(
