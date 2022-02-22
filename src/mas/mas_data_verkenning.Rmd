@@ -28,6 +28,7 @@ library(sf)
 library(mapview)
 library(readxl)
 library(gt)
+library(lubridate)
 ```
 
 
@@ -176,8 +177,10 @@ De max aantallen werden geanalyseerd samen met GKA, en zijn vooral relevant voor
 Dit zijn de max aantallen voor de eerste 4 jaar, zonder de UH tellingen in beschouwing te nemen.
 Er wordt ook gewerkt aan een update voor die maximum aantallen, met het extra MAS jaar er bij (dus 5 jaar data), en dit zowel voor de data van de Leemstreek als voor de Moeren (combinatie van vrijwilligerspunten en UH punten).
 
-De MAS punten voor plan Kiekendief werden gestratificeerd random uitgestrooid verspreid over het kerngebied van Plan Kiekendief (moeren en leemstreek), dat kerngebied werd door het INBO afgebakend als meest succesvolle gebied voor vestiging van grauwe kiekendief (zie SBP grauwe kiekendief).
-Na het uitstrooien van de punten werden de punten vervolgens licht verplaatst (indien nodig) zodat ze vlot bereikbaar zijn en voldoende zicht bieden op het landschap, en eventueel nog bijgesteld na een terreinbezoek door de tellers (controle door coördinator).
+De MAS punten voor plan Kiekendief werden gestratificeerd verspreid over het kerngebied van Plan Kiekendief (moeren en leemstreek), dat kerngebied werd door het INBO afgebakend als meest succesvolle gebied voor vestiging van grauwe kiekendief (zie SBP grauwe kiekendief).
+De ligging van de punten is niet random.
+Locaties werden handmatig gekozen op zo'n manier dat ze ruimtelijk goed gespreid waren en de telcirkels niet of nauwelijks overlappend zijn.
+Na het selecteren van de punten werden de punten vervolgens licht verplaatst (indien nodig) zodat ze vlot bereikbaar zijn en voldoende zicht bieden op het landschap, en eventueel nog bijgesteld na een terreinbezoek door de tellers (controle door coördinator).
 Dit alvorens een punt voor een eerste keer werd geteld.
 Dus eenmaal geteld, dan werd een punt niet meer verplaatst.
 
@@ -632,7 +635,141 @@ abv_grid_stratum %>%
   gt(caption = "Aantal hokken")
 ```
 
+# Project plattelandsvogels grensgebied België - Frankrijk
 
+```{r inlezen-grensgebied}
+grensgebied_grid <- read_sf(here("data", "mas", "plattelandsvogels-dochy-be-fr",
+             "Grid1km_ptn6hk_TECnetto.shp"))
+
+grensgebied_telpunten_2013 <- read_sf(
+  here("data", "mas", "plattelandsvogels-dochy-be-fr",
+       "Geelgors_telpt2013_effectief_pt.shp"))
+
+grensgebied_telpunten_2019 <- read_sf(
+  here("data", "mas", "plattelandsvogels-dochy-be-fr",
+       "Telptn2019_nacorrectie.shp")) %>%
+  #GDPR!
+  rowwise() %>%
+  mutate(Teller2019 = ifelse(!is.na(Teller2019),
+                             substr(digest::sha1(Teller2019), 1, 6),
+                             NA)
+         ) %>%
+  ungroup()
+
+grensgebied_telpunten_2013_2019 <- read_excel(
+  here("data", "mas", "plattelandsvogels-dochy-be-fr",
+       "Grid_Nrs_2013_2019.xlsx"),
+  guess_max = 1e4
+) %>%
+  st_as_sf(coords = c("X_Lamb08", "Y_Lamb08"), crs = 3812)
+
+grensgebied_maxtellingen_2013 <- read_excel(
+  here("data", "mas", "plattelandsvogels-dochy-be-fr",
+       "tblVglMaxPerJaar.xlsx"),
+  guess_max = 1e4,
+  sheet = "Max2013") %>%
+  mutate(jaar = "2013") %>%
+  rename(label = Label2013,
+         nr = Nr_2013) %>%
+  pivot_longer(cols = ends_with("_13"),
+               names_to = "soortnaam",
+               values_to = "max_aantal") %>%
+  mutate(soortnaam = str_remove(soortnaam, "_13")) %>%
+  filter(!soortnaam %in% c("nVogels", "nSrtn"))
+
+grensgebied_maxtellingen_2019 <- read_excel(
+  here("data", "mas", "plattelandsvogels-dochy-be-fr",
+       "tblVglMaxPerJaar.xlsx"),
+  guess_max = 1e4,
+  sheet = "Max2019") %>%
+  mutate(jaar = "2019") %>%
+  rename(telpnt = Telpt2019) %>%
+  pivot_longer(cols = ends_with("_19"),
+               names_to = "soortnaam",
+               values_to = "max_aantal") %>%
+  mutate(soortnaam = str_remove(soortnaam, "_19")) %>%
+  filter(!soortnaam %in% c("nVogels", "nSrtn"))
+
+
+grensgebied_maxtellingen <- grensgebied_maxtellingen_2013 %>%
+  bind_rows(grensgebied_maxtellingen_2019) %>%
+  st_as_sf(coords = c("X_Lamb08", "Y_Lamb08"), crs = 3812)
+
+```
+
+```{r grensgebied-maxaantallen}
+grensgebied_maxtellingen %>%
+  filter(max_aantal > 0) %>%
+  group_by(label, nr, jaar, telpnt) %>%
+  summarise(
+    soorten = paste(
+      paste(soortnaam, max_aantal), 
+      collapse = ", "),
+    .groups = "drop") %>%
+  select(soorten, jaar) %>%
+  mapview(zcol = "jaar", burst = TRUE)
+```
+
+
+De data van 2013 zitten in bestand: `1_Tbl_FrB2013_...`.
+De andere tabellen zijn van 2019 en bevatten ook de data van 2013.
+De nummering in 2013 was anders dan die van 2019.
+De vergelijking vind je ook in (minstens) één van die tabellen.
+
+De tabellen kunnen in een relationele databank aan elkaar gekoppeld worden via gemeenschappelijke identificatievelden.
+
+De x en y coördinaten voor alle punten zitten in de tabellen, de random punten ook ("prio" = 1). De coördinaten worden in twee GIS-projecties gegeven: Lambert 1972 en Lambert 2008 (= die van het NGI tegenwoordig).
+
+Het basispunt voor het grid heeft een random start.
+Het is een raster van gelijkzijdige zeshoeken met zijden van 1 km.
+Dat geeft een mooiere spreiding dan de hoeken van vierkanten.
+
+Opgelet:
+
+- voor Graspieper telde april niet mee,
+- voor Kievit juni niet.
+
+I.v.m. het verschuiven.
+Dat is een pragmatische toegeving.
+Veronderstelling dat vertekening eerder beperkt is, want er zijn véél baantjes in dit landbouwgebied, en er zal er dus wel bijna altijd eentje liggen in je telcirkel.
+Enkel in een paar echt middenschalige gebieden zoals de Moeren en misschien in Haspengouw is dat anders, maar dan nog.
+
+<!--
+comment O.D.
+Echt grootschalige gebieden (zoals in NL, UK, F, met percelen van 30 ha) hebben we hier niet.
+Het is onbegonnen werk om daar overal toestemming voor te gaan vragen, daar overal door te banjeren, enzovoort. Als je het anders wil doen, ga dan niet in een perceel staan, maar aan de rand ervan. Je weet dat punt trouwens toch niet exact te vinden in een gewas. Bovendien kun je dan je telling wel gewoon uitvoeren als men bezig is op dat terrein (beter niet natuurlijk) en hangt je lijf niet vol pesticiden als de spuitkar net is geweest. Je bent dan ook een zeer sterk verstorende factor, terwijl de vogels iets beter gewoon zijn aan mensen op de baantjes. Als je tien minuten (en de rest) naast vijf kievitennesten moet gaan staan waarvan de ouders de hele buurt bijeen alarmeren, waar ben je dan mee bezig ? Daarom zou ik zeggen: zie die ruis maar even over het hoofd.
+-->
+
+<!--
+comment O.D.
+De notering van de KLE's zijn telpunt per telpunt gecheckt met orthofoto's en Google Street View (let wel op datum van de beelden, mag niet te oud zijn).
+Een heel karwei maar zo heb ik wel veel fouten kunnen rechtzetten.
+Bv. 'grasbufferstrook': sommigen interpreteerden een wegberm al als zoiets.
+Is snel te checken op orthofoto.
+Daar heb ik meerdere dagen voor nodig gehad.
+In 2013 heb ik dat minder secuur gedaan, en dat kan voor sommige KLE's een oorzaak van verschil zijn (bv. onverharde wegen, dat verandert normaal niet veel).
+Zoals al gezegd: bij nader inzien is het niet aangewezen om erg veel zulke info van vrijwilligers te vragen.
+Een paar dingen lukt wel, maar zo veel is al moeilijker.
+Toch heeft het grote merendeel dat goed gedaan, met wat foutjes hier en daar die je er dus zelf moet zien uit te vissen.
+-->
+
+<!--
+comment O.D.
+MAS-punten: ik heb de MAS-gegevens van de MAS-punten zelf gebruikt (tellen als ‘verschuiving’) en die tien minuten gelaten voor wat ze waren. Dat zal wel een beetje verschil gegeven hebben, maar voor dat handjevol punten en drie tellingen maakt dat voor het grote totaal niet veel uit. Nog een beetje ruis bij de rest…
+-->
+ 
+
+Ik had een Google-invulblad om de gegevens in te voeren. Sommigen deden dat zelf, de meesten hebben we zelf ingevoerd (zomerwerkje voor twee secretaressen), maar ik heb daar nog reusachtig veel knip- en plakwerk aan gehad. Daar is een aparte tabel voor met de te nemen stappen. Misschien nuttig om te zien waar de andere tabellen vandaan komen.
+
+ 
+
+Professionele tellers: zie tabel voor aantal. Pro’s waren mezelf, Wim Bovens (NWG De Kerkuil), Miguel Depoortere (RL Westhoek) en Dieter Coelembier (VLM) en aan Franse kant Cédric Beaudoin (GON). In Moeskroen: Christophe Gruwier (stad Moeskroen), plus Toon Willems (MAS, UHasselt) in de Moeren. Je moet geen topornitholoog zijn om dit te doen, maar bijscholing op vlak van geluiden is wel nodig. Ik had ook iedereen een CD (2013) of mp3’s bezorgd met akkervogelgeluiden om vooraf te oefenen. Die zal ik meesturen met de wetransfer.
+
+Het is moeilijk te zeggen wie de zwakke tellers waren. Je kunt het een beetje zien in de tabel ‘Wie telde welke soorten’, maar sommigen voelden zich wat overmoedig denk ik (bv. alle deelnemende vrouwen behalve misschien Paulette; zeker die van Henegouwen vonden ondermaats weinig vogels; het is een kwestie die ik liever niet luidop zeg, maar het is wel een feit dat je een beetje ‘jachtinstinct’ moet hebben voor gespecialiseerd inventarisatiewerk). En dan zijn er nog een paar oudere deelnemers die vermoedelijk niet alles meer goed horen. In Midden-W-Vl was het de eerste keer voor nagenoeg iedereen om aan zoiets mee te doen. De meesten deden het behoorlijk, maar ook daar kunnen onderschattingen zijn ingeslopen.
+
+In 2013 is de zelf opgegeven kennis verrekend voor bv. Spotvogel (hun punten worden beschouwd als ‘niet geteld’ voor die soort en niet voor ‘afwezig’), maar ik ben niet 100% zeker dat Benoit Gozé dit ook gedaan heeft voor 2019. Onze lijst was ook onvolledig, vooral aan Franse kant, maar ik denk dat daar vooral goede vogelkijkers hebben meegedaan. Ik word er nog elke keer op aangesproken hoe leuk ze het vonden, als ik er ergens één tegenkom van toen. Dat komt natuurlijk ook omdat alles nog nieuw was voor hen, hier zijn de goede vogelaars zo goed als platgeslagen met projecten. In Frankrijk staat citizen science echt nog in de kinderschoenen, veruit het meeste onderzoek gebeurt door beroeps, al evolueren ze nu wel snel.
+
+ 
 
 
 # Verklarende variabelen
