@@ -23,6 +23,7 @@ library(mapview)
 library(readxl)
 library(gt)
 library(httr)
+library(osmextract)
 source(here("R", "wfs_wcs.R"))
 ```
 
@@ -107,5 +108,30 @@ mapview(leemstreek_pk, color = "brown", col.regions = "brown") +
   mapview(polders_pk) +
   mapview(plan_kiekendief_perimeter, zcol = "regio")
 
+```
+
+# OSM data
+
+```{r}
+# Define the vectortranslate options
+my_vectortranslate = c(
+  "-t_srs", "EPSG:31370",
+  "-select", "highway",
+  "-where", "highway IN ('track', 'footway', 'path',
+  'bridleway', 'tertiary', 'tertiary_link', 'unclassified')",
+  "-nlt", "PROMOTE_TO_MULTI"
+)
+
+# Read-in data
+leemstreek_paden <- oe_get(
+  place = leemstreek_pk,
+  vectortranslate_options = my_vectortranslate,
+  boundary = leemstreek_pk,
+  boundary_type = "clipsrc",
+  download_directory = here("data", "osmdata"))
+```
+
+```{r}
+mapview(leemstreek_paden)
 ```
 
