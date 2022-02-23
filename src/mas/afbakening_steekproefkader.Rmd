@@ -15,10 +15,13 @@ output:
 library(knitr)
 library(here)
 opts_chunk$set(
-  echo = TRUE)
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE)
 opts_knit$set(root.dir = here::here())
 library(tidyverse)
 library(sf)
+library(nngeo)
 library(mapview)
 library(readxl)
 library(gt)
@@ -27,9 +30,11 @@ library(osmextract)
 source(here("R", "wfs_wcs.R"))
 ```
 
-# Gebieden perimeter
+# Afbakening steekproefkader
 
-Leemstreek
+## Perimeter bepalen
+
+= intersectie landbouwstreek België met contour Vlaanderen en overlappend met prioritaire gebieden voor akkervogels
 
 ```{r warning=FALSE}
 landbouwstreken <- read_sf(
@@ -85,11 +90,10 @@ polders <- landbouwstreken %>%
   st_intersection(vlaanderen)
 ```
 
-```{r}
+```{r map-1, out.width="100%"}
 mapview(leemstreek) +
   mapview(polders) +
   mapview(plan_kiekendief_perimeter)
-
 ```
 
 ```{r}
@@ -103,21 +107,98 @@ polders_pk <- polders %>%
   
 ```
 
-```{r}
+```{r map-2, out.width="100%"}
 mapview(leemstreek_pk, color = "brown", col.regions = "brown") +
   mapview(polders_pk) +
   mapview(plan_kiekendief_perimeter, zcol = "regio")
-
 ```
 
-# OSM data
+We gaan verder met enkel de Leemstreek.
 
-```{r}
+## Exclusie van bepaalde landgebruiken
+
+- https://wiki.openstreetmap.org/wiki/Key:leisure
+    - park
+- https://wiki.openstreetmap.org/wiki/Key:landuse
+    - residential
+    - military
+    - industrial
+    - cemetery
+
+```{r leemstreek-exclusie}
+# Define the vectortranslate options
+landuse_exclusie_vectortranslate = c(
+  "-t_srs", "EPSG:31370",
+  "-select", "landuse",
+  "-where", "landuse IN ('residential', 'military', 'industrial', 'cemetery') OR 
+  leisure IN ('park')",
+  "-nlt", "PROMOTE_TO_MULTI"
+)
+
+leemstreek_exclusie <- oe_get(
+  place = leemstreek_pk,
+  layer = "multipolygons",
+  vectortranslate_options = landuse_exclusie_vectortranslate,
+  boundary = leemstreek_pk,
+  boundary_type = "clipsrc",
+  download_directory = here("data", "osmdata"))
+
+leemstreek_exclusie <- leemstreek_exclusie %>%
+  st_cast("GEOMETRYCOLLECTION") %>%
+  mutate(id = seq_len(nrow(.))) %>%
+  st_collection_extract("POLYGON") %>%
+  aggregate(list(.$id), first, do_union = FALSE) %>%
+  select(-id, -Group.1) %>%
+  as_tibble %>%
+  st_as_sf()
+```
+
+
+Verder vereenvoudigen van de polygonenkaart door:
+
+- alle polygonen samen te voegen tot 1 multipolygon (union)
+- bufferen met straal 20 m
+- overtollige vertices verwijderen met tolerantie 10 m
+- alle gaten (polygon holes) verwijderen
+
+
+```{r exclusie-simplified}
+leemstreek_exclusie %>%
+  st_union() %>%
+  st_buffer(dist = 20) %>%
+  st_simplify(dTolerance = 10) %>%
+  st_remove_holes() -> leemstreek_exclusie_simplified
+```
+
+```{r map-exclusies, out.width="100%"}
+complex <- leemstreek_exclusie %>%
+  mapview()
+eenvoudig <- leemstreek_exclusie_simplified %>%
+  mapview()
+
+leafsync::sync(complex, eenvoudig)
+```
+
+## Bepalen geldige plaatsen waar telling kan uitgevoerd worden
+
+Extractie uit Openstreetmap:
+
+- https://wiki.openstreetmap.org/wiki/Key:highway
+    - track
+    - footway
+    - path
+    - cycleway
+    - bridleway
+    - tertiary
+    - tertiary_link
+    - unclassified
+
+```{r leemstreek-paden}
 # Define the vectortranslate options
 my_vectortranslate = c(
   "-t_srs", "EPSG:31370",
   "-select", "highway",
-  "-where", "highway IN ('track', 'footway', 'path',
+  "-where", "highway IN ('track', 'footway', 'path', 'cycleway',
   'bridleway', 'tertiary', 'tertiary_link', 'unclassified')",
   "-nlt", "PROMOTE_TO_MULTI"
 )
@@ -127,11 +208,79 @@ leemstreek_paden <- oe_get(
   place = leemstreek_pk,
   vectortranslate_options = my_vectortranslate,
   boundary = leemstreek_pk,
-  boundary_type = "clipsrc",
+  boundary_type = "spat",
   download_directory = here("data", "osmdata"))
 ```
 
+Verwijderen van paden die overlappen met exclusiekaart.
+
+```{r verwijder-paden}
+leemstreek_paden %>%
+  st_difference(
+    leemstreek_exclusie_simplified) %>%
+  st_intersection(
+    leemstreek_pk %>% st_buffer(dist = 10)) -> leemstreek_paden_kader
+```
+
+```{r map-5, out.width="100%"}
+mapview(leemstreek_exclusie_simplified) +
+  mapview(leemstreek_paden_kader)
+```
+
+Overzicht totale lengte per categorie:
+
+```{r lengte-paden}
+leemstreek_paden_kader %>%
+  group_by(highway) %>%
+  summarise() %>%
+  mutate(lengte_km = as.numeric(st_length(.)) / 1e3) %>%
+  st_drop_geometry() %>%
+  kable(digits = 1)
+```
+
+## Verrastering van de paden
+
+- verrasteren op 10 m resolutie
+- Verderwerken met centroïden van elke rastercel
+
+## Berekening van attributen in buffer met straal 300 m
+
+Voor elke centroïde:
+
+- BO oppervlaktes
+- landgebruik oppervlaktes
+- KLE oppervlaktes / lengtes
+- kwantiel van de hoogteligging ter plaatse van de centroïde (om in te schatten of de centroïde laag, gemiddeld of hoog gelegen is in omgevend landschap)
+- maat voor complexiteit van het landschap (=> OLA vs KLA)
+
+## Exclusie telcirkels op basis van attributen
+
+Nodig?
+
+Criteria?
+
+- oppervlakte-aandeel landbouw < x ha
+- ...
+
+
+## DTM
+
+Opvragen van DTM op 20 m resolutie.
+Dit is wellicht voldoende resolutie?
+Hogere resolutie via WCS opvragen gaf error voor zo'n groot gebied - de DTM is origineel op 1 m resolutie, maar dat is wellicht niet nodig.
+
+```{r leemstreek-dtm, eval=!file.exists(here("data", "dtm", "leemstreek_dtm.tif"))}
+bbox <- round(st_bbox(leemstreek_pk))
+bbox <- bbox[c("xmin", "xmax", "ymin", "ymax")]
+
+leemstreek_dtm20 <- get_coverage_wcs(
+  wcs = "dtm",
+  bbox = bbox,
+  layername = "EL.GridCoverage.DTM",
+  resolution = 20)
+```
+
 ```{r}
-mapview(leemstreek_paden)
+terra::plot(leemstreek_dtm20)
 ```
 
