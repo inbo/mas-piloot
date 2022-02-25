@@ -27,7 +27,16 @@ library(readxl)
 library(gt)
 library(httr)
 library(osmextract)
+library(terra)
+library(exactextractr)
+library(arrow)
 source(here("R", "wfs_wcs.R"))
+source(here("R", "read_agri_use_parcels.R"))
+source(here("R", "utils.R"))
+source(here("R", "landuse_maps.R"))
+source(here("R", "abv.R"))
+source(here("R", "agro_environment_schemes.R"))
+source(here("R", "geocomputations.R"))
 ```
 
 # Afbakening steekproefkader
@@ -88,6 +97,16 @@ leemstreek <- landbouwstreken %>%
 polders <- landbouwstreken %>%
   filter(NAAM == "Polders") %>%
   st_intersection(vlaanderen)
+
+legend <- read_csv2(
+      "data/landgebruik/legende_landgebruik.csv",
+      col_types = cols(
+        bron = col_character(),
+        bestand_id = col_character(),
+        value = col_double(),
+        label = col_character(),
+        kleur = col_character()
+      ))
 ```
 
 ```{r map-1, out.width="100%"}
@@ -222,6 +241,17 @@ leemstreek_paden %>%
     leemstreek_pk %>% st_buffer(dist = 10)) -> leemstreek_paden_kader
 ```
 
+
+Verwijderen van overlappende paden.
+
+```{r verwijder-overlappende-paden}
+leemstreek_paden_kader %>%
+  st_filter(y = leemstreek_paden_kader,
+            .predicate =  st_relate,
+            pattern = "1FFF0FFF2") -> leemstreek_paden_kader
+```
+
+
 ```{r map-5, out.width="100%"}
 mapview(leemstreek_exclusie_simplified) +
   mapview(leemstreek_paden_kader)
@@ -238,10 +268,63 @@ leemstreek_paden_kader %>%
   kable(digits = 1)
 ```
 
-## Verrastering van de paden
+## Punten langs de paden
 
-- verrasteren op 10 m resolutie
-- Verderwerken met centroïden van elke rastercel
+- Op regelmatige afstanden van 50 m
+
+```{r leemstreek-punten}
+lpk <- leemstreek_paden_kader %>%
+  st_cast("MULTILINESTRING") %>%
+  st_cast("LINESTRING", warn = FALSE)
+
+interpoint_distance <- 50
+
+st_drop_geometry(lpk) %>%
+  bind_cols(
+    lpk %>%
+      st_line_sample(
+        density = units::set_units(1000 / interpoint_distance, 1/km),
+        type = "regular") %>%
+      st_as_sf() %>%
+      rename(geometry = x)
+    ) %>%
+  st_as_sf() -> leemstreek_multipoint
+
+leemstreek_multipoint %>%
+  st_cast("POINT", warn = FALSE) %>%
+  rownames_to_column(var = "pointid") -> leemstreek_point
+
+# punten die alsnog te dicht bij elkaar liggen verwijderen
+
+clusters <- leemstreek_point %>%
+    st_buffer(dist = interpoint_distance / 2 - 5) %>%
+    st_union() %>%
+    st_cast("POLYGON")
+
+groups_too_close <- st_intersects(
+  leemstreek_point,
+  clusters
+)
+
+leemstreek_point %>%
+  bind_cols(groups = unlist(groups_too_close)) %>%
+  group_by(groups) %>%
+  slice_head(n = 1) %>%
+  select(-groups) -> leemstreek_point
+```
+
+```{r eval=FALSE}
+mapview(leemstreek_point)
+```
+
+
+```{r}
+leemstreek_point %>%
+  st_drop_geometry() %>%
+  count(highway, name = "Aantal punten") %>%
+  kable()
+```
+
 
 ## Berekening van attributen in buffer met straal 300 m
 
@@ -253,6 +336,69 @@ Voor elke centroïde:
 - kwantiel van de hoogteligging ter plaatse van de centroïde (om in te schatten of de centroïde laag, gemiddeld of hoog gelegen is in omgevend landschap)
 - maat voor complexiteit van het landschap (=> OLA vs KLA)
 
+### Landgebruik
+
+VITO 2019 landgebruikskaart
+
+```{r lum2019vito}
+lum2019vito <- lum_read_from_vito() %>%
+  terra::crop(y = ext(leemstreek_pk %>% st_buffer(dist = 300)))
+
+write_results_lum2019vito <-
+  here("data", "processed",
+       "leemstreek_points_lumvito2019_b300.parquet")
+```
+
+
+
+```{r}
+st_bbox.SpatRaster = function(obj, ...) {
+    bb = as.vector(terra::ext(obj))[c(1,3,2,4)]
+    names(bb) = c("xmin", "ymin", "xmax", "ymax")
+    st_bbox(bb, crs = st_crs(obj))
+}
+
+st_crs.SpatRaster = function(x, ...) {
+    st_crs(crs(x))
+}
+```
+
+
+```{r landuse-vito-2019-extract, eval=!file.exists(write_results_lum2019vito)}
+
+# enkele minuten geduld
+points_lum2019 <- landusemetrics_grid_cell(
+  grid_cell = leemstreek_point %>%
+    st_buffer(dist = 300), 
+  layer = lum2019vito,
+  grid_group_by_col = "pointid")
+
+
+write_parquet(points_lum2019,
+              sink = write_results_lum2019vito)
+```
+
+```{r bo-file}
+file_bo <- here("data", "processed", "bo2021_points_b300.parquet")
+```
+
+
+```{r bo-calc, eval=!file.exists(file_bo)}
+bo2021 <- read_aes(year = 2021,
+                    path = here("data", "bo_vlm"))
+
+points_bo2021 <- landusemetrics_grid_cell(
+  grid_cell = leemstreek_point %>%
+    st_buffer(dist = 300),
+  layer = bo2021 %>% st_transform(crs = 31370), 
+  grid_group_by_col = "pointid", 
+  layer_group_by_col = "SRT_OBJECT")
+
+write_parquet(points_bo2021, file_bo)
+```
+
+
+
 ## Exclusie telcirkels op basis van attributen
 
 Nodig?
@@ -261,6 +407,50 @@ Criteria?
 
 - oppervlakte-aandeel landbouw < x ha
 - ...
+
+```{r landuse-vito-2019-results, eval=file.exists(write_results_lum2019vito)}
+points_lum2019 <- read_parquet(write_results_lum2019vito,
+                               as_data_frame = FALSE)
+
+legende_lumvito2019 <- legend %>%
+              filter(bestand_id == "vito") %>%
+              select(value, label, kleur)
+
+points_ago <- points_lum2019 %>%
+  left_join(legende_lumvito2019) %>%
+  collect() %>%
+  mutate(label2 = factor(label, 
+                         levels = c("Akker", "Grasland", "Bos", "Struikgewas")),
+         label2 = as.character(label2),
+         label2 = ifelse(is.na(label2), "Overige", label2)) %>%
+  group_by(pointid, label2) %>%
+  summarise(freq = sum(freq), .groups = "drop") %>%
+  pivot_wider(names_from = label2, values_from = freq, values_fill = 0) 
+
+points_ago %>%
+  ggtern::ggtern(aes(x = Akker, y = Grasland + Bos + Struikgewas,
+                     z = Overige)) + 
+  geom_point(alpha = 0.1,
+             aes(colour = (Grasland + Bos + Struikgewas)^2 + Akker^2 > 0.5^2))
+```
+
+
+```{r}
+leemstreek_point %>%
+  left_join(points_ago,
+            by = "pointid") %>%
+  mutate(selectie = (Grasland + Bos + Struikgewas)^2 + Akker^2 > 0.5^2) %>%
+  mapview(zcol = "selectie")
+```
+
+
+```{r eval=file.exists(file_bo)}
+points_bo2021 <- read_parquet(file = file_bo)
+
+points_bo2021 %>%
+  ggplot() + 
+  geom_histogram(aes(x = as.numeric(area_prop), fill = SRT_OBJECT))
+```
 
 
 ## DTM

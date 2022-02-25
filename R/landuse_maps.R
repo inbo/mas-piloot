@@ -61,7 +61,7 @@ lum_read_from_inbo <- function(
   tr <- terra::rast(file.path(root, file))
   # re-assign categories labels which got lost in translation
   # (ESRI -> geotiff -> terra::rast)
-  if(add_levels) {
+  if (add_levels) {
     legend <- read_csv2(
       "data/landgebruik/legende_landgebruik.csv",
       col_types = cols(
