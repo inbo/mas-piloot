@@ -117,11 +117,11 @@ mapview(leemstreek) +
 
 ```{r}
 leemstreek_pk <- leemstreek %>%
-  st_cast("POLYGON") %>%
+  st_cast("POLYGON", warn = FALSE) %>%
   st_filter(plan_kiekendief_perimeter)
 
 polders_pk <- polders %>%
-  st_cast("POLYGON") %>%
+  st_cast("POLYGON", warn = FALSE) %>%
   st_filter(plan_kiekendief_perimeter)
   
 ```
@@ -311,6 +311,9 @@ leemstreek_point %>%
   group_by(groups) %>%
   slice_head(n = 1) %>%
   select(-groups) -> leemstreek_point
+
+rm(clusters)
+rm(groups_too_close)
 ```
 
 ```{r eval=FALSE}
@@ -326,17 +329,13 @@ leemstreek_point %>%
 ```
 
 
-## Berekening van attributen in buffer met straal 300 m
 
-Voor elke centroïde:
+## Exclusie telcirkels op basis van landgebruiksamenstelling
 
-- BO oppervlaktes
+
+Voor elk potentieel telpunt / telcirkel:
+
 - landgebruik oppervlaktes
-- KLE oppervlaktes / lengtes
-- kwantiel van de hoogteligging ter plaatse van de centroïde (om in te schatten of de centroïde laag, gemiddeld of hoog gelegen is in omgevend landschap)
-- maat voor complexiteit van het landschap (=> OLA vs KLA)
-
-### Landgebruik
 
 VITO 2019 landgebruikskaart
 
@@ -351,7 +350,7 @@ write_results_lum2019vito <-
 
 
 
-```{r}
+```{r hulpfuncties-methods}
 st_bbox.SpatRaster = function(obj, ...) {
     bb = as.vector(terra::ext(obj))[c(1,3,2,4)]
     names(bb) = c("xmin", "ymin", "xmax", "ymax")
@@ -378,6 +377,107 @@ write_parquet(points_lum2019,
               sink = write_results_lum2019vito)
 ```
 
+
+```{r landuse-vito-2019-results, eval=file.exists(write_results_lum2019vito)}
+points_lum2019 <- read_parquet(write_results_lum2019vito,
+                               as_data_frame = FALSE)
+```
+
+
+
+Criteria?
+
+- Landgebruik
+    - oppervlakte-aandeel Akker > 30% én oppervlakte-aandeel (Akker + Grasland + Bos + Struikgewas) > 50%
+
+
+De gebruikte landgebruikskaart dekt enkel het Vlaamse grondgebied.
+Indien de telcirkel deels in een andere gewest / land gelegen is, zal het landgebruik daar ontbreken.
+In de momenteel gebruikte berekening is dit "ontbrekend" landgebruik weggefilterd en slaat het oppervlakte-aandeel enkel op het deel van de telcirkel waar we data voor hebben.
+Het kan dus zijn dat op de volledige telcirkel deze oppervlakte-aandelen verschillend zijn (en al dan niet zouden moeten uitgesloten worden volgens het criterium).
+Indien we willen dat telcirkels volledig in Vlaanderen gelegen zijn kunnen we een criterium gebruiken dat potentiële telpunten minstens 300 m van de grens gelegen moeten zijn.
+
+
+```{r ternplot-landuse}
+legende_lumvito2019 <- legend %>%
+              filter(bestand_id == "vito") %>%
+              select(value, label, kleur)
+
+points_ago <- points_lum2019 %>%
+  left_join(legende_lumvito2019) %>%
+  # herbereken freq zodat noemer = som van niet NA deel (NA = buiten Vlaanderen)
+  filter(!is.na(label)) %>%
+  collect() %>%
+  group_by(pointid) %>%
+  mutate(freq = freq / sum(freq)) %>%
+  mutate(label2 = factor(label, 
+                         levels = c("Akker", "Grasland", "Bos", "Struikgewas")),
+         label2 = as.character(label2),
+         label2 = ifelse(is.na(label2), "Overige", label2)) %>%
+  group_by(pointid, label2) %>%
+  summarise(freq = sum(freq), .groups = "drop") %>%
+  pivot_wider(names_from = label2, values_from = freq, values_fill = 0) %>% 
+  mutate(selectie = 
+           ((Grasland + Bos + Struikgewas + Akker) > 0.5) &
+           (Akker > 0.3)) %>%
+  mutate(selectie2 = Akker + Grasland > 0.4 &
+           ((Grasland + Bos + Struikgewas + Akker) > 0.5))
+
+points_ago %>%
+  ggtern::ggtern(aes(x = Akker, y = Grasland + Bos + Struikgewas,
+                     z = Overige)) + 
+  geom_point(alpha = 0.1,
+             aes(colour = selectie))
+```
+
+
+```{r}
+leemstreek_point %>%
+  left_join(points_ago,
+            by = "pointid") %>%
+  mapview(zcol = "selectie")
+```
+
+
+Alternatief?
+
+- Akker + Grasland > 40% én Grasland + Bos + Struikgewas + Akker > 50%
+
+```{r}
+points_ago %>%
+  ggtern::ggtern(aes(x = Akker + Grasland,
+                     y = Bos + Struikgewas,
+                     z = Overige)) + 
+  geom_point(alpha = 0.1,
+             aes(colour = selectie2))
+```
+
+```{r exclusie-selectie}
+leemstreek_point <- leemstreek_point %>%
+  semi_join(points_ago %>%
+              filter(selectie),
+            by = "pointid")
+```
+
+
+## Berekening volledig gekende variabelen die relatie hebben met respons
+
+Dit zijn interessante variabelen om in rekening te brengen bij het steekproefdesign.
+Dit kan bijvoorbeeld door middel van stratificatie of door te zorgen dat de steekproef op een homogene manier de gradiënt van deze hulpvariabele(n) afdekt.
+
+Voor elk potentieel telpunt / telcirkel:
+
+- BO oppervlaktes
+- KLE oppervlaktes / lengtes
+- kwantiel van de hoogteligging ter plaatse van de centroïde (om in te schatten of de centroïde laag, gemiddeld of hoog gelegen is in omgevend landschap)
+- maat voor complexiteit van het landschap (=> OLA vs KLA)
+
+
+
+### Oppervlakte-aandeel beheerovereenkomsten
+
+Toestand beheerovereenkomsten 2021.
+
 ```{r bo-file}
 file_bo <- here("data", "processed", "bo2021_points_b300.parquet")
 ```
@@ -397,66 +497,98 @@ points_bo2021 <- landusemetrics_grid_cell(
 write_parquet(points_bo2021, file_bo)
 ```
 
-
-
-## Exclusie telcirkels op basis van attributen
-
-Nodig?
-
-Criteria?
-
-- oppervlakte-aandeel landbouw < x ha
-- ...
-
-```{r landuse-vito-2019-results, eval=file.exists(write_results_lum2019vito)}
-points_lum2019 <- read_parquet(write_results_lum2019vito,
-                               as_data_frame = FALSE)
-
-legende_lumvito2019 <- legend %>%
-              filter(bestand_id == "vito") %>%
-              select(value, label, kleur)
-
-points_ago <- points_lum2019 %>%
-  left_join(legende_lumvito2019) %>%
-  collect() %>%
-  mutate(label2 = factor(label, 
-                         levels = c("Akker", "Grasland", "Bos", "Struikgewas")),
-         label2 = as.character(label2),
-         label2 = ifelse(is.na(label2), "Overige", label2)) %>%
-  group_by(pointid, label2) %>%
-  summarise(freq = sum(freq), .groups = "drop") %>%
-  pivot_wider(names_from = label2, values_from = freq, values_fill = 0) 
-
-points_ago %>%
-  ggtern::ggtern(aes(x = Akker, y = Grasland + Bos + Struikgewas,
-                     z = Overige)) + 
-  geom_point(alpha = 0.1,
-             aes(colour = (Grasland + Bos + Struikgewas)^2 + Akker^2 > 0.5^2))
+```{r eval=file.exists(file_bo)}
+points_bo2021 <- read_parquet(file = file_bo)
 ```
+
 
 
 ```{r}
-leemstreek_point %>%
-  left_join(points_ago,
-            by = "pointid") %>%
-  mutate(selectie = (Grasland + Bos + Struikgewas)^2 + Akker^2 > 0.5^2) %>%
-  mapview(zcol = "selectie")
-```
-
-
-```{r eval=file.exists(file_bo)}
-points_bo2021 <- read_parquet(file = file_bo)
-
 points_bo2021 %>%
   ggplot() + 
   geom_histogram(aes(x = as.numeric(area_prop), fill = SRT_OBJECT))
 ```
 
+### Oppervlakte-aandeel hoofdteelt
+
+```{r lbg-file}
+file_lbg <- here("data", "processed", "lbg2020_points_b300.parquet")
+```
+
+
+```{r lbg-calc, eval=!file.exists(file_lbg)}
+lbg2020_binding <- arrow::open_dataset(
+  here("data", "landbouwgebruikspercelen", "parquet", "lbgbrprc20.parquet"))
+
+points_lbg <- landusemetrics_grid_cell(
+  grid_cell = leemstreek_point %>%
+    st_buffer(dist = 300), 
+  layer = lbg2020_binding %>%
+    select(LBLHFDTLT, geometry) %>%
+    sfarrow::read_sf_dataset() %>%
+    st_transform(31370), 
+  grid_group_by_col = "pointid", 
+  layer_group_by_col = "LBLHFDTLT")
+
+mapping <- lbg2020_binding %>%
+  select(GEWASGROEP, LBLHFDTLT) %>%
+  collect() %>%
+  distinct()
+
+points_lbg <- points_lbg %>%
+  left_join(mapping)
+
+write_parquet(points_lbg, file_lbg)
+```
+
+```{r eval=file.exists(file_lbg)}
+points_lbg <- open_dataset(file_lbg)
+```
+
+
+Belangrijkste teelten in 2020:
+
+```{r}
+points_lbg %>%
+  select(pointid, LBLHFDTLT, area_prop) %>%
+  collect() %>%
+  pivot_wider(names_from = LBLHFDTLT,
+              values_from = area_prop,
+              values_fill = list(area_prop = 0)) %>%
+  pivot_longer(cols = -pointid) %>%
+  group_by(name) %>%
+  summarise(prop_n_points = sum(value > 0) / n(),
+            mean_prop = mean(value),
+            mean_prop_present = mean(value[value > 0])) %>%
+  filter(mean_prop > 0.01) %>%
+  pivot_longer(cols = c(prop_n_points, mean_prop, mean_prop_present),
+               names_to = "variable",
+               values_to = "value") %>%
+  ggplot() +
+  geom_point(aes(y = forcats::fct_reorder(name, value, mean),
+                 x = value, colour = variable))
+```
+
+
+
+### KLE - hagen en heggen
+
+Mogelijke bronnen:
+
+- https://www.geopunt.be/catalogus/datasetfolder/2c64ca0c-5053-4a66-afac-24d69b1a09e7
+    - laag groen / hoog groen / landbouw / overige
+    - laatste jaar: 2018
+- https://land.copernicus.eu/pan-european/high-resolution-layers/small-woody-features
+    - voorlopig enkel voor 2015
+
+
+### Type landschap
+
+
 
 ## DTM
 
-Opvragen van DTM op 20 m resolutie.
-Dit is wellicht voldoende resolutie?
+DTM op 20 m resolutie.
 Hogere resolutie via WCS opvragen gaf error voor zo'n groot gebied - de DTM is origineel op 1 m resolutie, maar dat is wellicht niet nodig.
 
 ```{r leemstreek-dtm, eval=!file.exists(here("data", "dtm", "leemstreek_dtm.tif"))}
