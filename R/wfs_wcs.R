@@ -62,7 +62,7 @@ get_feature_wfs <- function(
 
 #' Get a layer from a web coverage service within a bounding box
 #'
-get_coverage_wcs <- function(wcs = c("dtm", "omz"),
+get_coverage_wcs <- function(wcs = c("dtm", "omz", "dsm"),
                           bbox, #xmin, xmax, ymin, ymax
                           layername,
                           resolution,
@@ -73,10 +73,11 @@ get_coverage_wcs <- function(wcs = c("dtm", "omz"),
   wcs <- match.arg(wcs)
 
   # set url
-  wcs <- ifelse(
-    wcs == "omz",
-    "https://inspire.informatievlaanderen.be/overdrachtdiensten/oi-omz/wcs",
-    "https://inspire.informatievlaanderen.be/overdrachtdiensten/el-dtm/wcs"
+  wcs <- switch(
+    wcs,
+    omz = "https://inspire.informatievlaanderen.be/overdrachtdiensten/oi-omz/wcs",
+    dtm = "https://inspire.informatievlaanderen.be/overdrachtdiensten/el-dtm/wcs",
+    dsm = "https://inspire.informatievlaanderen.be/overdrachtdiensten/el-dsm/wcs"
   )
 
   assertthat::assert_that(is.character(layername))
