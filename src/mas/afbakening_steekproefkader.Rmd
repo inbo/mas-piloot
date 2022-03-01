@@ -270,10 +270,14 @@ leemstreek_paden_kader %>%
 
 ## Punten langs de paden
 
-- Op regelmatige afstanden van 50 m
+Werkwijze:
+
+- Langs alle paden worden op regelmatige afstanden van 50 m punten gelegd
+- Daarna worden punten die op minder dan 40 m van elkaar liggen ruimtelijk gegroepeerd (dit gebeurt wanneer verschillende paden elkaar kruisen of op korte afstand parallel aan elkaar liggen) en uit elk van deze clusters wordt één punt overgehouden
 
 ```{r leemstreek-punten}
 lpk <- leemstreek_paden_kader %>%
+  select(-NAAM, -NameDUT) %>%
   st_cast("MULTILINESTRING") %>%
   st_cast("LINESTRING", warn = FALSE)
 
@@ -330,7 +334,9 @@ leemstreek_point %>%
 
 
 
-## Exclusie telcirkels op basis van landgebruiksamenstelling
+## Exclusie van potentiële telpunten / telcirkels
+
+### Exclusie op basis van landgebruiksamenstelling
 
 
 Voor elk potentieel telpunt / telcirkel:
@@ -395,7 +401,6 @@ De gebruikte landgebruikskaart dekt enkel het Vlaamse grondgebied.
 Indien de telcirkel deels in een andere gewest / land gelegen is, zal het landgebruik daar ontbreken.
 In de momenteel gebruikte berekening is dit "ontbrekend" landgebruik weggefilterd en slaat het oppervlakte-aandeel enkel op het deel van de telcirkel waar we data voor hebben.
 Het kan dus zijn dat op de volledige telcirkel deze oppervlakte-aandelen verschillend zijn (en al dan niet zouden moeten uitgesloten worden volgens het criterium).
-Indien we willen dat telcirkels volledig in Vlaanderen gelegen zijn kunnen we een criterium gebruiken dat potentiële telpunten minstens 300 m van de grens gelegen moeten zijn.
 
 
 ```{r ternplot-landuse}
@@ -455,8 +460,27 @@ points_ago %>%
 ```{r exclusie-selectie}
 leemstreek_point <- leemstreek_point %>%
   semi_join(points_ago %>%
-              filter(selectie),
+              filter(selectie2),
             by = "pointid")
+```
+
+### Exclusie op basis van afstand tot grens
+
+Indien we willen dat telcirkels volledig in Vlaanderen gelegen zijn kunnen we een criterium gebruiken dat potentiële telpunten minstens 300 m van de grens gelegen moeten zijn.
+
+```{r exclusie-afstand}
+leemstreek_point %>%
+  st_intersection(leemstreek_pk %>%
+                    st_buffer(dist = -300) %>%
+                    st_geometry()) -> leemstreek_point
+```
+
+```{r}
+mapview(leemstreek_pk) + 
+  leemstreek_pk %>%
+  st_buffer(dist = -300) %>%
+  mapview() +
+mapview(leemstreek_point)
 ```
 
 
@@ -605,4 +629,54 @@ leemstreek_dtm20 <- get_coverage_wcs(
 ```{r}
 terra::plot(leemstreek_dtm20)
 ```
+
+## Trekking steekproef voor de pilootfase
+
+Voorlopige schets:
+
+- Stratificatie binnen vs buiten perimeter plan kiekendief
+- trekking binnen elk van deze strata
+    - strata voor type landschap? OLA vs GLA
+    - binnen elk van deze substrata
+        - ruimtelijk gebalanceerde trekking; eventueel rekening houdend dat gradiënt in oppervlakte aandeel beheerovereenkomsten goed afgedekt is
+- Daarna nagaan welke _bestaande_ MAS telpunten 'voldoende dichtbij' gelegen zijn bij getrokken telpunten. Indien dat het geval is, de bestaande telpunten gebruiken.
+    - Een alternatief is dat we de bestaande telpunten toevoegen aan de set van potentiële telpunten en deze een hogere inclusiekans geven - eventueel zelfs afhankelijk van de "kwaliteit" van het bestaand telpunt (bv aantal jaren gemonitord). Deze aanpak is echter veel moeilijker om achteraf de gegevens te analyseren op een correcte manier (veel makkelijker om door een reviewer van de statistiek onderuit gehaald te worden)
+
+Steekproefgrootte voor de Leemstreek (en Moeren) voor de pilootfase laten afhangen van wat er haalbaar is met professionelen en vrijwilligers:
+
+- leemstreek: 240 punten per jaar?
+- moeren: 60 punten per jaar?
+
+Allocatie van de steekproefgrootte over de verschillende strata.
+Hier moeten we afweging maken tussen de precisie per stratum en precisie voor de leemstreek in zijn geheel.
+Voor het geheel zou een allocatie evenredig een de oppervlakte van elk stratum wellicht de voorkeur hebben.
+Indien we echter ook geïnteresseerd zijn in uitspraken voor elk stratum apart en in onderlinge vergelijkingen tussen de strata, dan is een allocatie waarbij in elk stratum evenveel punten liggen meer aangewezen.
+Tussen deze twee scenario's zijn er veel tussenposities.
+In het algemeen kunnen we voor een kostenoptimale allocatie gebruik maken van een formule die stelt dat de allocatie recht evenredig is met de oppervlakte van een stratum en de variabilitiet in een stratum en omgekeerd evenredig is met de vierkantswortel van de kosten van het veldwerk in het stratum.
+
+In elk geval zal er een veelvoud van het vooropgestelde aantal telpunten getrokken worden.
+Elk telpunt zal een volgnummer hebben.
+De eerste (bv) 240 (laagste volgnummers) zullen dan de set zijn voor de leemstreek, die kan verdeeld worden over de medewerkers.
+Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 241ste).
+De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
+
+Temporeel design:
+
+- elk punt wordt elk jaar opnieuw bezocht?
+- of een aparte set in 2022 en 2023 (rotating panel design)? Kan ook deels aparte set zijn (augmented panel design)
+
+## Uitschrijven van veldprotocol
+
+
+
+## Aanmaken van veldwerkformulieren om af te drukken
+
+Kan automatisch aangemaakt worden (bv 1 A4 per telpunt in PDF formaat) als ik een layoutvoorbeeld heb.
+
+Wat ook kan is de geselecteerde telpunten / telcirkels exporteren naar een formaat dat in avimap geïmporteerd kan worden.
+Welk formaat moet dit zijn?
+
+
+
+
 
