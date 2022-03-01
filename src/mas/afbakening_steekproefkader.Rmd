@@ -476,11 +476,15 @@ leemstreek_point %>%
 ```
 
 ```{r}
-mapview(leemstreek_pk) + 
+m1 <- mapview(leemstreek_pk) + 
   leemstreek_pk %>%
   st_buffer(dist = -300) %>%
   mapview() +
 mapview(leemstreek_point)
+
+
+m1@map %>%
+  leaflet::setView(5.04, 50.76, zoom = 13)
 ```
 
 
@@ -494,7 +498,7 @@ Voor elk potentieel telpunt / telcirkel:
 - BO oppervlaktes
 - KLE oppervlaktes / lengtes
 - kwantiel van de hoogteligging ter plaatse van de centroïde (om in te schatten of de centroïde laag, gemiddeld of hoog gelegen is in omgevend landschap)
-- maat voor complexiteit van het landschap (=> OLA vs KLA)
+- maat voor complexiteit van het landschap (=> OLA, HOLA, KLA)
 
 
 
@@ -504,12 +508,13 @@ Toestand beheerovereenkomsten 2021.
 
 ```{r bo-file}
 file_bo <- here("data", "processed", "bo2021_points_b300.parquet")
+
+bo2021 <- read_aes(year = 2021,
+                    path = here("data", "bo_vlm"))
 ```
 
 
 ```{r bo-calc, eval=!file.exists(file_bo)}
-bo2021 <- read_aes(year = 2021,
-                    path = here("data", "bo_vlm"))
 
 points_bo2021 <- landusemetrics_grid_cell(
   grid_cell = leemstreek_point %>%
@@ -521,17 +526,78 @@ points_bo2021 <- landusemetrics_grid_cell(
 write_parquet(points_bo2021, file_bo)
 ```
 
+Indeling voor niet-productieve gewassen / beheerovereenkomsten (instrumenten):
+
+- soortbeschermingsmaatregelen
+    - perceelsniveau
+    - randen
+- erosiemaatregelen
+- bufferstroken
+
 ```{r eval=file.exists(file_bo)}
 points_bo2021 <- read_parquet(file = file_bo)
+
+bo_maatregelen <- bo2021 %>%
+  st_drop_geometry() %>%
+  distinct(BH_DOELST, SRT_OBJECT, EENHEID)
 ```
 
 
 
-```{r}
+```{r bo-per-str-object}
 points_bo2021 %>%
-  ggplot() + 
-  geom_histogram(aes(x = as.numeric(area_prop), fill = SRT_OBJECT))
+  select(pointid, SRT_OBJECT, area_prop) %>%
+  pivot_wider(names_from = SRT_OBJECT,
+              values_from = area_prop,
+              values_fill = list(area_prop = 0)) %>%
+  pivot_longer(cols = -pointid) %>%
+  group_by(name) %>%
+  summarise(prop_n_points = sum(value > 0) / n(),
+            mean_prop = mean(value),
+            mean_prop_present = mean(value[value > 0])) %>%
+  pivot_longer(cols = c(prop_n_points, mean_prop, mean_prop_present),
+               names_to = "variable",
+               values_to = "value") %>%
+  ggplot() +
+  geom_point(aes(y = forcats::fct_reorder(name, value, mean),
+                 x = value, colour = variable)) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_color_discrete(labels = c("Gemiddeld oppervlakteperc.",
+                                  "Gemiddeld oppervlakteperc.\nwaar aanwezig",
+                                  "Percentage pot. telpunten\n aanwezig")) +
+  labs(x = "Percentage in telcirkel") + 
+  theme(axis.title.y = element_blank())
 ```
+
+
+```{r bo-per-doelst}
+points_bo2021 %>%
+  select(pointid, SRT_OBJECT, area_prop) %>%
+  left_join(bo_maatregelen, by = "SRT_OBJECT") %>%
+  pivot_wider(id_cols = c(pointid),
+              names_from = BH_DOELST,
+              values_from = area_prop,
+              values_fill = list(area_prop = 0),
+              values_fn = list(area_prop = sum)) %>%
+  pivot_longer(cols = -pointid) %>%
+  group_by(name) %>%
+  summarise(prop_n_points = sum(value > 0) / n(),
+            mean_prop = mean(value),
+            mean_prop_present = mean(value[value > 0])) %>%
+  pivot_longer(cols = c(prop_n_points, mean_prop, mean_prop_present),
+               names_to = "variable",
+               values_to = "value") %>%
+  ggplot() +
+  geom_point(aes(y = forcats::fct_reorder(name, value, mean),
+                 x = value, colour = variable)) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_color_discrete(labels = c("Gemiddeld oppervlakteperc.",
+                                  "Gemiddeld oppervlakteperc.\nwaar aanwezig",
+                                  "Percentage pot. telpunten\n aanwezig")) +
+  labs(x = "Percentage in telcirkel") + 
+  theme(axis.title.y = element_blank())
+```
+
 
 ### Oppervlakte-aandeel hoofdteelt
 
@@ -572,7 +638,7 @@ points_lbg <- open_dataset(file_lbg)
 
 Belangrijkste teelten in 2020:
 
-```{r}
+```{r lbg-per-hoofdteelt}
 points_lbg %>%
   select(pointid, LBLHFDTLT, area_prop) %>%
   collect() %>%
@@ -590,30 +656,78 @@ points_lbg %>%
                values_to = "value") %>%
   ggplot() +
   geom_point(aes(y = forcats::fct_reorder(name, value, mean),
-                 x = value, colour = variable))
+                 x = value, colour = variable)) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_color_discrete(labels = c("Gemiddeld oppervlakteperc.",
+                                  "Gemiddeld oppervlakteperc.\nwaar aanwezig",
+                                  "Percentage pot. telpunten\n aanwezig")) +
+  labs(x = "Percentage in telcirkel") + 
+  theme(axis.title.y = element_blank())
+```
+
+Een logische en veelgebruikte opdeling voor gewassen is:
+
+- graangewassen (monocotylen zoals tarwe, gerst, etc..) 
+- grasland (opdelen permanent en tijdelijk)
+- mais
+- aardappelen
+- wortelgewassen (biet, chicorei, wortel)
+- peulvruchten (erwt)
+- groententeelt (kolen zoals bloemkool, brocolli, spruiten, prei, ajuin, sla)
+- groenbemester (klavers, luzerne, mosterd) of koolzaad
+- meerjarige fruitteelt (appel, peer, kers, ea)
+- vlas
+- andere (vb eenjarig fruitteelt) 
+
+Hier gebruiken we de indeling volgens 'gewasgroep' zoals deze in de landbouwgebruikspercelenkaart zit.
+
+```{r lbg-per-gewasgroep, warning=FALSE}
+points_lbg %>%
+  select(pointid, GEWASGROEP, area_prop) %>%
+  collect() %>%
+  pivot_wider(names_from = GEWASGROEP,
+              values_from = area_prop,
+              values_fill = list(area_prop = 0),
+              values_fn = list(area_prop = sum)) %>%
+  pivot_longer(cols = -pointid) %>%
+  group_by(name) %>%
+  summarise(prop_n_points = sum(value > 0) / n(),
+            mean_prop = mean(value),
+            mean_prop_present = mean(value[value > 0])) %>%
+  pivot_longer(cols = c(prop_n_points, mean_prop, mean_prop_present),
+               names_to = "variable",
+               values_to = "value") %>%
+  ggplot() +
+  geom_point(aes(y = forcats::fct_reorder(name, value, mean),
+                 x = value, colour = variable)) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_color_discrete(labels = c("Gemiddeld oppervlakteperc.",
+                                  "Gemiddeld oppervlakteperc.\nwaar aanwezig",
+                                  "Percentage pot. telpunten\n aanwezig")) +
+  labs(x = "Percentage in telcirkel") + 
+  theme(axis.title.y = element_blank())
 ```
 
 
+### Type landschap
 
-### KLE - hagen en heggen
+Onderscheid maken tussen OL, HOL en KL (open landschap, half-open landschap en kleinschalig landschap)?
 
 Mogelijke bronnen:
 
 - https://www.geopunt.be/catalogus/datasetfolder/2c64ca0c-5053-4a66-afac-24d69b1a09e7
     - laag groen / hoog groen / landbouw / overige
     - laatste jaar: 2018
+- DTM en DSM (digitaal terrein en oppervlakte model) waaruit 'canopy' height model (CHM) kan afgeleid worden
 - https://land.copernicus.eu/pan-european/high-resolution-layers/small-woody-features
     - voorlopig enkel voor 2015
 
-
-### Type landschap
-
-
-
-## DTM
-
-DTM op 20 m resolutie.
+DTM / DSM op 20 m resolutie.
 Hogere resolutie via WCS opvragen gaf error voor zo'n groot gebied - de DTM is origineel op 1 m resolutie, maar dat is wellicht niet nodig.
+Bij het CHM is 'canopy' ruim te interpreteren want inclusief gebouwen etc.
+Dit is OK voor de typering van landschap.
+Een landschap vol lintbebouwing kunnen we moeilijk als OL classificeren.
+
 
 ```{r leemstreek-dtm, eval=!file.exists(here("data", "dtm", "leemstreek_dtm.tif"))}
 bbox <- round(st_bbox(leemstreek_pk))
@@ -624,11 +738,105 @@ leemstreek_dtm20 <- get_coverage_wcs(
   bbox = bbox,
   layername = "EL.GridCoverage.DTM",
   resolution = 20)
+
+leemstreek_dsm20 <- get_coverage_wcs(
+  wcs = "dsm",
+  bbox = bbox,
+  layername = "EL.GridCoverage.DSM",
+  resolution = 20)
+
+leemstreek_chm20 <- leemstreek_dsm20 - leemstreek_dtm20
 ```
 
 ```{r}
 terra::plot(leemstreek_dtm20)
+terra::plot(leemstreek_dsm20)
+terra::plot(leemstreek_chm20)
 ```
+
+```{r}
+circle1000 <- focalMat(leemstreek_chm20, d = 1000, type = "circle")
+leemstreek_chm20_c1000_sd <- terra::focal(
+  leemstreek_chm20,
+  w = circle1000,
+  fun = "sd")
+
+```
+
+
+Onderstaande figuren geven eerst de standaarddeviatie van het CHM in een straal van 1000m rond elke rastercel.
+De tweede figuur classificeert deze standaarddeviaties in drie klassen die we kunnen interpreteren als 1 = OL, 2 = HOL, 3 = KL.
+
+```{r}
+plot(leemstreek_chm20_c1000_sd)
+rclasmat <- c(0, 0.0002, 1,
+              0.0002, 0.0006, 2,
+              0.0006, +Inf, 3) %>%
+  matrix(ncol = 3, byrow = TRUE)
+leemstreek_landschapstype <- terra::classify(
+  leemstreek_chm20_c1000_sd,
+  rcl = rclasmat,
+  include.lowest = TRUE)
+
+```
+
+
+```{r landschapstype, warning=FALSE}
+my_palette <- RColorBrewer::brewer.pal(n = 3, name = "Dark2")
+leemstreek_landschapstype_raster <- raster::raster(leemstreek_landschapstype)
+leemstreek_landschapstype_raster <- raster::ratify(leemstreek_landschapstype_raster)
+levels(leemstreek_landschapstype_raster)[[1]]$LT <- c("OL", "HOL", "KL")
+
+leemstreek_landschapstype_raster %>%
+  mapview(col.regions = my_palette, att = "LT")
+```
+
+<!--
+Viewshed analyse?
+-->
+
+```{r eval=!file.exists(here("data", "groenkaart", "groenkaart2018_leemstreek.tif"))}
+groenkaart2018 <- rast(
+  file.path("S:", "Vlaanderen", "Natuur_Bos", "Boswijzer_Groenkaart",
+            "Groenkaart_2018.tif"))
+groenkaart2018 <- crop(groenkaart2018, leemstreek_pk)
+terra::writeRaster(groenkaart2018, here("data", "groenkaart",
+                                        "groenkaart2018_leemstreek.tif"))
+```
+
+```{r eval=file.exists(here("data", "groenkaart", "groenkaart2018_leemstreek.tif"))}
+groenkaart2018 <- rast(here("data", "groenkaart",
+                                        "groenkaart2018_leemstreek.tif"))
+
+hlg2018 <- segregate(groenkaart2018, classes = c(1, 2))
+names(hlg2018) <- c("hoog groen", "laag groen")
+```
+
+- laag groen (minder dan 3 m)
+- hoog groen (meer dan 3 m)
+
+```{r}
+plot(hlg2018)
+```
+
+
+Hoe OL, HOL, KL bepalen? Voorstel:
+
+- in ruimere buffer van 1000 m rond elk potentieel telpunt
+    - het oppervlakte-aandeel hoog groen bepalen?
+    - de perimeter van hoog groen bepalen?
+    - gemiddelde en standaardeviatie hoogte in het CHM model bepalen?
+
+Een OL karakteriseert zich dan door:
+
+- laag oppervlakte-aandeel hoog groen
+- lage perimeter hoog groen
+- lage perimeter / oppervlakte verhouding
+- lage gemiddelde hoogte en lage standaardeviatie in hoogte van het CHM model
+
+(Perceelsgrootte speelt hierin geen rol. Een OL kan zowel relatief kleinschalige perceelsgrootte hebben als grootschalige perceelsgrootte).
+
+
 
 ## Trekking steekproef voor de pilootfase
 
@@ -636,7 +844,7 @@ Voorlopige schets:
 
 - Stratificatie binnen vs buiten perimeter plan kiekendief
 - trekking binnen elk van deze strata
-    - strata voor type landschap? OLA vs GLA
+    - strata voor type landschap? Van belang voor open landschap akkervogels (OLA), halfopen landschap akkervogels (HOLA) en kleinschalige landschap akkervogels (KLA)
     - binnen elk van deze substrata
         - ruimtelijk gebalanceerde trekking; eventueel rekening houdend dat gradiënt in oppervlakte aandeel beheerovereenkomsten goed afgedekt is
 - Daarna nagaan welke _bestaande_ MAS telpunten 'voldoende dichtbij' gelegen zijn bij getrokken telpunten. Indien dat het geval is, de bestaande telpunten gebruiken.
