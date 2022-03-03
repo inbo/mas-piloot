@@ -190,12 +190,10 @@ leemstreek_exclusie %>%
 ```
 
 ```{r map-exclusies, out.width="100%"}
-complex <- leemstreek_exclusie %>%
-  mapview()
 eenvoudig <- leemstreek_exclusie_simplified %>%
   mapview()
 
-leafsync::sync(complex, eenvoudig)
+eenvoudig
 ```
 
 ## Bepalen geldige plaatsen waar telling kan uitgevoerd worden
@@ -212,23 +210,52 @@ Extractie uit Openstreetmap:
     - tertiary_link
     - unclassified
 
+Maar met uitsluiting van holle wegen, omdat vanuit een holle weg de zichtbaarheid te beperkt is.
+Een holle weg wordt in OSM aangeduid als highway=* + cutting=yes|both|hollow_way of historic=hollow_way.
+
+Verder voegen we ook de waterlopen toe (in principe moet er een vrije strook van minstens 1 m zijn langs elke waterloop):
+
+- https://wiki.openstreetmap.org/wiki/Key:waterway:
+    - river
+    - stream
+    - tidal channel
+    - canal
+    - drain
+    - ditch
+
+
 ```{r leemstreek-paden}
 # Define the vectortranslate options
+# https://gdal.org/user/ogr_sql_dialect.html
 my_vectortranslate = c(
   "-t_srs", "EPSG:31370",
-  "-select", "highway",
-  "-where", "highway IN ('track', 'footway', 'path', 'cycleway',
-  'bridleway', 'tertiary', 'tertiary_link', 'unclassified')",
+  "-select",
+  "highway, waterway",
+  "-where",
+  "(highway IN 
+    ('track', 'footway', 'path', 'cycleway', 'bridleway', 'tertiary',
+    'tertiary_link', 'unclassified') AND NOT
+    ((cutting IN ('yes', 'both', 'hollow_way')) OR (historic IN ('hollow_way')))
+  ) OR
+  (waterway IN 
+    ('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch')
+  )",
   "-nlt", "PROMOTE_TO_MULTI"
 )
 
 # Read-in data
 leemstreek_paden <- oe_get(
   place = leemstreek_pk,
+  extra_tags = c("historic", "cutting"),
   vectortranslate_options = my_vectortranslate,
   boundary = leemstreek_pk,
   boundary_type = "spat",
   download_directory = here("data", "osmdata"))
+
+leemstreek_paden <- leemstreek_paden %>%
+  mutate(key = ifelse(is.na(highway), "waterway", "highway"),
+         value = ifelse(is.na(highway), waterway, highway)) %>%
+  select(-waterway, -highway)
 ```
 
 Verwijderen van paden die overlappen met exclusiekaart.
@@ -254,15 +281,15 @@ leemstreek_paden_kader %>%
 
 ```{r map-5, out.width="100%"}
 mapview(leemstreek_exclusie_simplified) +
-  mapview(leemstreek_paden_kader)
+  mapview(leemstreek_paden_kader, zcol = "key", burst = TRUE)
 ```
 
 Overzicht totale lengte per categorie:
 
 ```{r lengte-paden}
 leemstreek_paden_kader %>%
-  group_by(highway) %>%
-  summarise() %>%
+  group_by(key, value) %>%
+  summarise(.groups = "drop") %>%
   mutate(lengte_km = as.numeric(st_length(.)) / 1e3) %>%
   st_drop_geometry() %>%
   kable(digits = 1)
@@ -328,7 +355,7 @@ mapview(leemstreek_point)
 ```{r}
 leemstreek_point %>%
   st_drop_geometry() %>%
-  count(highway, name = "Aantal punten") %>%
+  count(key, value, name = "Aantal punten") %>%
   kable()
 ```
 
@@ -515,7 +542,6 @@ bo2021 <- read_aes(year = 2021,
 
 
 ```{r bo-calc, eval=!file.exists(file_bo)}
-
 points_bo2021 <- landusemetrics_grid_cell(
   grid_cell = leemstreek_point %>%
     st_buffer(dist = 300),
@@ -852,8 +878,8 @@ Voorlopige schets:
 
 Steekproefgrootte voor de Leemstreek (en Moeren) voor de pilootfase laten afhangen van wat er haalbaar is met professionelen en vrijwilligers:
 
-- leemstreek: 240 punten per jaar?
-- moeren: 60 punten per jaar?
+- leemstreek: 300 punten per jaar?
+- moeren: 50 punten per jaar?
 
 Allocatie van de steekproefgrootte over de verschillende strata.
 Hier moeten we afweging maken tussen de precisie per stratum en precisie voor de leemstreek in zijn geheel.
