@@ -37,6 +37,7 @@ source(here("R", "landuse_maps.R"))
 source(here("R", "abv.R"))
 source(here("R", "agro_environment_schemes.R"))
 source(here("R", "geocomputations.R"))
+source(here("R", "draw_sample.R"))
 ```
 
 # Afbakening steekproefkader
@@ -898,6 +899,13 @@ Temporeel design:
 
 - elk punt wordt elk jaar opnieuw bezocht?
 - of een aparte set in 2022 en 2023 (rotating panel design)? Kan ook deels aparte set zijn (augmented panel design)
+
+```{r trekking}
+
+
+```
+
+
 
 ## Uitschrijven van veldprotocol
 
