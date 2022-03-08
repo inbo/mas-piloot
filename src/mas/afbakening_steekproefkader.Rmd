@@ -736,132 +736,38 @@ points_lbg %>%
 ```
 
 
-### Type landschap
+### Openheid landschap
 
-Onderscheid maken tussen OL, HOL en KL (open landschap, half-open landschap en kleinschalig landschap)?
+We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) op 5 m resolutie.
+Werkwijze:
 
-Mogelijke bronnen:
+- berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
+- met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 1000 m.
+- deze gemiddelden zijn daarna ingedeeld in drie klassen:
+    - OL open landschap (> 83°), 
+    - HOL (75 - 83°) en
+    - GL (< 75°) gesloten landschap
 
-- https://www.geopunt.be/catalogus/datasetfolder/2c64ca0c-5053-4a66-afac-24d69b1a09e7
-    - laag groen / hoog groen / landbouw / overige
-    - laatste jaar: 2018
-- DTM en DSM (digitaal terrein en oppervlakte model) waaruit 'canopy' height model (CHM) kan afgeleid worden
-- https://land.copernicus.eu/pan-european/high-resolution-layers/small-woody-features
-    - voorlopig enkel voor 2015
-
-DTM / DSM op 20 m resolutie.
-Hogere resolutie via WCS opvragen gaf error voor zo'n groot gebied - de DTM is origineel op 1 m resolutie, maar dat is wellicht niet nodig.
-Bij het CHM is 'canopy' ruim te interpreteren want inclusief gebouwen etc.
-Dit is OK voor de typering van landschap.
-Een landschap vol lintbebouwing kunnen we moeilijk als OL classificeren.
+Akkervogelgemeenschappen worden vaak ingedeeld volgens hun affiniteit met open landschap (OLA - Open landschap Akkervogels), half-open landschap (HOLA) en kleinschalig landschap (KLA).
+Onder kleinschalig landschap verstaat men een landschap waar de percelen relatief klein zijn en het landschap in sterke mate dooraderd is door hagen, rietkragen en andere lijn- of puntvormige kleine landschapselementen (KLE's).
 
 
-```{r leemstreek-dtm, eval=!file.exists(here("data", "dtm", "leemstreek_dtm.tif"))}
-bbox <- round(st_bbox(leemstreek_pk))
-bbox <- bbox[c("xmin", "xmax", "ymin", "ymax")]
-
-leemstreek_dtm20 <- get_coverage_wcs(
-  wcs = "dtm",
-  bbox = bbox,
-  layername = "EL.GridCoverage.DTM",
-  resolution = 20)
-
-leemstreek_dsm20 <- get_coverage_wcs(
-  wcs = "dsm",
-  bbox = bbox,
-  layername = "EL.GridCoverage.DSM",
-  resolution = 20)
-
-leemstreek_chm20 <- leemstreek_dsm20 - leemstreek_dtm20
-```
-
-```{r}
-terra::plot(leemstreek_dtm20)
-terra::plot(leemstreek_dsm20)
-terra::plot(leemstreek_chm20)
-```
-
-```{r}
-circle1000 <- focalMat(leemstreek_chm20, d = 1000, type = "circle")
-leemstreek_chm20_c1000_sd <- terra::focal(
-  leemstreek_chm20,
-  w = circle1000,
-  fun = "sd")
-
+```{r leemstreek-openheid}
+leemstreek_openheid <- rast(
+  here("data", "dem", "vlaanderen_openheid_landschap.tif")) %>%
+  crop(leemstreek_pk)
 ```
 
 
-Onderstaande figuren geven eerst de standaarddeviatie van het CHM in een straal van 1000m rond elke rastercel.
-De tweede figuur classificeert deze standaarddeviaties in drie klassen die we kunnen interpreteren als 1 = OL, 2 = HOL, 3 = KL.
-
-```{r}
-plot(leemstreek_chm20_c1000_sd)
-rclasmat <- c(0, 0.0002, 1,
-              0.0002, 0.0006, 2,
-              0.0006, +Inf, 3) %>%
-  matrix(ncol = 3, byrow = TRUE)
-leemstreek_landschapstype <- terra::classify(
-  leemstreek_chm20_c1000_sd,
-  rcl = rclasmat,
-  include.lowest = TRUE)
-
-```
-
-
-```{r landschapstype, warning=FALSE}
+```{r landschapsopenheid, warning=FALSE}
 my_palette <- RColorBrewer::brewer.pal(n = 3, name = "Dark2")
-leemstreek_landschapstype_raster <- raster::raster(leemstreek_landschapstype)
-leemstreek_landschapstype_raster <- raster::ratify(leemstreek_landschapstype_raster)
-levels(leemstreek_landschapstype_raster)[[1]]$LT <- c("OL", "HOL", "KL")
+leemstreek_openheid_raster <- raster::raster(leemstreek_openheid)
+leemstreek_openheid_raster <- raster::ratify(leemstreek_openheid_raster)
+levels(leemstreek_openheid_raster)[[1]]$LO <- c("GL", "HOL", "OL")
 
-leemstreek_landschapstype_raster %>%
-  mapview(col.regions = my_palette, att = "LT")
+leemstreek_openheid_raster %>%
+  mapview(col.regions = my_palette, att = "LO", alpha = 0.5)
 ```
-
-<!--
-Viewshed analyse?
--->
-
-```{r eval=!file.exists(here("data", "groenkaart", "groenkaart2018_leemstreek.tif"))}
-groenkaart2018 <- rast(
-  file.path("S:", "Vlaanderen", "Natuur_Bos", "Boswijzer_Groenkaart",
-            "Groenkaart_2018.tif"))
-groenkaart2018 <- crop(groenkaart2018, leemstreek_pk)
-terra::writeRaster(groenkaart2018, here("data", "groenkaart",
-                                        "groenkaart2018_leemstreek.tif"))
-```
-
-```{r eval=file.exists(here("data", "groenkaart", "groenkaart2018_leemstreek.tif"))}
-groenkaart2018 <- rast(here("data", "groenkaart",
-                                        "groenkaart2018_leemstreek.tif"))
-
-hlg2018 <- segregate(groenkaart2018, classes = c(1, 2))
-names(hlg2018) <- c("hoog groen", "laag groen")
-```
-
-- laag groen (minder dan 3 m)
-- hoog groen (meer dan 3 m)
-
-```{r}
-plot(hlg2018)
-```
-
-
-Hoe OL, HOL, KL bepalen? Voorstel:
-
-- in ruimere buffer van 1000 m rond elk potentieel telpunt
-    - het oppervlakte-aandeel hoog groen bepalen?
-    - de perimeter van hoog groen bepalen?
-    - gemiddelde en standaardeviatie hoogte in het CHM model bepalen?
-
-Een OL karakteriseert zich dan door:
-
-- laag oppervlakte-aandeel hoog groen
-- lage perimeter hoog groen
-- lage perimeter / oppervlakte verhouding
-- lage gemiddelde hoogte en lage standaardeviatie in hoogte van het CHM model
-
-(Perceelsgrootte speelt hierin geen rol. Een OL kan zowel relatief kleinschalige perceelsgrootte hebben als grootschalige perceelsgrootte).
 
 
 
@@ -901,7 +807,38 @@ Temporeel design:
 - of een aparte set in 2022 en 2023 (rotating panel design)? Kan ook deels aparte set zijn (augmented panel design)
 
 ```{r trekking}
+samplesize <- 300
+popsize <- nrow(leemstreek_point)
+inclusiekansen <- rep(samplesize / popsize, popsize)
 
+
+leemstreek_point %>%
+  select(pointid) %>%
+  mutate(pk = st_intersects(.,
+                            plan_kiekendief_perimeter %>% st_union(),
+                            sparse = FALSE) %>%
+           as.logical()
+         ) %>%
+  group_by(pk) %>%
+  nest() %>%
+  mutate(samplesize = 300,
+         popsize = map_dbl(data, nrow),
+         inclusiekansen = map2(samplesize, popsize, ~rep(.x / .y, .y)),
+         sample = pmap_df(.l = list(data = data,
+                                    samplesize = samplesize,
+                                    inclusiekansen = inclusiekansen),
+                          .f = ~draw_sample(
+                            sampling_frame = data,
+                            sample_size = samplesize,
+                            ips = inclusiekansen))
+         ) -> samples
+
+
+sample %>%
+  st_buffer(dist = 300) %>%
+  mutate(batch = ifelse(sample_order > 300, "eerste 300", "volgende 300")) %>%
+  mapview(zcol = "batch", burst = TRUE) +
+  mapview(plan_kiekendief_perimeter)
 
 ```
 
