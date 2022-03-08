@@ -108,15 +108,7 @@ legend <- read_csv2(
         label = col_character(),
         kleur = col_character()
       ))
-```
 
-```{r map-1, out.width="100%"}
-mapview(leemstreek) +
-  mapview(polders) +
-  mapview(plan_kiekendief_perimeter)
-```
-
-```{r}
 leemstreek_pk <- leemstreek %>%
   st_cast("POLYGON", warn = FALSE) %>%
   st_filter(plan_kiekendief_perimeter)
@@ -124,7 +116,12 @@ leemstreek_pk <- leemstreek %>%
 polders_pk <- polders %>%
   st_cast("POLYGON", warn = FALSE) %>%
   st_filter(plan_kiekendief_perimeter)
-  
+```
+
+```{r map-1, out.width="100%"}
+mapview(leemstreek) +
+  mapview(polders) +
+  mapview(plan_kiekendief_perimeter)
 ```
 
 ```{r map-2, out.width="100%"}
@@ -503,7 +500,7 @@ leemstreek_point %>%
                     st_geometry()) -> leemstreek_point
 ```
 
-```{r}
+```{r exclusie-grens-300m}
 m1 <- mapview(leemstreek_pk) + 
   leemstreek_pk %>%
   st_buffer(dist = -300) %>%
@@ -515,6 +512,11 @@ m1@map %>%
   leaflet::setView(5.04, 50.76, zoom = 13)
 ```
 
+### Exclusie op basis van slechte zichtbaarheid
+
+Hier is al gedeeltelijk rekening mee gehouden door holle wegen uit te sluiten.
+Mogelijk zijn echter niet alle holle wegen gekend in Openstreetmap en er zijn ook andere landschapsconfiguraties die maken dat observatie van vogels lastig is.
+Om hiermee rekening te houden kunnen we telpunten uitsluiten op basis van analyses van een gedetailleerde digitale oppervlakte kaart (DSM).
 
 ## Berekening volledig gekende variabelen die relatie hebben met respons
 
@@ -769,6 +771,16 @@ leemstreek_openheid_raster %>%
   mapview(col.regions = my_palette, att = "LO", alpha = 0.5)
 ```
 
+```{r openheid-points}
+openheid_points <- terra::extract(
+  x = leemstreek_openheid,
+  y = vect(leemstreek_point))
+
+leemstreek_point <- leemstreek_point %>%
+  bind_cols(openheid_points %>% select(openheid = focal_sum)) %>%
+  mutate(openheid = factor(openheid,
+                           levels = 1:3, labels = c("GL", "HOL", "OL")))
+```
 
 
 ## Trekking steekproef voor de pilootfase
@@ -806,40 +818,65 @@ Temporeel design:
 - elk punt wordt elk jaar opnieuw bezocht?
 - of een aparte set in 2022 en 2023 (rotating panel design)? Kan ook deels aparte set zijn (augmented panel design)
 
-```{r trekking}
-samplesize <- 300
-popsize <- nrow(leemstreek_point)
-inclusiekansen <- rep(samplesize / popsize, popsize)
-
-
-leemstreek_point %>%
-  select(pointid) %>%
+```{r stratum-pk}
+leemstreek_point <- leemstreek_point %>%
   mutate(pk = st_intersects(.,
                             plan_kiekendief_perimeter %>% st_union(),
                             sparse = FALSE) %>%
            as.logical()
-         ) %>%
-  group_by(pk) %>%
+         )
+```
+
+
+```{r trekking}
+samplesize <- 300
+
+allocatie <- leemstreek_point %>%
+  st_drop_geometry() %>%
+  count(openheid, pk, name = "popsize") %>%
+  mutate(allocatie_factor_pk = ifelse(pk, 0.5, 0.5)) %>%
+  group_by(openheid) %>%
+  mutate(allocatie_factor_openheid = sum(popsize) / nrow(leemstreek_point)) %>%
+  ungroup() %>%
+  mutate(allocatie = allocatie_factor_pk * allocatie_factor_openheid) %>%
+  filter(allocatie > 0.1) %>%
+  mutate(allocatie = allocatie / sum(allocatie),
+         samplesize = round(allocatie * samplesize))
+
+leemstreek_point %>%
+  select(-key, -value) %>%
+  inner_join(allocatie %>% select(openheid, pk, samplesize),
+             by = c("openheid", "pk")) %>%
+  group_by(pk, openheid, samplesize) %>%
   nest() %>%
-  mutate(samplesize = 300,
-         popsize = map_dbl(data, nrow),
-         inclusiekansen = map2(samplesize, popsize, ~rep(.x / .y, .y)),
-         sample = pmap_df(.l = list(data = data,
-                                    samplesize = samplesize,
-                                    inclusiekansen = inclusiekansen),
-                          .f = ~draw_sample(
-                            sampling_frame = data,
-                            sample_size = samplesize,
-                            ips = inclusiekansen))
-         ) -> samples
+  mutate(popsize = map_dbl(data, nrow),
+         inclusiekansen = map2(samplesize, popsize, ~rep(.x / .y, .y))) %>%
+  mutate(sample = pmap(
+    .l = list(data, samplesize, inclusiekansen),
+    .f = ~draw_sample(
+    sampling_frame = data,
+    sample_size = samplesize,
+    ips = inclusiekansen)
+    )
+  ) %>%
+  select(openheid, pk, sample, samplesize) %>%
+  ungroup() %>%
+  unnest(sample) %>%
+  st_as_sf() -> samples
+```
 
 
-sample %>%
+```{r warning=FALSE}
+samples %>%
   st_buffer(dist = 300) %>%
-  mutate(batch = ifelse(sample_order > 300, "eerste 300", "volgende 300")) %>%
-  mapview(zcol = "batch", burst = TRUE) +
-  mapview(plan_kiekendief_perimeter)
-
+  mutate(openheid_pk = paste(openheid,
+                             ifelse(pk, "binnen plan", "buiten plan"))
+         ) %>%
+  mapview(zcol = "openheid_pk", burst = TRUE) +
+  plan_kiekendief_perimeter %>%
+  filter(Name != "moeren") %>%
+  mapview(alpha = 0.2) +
+  mapview(leemstreek_openheid_raster, alpha = 0.2)
 ```
 
 

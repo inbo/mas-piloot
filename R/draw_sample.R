@@ -7,7 +7,7 @@
 #' @param sampling_frame A `sf` object with the spatial coordinates and possibly
 #' other numeric variables from which a multidimensional balanced and
 #' well-spread sample will be drawn.
-#' The first column must be called `id` and is an identifier.
+#' The first column must be called `pointid` and is an identifier.
 #' Each row is a candidate sampling unit.
 #' Coordinates must be in projected coordinate system.
 #' @param sample_size positive integer which must be less than the number of
@@ -27,9 +27,11 @@ draw_sample <- function(
   seed = 1234,
   ...
 ) {
+  ips <- ips[[1]]
+  sampling_frame <- sampling_frame[[1]]
   set.seed(seed)
   assertthat::assert_that(length(ips) == nrow(sampling_frame))
-  assertthat::assert_that("id" %in% colnames(sampling_frame))
+  assertthat::assert_that("pointid" %in% colnames(sampling_frame))
   assertthat::assert_that(sample_size < nrow(sampling_frame))
 
   sampling_frame_df <- data.frame(
@@ -37,7 +39,8 @@ draw_sample <- function(
     st_drop_geometry(sampling_frame)
   )
 
-  sampling_frame_df$id <- NULL
+  sampling_frame_df$pointid <- NULL
+  assertthat::assert_that(all(sapply(sampling_frame_df, is.numeric)))
   sampling_frame_matrix <- as.matrix(sampling_frame_df)
 
   draw <- SamplingBigData::lpm2_kdtree(
