@@ -42,6 +42,8 @@ draw_sample <- function(
   sampling_frame_df$pointid <- NULL
   assertthat::assert_that(all(sapply(sampling_frame_df, is.numeric)))
   sampling_frame_matrix <- as.matrix(sampling_frame_df)
+  # scale the matrix so that all variables get same importance
+  sampling_frame_matrix <- scale(sampling_frame_matrix)
 
   draw <- SamplingBigData::lpm2_kdtree(
     prob = ips,
