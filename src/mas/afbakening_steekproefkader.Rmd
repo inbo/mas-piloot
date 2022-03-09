@@ -47,6 +47,21 @@ source(here("R", "draw_sample.R"))
 = intersectie landbouwstreek België met contour Vlaanderen en overlappend met prioritaire gebieden voor akkervogels
 
 ```{r warning=FALSE}
+telpunten_avimap <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
+) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger")) %>%
+  select(-st_x, -st_y)
+
 landbouwstreken <- read_sf(
   here("data", "landbouwstreken", "Lbstrbel.shp")) %>%
   st_transform(crs = 31370) %>%
@@ -116,18 +131,24 @@ leemstreek_pk <- leemstreek %>%
 polders_pk <- polders %>%
   st_cast("POLYGON", warn = FALSE) %>%
   st_filter(plan_kiekendief_perimeter)
+
+sbp_akkervogels <- read_sf(
+  here("data", "bo_vlm", "akkervogelgebieden.shp")
+)
 ```
 
 ```{r map-1, out.width="100%"}
-mapview(leemstreek) +
-  mapview(polders) +
-  mapview(plan_kiekendief_perimeter)
+mapview(leemstreek, color = "brown", alpha.regions = 0) +
+  mapview(polders, alpha.regions = 0) +
+  mapview(plan_kiekendief_perimeter, col.regions = "blue") +
+  mapview(sbp_akkervogels, col.regions = "yellow")
 ```
 
 ```{r map-2, out.width="100%"}
-mapview(leemstreek_pk, color = "brown", col.regions = "brown") +
-  mapview(polders_pk) +
-  mapview(plan_kiekendief_perimeter, zcol = "regio")
+mapview(leemstreek_pk, color = "brown", alpha.regions = 0) +
+  mapview(polders_pk, alpha.regions = 0) +
+  mapview(plan_kiekendief_perimeter, zcol = "regio", alpha.regions = 0.2) +
+  mapview(sbp_akkervogels, zcol = "Prioriteit")
 ```
 
 We gaan verder met enkel de Leemstreek.
@@ -518,6 +539,9 @@ Hier is al gedeeltelijk rekening mee gehouden door holle wegen uit te sluiten.
 Mogelijk zijn echter niet alle holle wegen gekend in Openstreetmap en er zijn ook andere landschapsconfiguraties die maken dat observatie van vogels lastig is.
 Om hiermee rekening te houden kunnen we telpunten uitsluiten op basis van analyses van een gedetailleerde digitale oppervlakte kaart (DSM).
 
+Een volledige 'viewshed of visibility' analyse voor elk potentieel telpunt kost echter te veel rekentijd.
+Een alternatief is daarom dat we deze analyse enkel uitvoeren voor geselecteerde punten en de uitkomst van de analyse gebruiken om geselecteerde punten met slechte zichtbaarheid te vervangen door andere (reserve)punten.
+
 ## Berekening volledig gekende variabelen die relatie hebben met respons
 
 Dit zijn interessante variabelen om in rekening te brengen bij het steekproefdesign.
@@ -562,6 +586,9 @@ Indeling voor niet-productieve gewassen / beheerovereenkomsten (instrumenten):
     - randen
 - erosiemaatregelen
 - bufferstroken
+
+Voor de steekproeftrekking zijn vooral de oppervlakte aan soortbeschermingsmaatregelen van belang.
+Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
 
 ```{r eval=file.exists(file_bo)}
 points_bo2021 <- read_parquet(file = file_bo)
@@ -625,6 +652,20 @@ points_bo2021 %>%
                                   "Percentage pot. telpunten\n aanwezig")) +
   labs(x = "Percentage in telcirkel") + 
   theme(axis.title.y = element_blank())
+```
+
+```{r toevoegen-sb-steekproefkader}
+aandeel_sb <- points_bo2021 %>%
+  select(pointid, SRT_OBJECT, area_prop) %>%
+  left_join(bo_maatregelen, by = "SRT_OBJECT") %>%
+  filter(BH_DOELST == "soortenbescherming (SB)") %>%
+  group_by(pointid) %>%
+  summarise(area_prop_sb = sum(area_prop))
+
+leemstreek_point <- leemstreek_point %>%
+  left_join(aandeel_sb,
+            by = "pointid") %>%
+  mutate(area_prop_sb = ifelse(is.na(area_prop_sb), 0, area_prop_sb))
 ```
 
 
@@ -740,10 +781,11 @@ points_lbg %>%
 
 ### Openheid landschap
 
-We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) op 5 m resolutie.
+We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie.
 Werkwijze:
 
-- berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
+- berekening "canopy height model" (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, ...).
+- berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
 - met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 1000 m.
 - deze gemiddelden zijn daarna ingedeeld in drie klassen:
     - OL open landschap (> 83°), 
@@ -753,10 +795,15 @@ Werkwijze:
 Akkervogelgemeenschappen worden vaak ingedeeld volgens hun affiniteit met open landschap (OLA - Open landschap Akkervogels), half-open landschap (HOLA) en kleinschalig landschap (KLA).
 Onder kleinschalig landschap verstaat men een landschap waar de percelen relatief klein zijn en het landschap in sterke mate dooraderd is door hagen, rietkragen en andere lijn- of puntvormige kleine landschapselementen (KLE's).
 
+We maken een overlay van de kaart met openheid van het landschap en de kaart "hoog groen".
+We zien dat (zoals te verwachten) er meer hoog groen te zien is in OL < HOL < GL.
+Bij de definitie van openheid, spelen echter ook andere structuren zoals gebouwen een rol.
+Misschien kunnen we dus
 
 ```{r leemstreek-openheid}
 leemstreek_openheid <- rast(
-  here("data", "dem", "vlaanderen_openheid_landschap.tif")) %>%
+  here("data", "dem",
+       "openness300m_chm_res25_c1000_mean_vlaanderen_classified.tif")) %>%
   crop(leemstreek_pk)
 ```
 
@@ -818,10 +865,22 @@ Temporeel design:
 - elk punt wordt elk jaar opnieuw bezocht?
 - of een aparte set in 2022 en 2023 (rotating panel design)? Kan ook deels aparte set zijn (augmented panel design)
 
-```{r stratum-pk}
+```{r vereenvoudiging-sbp-akkervogels}
+sbp_akkervogels_leemstreek <- sbp_akkervogels %>%
+  st_transform(crs = 31370) %>%
+  filter(Prioriteit != "Zoekzone") %>%
+  st_intersection(leemstreek_pk) %>%
+  st_union() %>%
+  st_buffer(dist = 20) %>%
+  st_simplify(dTolerance = 10) %>%
+  st_remove_holes()
+```
+
+
+```{r stratum-sbp}
 leemstreek_point <- leemstreek_point %>%
-  mutate(pk = st_intersects(.,
-                            plan_kiekendief_perimeter %>% st_union(),
+  mutate(sbp_akkervogels = st_intersects(.,
+                            sbp_akkervogels_leemstreek,
                             sparse = FALSE) %>%
            as.logical()
          )
@@ -829,25 +888,27 @@ leemstreek_point <- leemstreek_point %>%
 
 
 ```{r trekking}
-samplesize <- 300
+target_samplesize <- 300
+min_samplesize <- 30
 
 allocatie <- leemstreek_point %>%
   st_drop_geometry() %>%
-  count(openheid, pk, name = "popsize") %>%
-  mutate(allocatie_factor_pk = ifelse(pk, 0.5, 0.5)) %>%
-  group_by(openheid) %>%
-  mutate(allocatie_factor_openheid = sum(popsize) / nrow(leemstreek_point)) %>%
+  count(openheid, sbp_akkervogels, name = "popsize") %>%
+  mutate(allocatie_factor_sbp = ifelse(sbp_akkervogels, 0.5, 0.5)) %>%
+  group_by(sbp_akkervogels) %>%
+  mutate(allocatie_factor_openheid = popsize / sum(popsize)) %>%
   ungroup() %>%
-  mutate(allocatie = allocatie_factor_pk * allocatie_factor_openheid) %>%
-  filter(allocatie > 0.1) %>%
+  mutate(allocatie = allocatie_factor_sbp * allocatie_factor_openheid) %>%
+  filter(allocatie > 0.01) %>%
   mutate(allocatie = allocatie / sum(allocatie),
-         samplesize = round(allocatie * samplesize))
+         samplesize = min_samplesize +
+           round(allocatie * (target_samplesize - n() * min_samplesize)))
 
 leemstreek_point %>%
   select(-key, -value) %>%
-  inner_join(allocatie %>% select(openheid, pk, samplesize),
-             by = c("openheid", "pk")) %>%
-  group_by(pk, openheid, samplesize) %>%
+  inner_join(allocatie %>% select(openheid, sbp_akkervogels, samplesize),
+             by = c("openheid", "sbp_akkervogels")) %>%
+  group_by(sbp_akkervogels, openheid, samplesize) %>%
   nest() %>%
   mutate(popsize = map_dbl(data, nrow),
          inclusiekansen = map2(samplesize, popsize, ~rep(.x / .y, .y))) %>%
@@ -859,24 +920,33 @@ leemstreek_point %>%
     ips = inclusiekansen)
     )
   ) %>%
-  select(openheid, pk, sample, samplesize) %>%
+  select(openheid, sbp_akkervogels, sample, samplesize) %>%
   ungroup() %>%
   unnest(sample) %>%
   st_as_sf() -> samples
 ```
 
 
-```{r warning=FALSE}
+```{r kaart-steekproef, warning=FALSE}
 samples %>%
   st_buffer(dist = 300) %>%
-  mutate(openheid_pk = paste(openheid,
-                             ifelse(pk, "binnen plan", "buiten plan"))
+  mutate(openheid_sbp = paste(openheid,
+                             ifelse(sbp_akkervogels,
+                                    "binnen plan",
+                                    "buiten plan"))
          ) %>%
-  mapview(zcol = "openheid_pk", burst = TRUE) +
-  plan_kiekendief_perimeter %>%
-  filter(Name != "moeren") %>%
+  mapview(zcol = "openheid_sbp", burst = TRUE) +
+  sbp_akkervogels_leemstreek %>%
+  st_as_sf() %>%
   mapview(alpha = 0.2) +
-  mapview(leemstreek_openheid_raster, alpha = 0.2)
+  mapview(leemstreek_openheid_raster, alpha = 0.2) +
+  telpunten_avimap %>%
+  filter(!regio %in% c("Vlaanderen - Limburg",
+                       "Vlaanderen - Leefdaal",
+                       "Vlaanderen - Bilzen",
+                       "Vlaanderen - De Moeren")) %>%
+  st_buffer(dist = 300) %>%
+  mapview(zcol = "type_teller_2021", alpha.regions = 0.2)
 ```
 
 
