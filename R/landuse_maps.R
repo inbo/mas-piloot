@@ -109,8 +109,9 @@ lum_read_from_vito <- function(
   # re-assign categories labels which got lost in translation
   # (ESRI -> geotiff -> terra::rast)
   if (add_levels) {
+    oldwd <- setwd(root)
     legend <- read_csv2(
-      "data/landgebruik/legende_landgebruik.csv",
+      file.path("..", "legende_landgebruik.csv"),
       col_types = cols(
         bron = col_character(),
         bestand_id = col_character(),
@@ -121,12 +122,14 @@ lum_read_from_vito <- function(
       filter(bestand_id == "vito") %>%
       select(ID = value, land_use = label) %>%
       as.data.frame()
+    setwd(oldwd)
 
     levels(tr) <- legend
   }
   if (add_colours) {
+    oldwd <- setwd(root)
     legend <- read_csv2(
-      "data/landgebruik/legende_landgebruik.csv",
+      file.path("..", "legende_landgebruik.csv"),
       col_types = cols(
         bron = col_character(),
         bestand_id = col_character(),
@@ -139,6 +142,7 @@ lum_read_from_vito <- function(
       mutate(as_tibble(t(col2rgb(colour, alpha = TRUE)))) %>%
       select(-colour) %>%
       as.data.frame()
+    setwd(oldwd)
 
     terra::coltab(tr) <- legend
   }
