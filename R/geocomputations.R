@@ -56,7 +56,7 @@ landusemetrics_grid_cell <- function(
   progress = FALSE
 ) {
   if (inherits(layer, "SpatRaster") | inherits(layer, "RasterLayer")) {
-    assertthat::assert_that(sf::st_crs(grid_cell)$wkt == crs(layer))
+    assertthat::assert_that(sf::st_crs(grid_cell)$wkt == terra::crs(layer))
 
     landcoverfraction <- function(df) {
       df %>%
