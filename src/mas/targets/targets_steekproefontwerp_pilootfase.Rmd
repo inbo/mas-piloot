@@ -1,0 +1,250 @@
+---
+title: "MAS afbakening steekproefkader"
+author: "Hans Van Calster"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE)
+target_dir <- rprojroot::find_root_file(
+    "src", "mas", "targets",
+    criterion = rprojroot::is_git_root)
+knitr::opts_knit$set(
+  root.dir = target_dir)
+```
+
+# Inleiding
+
+Dit document beschrijft de analyse-workflow voor het opstellen van het steekproefkader en de steekproeftrekking voor de pilootfase van de versterking van de monitoring van agrarische soorten.
+We maken hiervoor gebruik van het `targets` package in combinatie met `RMarkdown`.
+
+# Packages
+
+Installeren van de vereiste R packages.
+Extra reproduceerbaarheid van het analysestramien wordt verzekerd door het `renv` package.
+Dit package zorgt ervoor dat de analyses gebeuren in een geïsoleerd R-project met gespecifieerde versies van alle benodigde R packages (zowel de packages die expliciet geladen worden als de packages waarvan deze afhankelijk zijn).
+
+De onderstaande chunk wordt best in interactieve modus uitgevoerd.
+
+```{r renv-restore, eval = FALSE}
+renv::restore()
+```
+
+# Setup
+
+In onderstaande chunk laden we R packages die we nodig hebben in interactieve modus. 
+Verderop beschrijven we elk van de rekenstappen in Target Markdown chunks.
+Deze target-chunks worden weggeschreven naar een `_targets.R` bestand en de hulpscripts worden opgeslagen in een bestandsmap `_targets_r/`.
+De functie `tar_unscript()` in de chunk hieronder verwijdert alle hulpscripts uit de `_targets_r` bestandsmap.
+Dit is om te voorkomen dat er per ongeluk code naar deze map werd weggeschreven wanneer de target-chunks in interactieve modus worden uitgevoerd.
+
+```{r}
+library(targets)
+library(tarchetypes)
+library(tidyverse)
+library(tibble)
+library(sf)
+target_dir <- rprojroot::find_root_file(
+    "src", "mas", "targets",
+    criterion = rprojroot::is_git_root)
+tar_unscript(script = file.path(target_dir, "_targets.R"))
+```
+
+
+# Globals
+
+Eerst definiëren we globale opties/functies die voor alle targets gelden.
+
+We gebruiken standaard "qs" als opslagformaat omdat dit zowel voor data.frames als voor andere R objecten toepasbaar is, resulteert in kleinere bestanden en sneller kan gelezen en weggeschreven worden in vergelijking met "rds" bestanden.
+
+In de functie `tar_option_set()` kan je via het argument `debug = "<naamvantarget>"` ook aangeven welke targets je wil debuggen (in interactieve modus).
+Let er wel op dat je `debug = "<naamvantarget>"` terug verwijdert als je klaar bent met debuggen.
+Als je dit niet doet zal het target immers altijd opnieuw aangemaakt worden in niet-interactieve modus (`knit` knop) - ook al is het up-to-date.
+
+```{targets mas-globals, tar_globals = TRUE}
+options(tidyverse.quiet = TRUE)
+tar_option_set(packages = c("tidyverse", "sf", "nngeo", "readxl", "httr",
+                            "osmextract", "terra", "exactextractr", "arrow"),
+               format = "qs",
+               memory = "transient",
+               garbage_collection = TRUE,
+               workspace_on_error = TRUE,
+               workspaces = c("telcirkels_landgebruik_88468459")
+               , debug = "telcirkels_landgebruik"
+               )
+target_dir <- rprojroot::find_root_file(
+    "src", "mas", "targets",
+    criterion = rprojroot::is_git_root)
+mbag_dir <- rprojroot::find_root_file(
+    criterion = rprojroot::is_git_root)
+source(file.path(mbag_dir, "R", "wfs_wcs.R"))
+source(file.path(mbag_dir, "R", "read_agri_use_parcels.R"))
+source(file.path(mbag_dir, "R", "utils.R"))
+source(file.path(mbag_dir, "R", "landuse_maps.R"))
+source(file.path(mbag_dir, "R", "abv.R"))
+source(file.path(mbag_dir, "R", "agro_environment_schemes.R"))
+source(file.path(mbag_dir, "R", "geocomputations.R"))
+source(file.path(mbag_dir, "R", "draw_sample.R"))
+source(file.path(mbag_dir, "R", "steekproefkader.R"))
+
+```
+
+
+# Targets
+
+In dit hoofdstuk worden alle targets gedefinieerd, maar er worden nog geen berekeningen uitgevoerd.
+
+We beginnen met het inlezen van bestanden en gebruiken hiervoor "Static branching" (zodat we niet voor elk bestand afzonderlijk code moeten schrijven).
+Alle targets voor bestanden zijn op zo'n manier opgebouwd dat ze detecteren wanneer de inhoud van het bestand wijzigt.
+Als de inhoud wijzigt, zal de target vervallen en bij uitvoering van het analysestramien opnieuw uitgevoerd worden.
+Dit geldt dan eveneens voor alle stroomafwaartse targets die ervan afhankelijk zijn.
+
+```{targets raw-data}
+list(
+  tarchetypes::tar_file(
+    perimeters_file,
+    path_to_perimeters()
+    ),
+  tar_target(
+    perimeters_data,
+    read_sf(perimeters_file)
+    ),
+  tarchetypes::tar_file(
+    osm_belgium,
+    path_to_osm_download()
+    ),
+  tarchetypes::tar_file(
+    vito_lum_2019,
+    path_to_lum(jaar = 2019)
+    ),
+  tarchetypes::tar_file(
+    legend_lum_file,
+    path_to_legend_lum()
+    ),
+  tar_target(
+    legend_lum,
+    read_legend_lum(file = legend_lum_file)
+  )
+)
+```
+
+```{targets steekproefkader}
+list(
+  tar_target(name = exclusie_osm_landgebruiken,
+             command = exclusie_landgebruik_osm(
+               gebied = perimeters_data,
+               osmdata = osm_belgium),
+             pattern = map(perimeters_data)
+  ),
+  tar_target(name = paden,
+             command = extract_osm_paden(
+               gebied = perimeters_data,
+               exclusie = exclusie_osm_landgebruiken,
+               osmdata = osm_belgium
+               ),
+             pattern = map(perimeters_data, exclusie_osm_landgebruiken)
+             ),
+  tar_target(name = punten,
+             command = paden_naar_punten(
+               data_paden = paden
+               ),
+             pattern = map(paden)
+             ) ,
+  tar_target(name = telcirkels_landgebruik,
+             command = punten_lum_buffer(
+               punten_sf = punten,
+               radius = 300,
+               lum_rast_file = vito_lum_2019,
+               jaar = "2019"
+              ),
+             pattern = map(punten)),
+  tar_target(name = telcirkels_selectie_landgebruik,
+             command = punten_selectie_landgebruik(
+               lum_extract_result = telcirkels_landgebruik,
+               legend_rast = legend_lum,
+               max_prop_overige = 0.5,
+               min_prop_akker = 0.3,
+               min_prop_akker_grasland = 0.4
+               ),
+             pattern = map(telcirkels_landgebruik)
+  )
+)
+```
+
+
+# Analysestramien uitvoeren
+
+If you ran all the `{targets}` chunks in non-interactive mode, then your R scripts are set up to run the pipeline.
+
+```{r}
+tar_make()
+```
+
+Om de status van de berekening van targets via `tar_make()` op te volgen kan je `tar_progress()`, `tar_progress_summary()` of `tar_poll()` gebruiken.
+
+
+
+# Debug
+
+```{r eval=FALSE}
+#debug mode
+oldwd <- setwd(target_dir)
+tar_make(callr_function = NULL)
+```
+
+
+```{r eval=FALSE}
+failed <- tar_meta(fields = error) %>%
+  na.omit() %>%
+  pull(name)
+
+failed
+
+tar_workspace(failed)
+tar_traceback(failed, characters = 80)
+```
+
+
+# Output
+
+Alle resultaten worden opgeslagen in `_targets/objects` en de lijst van bestanden kan je bekijken met `tar_objects()`.
+
+```{r}
+tar_objects()
+```
+
+Ze kunnen individueel ingelezen worden met `tar_read()` of ingeladen worden met `tar_load()`.
+
+
+```{r}
+```
+
+
+Handig is dat targets afkomstig van dynamic branching ook automatisch geaggreggeerd worden.
+
+In de bestandsmap `_targets/meta` zitten alle metadata, die met `tar_meta()` bekeken kunnen worden.
+
+
+```{r}
+tar_meta()
+tar_errored() #om te zien of welke targets een foutmelding hebben
+tar_meta(fields = warnings) %>%
+  filter(!is.na(warnings))
+```
+
+De `targets` grafiek met onderlinge afhankelijkheden van de targets:
+
+```{r}
+tar_visnetwork(targets_only = TRUE)
+```
