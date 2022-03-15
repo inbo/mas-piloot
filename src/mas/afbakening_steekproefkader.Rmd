@@ -46,7 +46,7 @@ source(here("R", "draw_sample.R"))
 
 = intersectie landbouwstreek België met contour Vlaanderen en overlappend met prioritaire gebieden voor akkervogels
 
-```{r warning=FALSE}
+```{r inlezen, warning=FALSE}
 telpunten_avimap <- read_sf(
   here("data", "mas",
        "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
@@ -135,6 +135,14 @@ polders_pk <- polders %>%
 sbp_akkervogels <- read_sf(
   here("data", "bo_vlm", "akkervogelgebieden.shp")
 )
+
+piloot_perimeters <- leemstreek_pk %>%
+  select(Naam = NAAM) %>%
+  mutate(Naam = "Oostelijke leemstreek") %>%
+  bind_rows(sbp_akkervogels %>%
+              filter(Naam == "De Moeren") %>%
+              select(Naam)) %>%
+  st_cast("POLYGON")
 ```
 
 ```{r map-1, out.width="100%"}
@@ -163,7 +171,7 @@ We gaan verder met enkel de Leemstreek.
     - industrial
     - cemetery
 
-```{r leemstreek-exclusie}
+```{r leemstreek-exclusie-landuse}
 # Define the vectortranslate options
 landuse_exclusie_vectortranslate = c(
   "-t_srs", "EPSG:31370",
@@ -378,8 +386,6 @@ leemstreek_point %>%
   kable()
 ```
 
-
-
 ## Exclusie van potentiële telpunten / telcirkels
 
 ### Exclusie op basis van landgebruiksamenstelling
@@ -449,7 +455,7 @@ In de momenteel gebruikte berekening is dit "ontbrekend" landgebruik weggefilter
 Het kan dus zijn dat op de volledige telcirkel deze oppervlakte-aandelen verschillend zijn (en al dan niet zouden moeten uitgesloten worden volgens het criterium).
 
 
-```{r ternplot-landuse}
+```{r points-ago}
 legende_lumvito2019 <- legend %>%
               filter(bestand_id == "vito") %>%
               select(value, label, kleur)
@@ -473,7 +479,10 @@ points_ago <- points_lum2019 %>%
            (Akker > 0.3)) %>%
   mutate(selectie2 = Akker + Grasland > 0.4 &
            ((Grasland + Bos + Struikgewas + Akker) > 0.5))
+```
 
+
+```{r ternplot-ago-landuse}
 points_ago %>%
   ggtern::ggtern(aes(x = Akker, y = Grasland + Bos + Struikgewas,
                      z = Overige)) + 
@@ -503,7 +512,7 @@ points_ago %>%
              aes(colour = selectie2))
 ```
 
-```{r exclusie-selectie}
+```{r exclusie-ago-selectie}
 leemstreek_point <- leemstreek_point %>%
   semi_join(points_ago %>%
               filter(selectie2),
@@ -562,6 +571,7 @@ Toestand beheerovereenkomsten 2021.
 
 ```{r bo-file}
 file_bo <- here("data", "processed", "bo2021_points_b300.parquet")
+file_bo_sbp <- here("data", "processed", "bo2021_sbp.csv")
 
 bo2021 <- read_aes(year = 2021,
                     path = here("data", "bo_vlm"))
@@ -578,6 +588,26 @@ points_bo2021 <- landusemetrics_grid_cell(
 
 write_parquet(points_bo2021, file_bo)
 ```
+
+```{r bo-sbp, eval=!file.exists(file_bo_csv)}
+sbp_bo2021 <- landusemetrics_grid_cell(
+  grid_cell = sbp_akkervogels %>%
+    select(Naam) %>%
+    st_transform(crs = 31370),
+  layer = bo2021 %>% st_transform(crs = 31370), 
+  grid_group_by_col = "Naam", 
+  layer_group_by_col = "SRT_OBJECT")
+
+bo_maatregelen <- bo2021 %>%
+  st_drop_geometry() %>%
+  distinct(BH_DOELST, SRT_OBJECT)
+
+sbp_bo2021 <- sbp_bo2021 %>%
+  left_join(bo_maatregelen)
+
+write_csv(sbp_bo2021, file_bo_sbp)
+```
+
 
 Indeling voor niet-productieve gewassen / beheerovereenkomsten (instrumenten):
 
@@ -788,45 +818,51 @@ Werkwijze:
 - berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
 - met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 1000 m.
 - deze gemiddelden zijn daarna ingedeeld in drie klassen:
-    - OL open landschap (> 83°), 
-    - HOL (75 - 83°) en
+    - OL open landschap (> 86°), 
+    - HOL halfopen landschap (80° - 86°),
+    - HGL halfgesloten landschap (75° - 80°)
     - GL (< 75°) gesloten landschap
 
 Akkervogelgemeenschappen worden vaak ingedeeld volgens hun affiniteit met open landschap (OLA - Open landschap Akkervogels), half-open landschap (HOLA) en kleinschalig landschap (KLA).
 Onder kleinschalig landschap verstaat men een landschap waar de percelen relatief klein zijn en het landschap in sterke mate dooraderd is door hagen, rietkragen en andere lijn- of puntvormige kleine landschapselementen (KLE's).
 
-We maken een overlay van de kaart met openheid van het landschap en de kaart "hoog groen".
-We zien dat (zoals te verwachten) er meer hoog groen te zien is in OL < HOL < GL.
-Bij de definitie van openheid, spelen echter ook andere structuren zoals gebouwen een rol.
-Misschien kunnen we dus
-
 ```{r leemstreek-openheid}
-leemstreek_openheid <- rast(
+leemstreek_openheid_classified <- rast(
   here("data", "dem",
        "openness300m_chm_res25_c1000_mean_vlaanderen_classified.tif")) %>%
+  crop(leemstreek_pk)
+
+leemstreek_openheid_values <- rast(
+  here("data", "dem",
+       "openness300m_chm_res25_c1000_mean_vlaanderen.tif")) %>%
   crop(leemstreek_pk)
 ```
 
 
 ```{r landschapsopenheid, warning=FALSE}
-my_palette <- RColorBrewer::brewer.pal(n = 3, name = "Dark2")
-leemstreek_openheid_raster <- raster::raster(leemstreek_openheid)
+leemstreek_openheid_raster <- raster::raster(leemstreek_openheid_classified)
 leemstreek_openheid_raster <- raster::ratify(leemstreek_openheid_raster)
-levels(leemstreek_openheid_raster)[[1]]$LO <- c("GL", "HOL", "OL")
+levels(leemstreek_openheid_raster)[[1]]$LO <- c("GL", "HGL", "HOL", "OL")
 
 leemstreek_openheid_raster %>%
-  mapview(col.regions = my_palette, att = "LO", alpha = 0.5)
+  mapview(alpha = 0.3)
 ```
 
 ```{r openheid-points}
-openheid_points <- terra::extract(
-  x = leemstreek_openheid,
+openheid_classes_points <- terra::extract(
+  x = leemstreek_openheid_classified,
+  y = vect(leemstreek_point))
+
+openheid_values_points <- terra::extract(
+  x = leemstreek_openheid_values,
   y = vect(leemstreek_point))
 
 leemstreek_point <- leemstreek_point %>%
-  bind_cols(openheid_points %>% select(openheid = focal_sum)) %>%
-  mutate(openheid = factor(openheid,
-                           levels = 1:3, labels = c("GL", "HOL", "OL")))
+  bind_cols(openheid_classes_points %>% select(openheid_klasse = focal_sum),
+            openheid_values_points %>% select(openheid_waarde = focal_sum)
+            ) %>%
+  mutate(openheid_klasse = factor(openheid_klasse,
+                           levels = 1:4, labels = c("GL", "HGL", "HOL", "OL")))
 ```
 
 
@@ -893,7 +929,7 @@ min_samplesize <- 30
 
 allocatie <- leemstreek_point %>%
   st_drop_geometry() %>%
-  count(openheid, sbp_akkervogels, name = "popsize") %>%
+  count(openheid_klasse, sbp_akkervogels, name = "popsize") %>%
   mutate(allocatie_factor_sbp = ifelse(sbp_akkervogels, 0.5, 0.5)) %>%
   group_by(sbp_akkervogels) %>%
   mutate(allocatie_factor_openheid = popsize / sum(popsize)) %>%
@@ -906,9 +942,9 @@ allocatie <- leemstreek_point %>%
 
 leemstreek_point %>%
   select(-key, -value) %>%
-  inner_join(allocatie %>% select(openheid, sbp_akkervogels, samplesize),
-             by = c("openheid", "sbp_akkervogels")) %>%
-  group_by(sbp_akkervogels, openheid, samplesize) %>%
+  inner_join(allocatie %>% select(openheid_klasse, sbp_akkervogels, samplesize),
+             by = c("openheid_klasse", "sbp_akkervogels")) %>%
+  group_by(sbp_akkervogels, openheid_klasse, samplesize) %>%
   nest() %>%
   mutate(popsize = map_dbl(data, nrow),
          inclusiekansen = map2(samplesize, popsize, ~rep(.x / .y, .y))) %>%
@@ -920,7 +956,7 @@ leemstreek_point %>%
     ips = inclusiekansen)
     )
   ) %>%
-  select(openheid, sbp_akkervogels, sample, samplesize) %>%
+  select(openheid_klasse, sbp_akkervogels, sample, samplesize) %>%
   ungroup() %>%
   unnest(sample) %>%
   st_as_sf() -> samples
@@ -930,7 +966,7 @@ leemstreek_point %>%
 ```{r kaart-steekproef, warning=FALSE}
 samples %>%
   st_buffer(dist = 300) %>%
-  mutate(openheid_sbp = paste(openheid,
+  mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(sbp_akkervogels,
                                     "binnen plan",
                                     "buiten plan"))
@@ -949,6 +985,51 @@ samples %>%
   mapview(zcol = "type_teller_2021", alpha.regions = 0.2)
 ```
 
+De meest open landschappen zitten volledig binnen de perimeter van het SBP plan.
+De vergelijking van HOL binnen vs buiten plan en OL binnen vs buiten plan is dus bemoeilijkt omdat de gemiddelde openheid systematisch hoger zal liggen binnen de SBP perimeter.
+
+Een ander confounding probleem is dat HOL en HGL gemiddeld noordelijker gelegen zijn buiten SBP perimeter.
+
+Verder is ook duidelijk te zien dat veruit de meeste SB beheerovereenkomsten afgesloten zijn binnen de SBP perimeter.
+De stratificatie binnen vs buiten SBP kunnen we dus effectief gebruiken als factor om na te gaan of er een effect is van deze maatregelen.
+We zullen wel moeten corrigeren voor de confounders door de confounders op te nemen in een model en/of door de data te filteren met behulp van statistical matching technieken in functie van specifieke vraagstellingen over de effectiviteit van beheerovereenkomsten.
+
+We zien wel dat de steekproef een goede afspiegeling is van de volledige populatie (boxplots voor steekproef en populatie zijn zeer gelijkend).
+
+```{r check-balans}
+balansvergelijking <- samples %>%
+  mutate(puntenset = "steekproef"
+  ) %>%
+  bind_rows(leemstreek_point %>%
+              mutate(puntenset = "populatie")) %>%
+  mutate(sbp_akkervogels = ifelse(sbp_akkervogels,
+                                  "binnen sbp",
+                                  "buiten sbp")) %>%
+  cbind(st_coordinates(.))
+
+balansvergelijking %>%
+  ggplot() +
+  geom_boxplot(aes(x = sbp_akkervogels, y = openheid_waarde,
+                   fill = puntenset)) +
+  facet_wrap(~openheid_klasse)
+
+balansvergelijking %>%
+  ggplot() +
+  geom_boxplot(aes(x = sbp_akkervogels, y = area_prop_sb, fill = puntenset)) +
+  scale_y_sqrt() +
+  facet_wrap(~openheid_klasse) +
+  labs(y = "Oppervlakte-aandeel SB beheerovereenkomsten")
+
+balansvergelijking %>%
+  ggplot() + 
+  geom_boxplot(aes(x = sbp_akkervogels, y = X, fill = puntenset)) +
+  facet_wrap(~openheid_klasse)
+
+balansvergelijking %>%
+  ggplot() + 
+  geom_boxplot(aes(x = sbp_akkervogels, y = Y, fill = puntenset)) +
+  facet_wrap(~openheid_klasse)
+```
 
 
 ## Uitschrijven van veldprotocol
