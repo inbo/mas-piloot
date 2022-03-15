@@ -52,10 +52,16 @@ openness300m_chm_res25_c1000_mean_vlaanderen <- terra::focal(
                   "openness300m_chm_res25_c1000_mean_vlaanderen.tif"),
   overwrite = FALSE)
 
+openness300m_chm_res25_c1000_mean_vlaanderen <-
+  rast(
+    here("data", "dem",
+         "openness300m_chm_res25_c1000_mean_vlaanderen.tif")
+  )
 
 rclasmat <- c(0, 1.3, 1,
-              1.3, 1.5, 2,
-              1.5, +Inf, 3) %>%
+              1.3, 1.4, 2,
+              1.4, 1.5, 3,
+              1.5, +Inf, 4) %>%
   matrix(ncol = 3, byrow = TRUE)
 
 vlaanderen_openheid_landschap <- terra::classify(
@@ -66,10 +72,13 @@ vlaanderen_openheid_landschap <- terra::classify(
                   "openness300m_chm_res25_c1000_mean_vlaanderen_classified.tif"),
   overwrite = TRUE)
 
-my_palette <- RColorBrewer::brewer.pal(n = 3, name = "Dark2")
-vlaanderen_openheid_landschap_raster <- raster::raster(vlaanderen_openheid_landschap)
-vlaanderen_openheid_landschap_raster <- raster::ratify(vlaanderen_openheid_landschap_raster)
-levels(vlaanderen_openheid_landschap_raster)[[1]]$LT <- c("GL", "HOL", "OL")
+my_palette <- RColorBrewer::brewer.pal(n = 4, name = "Dark2")
+vlaanderen_openheid_landschap_raster <- raster::raster(
+  vlaanderen_openheid_landschap)
+vlaanderen_openheid_landschap_raster <- raster::ratify(
+  vlaanderen_openheid_landschap_raster)
+levels(vlaanderen_openheid_landschap_raster)[[1]]$LT <-
+  c("GL", "HGL", "HOL", "OL")
 
 
 vlaanderen_openheid_landschap_raster %>%
