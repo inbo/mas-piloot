@@ -74,29 +74,31 @@ Als je dit niet doet zal het target immers altijd opnieuw aangemaakt worden in n
 
 ```{targets mas-globals, tar_globals = TRUE}
 options(tidyverse.quiet = TRUE)
-tar_option_set(packages = c("tidyverse", "sf", "nngeo", "readxl", "httr",
-                            "osmextract", "terra", "exactextractr", "arrow"),
+tar_option_set(packages = c("dplyr",
+                            "readr",
+                            "tidyr",
+                            "tibble",
+                            "nngeo", 
+                            "osmextract",
+                            "terra",
+                            "exactextractr",
+                            "arrow",
+                            "sf"),
                format = "qs",
                memory = "transient",
                garbage_collection = TRUE,
                workspace_on_error = TRUE,
-               workspaces = c("telcirkels_landgebruik_88468459")
-               , debug = "telcirkels_landgebruik"
-               )
+               workspaces = c("telcirkels_landgebruik_88468459"))
 target_dir <- rprojroot::find_root_file(
     "src", "mas", "targets",
     criterion = rprojroot::is_git_root)
 mbag_dir <- rprojroot::find_root_file(
     criterion = rprojroot::is_git_root)
-source(file.path(mbag_dir, "R", "wfs_wcs.R"))
-source(file.path(mbag_dir, "R", "read_agri_use_parcels.R"))
-source(file.path(mbag_dir, "R", "utils.R"))
 source(file.path(mbag_dir, "R", "landuse_maps.R"))
-source(file.path(mbag_dir, "R", "abv.R"))
-source(file.path(mbag_dir, "R", "agro_environment_schemes.R"))
 source(file.path(mbag_dir, "R", "geocomputations.R"))
 source(file.path(mbag_dir, "R", "draw_sample.R"))
 source(file.path(mbag_dir, "R", "steekproefkader.R"))
+source(file.path(mbag_dir, "R", "berekening_hulpvariabelen.R"))
 
 ```
 
@@ -118,14 +120,14 @@ list(
     ),
   tar_target(
     perimeters_data,
-    read_sf(perimeters_file)
+    st_read(perimeters_file)
     ),
   tarchetypes::tar_file(
     osm_belgium,
     path_to_osm_download()
     ),
   tarchetypes::tar_file(
-    vito_lum_2019,
+    vito_lum_2019_file,
     path_to_lum(jaar = 2019)
     ),
   tarchetypes::tar_file(
@@ -135,6 +137,22 @@ list(
   tar_target(
     legend_lum,
     read_legend_lum(file = legend_lum_file)
+  ),
+  tarchetypes::tar_file(
+    openheid_landschap_file,
+    path_to_openheid_landschap()
+    ),
+  tarchetypes::tar_file(
+    bo_file,
+    path_to_bo2021()
+    ),
+  tarchetypes::tar_file(
+    lbg_file,
+    path_to_lbg(jaar = "2020")
+  ),
+  tarchetypes::tar_file(
+    sbp_akkervogels_file,
+    path_to_sbp_akkervogels()
   )
 )
 ```
@@ -157,16 +175,19 @@ list(
              ),
   tar_target(name = punten,
              command = paden_naar_punten(
-               data_paden = paden
+               data_paden = paden,
+               gebieden = perimeters_data,
+               interpoint_distance = 50,
+               border_distance = 300
                ),
-             pattern = map(paden)
+             pattern = map(perimeters_data, paden)
              ) ,
   tar_target(name = telcirkels_landgebruik,
              command = punten_lum_buffer(
                punten_sf = punten,
                radius = 300,
-               lum_rast_file = vito_lum_2019,
-               jaar = "2019"
+               file = vito_lum_2019_file,
+               legend = legend_lum
               ),
              pattern = map(punten)),
   tar_target(name = telcirkels_selectie_landgebruik,
@@ -178,6 +199,84 @@ list(
                min_prop_akker_grasland = 0.4
                ),
              pattern = map(telcirkels_landgebruik)
+  ),
+  tar_target(name = punten_steekproefkader,
+             command = selectie_landgebruik_vito(
+               punten_sf = punten,
+               selectie_df = telcirkels_selectie_landgebruik
+             ),
+             pattern = map(punten, telcirkels_selectie_landgebruik))
+)
+```
+
+```{targets hulpvariabelen}
+list(
+  tar_target(
+    name = plus_sb,
+    command = add_bo2021_to_frame(
+      punten_df = punten_steekproefkader,
+      path_bo = bo_file),
+    pattern = map(punten_steekproefkader)
+    ),
+  tar_target(
+    name = lbg_statistics,
+    command = calc_lbg(path = lbg_file,
+                       punten_sf = punten_steekproefkader),
+    pattern = map(punten_steekproefkader)
+  ),
+  tar_target(
+    name = plus_openheid_landschap,
+    command = add_openheid_landschap_to_frame(
+      path = openheid_landschap_file,
+      punten_sf = plus_sb,
+      gebied = perimeters_data,
+      cutlevels = c(1.3, 1.4, 1.5),
+      class_labels = c("GL", "HGL", "HOL", "OL")),
+    pattern = map(perimeters_data, plus_sb)
+  ),
+  tar_target(name = sbp_akkervogels,
+             command = read_sbp_akkervogels(
+               path = sbp_akkervogels_file,
+               gebied = perimeters_data
+             ),
+             pattern = map(perimeters_data)),
+  tar_target(
+    name = steekproefkader_finaal,
+    command = add_stratum_sbp(punten_sf = plus_openheid_landschap,
+                              sbp = sbp_akkervogels),
+    pattern = map(perimeters_data, plus_openheid_landschap)
+  )
+)
+```
+
+
+```{targets steekproeftrekking}
+list(
+  tarchetypes::tar_group_by(
+    steekproefkader_per_stratum,
+    steekproefkader_finaal,
+    is_sbp,
+    openheid_klasse
+  ),
+  tar_target(
+    allocatie_df,
+    allocatie(steekproefkader = steekproefkader_finaal,
+              min_samplesize = 30,
+              target_samplesize = 300,
+              allocatie_prop_minimum = 0.01,
+              allocatie_binnen_sbp = 0.5)
+  ),
+  tarchetypes::tar_group_by(
+    allocatie_per_stratum,
+    allocatie_df,
+    is_sbp,
+    openheid_klasse
+  ),
+  tar_target(
+    steekproef,
+    draw_sample(sampling_frame = steekproefkader_per_stratum,
+                sample_size = allocatie_per_stratum$samplesize * 2),
+    pattern = map(steekproefkader_per_stratum, allocatie_per_stratum)
   )
 )
 ```
@@ -199,7 +298,7 @@ Om de status van de berekening van targets via `tar_make()` op te volgen kan je 
 
 ```{r eval=FALSE}
 #debug mode
-oldwd <- setwd(target_dir)
+tar_load_globals()
 tar_make(callr_function = NULL)
 ```
 
@@ -211,7 +310,8 @@ failed <- tar_meta(fields = error) %>%
 
 failed
 
-tar_workspace(failed)
+tar_load_globals()
+tar_workspace(punten_6c6b6262)
 tar_traceback(failed, characters = 80)
 ```
 

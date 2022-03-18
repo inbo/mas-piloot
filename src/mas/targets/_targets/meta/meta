@@ -1,89 +1,78 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-exclusie_osm_landgebruiken|pattern|aac0f533c87910f7|1770383fc1faf26f||-1395235820||||289718|qs|local|vector||exclusie_osm_landgebruiken_575a8d1b*exclusie_osm_landgebruiken_93cfdbd9|283.85||
-exclusie_osm_landgebruiken_575a8d1b|branch|b1d31187e09de7b1|1770383fc1faf26f|5a5c7dcec6eeba0d|-513074488||t19066.5388715098s|5d8eda5edb2a81d3|285362|qs|local|vector|exclusie_osm_landgebruiken||183.03|GDAL Message 1 A geometry of type GEOMETRYCOLLECTION is inserted into layer multipolygons of geometry type MULTIPOLYGON, which is not normally allowed by the GeoPackage specification, but the driver will however do it. To create a conformant GeoPackage, if using ogr2ogr, the nlt option can be used to override the layer geometry type. This warning will no longer be emitted for this combination of layer and feature geometry type.|
-exclusie_osm_landgebruiken_93cfdbd9|branch|ffb41fdd75781323|1770383fc1faf26f|ee7b57fb361ea30d|1623942441||t19066.5400407099s|72ede0e9360edca1|4356|qs|local|vector|exclusie_osm_landgebruiken||100.82||
-legend_lum|stem|b2cf18af4477829d|1a84f4c749b9099b|8e12c9a99758e245|-828663790||t19066.536748721s|8f0fa8aa3ae50a40|1341|qs|local|vector|||1.88||
-legend_lum_file|stem|2fd1e804a10c6e7c|2255d422802ce21e|80476ca39ee2024e|-119466115|C:/R/GitRepositories/mbag/data/landgebruik/legende_landgebruik.csv|t18824.5587713223s|fe2ba51313955643|5726|file|local|vector|||0||
-osm_belgium|stem|862c177d6c739c37|b6dad0f51c49b73b|404f59bf50dfbf49|-932366199|C:\R\osmdata/geofabrik_belgium-latest.osm.pbf|t19045.6525542684s|171343958d0b0522|481497732|file|local|vector|||4.58|package tibble was built under R version 4.1.2. package tidyr was built under R version 4.1.3. package readr was built under R version 4.1.3. package dplyr was built under R version 4.1.3. package sf was built under R version 4.1.3. package nngeo was built under R version 4.1.2. package osmextract was built under R version 4.1.2. package terra was built under R version 4.1.2. package exactextractr was built under R version 4.1.2. package arrow was built under R version 4.1.3|
-paden|pattern|23db938590434b74|a6aef0e55767ac32||207914040||||1064682|qs|local|vector||paden_9173f3cb*paden_9f176c38|161.94||
-paden_9173f3cb|branch|cedf4b029e405e53|a6aef0e55767ac32|47f16406efb7c147|-1487694948||t19066.5414183234s|67eea80df95d59ea|1019387|qs|local|vector|paden||118.39|attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries|
-paden_9f176c38|branch|5ee2648ed254338e|a6aef0e55767ac32|c3703c967b7e84d6|1504000349||t19066.5419257023s|8c948567b8150991|45295|qs|local|vector|paden||43.55|attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries|
-perimeters_data|stem|840b44332703db99|f63f45f860cadc06|65c2221944261f12|916414819||t19066.5367248222s|4e298180dc245652|67584|qs|local|vector||perimeters_data_7e12c76f*perimeters_data_7a133fa3|0.04||
-perimeters_file|stem|06804346fb4c6d6b|9163c9fa639a8b9f|e0b52d8b0b2a54e6|1254350107|C:/R/GitRepositories/mbag/data/processed/piloot_perimeters.gpkg|t19065.402133751s|75ee2bb67cba593d|196608|file|local|vector|||0||
-punten|pattern|e6b3c00cb651647a|e8ffbfe405dc2957||-1035966488||||609128|qs|local|vector||punten_40972987*punten_cb9053de|43.53||
-punten_40972987|branch|98bb03911d76b99e|e8ffbfe405dc2957|99323120b19526f5|-1955069572||t19066.5424085484s|1a81cc65ad1725f9|572514|qs|local|vector|punten||41.03||
-punten_cb9053de|branch|5328eb5f399a9e63|e8ffbfe405dc2957|3345028a4bc8d136|685697045||t19066.5424410695s|3abfb4e71077b039|36614|qs|local|vector|punten||2.5||
-telcirkels_landgebruik|pattern|63046af7682ee033|a54ea20dcfab284a||-1712495207||||2818668|qs|local|vector||telcirkels_landgebruik_88468459*telcirkels_landgebruik_0681bcc7|1303.55||
-telcirkels_landgebruik_0681bcc7|branch|36db02f3ee4d6ef7|a54ea20dcfab284a|4b71060c46c8970b|-155429555||t19066.5650310144s|189c7374a4ac9a8d|136229|qs|local|vector|telcirkels_landgebruik||63.72||
-telcirkels_landgebruik_88468459|branch|7b011d86676b6c1a|a54ea20dcfab284a|15415c186df3b297|-1684042779||t19066.564288002s|d1d5a187b1114e7d|2682439|qs|local|vector|telcirkels_landgebruik||1239.83|package tibble was built under R version 4.1.2. package tidyr was built under R version 4.1.3. package readr was built under R version 4.1.3. package dplyr was built under R version 4.1.3. package sf was built under R version 4.1.3. package nngeo was built under R version 4.1.2. package osmextract was built under R version 4.1.2. package terra was built under R version 4.1.2. package exactextractr was built under R version 4.1.2. package arrow was built under R version 4.1.3|
-vito_lum_2019|stem|e562a9788de76291|6200b6036f557b4d|9c0335b3cca56499|1616645540|C:/R/GitRepositories/mbag/data/landgebruik/vito/lu_landgebruik_vlaa_2019_v2.tif|t18823.6266527538s|19c926ef86151c07|57051741|file|local|vector|||0||
-point_to_gridcell|function|27bb10730048677c|||||||||||||||
-punten_selectie_landgebruik|function|845b273074c39991|||||||||||||||
-abv_read_sampling_frame|function|3377ba96e1706204|||||||||||||||
-landusemetrics_grid_cell|function|36f7c07ed4d5a5fc|||||||||||||||
-lum_read_from_vito|function|e0da637d68abe823|||||||||||||||
-download_unzip|function|f60e1823d14f1520|||||||||||||||
+add_bo2021_to_frame|function|f74eff240bfd94ff|||||||||||||||
+add_openheid_landschap_to_frame|function|e76746ca2263f9d9|||||||||||||||
+add_stratum_sbp|function|ab305f23cf121949|||||||||||||||
+allocatie|function|0a4173fb97a3e706|||||||||||||||
+allocatie_df|stem||46e532685db087a9|5a4b1645f6baff98|-878230153||t19069.6055395325s||0|qs|local|vector|||3.84|package dplyr was built under R version 4.1.3. package readr was built under R version 4.1.3. package tidyr was built under R version 4.1.3. package tibble was built under R version 4.1.2. package nngeo was built under R version 4.1.2. package sf was built under R version 4.1.3. package osmextract was built under R version 4.1.2. package terra was built under R version 4.1.2. package exactextractr was built under R version 4.1.2. package arrow was built under R version 4.1.3|could not load dependencies of target allocatie_df. Input must be a vector, not a sfc_POINTsfc object.
+bo_file|stem|940952d996ba61d0|d47013c9ea23f622|a37b62dbe6180dda|-1038609820|C:/R/GitRepositories/mbag/data/bo_vlm/BO_2021_VLM_EXTERN.shp|t18648.5084403108s|1e480fdea0da40f4|10432808|file|local|vector|||0||
+calc_lbg|function|814ca315d8b4b01a|||||||||||||||
+draw_sample|function|df8f22cbeacac28e|||||||||||||||
 exclusie_landgebruik_osm|function|6af1e0fb6231f8a9|||||||||||||||
-aup_read|function|e744bd5c5efafad5|||||||||||||||
-get_feature_wfs|function|867bf0bf51023891|||||||||||||||
-get_coverage_wcs|function|d5c37e6f171de143|||||||||||||||
-mbag_dir|object|dc143f93f849bc75|||||||||||||||
-abv_get_observations|function|4dced06d221eb297|||||||||||||||
-path_to_osm_download|function|6ad7e48367119170|||||||||||||||
-lum_read_from_inbo|function|adfa6bb3e812df82|||||||||||||||
-paden_naar_punten|function|452f4ce82eb5605b|||||||||||||||
-aup_sf_to_parquet|function|6fe149a8c06d3f3d|||||||||||||||
-st_bbox.SpatRaster|function|af80857fe302b9bd|||||||||||||||
-abv_get_visits|function|489fa7fabc27a95c|||||||||||||||
-download_landbouwstreken|function|647a2c12a6b8451a|||||||||||||||
-aup_download|function|8194808d3f703191|||||||||||||||
-read_aes|function|d1c621cc386a6e49|||||||||||||||
-read_utm_sf|function|2d4234a1d4d4359c|||||||||||||||
-get_wcs_layer|function|46e632e89962f7de|||||||||||||||
-st_crs.SpatRaster|function|70c89432d6566dd5|||||||||||||||
+exclusie_osm_landgebruiken|pattern|c2f69e5ddbb5c637|1770383fc1faf26f||-1395235820||||289718|qs|local|vector||exclusie_osm_landgebruiken_bc913034*exclusie_osm_landgebruiken_d3c3ecf6|335.31||
+exclusie_osm_landgebruiken_bc913034|branch|b1d31187e09de7b1|1770383fc1faf26f|11d98e0667161ed6|1726569062||t19069.5672155444s|5d8eda5edb2a81d3|285362|qs|local|vector|exclusie_osm_landgebruiken||189.59|GDAL Message 1 A geometry of type GEOMETRYCOLLECTION is inserted into layer multipolygons of geometry type MULTIPOLYGON, which is not normally allowed by the GeoPackage specification, but the driver will however do it. To create a conformant GeoPackage, if using ogr2ogr, the nlt option can be used to override the layer geometry type. This warning will no longer be emitted for this combination of layer and feature geometry type.|
+exclusie_osm_landgebruiken_d3c3ecf6|branch|ffb41fdd75781323|1770383fc1faf26f|3e813bbb3425c3a6|381454314||t19069.5689046671s|72ede0e9360edca1|4356|qs|local|vector|exclusie_osm_landgebruiken||145.72||
 extract_osm_paden|function|8a814c338dd4cebf|||||||||||||||
-draw_sample|function|4e78b301c387122a|||||||||||||||
-read_legend_lum|function|5493f2158a71d708|||||||||||||||
-target_dir|object|572e50e22f893141|||||||||||||||
-csv_to_parquet|function|445115ee1f07cad5|||||||||||||||
-abv_read_utm_squares|function|77fada31f00cbeb6|||||||||||||||
-punten_lum_buffer|function|2544f4f3d44fe180|||||||||||||||
-lum_download|function|e211bb393750e8a4|||||||||||||||
-path_to_lum|function|aa328a3b91467c2a|||||||||||||||
-path_to_perimeters|function|15e4eafb98edb9db|||||||||||||||
+landusemetrics_grid_cell|function|36f7c07ed4d5a5fc|||||||||||||||
+lbg_file|stem|2dd0559fff40edbd|f6015326330791b4|c2810c2de0cf5e59|-1844626288|C:/R/GitRepositories/mbag/data/landbouwgebruikspercelen/parquet/lbgbrprc20.parquet|t18822.2821200378s|3c126a18ca7e4aea|209304551|file|local|vector|||0||
+lbg_statistics|pattern|07e2e41d15eceb9e|4d61f715514a7b95||-1474013382||||7260962|qs|local|vector||lbg_statistics_1d1940d9*lbg_statistics_b2e35bbc|236.44||
+lbg_statistics_1d1940d9|branch|d4a011ae8ca37cd3|4d61f715514a7b95|fbf4d2401ea4053b|-390859365||t19069.6044453369s|5d5057ccb6f050e8|6962103|qs|local|vector|lbg_statistics||176.72|attribute variables are assumed to be spatially constant throughout all geometries. Missing values are always removed in SQL.Use SUMx, na.rm  TRUE to silence this warningThis warning is displayed only once per session.|
+lbg_statistics_b2e35bbc|branch|d382f85602e68864|4d61f715514a7b95|bf1712318967a24c|-1075835168||t19069.6051503082s|bc28ffd2d1298fc2|298859|qs|local|vector|lbg_statistics||59.72|attribute variables are assumed to be spatially constant throughout all geometries|
+legend_lum|stem|b2cf18af4477829d|1a84f4c749b9099b|8e12c9a99758e245|-828663790||t19069.5649974683s|8f0fa8aa3ae50a40|1341|qs|local|vector|||0.49||
+legend_lum_file|stem|2fd1e804a10c6e7c|2255d422802ce21e|80476ca39ee2024e|-119466115|C:/R/GitRepositories/mbag/data/landgebruik/legende_landgebruik.csv|t18824.5587713223s|fe2ba51313955643|5726|file|local|vector|||0||
+lum_download|function|6824f1f1ddc0e360|||||||||||||||
+lum_read_from_inbo|function|adfa6bb3e812df82|||||||||||||||
+lum_read_from_vito|function|e0da637d68abe823|||||||||||||||
+mbag_dir|object|dc143f93f849bc75|||||||||||||||
+openheid_landschap_file|stem|48c6e6e126d49bc8|5747555e9d5be752|48494f134b996939|1011586389|C:/R/GitRepositories/mbag/data/dem/openness300m_chm_res25_c1000_mean_vlaanderen.tif|t19060.4989150101s|11c6a78f4c9d5bc0|123035937|file|local|vector|||0||
+osm_belgium|stem|862c177d6c739c37|b6dad0f51c49b73b|404f59bf50dfbf49|-932366199|C:\R\osmdata/geofabrik_belgium-latest.osm.pbf|t19045.6525542684s|171343958d0b0522|481497732|file|local|vector|||0||
+paden|pattern|887f93bf48827153|a6aef0e55767ac32||207914040||||1064682|qs|local|vector||paden_2f5f8c6c*paden_990fe9ba|170.67||
+paden_2f5f8c6c|branch|cedf4b029e405e53|a6aef0e55767ac32|9bd3bbe93266fb38|1050621666||t19069.5703097435s|67eea80df95d59ea|1019387|qs|local|vector|paden||120.7|attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries|
+paden_990fe9ba|branch|5ee2648ed254338e|a6aef0e55767ac32|95cce166ddf1babc|-1062501000||t19069.5708909689s|8c948567b8150991|45295|qs|local|vector|paden||49.97|attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries|
+paden_naar_punten|function|55c0c2a43923e4e8|||||||||||||||
+path_to_bo2021|function|3d69d5ab9e6ea96f|||||||||||||||
+path_to_lbg|function|e8df2a425de00c6f|||||||||||||||
 path_to_legend_lum|function|c0266486ac7220b4|||||||||||||||
-point_to_gridcell|function|27bb10730048677c
-punten_selectie_landgebruik|function|4c2aaf8166092a1b
-abv_read_sampling_frame|function|3377ba96e1706204
-landusemetrics_grid_cell|function|36f7c07ed4d5a5fc
-lum_read_from_vito|function|e0da637d68abe823
-download_unzip|function|f60e1823d14f1520
-exclusie_landgebruik_osm|function|6af1e0fb6231f8a9
-aup_read|function|e744bd5c5efafad5
-get_feature_wfs|function|867bf0bf51023891
-get_coverage_wcs|function|d5c37e6f171de143
-mbag_dir|object|dc143f93f849bc75
-abv_get_observations|function|4dced06d221eb297
-path_to_osm_download|function|6ad7e48367119170
-lum_read_from_inbo|function|adfa6bb3e812df82
-paden_naar_punten|function|452f4ce82eb5605b
-aup_sf_to_parquet|function|6fe149a8c06d3f3d
-st_bbox.SpatRaster|function|af80857fe302b9bd
-abv_get_visits|function|489fa7fabc27a95c
-download_landbouwstreken|function|647a2c12a6b8451a
-aup_download|function|8194808d3f703191
-read_aes|function|d1c621cc386a6e49
-read_utm_sf|function|2d4234a1d4d4359c
-get_wcs_layer|function|46e632e89962f7de
-st_crs.SpatRaster|function|70c89432d6566dd5
-extract_osm_paden|function|8a814c338dd4cebf
-draw_sample|function|4e78b301c387122a
-read_legend_lum|function|5493f2158a71d708
-target_dir|object|572e50e22f893141
-csv_to_parquet|function|445115ee1f07cad5
-abv_read_utm_squares|function|77fada31f00cbeb6
-punten_lum_buffer|function|2544f4f3d44fe180
-lum_download|function|e211bb393750e8a4
-path_to_lum|function|aa328a3b91467c2a
-path_to_perimeters|function|15e4eafb98edb9db
-path_to_legend_lum|function|c0266486ac7220b4
+path_to_lum|function|aa328a3b91467c2a|||||||||||||||
+path_to_openheid_landschap|function|11999c3a1548559e|||||||||||||||
+path_to_osm_download|function|6ad7e48367119170|||||||||||||||
+path_to_perimeters|function|15e4eafb98edb9db|||||||||||||||
+path_to_sbp_akkervogels|function|e2d7ec802e98c665|||||||||||||||
+perimeters_data|stem|fda159cdd33ff12c|259acd2099d9d883|b3dc0f96068626fd|916414819||t19069.5650008266s|de7d21d1a08bcc14|67573|qs|local|vector||perimeters_data_22455ba9*perimeters_data_4763caf2|0.09||
+perimeters_file|stem|06804346fb4c6d6b|9163c9fa639a8b9f|e0b52d8b0b2a54e6|1254350107|C:/R/GitRepositories/mbag/data/processed/piloot_perimeters.gpkg|t19065.402133751s|75ee2bb67cba593d|196608|file|local|vector|||0||
+plus_openheid_landschap|pattern|d45b230bac95affb|10917a725b3a32da||-1021060035||||726042|qs|local|vector||plus_openheid_landschap_0d4eb2cd*plus_openheid_landschap_f79e7122|1.89||
+plus_openheid_landschap_0d4eb2cd|branch|d5da01f173549b84|10917a725b3a32da|436af5f60910cbf6|41100275||t19069.6054822375s|fba98895d8b3f4e3|688320|qs|local|vector|plus_openheid_landschap||1.64||
+plus_openheid_landschap_f79e7122|branch|6e331c61e1c03e97|10917a725b3a32da|d95a8924fd55fc58|-93211056||t19069.6054889511s|6718d3bac843023c|37722|qs|local|vector|plus_openheid_landschap||0.25||
+plus_sb|pattern|db9b15dc7dee09de|be239c92946bf1fc||-387737101||||631539|qs|local|vector||plus_sb_1d1940d9*plus_sb_b2e35bbc|24.4||
+plus_sb_1d1940d9|branch|9ac3e544467c50c5|be239c92946bf1fc|804894fd33dcad0e|2096683537||t19069.605403691s|ce71e8dc5fcf8e68|597950|qs|local|vector|plus_sb||20.64|attribute variables are assumed to be spatially constant throughout all geometries|
+plus_sb_b2e35bbc|branch|1c28d0caf99e3261|be239c92946bf1fc|b1b119bf72523f80|1063612046||t19069.6054521855s|76f9912dd3dd8999|33589|qs|local|vector|plus_sb||3.76|attribute variables are assumed to be spatially constant throughout all geometries|
+point_to_gridcell|function|27bb10730048677c|||||||||||||||
+punten|pattern|617f7de71640795c|5ff6cabb84dc0334||-1035966488||||544671|qs|local|vector||punten_6c6b6262*punten_e8699269|94.68||
+punten_6c6b6262|branch|6f92344a3b9f50f8|5ff6cabb84dc0334|f0637fd3dfdff75e|1257299337||t19069.5719529879s|09bc51bf6ed85c65|519182|qs|local|vector|punten||91.04|attribute variables are assumed to be spatially constant throughout all geometries|
+punten_e8699269|branch|6cf631dfa1c7226d|5ff6cabb84dc0334|ece161a93acb8e21|-1916843321||t19069.5719984675s|085bd8de8be35d70|25489|qs|local|vector|punten||3.64|attribute variables are assumed to be spatially constant throughout all geometries|
+punten_lum_buffer|function|78f6efcdf742fd77|||||||||||||||
+punten_selectie_landgebruik|function|4c2aaf8166092a1b|||||||||||||||
+punten_steekproefkader|pattern|77e83720921e1dcf|1096316cc1a384e8||-1999098994||||513650|qs|local|vector||punten_steekproefkader_f81b40c0*punten_steekproefkader_be86910c|0.8||
+punten_steekproefkader_be86910c|branch|f9f8eb847edc4845|1096316cc1a384e8|504ed407b9cbf394|1082433787||t19069.6023909438s|e378aa0601bb8ddb|25485|qs|local|vector|punten_steekproefkader||0.05||
+punten_steekproefkader_f81b40c0|branch|e9c35ec5f5c3ef51|1096316cc1a384e8|0482b7217c79bd8a|-357742311||t19069.6023877354s|2bcca310ab1d44d3|488165|qs|local|vector|punten_steekproefkader||0.75||
+read_bo2021|function|13920fd20ecbac61|||||||||||||||
+read_legend_lum|function|5493f2158a71d708|||||||||||||||
+read_lum_rast|function|ab1941e8592097df|||||||||||||||
+read_sbp_akkervogels|function|dd3d23999edd3f6d|||||||||||||||
+sbp_akkervogels|pattern|a7bf215b375ad2e0|acc906648dcad49b||-205952475||||56728|qs|local|vector||sbp_akkervogels_bc913034*sbp_akkervogels_d3c3ecf6|0.68||
+sbp_akkervogels_bc913034|branch|097babf5c5edd7f9|acc906648dcad49b|a7b0a615a4d46c6f|-657755135||t19069.5650107359s|6c2849c250d3a01d|55734|qs|local|vector|sbp_akkervogels||0.52|attribute variables are assumed to be spatially constant throughout all geometries|
+sbp_akkervogels_d3c3ecf6|branch|4430ff2a5ae844ab|acc906648dcad49b|3c992225e2b01cc5|688815306||t19069.5650149203s|e547444d80a8d000|994|qs|local|vector|sbp_akkervogels||0.16|attribute variables are assumed to be spatially constant throughout all geometries|
+sbp_akkervogels_file|stem|e4d1a382c5fe78ff|b7b4e2f0ab5e650d|1f53375466b68ebf|-1351920255|C:/R/GitRepositories/mbag/data/bo_vlm/akkervogelgebieden.shp|t18185.5896269514s|0463b141f117caba|531772|file|local|vector|||0||
+selectie_landgebruik_vito|function|48a4042b1ae57018|||||||||||||||
+st_bbox.SpatRaster|function|af80857fe302b9bd|||||||||||||||
+st_crs.SpatRaster|function|70c89432d6566dd5|||||||||||||||
+steekproefkader_finaal|pattern|3d8e14348bdc12bd|dba75116b3510d73||-238515416||||729930|qs|local|vector||steekproefkader_finaal_796c7250*steekproefkader_finaal_97f8ef3e|0.51||
+steekproefkader_finaal_796c7250|branch|7eaa7a9dfebe0da0|dba75116b3510d73|87798ac8312945cd|1432642343||t19069.6055029529s|492299c9539c0a22|692339|qs|local|vector|steekproefkader_finaal||0.36||
+steekproefkader_finaal_97f8ef3e|branch|79060a3b8c7f5d8f|dba75116b3510d73|248f78e779de4303|-154357589||t19069.6055078647s|db4debb316fd2e49|37591|qs|local|vector|steekproefkader_finaal||0.15||
+target_dir|object|572e50e22f893141|||||||||||||||
+telcirkels_landgebruik|pattern|5b0319d87d3f4bc9|07b4a731c4824f5d||-1712495207||||2512079|qs|local|vector||telcirkels_landgebruik_e1575c4e*telcirkels_landgebruik_00929cf8|2618.3||
+telcirkels_landgebruik_00929cf8|branch|52eb00b957f3c78d|07b4a731c4824f5d|ef697353f064e6c0|-1929867786||t19069.6023160157s|0eb5ab2bb8587fc0|83963|qs|local|vector|telcirkels_landgebruik||43.04||
+telcirkels_landgebruik_e1575c4e|branch|f1230798ae14d127|07b4a731c4824f5d|e99b75b099f1e8ad|232687786||t19069.6018127324s|c1a0efe65a4997dd|2428116|qs|local|vector|telcirkels_landgebruik||2575.26||
+telcirkels_selectie_landgebruik|pattern|1e68ec59ec06a82f|ef4f2279b6344c96||-1288691576||||1141040|qs|local|vector||telcirkels_selectie_landgebruik_c5d21c77*telcirkels_selectie_landgebruik_78c1330e|3.89||
+telcirkels_selectie_landgebruik_78c1330e|branch|03b781cd9f335d3a|ef4f2279b6344c96|9fdbd4fb83bc5feb|-1371765725||t19069.6023719799s|f0a77c9042432dcd|37935|qs|local|vector|telcirkels_selectie_landgebruik||0.16||
+telcirkels_selectie_landgebruik_c5d21c77|branch|97b3a8fa1a9f12b2|ef4f2279b6344c96|9ce3fc4ebb56e5cb|625943525||t19069.6023669318s|6f7d36daa414bac8|1103105|qs|local|vector|telcirkels_selectie_landgebruik||3.73||
+vito_lum_2019_file|stem|e562a9788de76291|6200b6036f557b4d|9c0335b3cca56499|-632092389|C:/R/GitRepositories/mbag/data/landgebruik/vito/lu_landgebruik_vlaa_2019_v2.tif|t18823.6266527538s|19c926ef86151c07|57051741|file|local|vector|||3.83|package dplyr was built under R version 4.1.3. package readr was built under R version 4.1.3. package tidyr was built under R version 4.1.3. package tibble was built under R version 4.1.2. package nngeo was built under R version 4.1.2. package sf was built under R version 4.1.3. package osmextract was built under R version 4.1.2. package terra was built under R version 4.1.2. package exactextractr was built under R version 4.1.2. package arrow was built under R version 4.1.3|

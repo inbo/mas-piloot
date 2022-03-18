@@ -5,14 +5,14 @@ list(
     ),
   tar_target(
     perimeters_data,
-    read_sf(perimeters_file)
+    st_read(perimeters_file)
     ),
   tarchetypes::tar_file(
     osm_belgium,
     path_to_osm_download()
     ),
   tarchetypes::tar_file(
-    vito_lum_2019,
+    vito_lum_2019_file,
     path_to_lum(jaar = 2019)
     ),
   tarchetypes::tar_file(
@@ -22,5 +22,21 @@ list(
   tar_target(
     legend_lum,
     read_legend_lum(file = legend_lum_file)
+  ),
+  tarchetypes::tar_file(
+    openheid_landschap_file,
+    path_to_openheid_landschap()
+    ),
+  tarchetypes::tar_file(
+    bo_file,
+    path_to_bo2021()
+    ),
+  tarchetypes::tar_file(
+    lbg_file,
+    path_to_lbg(jaar = "2020")
+  ),
+  tarchetypes::tar_file(
+    sbp_akkervogels_file,
+    path_to_sbp_akkervogels()
   )
 )

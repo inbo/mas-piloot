@@ -117,7 +117,9 @@ extract_osm_paden <- function(gebied, exclusie, osmdata) {
 
 
 paden_naar_punten <- function(data_paden,
-                              interpoint_distance = 50) {
+                              gebieden,
+                              interpoint_distance = 50,
+                              border_distance = 300) {
 
   data_paden <- data_paden %>%
     select(key, value, Naam) %>%
@@ -156,16 +158,51 @@ paden_naar_punten <- function(data_paden,
     slice_head(n = 1) %>%
     select(-groups) -> punten
 
+  # punten op minder dan ... van de grens liggen verwijderen
+  punten <- punten %>%
+    st_intersection(gebieden %>%
+                    st_buffer(dist = -border_distance) %>%
+                    st_geometry())
   return(punten)
 }
+
+read_lum_rast <- function(
+  file,
+  legend,
+  add_levels = TRUE,
+  add_colours = TRUE) {
+
+  tr <- terra::rast(file)
+  # re-assign categories labels which got lost in translation
+  # (ESRI -> geotiff -> terra::rast)
+  if (add_levels) {
+    levels_df <- legend %>%
+      filter(bestand_id == "vito") %>%
+      select(ID = value, land_use = label) %>%
+      as.data.frame()
+
+    levels(tr) <- levels_df
+  }
+  if (add_colours) {
+    colours_df <- legend %>%
+      filter(bestand_id == "vito") %>%
+      select(colour = kleur) %>%
+      mutate(as_tibble(t(col2rgb(colour, alpha = TRUE)))) %>%
+      select(-colour) %>%
+      as.data.frame()
+
+    terra::coltab(tr) <- colours_df
+  }
+  return(tr)
+}
+
 
 punten_lum_buffer <- function(
   punten_sf,
   radius = 300,
-  lum_rast_file,
-  jaar = "2019") {
+  ...) {
 
-  lum_rast <- lum_read_from_vito(year = jaar, root = dirname(lum_rast_file))
+  lum_rast <- read_lum_rast(...)
 
   out <- landusemetrics_grid_cell(
     grid_cell = punten_sf %>%
@@ -211,5 +248,14 @@ punten_selectie_landgebruik <- function(
 }
 
 
-
+selectie_landgebruik_vito <- function(
+  punten_sf,
+  selectie_df
+) {
+  punten_sf <- punten_sf %>%
+    semi_join(selectie_df %>%
+                filter(selectie2),
+              by = "pointid")
+  return(punten_sf)
+}
 

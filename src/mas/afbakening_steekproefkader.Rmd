@@ -548,7 +548,7 @@ Hier is al gedeeltelijk rekening mee gehouden door holle wegen uit te sluiten.
 Mogelijk zijn echter niet alle holle wegen gekend in Openstreetmap en er zijn ook andere landschapsconfiguraties die maken dat observatie van vogels lastig is.
 Om hiermee rekening te houden kunnen we telpunten uitsluiten op basis van analyses van een gedetailleerde digitale oppervlakte kaart (DSM).
 
-Een volledige 'viewshed of visibility' analyse voor elk potentieel telpunt kost echter te veel rekentijd.
+Een volledige 'viewshed' of 'visibility' analyse voor elk potentieel telpunt kost echter te veel rekentijd.
 Een alternatief is daarom dat we deze analyse enkel uitvoeren voor geselecteerde punten en de uitkomst van de analyse gebruiken om geselecteerde punten met slechte zichtbaarheid te vervangen door andere (reserve)punten.
 
 ## Berekening volledig gekende variabelen die relatie hebben met respons
