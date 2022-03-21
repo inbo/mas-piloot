@@ -18,7 +18,7 @@ list(
       path = openheid_landschap_file,
       punten_sf = plus_sb,
       gebied = perimeters_data,
-      cutlevels = c(1.3, 1.4, 1.5),
+      cutlevels = c(1.25, 1.35, 1.51),
       class_labels = c("GL", "HGL", "HOL", "OL")),
     pattern = map(perimeters_data, plus_sb)
   ),
