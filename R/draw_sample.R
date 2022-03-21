@@ -32,7 +32,6 @@ draw_sample <- function(
     ips <- rep(sample_size / nrow(sampling_frame), nrow(sampling_frame))
   }
 
-  sampling_frame <- sampling_frame
   set.seed(seed)
   assertthat::assert_that(length(ips) == nrow(sampling_frame))
   assertthat::assert_that("pointid" %in% colnames(sampling_frame))
@@ -40,10 +39,12 @@ draw_sample <- function(
 
   sampling_frame_df <- data.frame(
     st_coordinates(sampling_frame),
-    st_drop_geometry(sampling_frame)
+    st_drop_geometry(sampling_frame) %>%
+      select(where(is.numeric))
   )
 
   sampling_frame_df$pointid <- NULL
+  sampling_frame_df$tar_group <- NULL
   assertthat::assert_that(all(sapply(sampling_frame_df, is.numeric)))
   sampling_frame_matrix <- as.matrix(sampling_frame_df)
   # scale the matrix so that all variables get same importance
@@ -70,17 +71,24 @@ allocatie <- function(steekproefkader,
                       min_samplesize = 30,
                       target_samplesize = 300,
                       allocatie_prop_minimum = 0.01,
-                      allocatie_binnen_sbp = 0.5) {
+                      allocatie_binnen_sbp = 0.5,
+                      allocatie_leemstreek = 300/350,
+                      ol_strata = c("OL", "HOL")) {
   allocatie <- steekproefkader %>%
     st_drop_geometry() %>%
-    count(openheid_klasse, is_sbp, name = "popsize") %>%
+    filter(openheid_klasse %in% ol_strata) %>%
+    count(Naam, openheid_klasse, is_sbp, name = "popsize") %>%
     mutate(allocatie_factor_sbp = ifelse(is_sbp,
                                          allocatie_binnen_sbp,
-                                         1 - allocatie_binnen_sbp)) %>%
-    group_by(is_sbp) %>%
+                                         1 - allocatie_binnen_sbp),
+           allocatie_gebied = ifelse(Naam == "Oostelijke leemstreek",
+                                     allocatie_leemstreek,
+                                     1 - allocatie_leemstreek)) %>%
+    group_by(Naam, is_sbp) %>%
     mutate(allocatie_factor_openheid = popsize / sum(popsize)) %>%
     ungroup() %>%
-    mutate(allocatie = allocatie_factor_sbp * allocatie_factor_openheid) %>%
+    mutate(allocatie = allocatie_factor_sbp * allocatie_factor_openheid *
+             allocatie_gebied) %>%
     filter(allocatie > allocatie_prop_minimum) %>%
     mutate(allocatie = allocatie / sum(allocatie),
            samplesize = min_samplesize +
