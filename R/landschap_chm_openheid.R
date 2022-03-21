@@ -36,41 +36,69 @@ top_open_300m_res25 <-  terra::rast(
   here::here("data", "dem", "openness300m_chm_res25_vlaanderen.tif"))
 
 
-# next calculated average openness in 1000m radius landscape
-circle1000 <- focalMat(top_open_300m_res25,
-                       d = 1000,
+# # next calculated average openness in 1000m radius landscape
+# circle1000 <- focalMat(top_open_300m_res25,
+#                        d = 1000,
+#                        type = "circle",
+#                        fillNA = TRUE)
+#
+#
+# openness300m_chm_res25_c1000_mean_vlaanderen <- terra::focal(
+#   top_open_300m_res25,
+#   w = circle1000,
+#   fun = "sum",
+#   na.rm = TRUE,
+#   filename = here("data", "dem",
+#                   "openness300m_chm_res25_c1000_mean_vlaanderen.tif"),
+#   overwrite = FALSE)
+#
+
+# next calculated average openness in 300m radius landscape
+circle300 <- focalMat(top_open_300m_res25,
+                       d = 300,
                        type = "circle",
                        fillNA = TRUE)
 
 
-openness300m_chm_res25_c1000_mean_vlaanderen <- terra::focal(
+openness300m_chm_res25_c300_mean_vlaanderen <- terra::focal(
   top_open_300m_res25,
-  w = circle1000,
+  w = circle300,
   fun = "sum",
   na.rm = TRUE,
   filename = here("data", "dem",
-                  "openness300m_chm_res25_c1000_mean_vlaanderen.tif"),
+                  "openness300m_chm_res25_c300_mean_vlaanderen.tif"),
   overwrite = FALSE)
 
-openness300m_chm_res25_c1000_mean_vlaanderen <-
+
+
+openness300m_chm_res25_c300_mean_vlaanderen <-
   rast(
     here("data", "dem",
-         "openness300m_chm_res25_c1000_mean_vlaanderen.tif")
+         "openness300m_chm_res25_c300_mean_vlaanderen.tif")
   )
 
-rclasmat <- c(0, 1.3, 1,
-              1.3, 1.4, 2,
-              1.4, 1.5, 3,
-              1.5, +Inf, 4) %>%
+rclasmat <- c(0, 1.25, 1,
+              1.25, 1.35, 2,
+              1.35, 1.51, 3,
+              1.51, +Inf, 4) %>%
   matrix(ncol = 3, byrow = TRUE)
 
+# vlaanderen_openheid_landschap <- terra::classify(
+#   openness300m_chm_res25_c1000_mean_vlaanderen,
+#   rcl = rclasmat,
+#   include.lowest = TRUE,
+#   filename = here("data", "dem",
+#                   "openness300m_chm_res25_c1000_mean_vlaanderen_classified.tif"),
+#   overwrite = TRUE)
+
 vlaanderen_openheid_landschap <- terra::classify(
-  openness300m_chm_res25_c1000_mean_vlaanderen,
+  openness300m_chm_res25_c300_mean_vlaanderen,
   rcl = rclasmat,
   include.lowest = TRUE,
   filename = here("data", "dem",
-                  "openness300m_chm_res25_c1000_mean_vlaanderen_classified.tif"),
+                  "openness300m_chm_res25_c300_mean_vlaanderen_classified.tif"),
   overwrite = TRUE)
+
 
 my_palette <- RColorBrewer::brewer.pal(n = 4, name = "Dark2")
 vlaanderen_openheid_landschap_raster <- raster::raster(
