@@ -128,10 +128,17 @@ path_to_sbp_akkervogels <- function() {
 read_sbp_akkervogels <- function(
   path,
   gebied) {
-  out <- st_read(path) %>%
-    st_transform(crs = 31370) %>%
-    filter(Prioriteit != "Zoekzone") %>%
-    st_intersection(gebied)
+  if (gebied$Naam == "Oostelijke leemstreek") {
+    out <- st_read(path) %>%
+      st_transform(crs = 31370) %>%
+      filter(Prioriteit != "Zoekzone") %>%
+      st_intersection(gebied)
+  }
+  if (gebied$Naam == "De Moeren") {
+    out <- st_read(path) %>%
+      st_transform(crs = 31370) %>%
+      st_intersection(gebied)
+  }
 
   if (nrow(out) >= 1) {
     out <- out %>%
