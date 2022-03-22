@@ -31,6 +31,8 @@ We maken hiervoor gebruik van het `targets` package in combinatie met `RMarkdown
 
 # Packages
 
+TO DO
+
 Installeren van de vereiste R packages.
 Extra reproduceerbaarheid van het analysestramien wordt verzekerd door het `renv` package.
 Dit package zorgt ervoor dat de analyses gebeuren in een geïsoleerd R-project met gespecifieerde versies van alle benodigde R packages (zowel de packages die expliciet geladen worden als de packages waarvan deze afhankelijk zijn).
@@ -68,9 +70,6 @@ Eerst definiëren we globale opties/functies die voor alle targets gelden.
 
 We gebruiken standaard "qs" als opslagformaat omdat dit zowel voor data.frames als voor andere R objecten toepasbaar is, resulteert in kleinere bestanden en sneller kan gelezen en weggeschreven worden in vergelijking met "rds" bestanden.
 
-In de functie `tar_option_set()` kan je via het argument `debug = "<naamvantarget>"` ook aangeven welke targets je wil debuggen (in interactieve modus).
-Let er wel op dat je `debug = "<naamvantarget>"` terug verwijdert als je klaar bent met debuggen.
-Als je dit niet doet zal het target immers altijd opnieuw aangemaakt worden in niet-interactieve modus (`knit` knop) - ook al is het up-to-date.
 
 ```{targets mas-globals, tar_globals = TRUE}
 options(tidyverse.quiet = TRUE)
@@ -87,8 +86,7 @@ tar_option_set(packages = c("dplyr",
                format = "qs",
                memory = "transient",
                garbage_collection = TRUE,
-               workspace_on_error = TRUE,
-               workspaces = c("telcirkels_landgebruik_88468459"))
+               workspace_on_error = TRUE)
 target_dir <- rprojroot::find_root_file(
     "src", "mas", "targets",
     criterion = rprojroot::is_git_root)
@@ -107,7 +105,7 @@ source(file.path(mbag_dir, "R", "berekening_hulpvariabelen.R"))
 
 In dit hoofdstuk worden alle targets gedefinieerd, maar er worden nog geen berekeningen uitgevoerd.
 
-We beginnen met het inlezen van bestanden en gebruiken hiervoor "Static branching" (zodat we niet voor elk bestand afzonderlijk code moeten schrijven).
+We beginnen met het inlezen van bestanden.
 Alle targets voor bestanden zijn op zo'n manier opgebouwd dat ze detecteren wanneer de inhoud van het bestand wijzigt.
 Als de inhoud wijzigt, zal de target vervallen en bij uitvoering van het analysestramien opnieuw uitgevoerd worden.
 Dit geldt dan eveneens voor alle stroomafwaartse targets die ervan afhankelijk zijn.
@@ -244,7 +242,7 @@ list(
     name = steekproefkader_finaal,
     command = add_stratum_sbp(punten_sf = plus_openheid_landschap,
                               sbp = sbp_akkervogels),
-    pattern = map(perimeters_data, plus_openheid_landschap)
+    pattern = map(sbp_akkervogels, plus_openheid_landschap)
   )
 )
 ```
@@ -255,9 +253,9 @@ list(
   tar_target(
     allocatie_df,
     allocatie(steekproefkader = steekproefkader_finaal,
-              min_samplesize = 30,
+              min_samplesize = 0,
               target_samplesize = 410,
-              allocatie_prop_minimum = 0.01,
+              allocatie_prop_minimum = 0.05,
               allocatie_binnen_sbp = 0.5,
               allocatie_leemstreek = 350/410,
               ol_strata = c("OL", "HOL"))
@@ -283,8 +281,14 @@ list(
   tar_target(
     steekproef,
     draw_sample(sampling_frame = steekproefkader_per_stratum,
-                sample_size = allocatie_per_stratum$samplesize * 2),
+                sample_size = allocatie_per_stratum$samplesize,
+                sample_size_multiplication = 2),
     pattern = map(steekproefkader_per_stratum, allocatie_per_stratum)
+  ),
+  tar_target(
+    steekproef_nn,
+    nn_steekproef(sample = steekproef,
+                  max_dist =  300)
   )
 )
 ```
