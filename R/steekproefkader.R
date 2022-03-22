@@ -163,6 +163,11 @@ paden_naar_punten <- function(data_paden,
     st_intersection(gebieden %>%
                     st_buffer(dist = -border_distance) %>%
                     st_geometry())
+
+  # zorgen dat pointid zeker uniek is
+  punten <- punten %>%
+    mutate(pointid = paste(abbreviate(Naam, 2), pointid, sep = "_"))
+
   return(punten)
 }
 
