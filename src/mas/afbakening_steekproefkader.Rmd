@@ -90,12 +90,93 @@ sbp_akkervogels <- tar_read(sbp_akkervogels,
 perimeters <- tar_read(perimeters_data, store = targets_store)
 ```
 
+```{r aanpassing-perimeter-moeren, eval = FALSE}
+perimeters %>%
+  filter(Naam == "De Moeren") %>%
+  st_buffer(dist = 1200) %>%
+  st_intersection(vlaanderen) %>%
+  select(-NameDUT) -> buffer1200
+
+path_to_osm_download <- function() {
+  file.path(osmextract::oe_download_directory(),
+            "geofabrik_belgium-latest.osm.pbf")
+}
+
+my_vectortranslate = c(
+    "-t_srs", "EPSG:31370",
+    "-select",
+    "highway",
+    "-where",
+    "(highway IN ('motorway'))",
+    "-nlt", "PROMOTE_TO_MULTI"
+  )
+
+e40 <- osmextract::oe_get(
+  place = buffer1200,
+  vectortranslate_options = my_vectortranslate,
+  boundary = buffer1200,
+  boundary_type = "clipsrc",
+  download_directory = dirname(path_to_osm_download()))
+
+e40_union <- e40 %>%
+  st_cast("LINESTRING") %>%
+  st_union()
+
+e40_snap <- e40_union %>%
+  st_snap(y = e40_union, tolerance = 20) %>%
+  st_simplify(dTolerance = 50)
+
+
+buffer1200 %>%
+  st_boundary() %>%
+  st_union(e40_snap) %>%
+  st_polygonize() %>%
+  st_collection_extract("POLYGON") %>%
+  slice(2) -> buffer1200_onder_e40
+
+perimeters %>%
+  filter(Naam == "Oostelijke leemstreek") %>%
+  bind_rows(buffer1200_onder_e40) -> nieuwe_perimeters
+
+rownames(nieuwe_perimeters) <- 1:length(nieuwe_perimeters)
+
+st_write(obj = nieuwe_perimeters,
+         dsn = here("data",
+                    "processed",
+                    "piloot_perimeters.gpkg"))
+```
 
 
 ```{r map-1, out.width="100%"}
 mapview(perimeters, color = "brown", alpha.regions = 0) +
   mapview(sbp_akkervogels, col.regions = "yellow")
 ```
+
+```{r}
+buiten_sbp <- perimeters %>%
+  st_difference(sbp_akkervogels) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "buiten sbp")
+
+binnen_sbp <- perimeters %>%
+  st_intersection(sbp_akkervogels) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "binnen sbp")
+
+opps <- bind_rows(buiten_sbp, binnen_sbp) %>% st_drop_geometry()
+
+opps %>%
+  mutate(opp = units::set_units(opp, "ha")) %>%
+  group_by(Naam) %>%
+  mutate(opp_aandeel = opp / sum(opp)) %>%
+  units::drop_units() %>%
+  rename(opp_ha = opp) %>%
+  relocate(is_sbp, .before = opp_ha) %>%
+  kable(digits = 2)
+```
+
 
 
 ## Exclusie van bepaalde landgebruiken
@@ -255,13 +336,13 @@ De kaart toont de punten die op deze manier niet meer in aanmerkingen komen.
 ```{r map-exclusie-landgebruik-vito}
 mapview(perimeters, color = "brown", alpha.regions = 0, legend = FALSE) +
 punten %>%
-  left_join(telcirkels_selectie_landgebruik,
+  left_join(telcirkels_selectie_landgebruik %>%
+              group_by(pointid) %>%
+              summarize(selectie2 = any(selectie2)),
             by = "pointid") %>%
   filter(!selectie2) %>%
   mapview()
 ```
-
-
 
 
 ### Exclusie op basis van slechte zichtbaarheid
@@ -601,7 +682,7 @@ balansvergelijking <- steekproef %>%
   mutate(puntenset = "steekproef") %>%
   bind_rows(steekproefkader %>%
               filter(openheid_klasse %in% c("OL", "HOL")) %>% 
-              mutate(puntenset = "populatie")) %>%
+              mutate(puntenset = "volledige steekproefkader")) %>%
   mutate(sbp_akkervogels = ifelse(is_sbp,
                                   "binnen sbp",
                                   "buiten sbp")) %>%
