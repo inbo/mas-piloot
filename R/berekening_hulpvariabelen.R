@@ -137,6 +137,7 @@ read_sbp_akkervogels <- function(
   if (gebied$Naam == "De Moeren") {
     out <- st_read(path) %>%
       st_transform(crs = 31370) %>%
+      filter(OBJECTID == 44) %>%
       st_intersection(gebied)
   }
 
