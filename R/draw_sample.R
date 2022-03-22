@@ -77,9 +77,9 @@ draw_sample <- function(
 }
 
 allocatie <- function(steekproefkader,
-                      min_samplesize = 15,
+                      min_samplesize = 0,
                       target_samplesize = 410,
-                      allocatie_prop_minimum = 0.02,
+                      popsize_minimum = 410,
                       allocatie_binnen_sbp = 0.5,
                       allocatie_leemstreek = 350/410,
                       ol_strata = c("OL", "HOL")) {
@@ -87,21 +87,26 @@ allocatie <- function(steekproefkader,
     st_drop_geometry() %>%
     filter(openheid_klasse %in% ol_strata) %>%
     count(Naam, openheid_klasse, is_sbp, name = "popsize") %>%
-    mutate(allocatie_factor_sbp = ifelse(is_sbp,
-                                         allocatie_binnen_sbp,
-                                         1 - allocatie_binnen_sbp),
-           allocatie_gebied = ifelse(Naam == "Oostelijke leemstreek",
+    filter(popsize > popsize_minimum) %>%
+    group_by(Naam) %>%
+    mutate(allocatie_gebied = ifelse(Naam == "Oostelijke leemstreek",
                                      allocatie_leemstreek,
                                      1 - allocatie_leemstreek)) %>%
     group_by(Naam, is_sbp) %>%
-    mutate(allocatie_factor_openheid = popsize / sum(popsize)) %>%
+    mutate(allocatie_sbp = ifelse(is_sbp, allocatie_binnen_sbp,
+                                  1 - allocatie_binnen_sbp),
+           allocatie_openheid = popsize / sum(popsize)) %>%
     ungroup() %>%
-    mutate(allocatie = allocatie_factor_sbp * allocatie_factor_openheid *
-             allocatie_gebied) %>%
-    filter(allocatie > allocatie_prop_minimum) %>%
-    mutate(allocatie = allocatie / sum(allocatie),
-           samplesize = min_samplesize +
-             round(allocatie * (target_samplesize - n() * min_samplesize)))
+    mutate(
+      allocatie = allocatie_gebied * allocatie_sbp * allocatie_openheid,
+      samplesize = round(allocatie * target_samplesize)) %>%
+    group_by(Naam) %>%
+    mutate(
+      targetsize = sum(samplesize),
+      samplesize = pmax(samplesize, min_samplesize),
+      excess = targetsize - sum(samplesize),
+      samplesize = samplesize - round(allocatie * excess)) %>%
+    ungroup()
   return(allocatie)
 }
 
