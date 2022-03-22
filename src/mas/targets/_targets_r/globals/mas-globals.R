@@ -12,8 +12,7 @@ tar_option_set(packages = c("dplyr",
                format = "qs",
                memory = "transient",
                garbage_collection = TRUE,
-               workspace_on_error = TRUE,
-               workspaces = c("telcirkels_landgebruik_88468459"))
+               workspace_on_error = TRUE)
 target_dir <- rprojroot::find_root_file(
     "src", "mas", "targets",
     criterion = rprojroot::is_git_root)

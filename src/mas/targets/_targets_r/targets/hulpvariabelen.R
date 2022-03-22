@@ -32,6 +32,6 @@ list(
     name = steekproefkader_finaal,
     command = add_stratum_sbp(punten_sf = plus_openheid_landschap,
                               sbp = sbp_akkervogels),
-    pattern = map(perimeters_data, plus_openheid_landschap)
+    pattern = map(sbp_akkervogels, plus_openheid_landschap)
   )
 )
