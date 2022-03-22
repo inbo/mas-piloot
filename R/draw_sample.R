@@ -23,19 +23,22 @@
 draw_sample <- function(
   sampling_frame,
   sample_size = round(nrow(sampling_frame) / 20),
+  sample_size_multiplication = 2,
   ips,
   seed = 1234,
   ...
 ) {
 
+  sample_size_extra <- sample_size * sample_size_multiplication
+
   if (missing(ips)) {
-    ips <- rep(sample_size / nrow(sampling_frame), nrow(sampling_frame))
+    ips <- rep(sample_size_extra / nrow(sampling_frame), nrow(sampling_frame))
   }
 
   set.seed(seed)
   assertthat::assert_that(length(ips) == nrow(sampling_frame))
   assertthat::assert_that("pointid" %in% colnames(sampling_frame))
-  assertthat::assert_that(sample_size < nrow(sampling_frame))
+  assertthat::assert_that(sample_size_extra < nrow(sampling_frame))
 
   sampling_frame_df <- data.frame(
     st_coordinates(sampling_frame),
@@ -64,15 +67,21 @@ draw_sample <- function(
     sampling_frame$sample_order[draw[i]] <- i
   }
   sample_df <- sampling_frame[sampling_frame$in_sample, ]
+  sample_df <- sample_df %>%
+    arrange(sample_order) %>%
+    mutate(batch = ifelse(sample_order <= sample_size,
+                          "eerste set" ,
+                          "reserve set"))
+
   return(sample_df)
 }
 
 allocatie <- function(steekproefkader,
-                      min_samplesize = 30,
-                      target_samplesize = 300,
-                      allocatie_prop_minimum = 0.01,
+                      min_samplesize = 15,
+                      target_samplesize = 410,
+                      allocatie_prop_minimum = 0.02,
                       allocatie_binnen_sbp = 0.5,
-                      allocatie_leemstreek = 300/350,
+                      allocatie_leemstreek = 350/410,
                       ol_strata = c("OL", "HOL")) {
   allocatie <- steekproefkader %>%
     st_drop_geometry() %>%
@@ -94,4 +103,24 @@ allocatie <- function(steekproefkader,
            samplesize = min_samplesize +
              round(allocatie * (target_samplesize - n() * min_samplesize)))
   return(allocatie)
+}
+
+
+nn_steekproef <- function(sample,
+                          max_dist) {
+  nn <- nngeo::st_nn(sample, sample,
+               maxdist = max_dist,
+               sparse = TRUE,
+               k = 2,
+               returnDist = TRUE)
+  index <- vapply(nn$nn,
+         FUN = function(x) ifelse(length(x) > 1, x[2], NA),
+         FUN.VALUE = c(1))
+  distance <- vapply(nn$dist,
+                  FUN = function(x) ifelse(length(x) > 1, x[2], NA),
+                  FUN.VALUE = c(1))
+  nn_result <- sample %>%
+    mutate(nn_index = index,
+           nn_distance = distance)
+  return(nn_result)
 }
