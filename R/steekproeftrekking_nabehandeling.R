@@ -39,7 +39,7 @@ bereken_zichtbaarheid <- function(point,
                        obs_height = 1.7,
                        resolution = 1) {
 
-  bbox_buffer <- point %>% st_buffer(dist = dist) %>% st_bbox()
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
   bbox_buffer <- bbox_buffer[c("xmin", "xmax", "ymin", "ymax")]
 
   dsm_r1 <- get_coverage_wcs(wcs = "dsm",
