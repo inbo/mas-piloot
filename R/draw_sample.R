@@ -109,23 +109,3 @@ allocatie <- function(steekproefkader,
     ungroup()
   return(allocatie)
 }
-
-
-nn_steekproef <- function(sample,
-                          max_dist) {
-  nn <- nngeo::st_nn(sample, sample,
-               maxdist = max_dist,
-               sparse = TRUE,
-               k = 2,
-               returnDist = TRUE)
-  index <- vapply(nn$nn,
-         FUN = function(x) ifelse(length(x) > 1, x[2], NA),
-         FUN.VALUE = c(1))
-  distance <- vapply(nn$dist,
-                  FUN = function(x) ifelse(length(x) > 1, x[2], NA),
-                  FUN.VALUE = c(1))
-  nn_result <- sample %>%
-    mutate(nn_index = index,
-           nn_distance = distance)
-  return(nn_result)
-}
