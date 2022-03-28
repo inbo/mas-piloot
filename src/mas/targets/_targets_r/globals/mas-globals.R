@@ -8,6 +8,7 @@ tar_option_set(packages = c("dplyr",
                             "terra",
                             "exactextractr",
                             "arrow",
+                            "httr",
                             "sf"),
                format = "qs",
                memory = "transient",
@@ -23,4 +24,6 @@ source(file.path(mbag_dir, "R", "geocomputations.R"))
 source(file.path(mbag_dir, "R", "draw_sample.R"))
 source(file.path(mbag_dir, "R", "steekproefkader.R"))
 source(file.path(mbag_dir, "R", "berekening_hulpvariabelen.R"))
+source(file.path(mbag_dir, "R", "steekproeftrekking_nabehandeling.R"))
+source(file.path(mbag_dir, "R", "wfs_wcs.R"))
 

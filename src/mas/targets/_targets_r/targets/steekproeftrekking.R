@@ -33,10 +33,5 @@ list(
                 sample_size = allocatie_per_stratum$samplesize,
                 sample_size_multiplication = 2),
     pattern = map(steekproefkader_per_stratum, allocatie_per_stratum)
-  ),
-  tar_target(
-    steekproef_nn,
-    nn_steekproef(sample = steekproef,
-                  max_dist =  300)
   )
 )
