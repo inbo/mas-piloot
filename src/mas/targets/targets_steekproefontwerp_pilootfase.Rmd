@@ -82,6 +82,7 @@ tar_option_set(packages = c("dplyr",
                             "terra",
                             "exactextractr",
                             "arrow",
+                            "httr",
                             "sf"),
                format = "qs",
                memory = "transient",
@@ -97,6 +98,8 @@ source(file.path(mbag_dir, "R", "geocomputations.R"))
 source(file.path(mbag_dir, "R", "draw_sample.R"))
 source(file.path(mbag_dir, "R", "steekproefkader.R"))
 source(file.path(mbag_dir, "R", "berekening_hulpvariabelen.R"))
+source(file.path(mbag_dir, "R", "steekproeftrekking_nabehandeling.R"))
+source(file.path(mbag_dir, "R", "wfs_wcs.R"))
 
 ```
 
@@ -284,15 +287,27 @@ list(
                 sample_size = allocatie_per_stratum$samplesize,
                 sample_size_multiplication = 2),
     pattern = map(steekproefkader_per_stratum, allocatie_per_stratum)
-  ),
-  tar_target(
-    steekproef_nn,
-    nn_steekproef(sample = steekproef,
-                  max_dist =  300)
   )
 )
 ```
 
+```{targets nabehandeling}
+list(
+  tar_target(
+    steekproef_nn,
+    nn_steekproef(sample = steekproef,
+                  max_dist = 300)
+  ),
+  tar_target(
+    steekproef_zichtbaarheid,
+    bereken_zichtbaarheid(steekproef_nn,
+                          dist = 300,
+                          obs_height = 1.7,
+                          resolution = 1),
+    pattern = map(steekproef_nn)
+  )
+)
+```
 
 # Analysestramien uitvoeren
 
