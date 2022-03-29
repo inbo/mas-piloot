@@ -162,8 +162,9 @@ get_coverage_wcs <- function(wcs = c("dtm", "omz", "dsm"),
   }
 
   raster <- terra::rast(file)
-  raster <- terra::project(raster, output_crs)
-  res(raster) <- resolution
+  template <- terra::project(raster, output_crs)
+  res(template) <- resolution
+  raster <- terra::project(raster, template)
   return(raster)
 }
 
