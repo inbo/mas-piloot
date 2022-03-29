@@ -39,19 +39,17 @@ bereken_zichtbaarheid <- function(point,
                        obs_height = 1.7,
                        resolution = 1) {
 
-  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+  bbox_buffer <- point %>% st_buffer(dist = dist + 20) %>% st_bbox()
   bbox_buffer <- bbox_buffer[c("xmin", "xmax", "ymin", "ymax")]
 
   dsm_r1 <- get_coverage_wcs(wcs = "dsm",
                              bbox = bbox_buffer,
                              layername = "EL.GridCoverage.DSM",
-                             resolution = resolution,
-                             crs = "EPSG:31370")
+                             resolution = resolution)
   dtm_r1 <- get_coverage_wcs(wcs = "dtm",
                              bbox = bbox_buffer,
                              layername = "EL.GridCoverage.DTM",
-                             resolution = resolution,
-                             crs = "EPSG:31370")
+                             resolution = resolution)
 
   vis_prop <- GVI::visibility_proportion(
     observer = point,

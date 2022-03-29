@@ -66,11 +66,15 @@ get_coverage_wcs <- function(wcs = c("dtm", "omz", "dsm"),
                           bbox, #xmin, xmax, ymin, ymax
                           layername,
                           resolution,
-                          crs = "EPSG:31370",
+                          wcs_crs = "EPSG:4258",
+                          output_crs = "EPSG:31370",
+                          bbox_crs = "EPSG:31370",
                           version = c("1.0.0", "2.0.1")) {
   # prelim check
   version <- match.arg(version)
   wcs <- match.arg(wcs)
+  wcs_crs <- match.arg(wcs_crs)
+  bbox_crs <- match.arg(bbox_crs)
 
   # set url
   wcs <- switch(
@@ -81,7 +85,7 @@ get_coverage_wcs <- function(wcs = c("dtm", "omz", "dsm"),
   )
 
   assertthat::assert_that(is.character(layername))
-  assertthat::assert_that(is.character(crs))
+  assertthat::assert_that(is.character(output_crs))
   assertthat::assert_that(
     is.vector(bbox, mode = "numeric"),
     length(bbox) == 4)
@@ -99,7 +103,7 @@ get_coverage_wcs <- function(wcs = c("dtm", "omz", "dsm"),
                       VERSION = version,
                       REQUEST = "GetCoverage",
                       COVERAGEID = layername,
-                      CRS = crs,
+                      CRS = wcs_crs,
                       SUBSET = paste0("x,http://www.opengis.net/def/crs/EPSG/0/31370(",
                                       bbox["xmin"],
                                       ",",
@@ -110,7 +114,7 @@ get_coverage_wcs <- function(wcs = c("dtm", "omz", "dsm"),
                                       bbox["ymax"],")"),
                       #SCALEFACTOR = 50,
                       FORMAT = "image/tiff",
-                      RESPONSE_CRS = crs
+                      RESPONSE_CRS = output_crs
     )
     request <- build_url(url)
     # download een mht bestand met tif erin
@@ -121,33 +125,58 @@ get_coverage_wcs <- function(wcs = c("dtm", "omz", "dsm"),
   }
 
   if (version == "1.0.0") {
-    result_width <- (bbox["xmax"] - bbox["xmin"]) / resolution
-    result_height <- (bbox["ymax"] - bbox["ymin"]) / resolution
+#    result_width <- (bbox["xmax"] - bbox["xmin"]) / resolution
+#    result_height <- (bbox["ymax"] - bbox["ymin"]) / resolution
+
+    matrix(bbox, ncol = 2, byrow = FALSE) %>%
+      as.data.frame() %>%
+      st_as_sf(coords = c("V1", "V2"), crs = bbox_crs) %>%
+      st_transform(crs = wcs_crs) %>%
+      st_coordinates() %>%
+      as.vector() -> bbox
+
+    names(bbox) <- c("xmin", "xmax", "ymin", "ymax")
 
     url$query <- list(SERVICE = "WCS",
                       VERSION = version,
                       REQUEST = "GetCoverage",
                       COVERAGE = layername,
-                      CRS = crs,
+                      CRS = wcs_crs,
                       BBOX = paste(
                         bbox["xmin"],
                         bbox["ymin"],
                         bbox["xmax"],
                         bbox["ymax"],
                         sep = ","),
-                      WIDTH = result_width,
-                      HEIGHT = result_height,
+#                      WIDTH = result_width,
+#                      HEIGHT = result_height,
+                      RESX = resolution,
+                      RESY = resolution,
                       FORMAT = "geoTIFF",
-                      RESPONSE_CRS = crs
+                      RESPONSE_CRS = wcs_crs
     )
     request <- build_url(url)
+    file <- tempfile(fileext = ".tif")
+    GET(url = request,
+        write_disk(file))
   }
 
-  file <- tempfile(fileext = ".tif")
-  GET(url = request,
-      write_disk(file))
-
   raster <- terra::rast(file)
+  raster <- terra::project(raster, output_crs)
+  res(raster) <- resolution
   return(raster)
 }
 
+
+unpack_mht <- function(path) {
+  #not yet working
+
+  lines <- readLines(path)
+  assertthat::assert_that(any(stringr::str_detect(lines, "image/tiff")))
+  start <- which(stringr::str_detect(lines, "</GDALMetadata>")) + 1
+  end <- length(lines) - 1
+  tif <- lines[start:end]
+  base64enc::base64decode(
+    what = tif,
+    output = file(stringr::str_replace(path, "mht", "tif"), "wb"))
+}
