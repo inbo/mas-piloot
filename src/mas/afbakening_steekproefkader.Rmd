@@ -1,5 +1,5 @@
 ---
-title: "MAS afbakening steekproefkader"
+title: "MAS steekproefontwerp pilootfase"
 author: "Hans Van Calster"
 date: "`r Sys.Date()`"
 bibliography: mas.json
@@ -33,6 +33,7 @@ library(exactextractr)
 library(arrow)
 library(targets)
 library(visNetwork)
+library(GVI)
 source(here("R", "wfs_wcs.R"))
 targets_store <- here("src", "mas", "targets", "_targets")
 ```
@@ -87,15 +88,16 @@ legend <- read_csv2(
 sbp_akkervogels <- tar_read(sbp_akkervogels,
                             store = targets_store)
 
-perimeters <- tar_read(perimeters_data, store = targets_store)
+perimeters <- tar_read(perimeters_data, store = targets_store) %>%
+  select(-section)
 ```
 
 ```{r aanpassing-perimeter-moeren, eval = FALSE}
 perimeters %>%
   filter(Naam == "De Moeren") %>%
-  st_buffer(dist = 1200) %>%
+  st_buffer(dist = 3000 - 1200) %>%
   st_intersection(vlaanderen) %>%
-  select(-NameDUT) -> buffer1200
+  select(-NameDUT) -> buffer3000
 
 path_to_osm_download <- function() {
   file.path(osmextract::oe_download_directory(),
@@ -112,33 +114,37 @@ my_vectortranslate = c(
   )
 
 e40 <- osmextract::oe_get(
-  place = buffer1200,
+  place = buffer3000,
   vectortranslate_options = my_vectortranslate,
-  boundary = buffer1200,
+  boundary = buffer3000,
   boundary_type = "clipsrc",
   download_directory = dirname(path_to_osm_download()))
 
-e40_union <- e40 %>%
-  st_cast("LINESTRING") %>%
-  st_union()
+touching <- st_touches(e40)
 
-e40_snap <- e40_union %>%
-  st_snap(y = e40_union, tolerance = 20) %>%
-  st_simplify(dTolerance = 50)
+igraph <- igraph::graph_from_adj_list(touching)
+components <- igraph::components(igraph)$membership
 
+e40 %>% 
+  group_by(section = as.character({{components}})) %>% 
+  summarise() %>%
+  filter(section == "2") -> e40_southlane
 
-buffer1200 %>%
+buffer3000 %>%
   st_boundary() %>%
-  st_union(e40_snap) %>%
+  st_union(e40_southlane) %>%
   st_polygonize() %>%
   st_collection_extract("POLYGON") %>%
-  slice(2) -> buffer1200_onder_e40
+  filter(st_area(.) == max(st_area(.))) -> buffer3000_onder_e40
 
 perimeters %>%
   filter(Naam == "Oostelijke leemstreek") %>%
-  bind_rows(buffer1200_onder_e40) -> nieuwe_perimeters
+  bind_rows(buffer3000_onder_e40) -> nieuwe_perimeters
 
-rownames(nieuwe_perimeters) <- 1:length(nieuwe_perimeters)
+rownames(nieuwe_perimeters) <- 1:nrow(nieuwe_perimeters)
+nieuwe_perimeters %>%
+  filter(Naam == "De Moeren") %>%
+  mapview()
 
 st_write(obj = nieuwe_perimeters,
          dsn = here("data",
@@ -153,17 +159,21 @@ mapview(perimeters, color = "brown", alpha.regions = 0) +
 ```
 
 ```{r}
-buiten_sbp <- perimeters %>%
-  st_difference(sbp_akkervogels) %>%
-  select(Naam) %>%
-  mutate(opp = st_area(.),
-         is_sbp = "buiten sbp")
-
 binnen_sbp <- perimeters %>%
   st_intersection(sbp_akkervogels) %>%
   select(Naam) %>%
   mutate(opp = st_area(.),
          is_sbp = "binnen sbp")
+
+buiten_sbp <- perimeters %>%
+  st_difference(sbp_akkervogels %>%
+                  st_union() %>%
+                  st_combine()) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "buiten sbp")
+
+
 
 opps <- bind_rows(buiten_sbp, binnen_sbp) %>% st_drop_geometry()
 
@@ -174,6 +184,7 @@ opps %>%
   units::drop_units() %>%
   rename(opp_ha = opp) %>%
   relocate(is_sbp, .before = opp_ha) %>%
+  arrange(Naam, is_sbp) %>%
   kable(digits = 2)
 ```
 
@@ -619,8 +630,8 @@ In het algemeen kunnen we voor een kostenoptimale allocatie gebruik maken van ee
 
 Steekproefgrootte voor de Leemstreek (en Moeren) voor de pilootfase laten afhangen van wat er haalbaar is met professionelen en vrijwilligers:
 
-- leemstreek: 300 punten per jaar?
-- moeren: 50 punten per jaar?
+- leemstreek: 350 punten per jaar?
+- moeren: 60 punten per jaar?
 
 
 In elk geval zal er een veelvoud van het vooropgestelde aantal telpunten getrokken worden.
@@ -637,17 +648,17 @@ N.B. voor de steekproef over Vlaanderen is het best mogelijk dat een ander tempo
 
 ```{r trekking}
 allocatie <- tar_read(allocatie_df, store = targets_store)
-steekproef <- tar_read(steekproef, store = targets_store) %>%
+steekproef <- tar_read(steekproef_nn, store = targets_store) %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
                                     "buiten plan"))
-         ) %>%
-  group_by(Naam, openheid_klasse, is_sbp) %>%
-  mutate(sample_batch = ifelse(sample_order < max(sample_order) / 2,
-                               "eerste batch",
-                               "reserve batch"))
+         )
 ```
+
+
+Uit het targets object `steekproef_nn` is er al een keuze gemaakt voor telpunten die op minder dan 300 m van elkaar gelegen zijn.
+In dat geval is het telpunt met laagste `sample_order` weerhouden.
 
 
 ```{r}
@@ -661,7 +672,7 @@ Kaart van de steekproef (enkel eerste batch van punten):
 
 ```{r kaart-steekproef, warning=FALSE}
 steekproef %>%
-  filter(sample_batch == "eerste batch") %>%
+  filter(batch == "eerste set") %>%
   st_buffer(dist = 300) %>%
   mapview(zcol = "openheid_sbp", burst = TRUE)
 ```
@@ -687,8 +698,8 @@ balansvergelijking <- steekproef %>%
                                   "binnen sbp",
                                   "buiten sbp")) %>%
   cbind(st_coordinates(.)) %>%
-  mutate(fillvar = ifelse(!is.na(sample_batch),
-                          paste("steekproef", sample_batch),
+  mutate(fillvar = ifelse(!is.na(batch),
+                          paste("steekproef", batch),
                           puntenset))
 
 balansvergelijking %>%
@@ -725,6 +736,128 @@ balansvergelijking %>%
   theme(legend.title = element_blank())
 ```
 
+### Verwijderen van telpunten met slechte zichtbaarheid?
+
+In deze fase werden telpunten niet automatisch verwijderd op basis van de zichtbaarheidsindex.
+De reden hiervoor is dat er nog tamelijk situaties zijn waar de zichtbaarheidsindex laag is, terwijl de terreinsituatie toch een goede zichtbaarheid toelaat.
+De reden voor zulke 'vals positieven' zijn:
+
+- bomenrijen waar je door kan kijken
+- holle weg waar je mits je even op de kant klimt wel voldoende zichtbaarheid hebt
+- punten langs 'waterwegen' liggen dieper in het landschap, terwijl je uiteraard niet in het water gaat staan maar op de oever er langs
+
+De les die we hieruit leren is dat de zichtbaarheidsanalyse betere resultaten kan geven indien we de analyse niet enkel vanaf het exacte punt uitvoeren, maar voor een ruimere zone (van 25m) rond het punt (zone bewegingsvrijheid van de waarnemer).
+
+
+```{r zichtbaarheid}
+steekproef_zichtbaarheid <- tar_read(steekproef_zichtbaarheid,
+                                     store = targets_store)
+```
+
+
+```{r}
+steekproef_zichtbaarheid %>%
+  st_buffer(dist = 300) %>%
+  mutate(slechte_zichtbaarheid = zichtbaarheid < 0.05) %>%
+  mapview(zcol = c("slechte_zichtbaarheid", "batch"), burst = TRUE) +
+  steekproef %>%
+  st_buffer(dist = 25) %>%
+  mapview()
+```
+
+
+```{r eval=FALSE}
+bereken_viewshed <- function(point,
+                       dist = 300,
+                       obs_height = 1.7,
+                       resolution = 1) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+  bbox_buffer <- round(bbox_buffer[c("xmin", "xmax", "ymin", "ymax")])
+
+  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+
+  viewshed(
+    observer = point,
+    max_distance = dist,
+    dsm_rast = dsm_r1,
+    dtm_rast = dtm_r1,
+    observer_height = obs_height,
+    raster_res = resolution,
+    plot = TRUE)
+}
+
+#visibility = 0.00000354 (1 pixel)
+steekproef_zichtbaarheid %>%
+  filter(pointid == "Ol_6034.6.29") %>%
+  bereken_viewshed()
+
+#visibility = 0.017952677
+steekproef %>%
+  filter(pointid == "Ol_7438.8") %>%
+  bereken_viewshed()
+
+#visibility = 0.4
+steekproef %>%
+  filter(pointid == "DM_698.2") %>%
+  bereken_viewshed()
+
+#visibility = 0.6
+steekproef %>%
+  filter(pointid == "Ol_678.27") %>%
+  bereken_viewshed()
+#Ol_4229 (in holle weg)
+steekproef %>%
+  filter(pointid == "Ol_4229") %>%
+  bereken_viewshed()
+
+#Ol_16385.2 (in holle weg)
+steekproef %>%
+  filter(pointid == "Ol_16385.2") %>%
+  bereken_viewshed()
+
+#Ol_4268.2 (in holle weg)
+steekproef %>%
+  filter(pointid == "Ol_4268.2") %>%
+  bereken_viewshed()
+#Ol_4269.12 (in holle weg)
+steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_viewshed()
+#Ol_4864.20 (in holle weg)
+steekproef %>%
+  filter(pointid == "Ol_4864.20") %>%
+  bereken_viewshed()
+#Ol_2335.6 (tussen huizen)
+steekproef %>%
+  filter(pointid == "Ol_2335.6") %>%
+  bereken_viewshed()
+#Ol_16693 (in bos)
+steekproef %>%
+  filter(pointid == "Ol_16693") %>%
+  bereken_viewshed()
+#Ol_13010.2 (ingesloten aan station Ezemaal)
+steekproef %>%
+  filter(pointid == "Ol_13010.2") %>%
+  bereken_viewshed()
+
+#Ol_3361.13 (op expressweg/E40-oprit)
+steekproef %>%
+  filter(pointid == "Ol_3361.13") %>%
+  bereken_viewshed()
+
+
+```
+
+
+
 
 ### Overlap met bestaande telpunten
 
@@ -755,7 +888,132 @@ maspunt_binnen_300m %>%
   mapview(zcol = "type_teller_2021") +
   gekoppelde_nieuwe %>%
   st_buffer(dist = 300) %>%
-  mapview(zcol = "sample_batch", col.region = c("green", "orange"))
+  mapview(zcol = "batch", col.region = c("green", "orange"))
+```
+
+```{r vervanging}
+steekproef_join_bestaande <- steekproef %>%
+  st_join(maspunt_binnen_300m %>%
+              select(plotid, plotnummer, teller_2021, type_teller_2021),
+          join = st_is_within_distance,
+          dist = 300
+          )
+```
+
+```{r verdeling-veldwerk}
+steekproef_join_bestaande %>%
+  group_by(Naam, openheid_sbp, batch) %>%
+  mutate(wie = ifelse(
+    !is.na(type_teller_2021),
+    type_teller_2021,
+    ifelse(sample_order < max(sample_order) / 2,
+                      "professioneel",
+                      "professioneel of vrijwilliger"))) ->
+  steekproef_join_bestaande
+```
+
+
+```{r}
+steekproef_join_bestaande %>%
+  st_buffer(dist = 300) %>%
+  mapview(zcol = "wie")
+```
+
+## Manuele controle
+
+De steekproef werd geëxporteerd naar een kml bestand en gedeeld als een kaart in google maps met de tellers.
+Na controle van de punten op bereikbaarheid, zichtbaarheid, overlap met andere punten, werden sommige punten verwijderd en vervangen door een ander punt.
+
+Daarna werden punten toebedeeld aan tellers.
+Tellers kunnen ook punten claimen door dit aan te geven in de google maps kaart.
+
+De verwijderde punten:
+
+```{r steekproef-control}
+steekproef_controle <- read_sf(
+  file.path("data", "processed", "steekproef_piloot_aangevuld_gmaps.kml"))
+
+steekproef_controle %>%
+  separate(col = Description,
+           into = c("beschrijving", "pointid", "Naam", "openheid_sbp",
+                    "batch", "sample_order", "plotid", "plotnummer",
+                    "teller_2021", "wie"),
+           sep = "<br>") %>%
+  mutate(
+    across(
+      beschrijving:wie,
+      ~str_extract(., "(?<=:\\s).+")
+    )
+  ) -> steekproef_controle
+
+```
+
+
+```{r eval=FALSE}
+steekproef_controle_naar_klm <- steekproef_controle %>%
+  mutate(beslissing = case_when(
+    str_detect(beschrijving, "schrappen|Schrappen|niet\\sOK") &
+      !str_detect(beschrijving, "nog\\swel\\sOK|mss\\snog\\sOK|misschien\\sOK") ~
+      "vervangen door reserve",
+    str_detect(beschrijving,
+               "(vervang\\sdoor|schuiven\\snaar|Naar\\spunt|OK\\snaar\\soud|VL)") ~ 
+      "vervangen door bestaand",
+    str_detect(beschrijving, "OK|ok|cava") ~ "behouden",
+    is.na(beschrijving) ~ NA_character_,
+    TRUE ~ "?"
+    )) %>%
+  mutate(vervanging_id = ifelse(beslissing == "vervangen door bestaand",
+                                plotnummer, NA)) %>%
+  mutate(across(.cols = -c(geometry),
+                ~ifelse(is.na(.),
+                        "",
+                        .
+                )
+  )) %>%
+  relocate(c(beslissing, vervanging_id), .after = beschrijving)
+
+check_samplesize <- steekproef_controle_naar_klm %>%
+  st_drop_geometry() %>%
+  count(Naam, openheid_sbp, batch, beslissing) %>%
+  inner_join(allocatie %>%
+               mutate(openheid_sbp = paste(openheid_klasse,
+                             ifelse(is_sbp,
+                                    "binnen plan",
+                                    "buiten plan"))) %>%
+               select(Naam, openheid_sbp, samplesize)
+             )
+
+check_samplesize %>%
+  mutate(beslissing = ifelse(beslissing == "", "?", beslissing)) %>%
+  pivot_wider(names_from = beslissing, values_from = n, values_fn = sum) %>%
+  DT::datatable()
+
+check_samplesize %>%
+  group_by(Naam, openheid_sbp, samplesize, batch) %>%
+  filter(beslissing %in% c("behouden",
+                           "vervangen door bestaand",
+                           "vervangen door reserve")) %>%
+  summarise(n = sum(n)) %>%
+  pivot_wider(names_from = batch, values_from = n) %>%
+  DT::datatable()
+
+
+
+steekproef_controle_naar_klm%>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_controle.kml"))
+
+
+```
+
+```{r}
+steekproef_controle %>%
+  st_drop_geometry() %>%
+  mutate(is_ok = str_detect(beschrijving, "OK|ok|cava")) %>%
+  count(Naam, openheid_sbp, batch, beschrijving) %>%
+  kable()
 ```
 
 
@@ -764,4 +1022,52 @@ maspunt_binnen_300m %>%
 
 
 ## Wegschrijven van de data
+
+```{r eval=FALSE}
+steekproef_piloot <- steekproef_join_bestaande %>%
+  select(pointid, Naam, openheid_sbp, batch, sample_order, plotid, plotnummer, 
+         teller_2021, wie)
+
+steekproef_piloot %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_telpunten.geojson"))
+
+steekproef_piloot %>%
+  st_transform(crs = 4326) %>%
+  #KML kan niet overweg met NA waarden
+  mutate(across(.cols = -c(geometry),
+                ~ifelse(is.na(.),
+                        "",
+                        .
+                )
+  )) %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_telpunten.kml"))
+
+steekproef_piloot %>%
+  st_buffer(dist = 300) %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_telcirkels.geojson"))
+
+steekproef_piloot %>%
+  st_buffer(dist = 300) %>%
+  st_transform(crs = 4326) %>%
+  #KML kan niet overweg met NA waarden
+  mutate(across(.cols = -c(geometry),
+                ~ifelse(is.na(.),
+                        "",
+                        .
+                )
+  )) %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_telcirkels.kml"))
+```
 
