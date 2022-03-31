@@ -141,6 +141,14 @@
       "Hash": "470851b6d5d0ac559e9d01bb352b4021",
       "Requirements": []
     },
+    "RApiSerialize": {
+      "Package": "RApiSerialize",
+      "Version": "0.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "96a7dca805d39693b0cb0dad099a5899",
+      "Requirements": []
+    },
     "RColorBrewer": {
       "Package": "RColorBrewer",
       "Version": "1.1-2",
@@ -479,6 +487,24 @@
         "tidyr"
       ]
     },
+    "bs4Dash": {
+      "Package": "bs4Dash",
+      "Version": "2.0.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "79acf9184702de996bda53cef9dbf059",
+      "Requirements": [
+        "bslib",
+        "fresh",
+        "htmltools",
+        "httpuv",
+        "httr",
+        "jsonlite",
+        "lifecycle",
+        "shiny",
+        "waiter"
+      ]
+    },
     "bslib": {
       "Package": "bslib",
       "Version": "0.3.1",
@@ -575,6 +601,20 @@
       "Repository": "CRAN",
       "Hash": "3f038e5ac7f41d4ac41ce658c85e3042",
       "Requirements": []
+    },
+    "clustermq": {
+      "Package": "clustermq",
+      "Version": "0.8.95.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "a9cbe19a941c943dd57b0a602b500437",
+      "Requirements": [
+        "R6",
+        "Rcpp",
+        "narray",
+        "progress",
+        "purrr"
+      ]
     },
     "coda": {
       "Package": "coda",
@@ -944,6 +984,19 @@
       "Requirements": [
         "codetools",
         "iterators"
+      ]
+    },
+    "fresh": {
+      "Package": "fresh",
+      "Version": "0.2.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "fa54367040deb4537da49b7ac0ee5770",
+      "Requirements": [
+        "htmltools",
+        "rstudioapi",
+        "sass",
+        "shiny"
       ]
     },
     "fs": {
@@ -1858,6 +1911,17 @@
         "RcppEigen"
       ]
     },
+    "narray": {
+      "Package": "narray",
+      "Version": "0.4.1.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "c64865aba235f36a49d798613cbfccf7",
+      "Requirements": [
+        "progress",
+        "stringr"
+      ]
+    },
     "nleqslv": {
       "Package": "nleqslv",
       "Version": "3.3.2",
@@ -1984,6 +2048,16 @@
         "rlang",
         "utf8",
         "vctrs"
+      ]
+    },
+    "pingr": {
+      "Package": "pingr",
+      "Version": "2.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "e293e79be42ffd336d938937fd3017fb",
+      "Requirements": [
+        "processx"
       ]
     },
     "pkgbuild": {
@@ -2165,6 +2239,18 @@
         "tibble",
         "vctrs",
         "withr"
+      ]
+    },
+    "qs": {
+      "Package": "qs",
+      "Version": "0.25.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "2a135bd3fcd62d0caf73cf1bc9270d8d",
+      "Requirements": [
+        "RApiSerialize",
+        "Rcpp",
+        "stringfish"
       ]
     },
     "rapidjsonr": {
@@ -2558,6 +2644,33 @@
         "xtable"
       ]
     },
+    "shinyWidgets": {
+      "Package": "shinyWidgets",
+      "Version": "0.6.4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "02fba70d7c5c1ab0754d9c0108c029eb",
+      "Requirements": [
+        "bslib",
+        "htmltools",
+        "jsonlite",
+        "sass",
+        "shiny"
+      ]
+    },
+    "shinybusy": {
+      "Package": "shinybusy",
+      "Version": "0.3.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "f64f08367358906d34a0ff490838d71c",
+      "Requirements": [
+        "htmltools",
+        "htmlwidgets",
+        "jsonlite",
+        "shiny"
+      ]
+    },
     "shinyjs": {
       "Package": "shinyjs",
       "Version": "2.1.0",
@@ -2632,6 +2745,17 @@
       "Hash": "ce8613f4e8c84ef4da9eba65b874ebe9",
       "Requirements": [
         "lattice"
+      ]
+    },
+    "stringfish": {
+      "Package": "stringfish",
+      "Version": "0.15.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "f5a78e4562f6390f61ddf14848a0a3d9",
+      "Requirements": [
+        "Rcpp",
+        "RcppParallel"
       ]
     },
     "stringi": {
@@ -2982,6 +3106,18 @@
         "tzdb",
         "vctrs",
         "withr"
+      ]
+    },
+    "waiter": {
+      "Package": "waiter",
+      "Version": "0.2.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "93e6b6c8ae3f81d4be77a0dc74e5cf5e",
+      "Requirements": [
+        "R6",
+        "htmltools",
+        "shiny"
       ]
     },
     "webshot": {
