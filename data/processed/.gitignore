@@ -1,2 +1,4 @@
 trend_aup_excel.csv
+*.parquet
+*.tif
 !.gitignore

@@ -56,7 +56,7 @@ landusemetrics_grid_cell <- function(
   progress = FALSE
 ) {
   if (inherits(layer, "SpatRaster") | inherits(layer, "RasterLayer")) {
-    assertthat::assert_that(sf::st_crs(grid_cell)$wkt == crs(layer))
+    assertthat::assert_that(sf::st_crs(grid_cell)$wkt == terra::crs(layer))
 
     landcoverfraction <- function(df) {
       df %>%
@@ -84,15 +84,25 @@ landusemetrics_grid_cell <- function(
 
     cell_areas <- grid_cell %>%
       select(!!!syms(grid_group_by_col)) %>%
-      mutate(cell_area = sf::st_area(geometry))
+      mutate(cell_area = sf::st_area(geometry)) %>%
+      sf::st_drop_geometry()
+
+    temparrow <- tempfile(fileext = ".parquet")
 
     int$area <- sf::st_area(int$geometry)
     int <- int %>%
       sf::st_drop_geometry() %>%
       inner_join(cell_areas, by = grid_group_by_col) %>%
-      group_by(!!!syms(grid_group_by_col), !!!syms(layer_group_by_col)) %>%
-      summarise(area_m2 = sum(area),
-                area_prop = area_m2 / first(cell_area))
+      arrow::write_dataset(path = temparrow)
+
+    int <- arrow::open_dataset(temparrow) %>%
+      arrow::to_duckdb() %>%
+      group_by(!!!syms(grid_group_by_col),
+               !!!syms(layer_group_by_col),
+               cell_area) %>%
+      summarise(area_m2 = sum(area)) %>%
+      mutate(area_prop = area_m2 / cell_area) %>%
+      collect()
 
     return(int)
   }
