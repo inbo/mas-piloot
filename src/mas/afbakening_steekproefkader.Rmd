@@ -67,13 +67,6 @@ landbouwstreken <- read_sf(
   st_transform(crs = 31370) %>%
   select(NAAM)
 
-vlaanderen <- get_feature_wfs(
-  wfs = "https://eservices.minfin.fgov.be/arcgis/services/R2C/Regions/MapServer/WFSServer",
-  layername = "regions",
-  crs = "EPSG:31370",
-  filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
-  select(NameDUT)
-
 legend <- read_csv2(
       "data/landgebruik/legende_landgebruik.csv",
       col_types = cols(
@@ -93,6 +86,13 @@ perimeters <- tar_read(perimeters_data, store = targets_store) %>%
 ```
 
 ```{r aanpassing-perimeter-moeren, eval = FALSE}
+vlaanderen <- get_feature_wfs(
+  wfs = "https://eservices.minfin.fgov.be/arcgis/services/R2C/Regions/MapServer/WFSServer",
+  layername = "regions",
+  crs = "EPSG:31370",
+  filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
+  select(NameDUT)
+
 perimeters %>%
   filter(Naam == "De Moeren") %>%
   st_buffer(dist = 3000 - 1200) %>%
@@ -280,6 +280,10 @@ Werkwijze:
 - Langs alle paden worden op regelmatige afstanden van 50 m punten gelegd
 - Daarna worden punten die op minder dan 40 m van elkaar liggen ruimtelijk gegroepeerd (dit gebeurt wanneer verschillende paden elkaar kruisen of op korte afstand parallel aan elkaar liggen) en uit elk van deze clusters wordt één punt overgehouden
 - potentiële telpunten moeten op minstens 300 m van de grens gelegen zijn
+
+_Niet_ gedaan, maar zou wellicht wel nuttig zijn:
+
+> Langs autosnelwegen liggen vaak parallelle paden, vaak zelfs langs beide kanten van de snelweg. Dit kan in de steekproef tot gevolg hebben dat er met een hogere waarschijnlijkheid een punt wordt geselecteerd vlak bij een snelweg - gewoon omdat er veel van zulke punten zijn. Enerzijds is dat een realiteit van het terrein die een invloed heeft op de waarnemingen (vaak kraaien, buizerd langs snelwegen) en vrij zeker ook op de detecteerbaarheid (geluidsoverlast en beperkte zichtbaarheid). We willen selectie in de buurt van snelwegen niet volledig uitsluiten, maar ook niet te waarschijnlijk maken. Het zou daarom beter zijn om een extra exclusiecriterium in acht te nemen door een zone van 50m buffer rond de snelwegen uit te sluiten. Op die manier gaan er nog steeds punten zijn waarvan de telcirkels het effect van snelwegen omvatten, maar sluiten we punten die te dicht tegen snelwegen liggen uit.
 
 ```{r punten}
 punten <- tar_read(punten, store = targets_store)
@@ -647,8 +651,13 @@ Temporeel design:
 N.B. voor de steekproef over Vlaanderen is het best mogelijk dat een ander temporeel design nodig is zoals een 'rotating panel design' of een 'augmented panel design'.
 
 ```{r trekking}
-allocatie <- tar_read(allocatie_df, store = targets_store)
-steekproef <- tar_read(steekproef_nn, store = targets_store) %>%
+allocatie <- tar_read(allocatie_df, store = targets_store) %>%
+   mutate(openheid_sbp = paste(openheid_klasse,
+                             ifelse(is_sbp,
+                                    "binnen plan",
+                                    "buiten plan"))
+         )
+steekproef <- tar_read(steekproef_zichtbaarheid, store = targets_store) %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
@@ -657,7 +666,7 @@ steekproef <- tar_read(steekproef_nn, store = targets_store) %>%
 ```
 
 
-Uit het targets object `steekproef_nn` is er al een keuze gemaakt voor telpunten die op minder dan 300 m van elkaar gelegen zijn.
+Uit het targets object `steekproef_zichtbaarheid` is er al een keuze gemaakt voor telpunten die op minder dan 300 m van elkaar gelegen zijn.
 In dat geval is het telpunt met laagste `sample_order` weerhouden.
 
 
@@ -749,20 +758,14 @@ De reden voor zulke 'vals positieven' zijn:
 De les die we hieruit leren is dat de zichtbaarheidsanalyse betere resultaten kan geven indien we de analyse niet enkel vanaf het exacte punt uitvoeren, maar voor een ruimere zone (van 25m) rond het punt (zone bewegingsvrijheid van de waarnemer).
 
 
-```{r zichtbaarheid}
-steekproef_zichtbaarheid <- tar_read(steekproef_zichtbaarheid,
-                                     store = targets_store)
-```
-
-
 ```{r}
-steekproef_zichtbaarheid %>%
+steekproef %>%
   st_buffer(dist = 300) %>%
   mutate(slechte_zichtbaarheid = zichtbaarheid < 0.05) %>%
-  mapview(zcol = c("slechte_zichtbaarheid", "batch"), burst = TRUE) +
+  mapview(zcol = c("slechte_zichtbaarheid")) +
   steekproef %>%
   st_buffer(dist = 25) %>%
-  mapview()
+  mapview(legend = FALSE)
 ```
 
 
@@ -795,7 +798,7 @@ bereken_viewshed <- function(point,
 }
 
 #visibility = 0.00000354 (1 pixel)
-steekproef_zichtbaarheid %>%
+steekproef %>%
   filter(pointid == "Ol_6034.6.29") %>%
   bereken_viewshed()
 
@@ -858,6 +861,55 @@ steekproef %>%
 
 
 
+```{r eval=FALSE}
+# test GVI::vgvi_from_sf
+bereken_vgvi <- function(
+  point,
+  movement_dist = 25,
+  dist = 300,
+  spacing = 10,
+  obs_height = 1.7,
+  resolution = 1) {
+  
+  point_poly <- point %>% st_buffer(dist = movement_dist)
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + movement_dist) %>% st_bbox()
+  bbox_buffer <- round(bbox_buffer[c("xmin", "xmax", "ymin", "ymax")])
+
+  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+  
+  green_rast <- dtm_r1
+  values(green_rast) <- 1
+  
+  point_poly %>%
+    vgvi_from_sf(dsm_rast = dsm_r1,
+                 dtm_rast = dtm_r1,
+                 greenspace_rast = green_rast,
+                 max_distance = dist,
+                 observer_height = obs_height,
+                 spacing = spacing,
+                 m = 0,
+                 b = 0,
+                 mode = "exponential",
+                 progress = TRUE)
+}
+
+test <- steekproef %>%
+  slice(1:2) %>%
+  bereken_vgvi()
+
+test$VGVI
+mapview(test)
+#GVI::visualizeWeights(x = 300, m = 0, b = 0, "exponential")
+
+```
 
 ### Overlap met bestaande telpunten
 
@@ -865,8 +917,11 @@ Aanpak _bestaande_ MAS telpunten:
 
 - nagaan welke 'voldoende dichtbij' gelegen zijn bij getrokken telpunten
     - op minder dan 300 m afstand => nieuw telpunt vervangen door bestaand telpunt 
-    
-Een alternatief is dat we de bestaande telpunten toevoegen aan de set van potentiële telpunten en deze een hogere inclusiekans geven - eventueel zelfs afhankelijk van de "kwaliteit" van het bestaand telpunt (bv aantal jaren gemonitord). Deze aanpak is echter veel moeilijker om achteraf de gegevens te analyseren op een correcte manier (veel makkelijker om door een reviewer van de statistiek onderuit gehaald te worden)
+
+Achteraf is deze regel versoepeld en zijn ook bestaande punten die op iets grotere afstand lagen als vervanging opgenomen.
+
+<!--Een alternatief is dat we de bestaande telpunten toevoegen aan de set van potentiële telpunten en deze een hogere inclusiekans geven - eventueel zelfs afhankelijk van de "kwaliteit" van het bestaand telpunt (bv aantal jaren gemonitord). Deze aanpak is echter veel moeilijker om achteraf de gegevens te analyseren op een correcte manier (veel makkelijker om door een reviewer van de statistiek onderuit gehaald te worden)
+-->
 
 ```{r}
 maspunt_binnen_300m <- telpunten_avimap %>%
@@ -877,7 +932,8 @@ maspunt_binnen_300m <- telpunten_avimap %>%
           left = FALSE)
 
 gekoppelde_nieuwe <- steekproef %>%
-  semi_join(maspunt_binnen_300m %>% select(pointid) %>% st_drop_geometry())
+  semi_join(maspunt_binnen_300m %>% select(pointid) %>% st_drop_geometry(),
+            by = "pointid")
 
 ```
 
@@ -929,15 +985,22 @@ Tellers kunnen ook punten claimen door dit aan te geven in de google maps kaart.
 
 De verwijderde punten:
 
-```{r steekproef-control}
+```{r steekproef-control, eval=FALSE}
 steekproef_controle <- read_sf(
   file.path("data", "processed", "steekproef_piloot_aangevuld_gmaps.kml"))
 
 steekproef_controle %>%
   separate(col = Description,
-           into = c("beschrijving", "pointid", "Naam", "openheid_sbp",
-                    "batch", "sample_order", "plotid", "plotnummer",
-                    "teller_2021", "wie"),
+           into = c("beschrijving",
+                    "pointid",
+                    "Naam",
+                    "openheid_sbp",
+                    "batch",
+                    "sample_order",
+                    "plotid",
+                    "plotnummer",
+                    "teller_2021",
+                    "wie"),
            sep = "<br>") %>%
   mutate(
     across(
@@ -945,7 +1008,6 @@ steekproef_controle %>%
       ~str_extract(., "(?<=:\\s).+")
     )
   ) -> steekproef_controle
-
 ```
 
 
@@ -1008,13 +1070,122 @@ steekproef_controle_naar_klm%>%
 
 ```
 
-```{r}
-steekproef_controle %>%
+
+
+```{r steekproef-beslissing}
+#tussentijdse check
+steekproef_beslissing <- read_sf(
+  file.path("data", "processed", "steekproef_beslissing.kml"))
+
+steekproef_beslissing %>%
+  mutate(
+    Name = readr::parse_character(Name),
+    Name = trimws(Name, whitespace = "[\\h\\v]"),
+    Name = trimws(Name),
+    Description = str_remove_all(Description, "^description:\\s<br>")) %>%
+  separate(col = Description,
+           into = c("beschrijving",
+                    "beslissing",
+                    "vervanging_id",
+                    "pointid",
+                    "Naam",
+                    "openheid_sbp",
+                    "batch",
+                    "sample_order",
+                    "plotid",
+                    "plotnummer",
+                    "teller_2021",
+                    "wie"),
+           sep = "<br>") %>%
+  mutate(
+    across(
+      beschrijving:wie,
+      ~str_extract(., "(?<=:\\s).+")
+    )
+  ) %>% 
+  mutate(
+    vervanging_id = trimws(vervanging_id),
+    definitief_punt = case_when(
+      beslissing == "behouden" ~ pointid,
+      beslissing == "vervangen door bestaand" ~ vervanging_id,
+      beslissing == "vervanging, behouden" ~ pointid,
+      beslissing == "vervanging, vervangen door bestaand" ~ vervanging_id,
+      TRUE ~ NA_character_
+    )) %>%
+  select(tellercode = Name,
+         gebied = Naam,
+         definitief_punt, beslissing, openheid_sbp, batch, sample_order) %>%
+  filter(!is.na(definitief_punt)) -> steekproef_beslissing
+
+# correctie van twee punten
+#1) voor LEVS01 stond de code van het oud punt fout (geplakt), er stond VL0355 ipv VL0168 . Dus het punt VL0168 mag toebedeeld worden aan LEVS01 
+#2) voor NOVN00 stond VL0604 ipv VL0605. Het punt VL0605 mag dus ook op naam van NOVN00 (maar dat is al zo, want het is een punt van project Bilzen)
+steekproef_beslissing$definitief_punt[
+  steekproef_beslissing$tellercode == "LEVS01" &
+    steekproef_beslissing$definitief_punt == "VL0355"] <- "VL0168"
+steekproef_beslissing$definitief_punt[
+  steekproef_beslissing$tellercode == "NOVN00" &
+    steekproef_beslissing$definitief_punt == "VL0604" &
+    steekproef_beslissing$sample_order == "128"] <- "VL0605"
+
+
+
+
+steekproef_beslissing  %>%
   st_drop_geometry() %>%
-  mutate(is_ok = str_detect(beschrijving, "OK|ok|cava")) %>%
-  count(Naam, openheid_sbp, batch, beschrijving) %>%
+  mutate(status_claim = ifelse(!is.na(tellercode), "geclaimd", "reserve")) %>%
+  count(gebied, openheid_sbp, status_claim) %>%
+  left_join(allocatie %>%
+              select(gebied = Naam, openheid_sbp,
+                     doel_n = samplesize)) %>%
   kable()
+
+
+# telpunten_avimap %>%
+#   select(definitief_punt = naam) %>%
+#   right_join(steekproef_beslissing %>%
+#                filter(str_detect(definitief_punt, "VL")) %>%
+#                st_drop_geometry()) %>%
+#   filter(sf::st_is_empty(.)) %>%
+#   kable()
+
+
+avi_bestaand <- telpunten_avimap %>%
+  select(definitief_punt = naam) %>%
+  inner_join(steekproef_beslissing %>%
+               filter(str_detect(definitief_punt, "VL")) %>%
+               st_drop_geometry())
+
+steekproef_finaal <- steekproef %>%
+  select(definitief_punt = pointid) %>%
+  inner_join(steekproef_beslissing %>%
+               st_drop_geometry() %>%
+               filter(!str_detect(definitief_punt, "VL")),
+             by = c("definitief_punt")) %>%
+  bind_rows(avi_bestaand)
+
+steekproef_finaal %>%
+  st_buffer(dist = 300) %>%
+  mapview::mapview(zcol = "tellercode")
 ```
+
+Controle op dubbels:
+
+```{r}
+duplo_rijen <- steekproef_finaal %>%
+  as_tibble() %>%
+  duplicated()
+
+sum(duplo_rijen)
+
+duplo_ids <- steekproef_finaal %>%
+  select(definitief_punt) %>%
+  as_tibble() %>%
+  duplicated()
+
+sum(duplo_ids)
+```
+
 
 
 ## Uitschrijven van veldprotocol
@@ -1022,6 +1193,41 @@ steekproef_controle %>%
 
 
 ## Wegschrijven van de data
+
+```{r eval=FALSE}
+# deze chunk schrijft de data weg die aan sovon werden bezorgd
+steekproef_avimap <- steekproef_finaal %>%
+  mutate(status_claim = ifelse(!is.na(tellercode), "geclaimd", "reserve"),
+         sample_order = as.numeric(sample_order)) %>%
+  select(definitief_punt,
+         tellercode,
+         status_claim,
+         regio = gebied,
+         stratum = openheid_sbp,
+         sample_order
+         ) %>%
+  arrange(regio, stratum, sample_order)
+
+steekproef_avimap %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.geojson"
+    ))
+
+steekproef_avimap %>%
+  st_drop_geometry() %>%
+  bind_cols(steekproef_avimap %>%
+              st_coordinates()
+            ) %>%
+  write_csv(file = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv"))
+
+```
+
+
 
 ```{r eval=FALSE}
 steekproef_piloot <- steekproef_join_bestaande %>%
