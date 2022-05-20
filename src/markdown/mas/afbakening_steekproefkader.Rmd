@@ -34,8 +34,8 @@ library(arrow)
 library(targets)
 library(visNetwork)
 library(GVI)
-source(here("R", "wfs_wcs.R"))
-targets_store <- here("src", "mas", "targets", "_targets")
+source(here("src", "R", "wfs_wcs.R"))
+targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 ```
 
 
