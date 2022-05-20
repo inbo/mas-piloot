@@ -758,18 +758,13 @@ comment O.D.
 MAS-punten: ik heb de MAS-gegevens van de MAS-punten zelf gebruikt (tellen als ‘verschuiving’) en die tien minuten gelaten voor wat ze waren. Dat zal wel een beetje verschil gegeven hebben, maar voor dat handjevol punten en drie tellingen maakt dat voor het grote totaal niet veel uit. Nog een beetje ruis bij de rest…
 -->
  
-
+<!--
+Comment O.D.
 Ik had een Google-invulblad om de gegevens in te voeren. Sommigen deden dat zelf, de meesten hebben we zelf ingevoerd (zomerwerkje voor twee secretaressen), maar ik heb daar nog reusachtig veel knip- en plakwerk aan gehad. Daar is een aparte tabel voor met de te nemen stappen. Misschien nuttig om te zien waar de andere tabellen vandaan komen.
-
- 
-
 Professionele tellers: zie tabel voor aantal. Pro’s waren mezelf, Wim Bovens (NWG De Kerkuil), Miguel Depoortere (RL Westhoek) en Dieter Coelembier (VLM) en aan Franse kant Cédric Beaudoin (GON). In Moeskroen: Christophe Gruwier (stad Moeskroen), plus Toon Willems (MAS, UHasselt) in de Moeren. Je moet geen topornitholoog zijn om dit te doen, maar bijscholing op vlak van geluiden is wel nodig. Ik had ook iedereen een CD (2013) of mp3’s bezorgd met akkervogelgeluiden om vooraf te oefenen. Die zal ik meesturen met de wetransfer.
-
 Het is moeilijk te zeggen wie de zwakke tellers waren. Je kunt het een beetje zien in de tabel ‘Wie telde welke soorten’, maar sommigen voelden zich wat overmoedig denk ik (bv. alle deelnemende vrouwen behalve misschien Paulette; zeker die van Henegouwen vonden ondermaats weinig vogels; het is een kwestie die ik liever niet luidop zeg, maar het is wel een feit dat je een beetje ‘jachtinstinct’ moet hebben voor gespecialiseerd inventarisatiewerk). En dan zijn er nog een paar oudere deelnemers die vermoedelijk niet alles meer goed horen. In Midden-W-Vl was het de eerste keer voor nagenoeg iedereen om aan zoiets mee te doen. De meesten deden het behoorlijk, maar ook daar kunnen onderschattingen zijn ingeslopen.
-
 In 2013 is de zelf opgegeven kennis verrekend voor bv. Spotvogel (hun punten worden beschouwd als ‘niet geteld’ voor die soort en niet voor ‘afwezig’), maar ik ben niet 100% zeker dat Benoit Gozé dit ook gedaan heeft voor 2019. Onze lijst was ook onvolledig, vooral aan Franse kant, maar ik denk dat daar vooral goede vogelkijkers hebben meegedaan. Ik word er nog elke keer op aangesproken hoe leuk ze het vonden, als ik er ergens één tegenkom van toen. Dat komt natuurlijk ook omdat alles nog nieuw was voor hen, hier zijn de goede vogelaars zo goed als platgeslagen met projecten. In Frankrijk staat citizen science echt nog in de kinderschoenen, veruit het meeste onderzoek gebeurt door beroeps, al evolueren ze nu wel snel.
-
- 
+-->
 
 
 # Verklarende variabelen
