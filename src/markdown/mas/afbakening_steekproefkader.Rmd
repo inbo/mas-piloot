@@ -259,7 +259,7 @@ paden <- tar_read(paden, store = targets_store)
 
 ```{r map-paden, out.width="100%"}
 mapview(perimeters, color = "brown", alpha.regions = 0, legend = FALSE) +
-  mapview(paden, zcol = "key", burst = TRUE)
+  mapview(paden, zcol = "key")
 ```
 
 Overzicht totale lengte per categorie:
@@ -683,7 +683,7 @@ Kaart van de steekproef (enkel eerste batch van punten):
 steekproef %>%
   filter(batch == "eerste set") %>%
   st_buffer(dist = 300) %>%
-  mapview(zcol = "openheid_sbp", burst = TRUE)
+  mapview(zcol = "openheid_sbp")
 ```
 
 De meest open landschappen zitten volledig binnen de perimeter van het SBP plan.
