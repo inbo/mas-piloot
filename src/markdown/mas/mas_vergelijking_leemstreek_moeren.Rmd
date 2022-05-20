@@ -1,0 +1,522 @@
+---
+title: "MAS vergelijking De Moeren met de Oostelijke Leemstreek"
+author: "Hans Van Calster"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+---
+
+
+```{r setup, include=FALSE}
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE, out.width = "100%")
+opts_knit$set(root.dir = here::here())
+source(here("src", "R", "read_agri_use_parcels.R"))
+source(here("src", "R", "utils.R"))
+source(here("src", "R", "landuse_maps.R"))
+source(here("src", "R", "abv.R"))
+source(here("src", "R", "agro_environment_schemes.R"))
+source(here("src", "R", "geocomputations.R"))
+library(tidyverse)
+library(sf)
+library(mapview)
+library(readxl)
+library(gt)
+library(lubridate)
+```
+
+
+# Vragen
+
+- Is de soortendiversiteit in de Moeren hoger dan in de leemstreek, en om welke soorten gaat het? Waar zitten die (hoge) dichtheden dan specifiek?
+- Kunnen we met een trend per telpunt iets zeggen?
+- zijn de dichtheden van een aantal soorten (ik denk aan veldleeuwerik, gele kwikstaart, geelgors, roodborsttapuit) in de Moeren opvallen hoger/lager dan in de leemstreek?
+- zijn er linken te leggen met de beheerovereenkomsten, met de data die we nu hebben? In de binnenmoeren is er een dekking van 18% BO oppervlakte ongeveer, heeft dat invloed op de dichtheden en of trends?
+- zijn er nog zaken die opvallen in de data?
+
+
+
+# Data inlezen
+
+```{r ronde-intervallen}
+r1_start <- "04-01"
+r1_stop <- "04-20"
+r2_start <- "04-21"
+r2_stop <- "05-10"
+r3_start <- "05-11"
+r3_stop <- "06-10"
+r4_start <- "06-21"
+r4_stop <- "07-15"
+```
+
+
+```{r inlezen, message=FALSE, warning=FALSE}
+# CRS avimap en max-aantallen CRS EPSG:28992 (amesfoort)
+# wordt in avimap standaard gebruikt
+#  "st_x" en  "st_y" is volgens crs = 28992
+telpunten_avimap <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
+) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger")) %>%
+  select(-st_x, -st_y)
+
+tellingen_avimap <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
+) %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    ))
+
+tellingen_vogels <- tellingen_avimap %>%
+  filter(soortgrp != 1L,
+         !is.na(periode_in_jaar))
+
+bezoekenlijst_avimap <- 
+  tellingen_avimap %>%
+  st_drop_geometry() %>%
+  distinct(projectid, plotid, plotnaam, jaar, maand, dag, doy, periode_in_jaar)
+
+
+max_aantallen_vlaanderen <- read_excel(
+  here("data/mas/mas_2018_2021 maxaantallen_vlaanderen.xlsx")) %>%
+  rename(teller = waarneme) %>%
+  left_join(telpunten_avimap %>%
+              st_drop_geometry() %>%
+              select(plotid, regio),
+            by = "plotid") %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller = case_when(
+    teller %in% c("WVNT00", "JJNN16", "NOVN00") |
+      (regio == "Vlaanderen - Leefdaal" &
+         jaar %in% 2018:2020) ~ "professioneel",
+    is.na(teller) &
+      !(regio == "Vlaanderen - Leefdaal" &
+         jaar %in% 2018:2020) ~ "niet geteld",
+    TRUE ~ "vrijwilliger"),
+    jaar = as.integer(jaar)) %>%
+  st_as_sf(coords = c("x", "y"),
+           crs = 28992) 
+
+tellingen_uh <- read_sf(
+  here("data", "mas", "mas_leefdaal_moeren_2018-2020.shp"))
+
+telcirkels_uh_moeren <- read_sf(
+  here("data", "mas", "mas_moeren_observatiepunten_buffer200.shp")) %>%
+  mutate(area = st_area(.),
+         straal = sqrt(area / pi))
+
+plan_kiekendief_perimeter <- read_sf(
+  here("data", "mas", "Grauwe_kiekendief_VLM3.kml")
+) %>%
+  select(-Description) %>%
+  st_simplify()
+
+plan_kiekendief_prioritair_bo <- read_sf(
+  here("data", "mas", "Grauwe_kiekendief_prioritaire_maatregelenzones_VLM2.kml")
+) %>%
+  select(-Description, -Name) %>%
+  st_simplify()
+
+plan_kiekendief_leemstreek_moeren <- plan_kiekendief_perimeter %>%
+    filter(
+      !Name %in% 
+        c("Militair domein en de vallei van de Zwarte Beek",
+          "Mangelbeek en heide- en vengebieden tussen Houthalen en Gruitrode",
+          "Mangelbeek militair domein Houthalen",
+          "Houthalen-Helchteren, Meeuwen-Gruitrode en Peer",
+          "Bocholt, Hechtel-Eksel, Meeuwen-Gruitrode, Neerpelt en Peer"
+        )
+    )
+```
+
+Gefilterd op enkel vogelsoorten.
+Waarnemingen buiten de officiële telrondes zijn eruit gehaald.
+Dubbeltellingen zijn eruit (soort gezien op meerdere teldagen binnen eenzelfde telperiode): in dat geval de laatste teldag genomen.
+
+```{r check-dubbeltelling}
+dubbels <- tellingen_vogels %>%
+  st_drop_geometry() %>%
+  group_by(plotid, jaar, periode_in_jaar, soortnr) %>%
+  summarize(aantal_teldagen = n_distinct(doy),
+            .groups = "drop") %>%
+  filter(aantal_teldagen > 1)
+# kan zowel zelfde waarnemer als andere waarnemer zijn
+
+tellingen_vogels <- tellingen_vogels %>%
+  semi_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")) %>%
+  group_by(plotid, jaar, periode_in_jaar) %>%
+  filter(doy == max(doy)) %>%
+  ungroup() %>%
+  bind_rows(tellingen_vogels %>%
+              anti_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")))
+```
+
+Enkel waarnemingen in Moeren of Leemstreek behouden.
+
+```{r}
+tellingen_vogels <- tellingen_vogels %>%
+  inner_join(telpunten_avimap %>%
+               st_drop_geometry() %>%
+               select(naam, regio) %>%
+               filter(regio %in% c("Vlaanderen - De Moeren",
+                                   "Vlaanderen - Leemstreek")),
+             by = c("plotnaam" = "naam"))
+
+```
+
+# Resultaten
+
+## Soortendiversiteit
+
+Is de soortendiversiteit in de Moeren hoger dan in de leemstreek?
+
+
+```{r soortendiversiteit}
+diversiteit <- tellingen_vogels %>%
+  st_drop_geometry() %>%
+  group_by(regio, plotnaam, jaar, periode_in_jaar, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop_last") %>%
+  summarize(aantal_soorten = n(),
+            .groups = "drop")
+```
+
+
+```{r soortenaantal-boxplot}
+diversiteit %>%
+  ggplot() + 
+  geom_boxplot(
+    aes(x = periode_in_jaar, y = aantal_soorten, fill = regio)) +
+  facet_wrap(~jaar)
+```
+
+Om welke soorten gaat het?
+
+```{r relfreqs}
+relfreqs <- tellingen_vogels %>%
+  st_drop_geometry() %>%
+  group_by(regio, plotnaam, jaar, periode_in_jaar, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(jaar, periode_in_jaar, regio) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x>0) / n()),
+            .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+```
+
+Overzicht van relatieve frequenties van de soorten in een bepaalde regio.
+Elk punt staat voor een relatieve frequentie in een bepaald jaar en periode in dat jaar.
+
+```{r soortenfreqs, fig.height = 200/25.4}
+relfreqs %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean")) %>%
+  filter(as.numeric(naam) > 80) %>%
+  ggplot() +
+  geom_point(aes(x = relfreq, y = naam, colour = regio))
+```
+
+Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in __de Moeren__:
+
+```{r meerfrequent-moeren}
+relfreqs %>%
+  group_by(regio, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(regio, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = regio,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `Vlaanderen - De Moeren` - `Vlaanderen - Leemstreek`) %>%
+  ungroup() %>%
+  slice_max(verschilfreq, n = 20) %>%
+  kable(digits = 2)
+```
+
+Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in __de Leemstreek__:
+
+```{r meerfrequent-leemstreek}
+relfreqs %>%
+  group_by(regio, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(regio, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = regio,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `Vlaanderen - De Moeren` - `Vlaanderen - Leemstreek`) %>%
+  ungroup() %>%
+  slice_max(-verschilfreq, n = 20) %>%
+  kable(digits = 2)
+```
+
+## Dichtheden
+
+Zijn de dichtheden van een aantal soorten (ik denk aan veldleeuwerik, gele kwikstaart, 
+geelgors, roodborsttapuit) in de Moeren opvallend hoger/lager dan in de leemstreek?
+
+We zagen dit al in termen van relatieve frequentie van voorkomen.
+Nu in termen van gemiddelde aantallen - echter zonder rekening te houden met koppels of detectiekansen.
+
+```{r}
+meanabu <- tellingen_vogels %>%
+  st_drop_geometry() %>%
+  group_by(regio, plotnaam, jaar, periode_in_jaar, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(jaar, periode_in_jaar, regio) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x) / n()),
+            .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "meanabundance")
+```
+
+```{r meerabundant-moeren}
+meanabu %>%
+  group_by(regio, naam) %>%
+  mutate(gemiddelde_abu = mean(meanabundance)) %>%
+  distinct(regio, naam, gemiddelde_abu) %>%
+  pivot_wider(names_from = regio,
+              values_from = gemiddelde_abu,
+              values_fill = 0) %>%
+  mutate(verschilabu = `Vlaanderen - De Moeren` - `Vlaanderen - Leemstreek`) %>%
+  ungroup() %>%
+  slice_max(verschilabu, n = 20) %>%
+  kable(digits = 2)
+```
+
+Top 20 van soorten die in termen van verschil in gemiddelde aantallen meer abundant zijn in __de Leemstreek__:
+
+```{r meerabundant-leemstreek}
+meanabu %>%
+  group_by(regio, naam) %>%
+  mutate(gemiddelde_abu = mean(meanabundance)) %>%
+  distinct(regio, naam, gemiddelde_abu) %>%
+  pivot_wider(names_from = regio,
+              values_from = gemiddelde_abu,
+              values_fill = 0) %>%
+  mutate(verschilabu = `Vlaanderen - De Moeren` - `Vlaanderen - Leemstreek`) %>%
+  ungroup() %>%
+  slice_max(-verschilabu, n = 20) %>%
+  kable(digits = 2)
+```
+
+
+## Trends en linken met beheerovereenkomsten
+
+- Kunnen we met een trend per telpunt iets zeggen?
+- Waar zitten die (hoge) dichtheden dan specifiek?
+- zijn er linken te leggen met de beheerovereenkomsten, met de data die we nu hebben? In de binnenmoeren is er een dekking van 18% BO oppervlakte ongeveer, heeft dat invloed op de dichtheden en of trends?
+
+
+```{r bo-2021}
+bo_2021 <- read_sf(
+  here("data/bo_vlm/BO_2021_VLM_EXTERN.shp")) %>%
+  janitor::clean_names() %>%
+  mutate(start = lubridate::ymd(start),
+         stop = lubridate::ymd(stop))
+```
+
+```{r}
+telpunten_selectie <- telpunten_avimap %>%
+  select(naam, regio) %>%
+  semi_join(tellingen_vogels %>%
+               st_drop_geometry(),
+             by = c("naam" = "plotnaam"))
+
+telcirkels_selectie <- telpunten_selectie %>%
+  st_buffer(dist = 300)
+
+bo_in_buffer <- landusemetrics_grid_cell(
+  grid_cell = telcirkels_selectie %>% st_transform(crs = 31370),
+  layer = bo_2021 %>% st_transform(crs = 31370),
+  grid_group_by_col = "naam",
+  layer_group_by_col = "srt_object")
+
+bo_in_buffer_som <- bo_in_buffer %>%
+  group_by(naam) %>%
+  summarize(totopp_bo = sum(area_prop)) %>%
+  full_join(telpunten_selectie %>%
+              st_drop_geometry() %>%
+              select(naam, regio)) %>%
+  mutate(totopp_bo = ifelse(is.na(totopp_bo), 0, totopp_bo))
+```
+
+```{r}
+bo_fauna <- bo_in_buffer %>%
+  filter(str_detect(srt_object, "fauna")) %>%
+  group_by(naam) %>%
+  summarize(totopp_fauna = sum(area_prop)) %>%
+  full_join(telpunten_selectie %>%
+              st_drop_geometry() %>%
+              select(naam, regio)) %>%
+  mutate(totopp_fauna = ifelse(is.na(totopp_fauna), 0, totopp_fauna))
+```
+
+
+```{r div-bo}
+diversiteit %>%
+  group_by(regio, plotnaam) %>%
+  summarise(gemiddeld_aantal_soorten = mean(aantal_soorten),
+            .groups = "drop") %>%
+  inner_join(bo_in_buffer_som,
+             by = c("plotnaam" = "naam", "regio" = "regio")) %>%
+  ggplot(aes(x = totopp_bo, y = gemiddeld_aantal_soorten)) +
+  geom_point(aes(colour = regio)) +
+  geom_smooth(aes(fill = regio))
+```
+
+```{r div-fauna}
+diversiteit %>%
+  group_by(regio, plotnaam) %>%
+  summarise(gemiddeld_aantal_soorten = mean(aantal_soorten),
+            .groups = "drop") %>%
+  inner_join(bo_fauna,
+             by = c("plotnaam" = "naam", "regio" = "regio")) %>%
+  ggplot(aes(x = totopp_fauna, y = gemiddeld_aantal_soorten)) +
+  geom_point(aes(colour = regio)) +
+  geom_smooth(aes(fill = regio))
+```
+
+```{r}
+plotchangeindex <- tellingen_vogels %>%
+  inner_join(bo_fauna,
+             by = c("plotnaam" = "naam", "regio" = "regio")) %>%
+  filter(aantal >= 1) %>%
+  st_drop_geometry() %>%
+  select(regio, plotnaam, naam, aantal, jaar, periode_in_jaar) %>%
+  complete(nesting(regio, plotnaam, naam), jaar, periode_in_jaar,
+           fill = list(aantal = 0)) %>%
+  group_by(regio, plotnaam, jaar, naam) %>%
+  summarize(max_aantal = max(aantal),
+            .groups = "drop") %>%
+  group_by(regio, plotnaam, naam) %>%
+  nest() %>%
+  mutate(lm_slope = map_dbl(.x = data, .f = function(x) {
+    model = lm(
+      max_aantal ~ jaar,
+      data = x)
+    coef(model)[2]
+  }))
+```
+
+Verdeling van correlaties tussen de slope van een lineair model per plot (max_aantal ~ jaar) en totale oppervlakte fauna BO maatregelen.
+
+
+```{r}
+correlaties <- plotchangeindex %>%
+  select(-data) %>%
+  inner_join(bo_fauna,
+             by = c("plotnaam" = "naam", "regio" = "regio")) %>%
+  group_by(regio, naam) %>%
+  nest() %>%
+  mutate(correlatie = map_dbl(data, ~cor(.x$lm_slope, .x$totopp_fauna))) %>%
+  select(regio, naam, correlatie)
+
+
+correlaties %>%
+  filter(between(correlatie, -0.9, 0.9)) %>%
+  ggplot() +
+  geom_density(aes(x = correlatie, fill = regio), alpha = 0.5)
+```
+
+
+Verder uitmiddelen van de soortspecifieke slopes per telcirkel en plotten op kaart:
+
+In de moeren lijkt er wel een overeenkomend patroon te zijn op het eerste zicht.
+
+```{r}
+p1 <- telcirkels_selectie %>%
+  left_join(
+    plotchangeindex %>%
+      select(-data, naam = plotnaam, soort = naam) %>%
+      group_by(regio, naam) %>%
+      summarise(mean_slope = mean(lm_slope))) %>%
+  filter(regio == "Vlaanderen - De Moeren") %>%
+  inner_join(bo_fauna) %>%
+  ggplot() +
+  geom_sf(aes(fill = mean_slope)) +
+  scale_fill_gradient2()
+
+p2 <- telcirkels_selectie %>%
+  left_join(
+    plotchangeindex %>%
+      select(-data, naam = plotnaam, soort = naam) %>%
+      group_by(regio, naam) %>%
+      summarise(mean_slope = mean(lm_slope))) %>%
+  filter(regio == "Vlaanderen - De Moeren") %>%
+  inner_join(bo_fauna) %>%
+  ggplot() +
+  geom_sf(aes(fill = totopp_fauna)) +
+  scale_fill_gradient()
+
+library(patchwork)
+
+p1 + p2
+```
+
+
+```{r}
+p1 <- telcirkels_selectie %>%
+  left_join(
+    plotchangeindex %>%
+      select(-data, naam = plotnaam, soort = naam) %>%
+      group_by(regio, naam) %>%
+      summarise(mean_slope = mean(lm_slope))) %>%
+  filter(regio == "Vlaanderen - Leemstreek") %>%
+  ggplot() +
+  geom_sf(aes(fill = mean_slope)) +
+  scale_fill_gradient2()
+
+p2 <- telcirkels_selectie %>%
+  left_join(
+    plotchangeindex %>%
+      select(-data, naam = plotnaam, soort = naam) %>%
+      group_by(regio, naam) %>%
+      summarise(mean_slope = mean(lm_slope))) %>%
+  filter(regio == "Vlaanderen - Leemstreek") %>%
+  inner_join(bo_fauna) %>%
+  ggplot() +
+  geom_sf(aes(fill = totopp_fauna)) +
+  scale_fill_gradient()
+
+  p1 / p2
+```
