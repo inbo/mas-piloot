@@ -98,36 +98,48 @@ get_coverage_wcs <- function(wcs = c("dtm", "omz", "dsm"),
   url <- parse_url(wcs)
 
   if (version == "2.0.1") {
-    stop(paste0("code for version = ", version, "is not yet working"))
+    epsg_code <- stringr::str_extract(wcs_crs, "\\d+")
+    matrix(bbox, ncol = 2, byrow = FALSE) %>%
+      as.data.frame() %>%
+      st_as_sf(coords = c("V1", "V2"), crs = bbox_crs) %>%
+      st_transform(crs = wcs_crs) %>%
+      st_coordinates() %>%
+      as.vector() -> bbox
+
+    names(bbox) <- c("xmin", "xmax", "ymin", "ymax")
+
     url$query <- list(SERVICE = "WCS",
                       VERSION = version,
                       REQUEST = "GetCoverage",
                       COVERAGEID = layername,
                       CRS = wcs_crs,
-                      SUBSET = paste0("x,http://www.opengis.net/def/crs/EPSG/0/31370(",
-                                      bbox["xmin"],
-                                      ",",
-                                      bbox["xmax"],")"),
-                      SUBSET = paste0("y,http://www.opengis.net/def/crs/EPSG/0/31370(",
-                                      bbox["ymin"],
-                                      ",",
-                                      bbox["ymax"],")"),
-                      #SCALEFACTOR = 50,
+                      SUBSET = paste0(
+                        "x,http://www.opengis.net/def/crs/EPSG/0/",
+                        epsg_code, "(",
+                        bbox["xmin"],
+                        ",",
+                        bbox["xmax"],")"),
+                      SUBSET = paste0(
+                        "y,http://www.opengis.net/def/crs/EPSG/0/",
+                        epsg_code,
+                        "(",
+                        bbox["ymin"],
+                        ",",
+                        bbox["ymax"],")"),
+                      SCALEFACTOR = resolution,
                       FORMAT = "image/tiff",
-                      RESPONSE_CRS = output_crs
+                      RESPONSE_CRS = wcs_crs
     )
     request <- build_url(url)
-    # download een mht bestand met tif erin
-    # geen idee hoe deze tif uit mht te halen
     file <- tempfile(fileext = ".mht")
     GET(url = request,
         write_disk(file))
+    #multipart file extract tif part
+    unpack_mht(file)
+    file <- stringr::str_replace(file, "mht", "tif")
   }
 
   if (version == "1.0.0") {
-#    result_width <- (bbox["xmax"] - bbox["xmin"]) / resolution
-#    result_height <- (bbox["ymax"] - bbox["ymin"]) / resolution
-
     matrix(bbox, ncol = 2, byrow = FALSE) %>%
       as.data.frame() %>%
       st_as_sf(coords = c("V1", "V2"), crs = bbox_crs) %>%
@@ -148,8 +160,6 @@ get_coverage_wcs <- function(wcs = c("dtm", "omz", "dsm"),
                         bbox["xmax"],
                         bbox["ymax"],
                         sep = ","),
-#                      WIDTH = result_width,
-#                      HEIGHT = result_height,
                       RESX = resolution,
                       RESY = resolution,
                       FORMAT = "geoTIFF",
@@ -170,14 +180,24 @@ get_coverage_wcs <- function(wcs = c("dtm", "omz", "dsm"),
 
 
 unpack_mht <- function(path) {
-  #not yet working
 
-  lines <- readLines(path)
-  assertthat::assert_that(any(stringr::str_detect(lines, "image/tiff")))
-  start <- which(stringr::str_detect(lines, "</GDALMetadata>")) + 1
-  end <- length(lines) - 1
-  tif <- lines[start:end]
-  base64enc::base64decode(
-    what = tif,
-    output = file(stringr::str_replace(path, "mht", "tif"), "wb"))
+  # need three ways to read in the mht file to get the tif file out...
+  # read_lines() cannot read all lines due to embedded nulls
+  # therefore, also read_lines_raw() needed for positioning of tif part in file
+  # write_lines() does not work correctly on lines_raw[start:end]
+  # possibly a bug/edge case in write_lines()
+  # therefore, also read_file_raw() needed to extract from the raw vector
+  lines_raw <- readr::read_lines_raw(path)
+  lines_char <- suppressWarnings(readr::read_lines(path))
+  raw_vector <- readr::read_file_raw(path)
+
+  assertthat::assert_that(any(stringr::str_detect(lines_char, "image/tiff")))
+  start <- max(which(stringr::str_detect(lines_char, "Content-"))) + 1
+  end <- length(lines_raw) - 1
+  pos_start <- length(unlist(lines_raw[1:(start - 1)])) + start
+  pos_end <- length(raw_vector) - (length(lines_raw[end + 1]) + 1)
+
+  tif <- raw_vector[pos_start:pos_end]
+  readr::write_file(tif,
+                    stringr::str_replace(path, "mht", "tif"))
 }
