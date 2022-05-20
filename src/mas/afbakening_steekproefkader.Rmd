@@ -1225,6 +1225,40 @@ steekproef_avimap %>%
     "processed",
     "steekproef_piloot_avimap.csv"))
 
+steekproef_avimap %>%
+  mutate(type_punt = ifelse(str_detect(definitief_punt, "VL"),
+                            "bestaand", "nieuw")) %>%
+  st_buffer(dist = 25, nQuadSegs = 5) %>%
+  st_transform(crs = 4326) %>%
+  #KML kan niet overweg met NA waarden
+  mutate(across(.cols = -c(geometry),
+                ~ifelse(is.na(.),
+                        "",
+                        .
+                )
+  )) %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap_25m.kml"))
+
+steekproef_avimap %>%
+  mutate(type_punt = ifelse(str_detect(definitief_punt, "VL"),
+                            "bestaand", "nieuw")) %>%
+  st_buffer(dist = 300, nQuadSegs = 5) %>%
+  st_transform(crs = 4326) %>%
+  #KML kan niet overweg met NA waarden
+  mutate(across(.cols = -c(geometry),
+                ~ifelse(is.na(.),
+                        "",
+                        .
+                )
+  )) %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap_300m.kml"))
+
 ```
 
 
