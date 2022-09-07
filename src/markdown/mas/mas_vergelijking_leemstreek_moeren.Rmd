@@ -96,10 +96,6 @@ tellingen_avimap <- read_sf(
         ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
     ))
 
-tellingen_vogels <- tellingen_avimap %>%
-  filter(soortgrp != 1L,
-         !is.na(periode_in_jaar))
-
 bezoekenlijst_avimap <- 
   tellingen_avimap %>%
   st_drop_geometry() %>%
@@ -159,9 +155,25 @@ plan_kiekendief_leemstreek_moeren <- plan_kiekendief_perimeter %>%
     )
 ```
 
+```{r filters}
+tellingen_vogels <- tellingen_avimap %>%
+  mutate(wrntype = as.integer(wrntype)) %>%
+  filter(soortgrp != 1L,
+         !is.na(periode_in_jaar),
+         wrntype > 0L)
+```
+
+
 Gefilterd op enkel vogelsoorten.
 Waarnemingen buiten de officiële telrondes zijn eruit gehaald.
 Dubbeltellingen zijn eruit (soort gezien op meerdere teldagen binnen eenzelfde telperiode): in dat geval de laatste teldag genomen.
+
+Enkel data met broedcode > 0 zijn weerhouden.
+Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat.
+Hiervoor moet je het veld wrntype hebben.
+
+
+
 
 ```{r check-dubbeltelling}
 dubbels <- tellingen_vogels %>%
@@ -283,13 +295,16 @@ relfreqs %>%
   kable(digits = 2)
 ```
 
-## Dichtheden
+## Dichtheden (aantal per 100ha)
 
 Zijn de dichtheden van een aantal soorten (ik denk aan veldleeuwerik, gele kwikstaart, 
 geelgors, roodborsttapuit) in de Moeren opvallend hoger/lager dan in de leemstreek?
 
 We zagen dit al in termen van relatieve frequentie van voorkomen.
-Nu in termen van gemiddelde aantallen - echter zonder rekening te houden met koppels of detectiekansen.
+Nu in termen van gemiddelde aantallen - __echter zonder rekening te houden met koppels, territoria of detectiekansen__.
+
+> dichtheden herberekend aantal broedpaar per 100ha (internationale maat, en ook beschreven als doelen bij soortbeschermingsplan akkervogels), voor veldleeuwerik, gele kwikstaart, fazant, kievit en zwarte kraai, zodat we die kunnen vergelijken gemiddeld voor de moeren en de leemstreek.  
+
 
 ```{r}
 meanabu <- tellingen_vogels %>%
@@ -302,24 +317,26 @@ meanabu <- tellingen_vogels %>%
               values_fill = list(totaal_aantal = 0)) %>%
   group_by(jaar, periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
-                   .fns = ~sum(.x) / n()),
+                   .fns = ~sum(.x) / n() * (100 * 1e4) / (pi * 300^2)),
             .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
-               values_to = "meanabundance")
+               values_to = "aantal_per_100ha")
 ```
+
+Top 20 van soorten die in termen van verschil in gemiddelde aantallen meer abundant zijn in __de Moeren__ (aantallen per 100ha):
 
 ```{r meerabundant-moeren}
 meanabu %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_abu = mean(meanabundance)) %>%
-  distinct(regio, naam, gemiddelde_abu) %>%
+  mutate(gemiddelde_aantal_per_100ha = mean(aantal_per_100ha)) %>%
+  distinct(regio, naam, gemiddelde_aantal_per_100ha) %>%
   pivot_wider(names_from = regio,
-              values_from = gemiddelde_abu,
+              values_from = gemiddelde_aantal_per_100ha,
               values_fill = 0) %>%
-  mutate(verschilabu = `Vlaanderen - De Moeren` - `Vlaanderen - Leemstreek`) %>%
+  mutate(verschil = `Vlaanderen - De Moeren` - `Vlaanderen - Leemstreek`) %>%
   ungroup() %>%
-  slice_max(verschilabu, n = 20) %>%
+  slice_max(verschil, n = 20) %>%
   kable(digits = 2)
 ```
 
@@ -328,16 +345,37 @@ Top 20 van soorten die in termen van verschil in gemiddelde aantallen meer abund
 ```{r meerabundant-leemstreek}
 meanabu %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_abu = mean(meanabundance)) %>%
-  distinct(regio, naam, gemiddelde_abu) %>%
+  mutate(gemiddelde_aantal_per_100ha = mean(aantal_per_100ha)) %>%
+  distinct(regio, naam, gemiddelde_aantal_per_100ha) %>%
   pivot_wider(names_from = regio,
-              values_from = gemiddelde_abu,
+              values_from = gemiddelde_aantal_per_100ha,
               values_fill = 0) %>%
-  mutate(verschilabu = `Vlaanderen - De Moeren` - `Vlaanderen - Leemstreek`) %>%
+  mutate(verschil = `Vlaanderen - De Moeren` - `Vlaanderen - Leemstreek`) %>%
   ungroup() %>%
-  slice_max(-verschilabu, n = 20) %>%
+  slice_max(-verschil, n = 20) %>%
   kable(digits = 2)
 ```
+
+Enkel veldleeuwerik, gele kwikstaart, fazant, kievit en zwarte kraai:
+
+```{r selectie}
+meanabu %>%
+  group_by(regio, naam) %>%
+  mutate(gemiddelde_aantal_per_100ha = mean(aantal_per_100ha)) %>%
+  distinct(regio, naam, gemiddelde_aantal_per_100ha) %>%
+  pivot_wider(names_from = regio,
+              values_from = gemiddelde_aantal_per_100ha,
+              values_fill = 0) %>%
+  mutate(verschil = `Vlaanderen - De Moeren` - `Vlaanderen - Leemstreek`) %>%
+  ungroup() %>%
+  filter(naam %in% c("Veldleeuwerik",
+                     "Gele Kwikstaart",
+                     "Fazant",
+                     "Kievit",
+                     "Zwarte Kraai")) %>%
+  kable(digits = 2)
+```
+
 
 
 ## Trends en linken met beheerovereenkomsten
@@ -345,6 +383,15 @@ meanabu %>%
 - Kunnen we met een trend per telpunt iets zeggen?
 - Waar zitten die (hoge) dichtheden dan specifiek?
 - zijn er linken te leggen met de beheerovereenkomsten, met de data die we nu hebben? In de binnenmoeren is er een dekking van 18% BO oppervlakte ongeveer, heeft dat invloed op de dichtheden en of trends?
+
+
+>De soortendiversiteit gerelateerd met BO oppervlak zegt niet veel, omdat diversiteit vooral in terreingebruik vertaalt (dus hoe meer verschillende hoekjes en kantjes boerderij, haag, weiland, akker, etc) hoe hoger. Biodiversiteitswinst gaan we niet halen uit beheerovereenkomsten, dat is ook niet de bedoeling, maar wel behoud/versterken van akkervogelpopulaties. 
+
+OK, die analyse doe ik weg
+
+>Ik snap ook niet helemaal het verhaal van de slope, is dat een trend per telpunt?
+
+Ja, een simpel lineair model per telpunt waarvan je de slope als maat voor verandering neemt.
 
 
 ```{r bo-2021}
@@ -392,29 +439,6 @@ bo_fauna <- bo_in_buffer %>%
 ```
 
 
-```{r div-bo}
-diversiteit %>%
-  group_by(regio, plotnaam) %>%
-  summarise(gemiddeld_aantal_soorten = mean(aantal_soorten),
-            .groups = "drop") %>%
-  inner_join(bo_in_buffer_som,
-             by = c("plotnaam" = "naam", "regio" = "regio")) %>%
-  ggplot(aes(x = totopp_bo, y = gemiddeld_aantal_soorten)) +
-  geom_point(aes(colour = regio)) +
-  geom_smooth(aes(fill = regio))
-```
-
-```{r div-fauna}
-diversiteit %>%
-  group_by(regio, plotnaam) %>%
-  summarise(gemiddeld_aantal_soorten = mean(aantal_soorten),
-            .groups = "drop") %>%
-  inner_join(bo_fauna,
-             by = c("plotnaam" = "naam", "regio" = "regio")) %>%
-  ggplot(aes(x = totopp_fauna, y = gemiddeld_aantal_soorten)) +
-  geom_point(aes(colour = regio)) +
-  geom_smooth(aes(fill = regio))
-```
 
 ```{r}
 plotchangeindex <- tellingen_vogels %>%
@@ -520,3 +544,107 @@ p2 <- telcirkels_selectie %>%
 
   p1 / p2
 ```
+
+
+>Bij telpunten waar het opp BO is gestegen, zou je wel een toename van max aantallen (individuen) verwachten van enkele soorten, en misschien ook wel van het totale max soortenaantal. Zou je dat per soort kunnen bekijken, bijvoorbeeld voor veldleeuwerik, gele kwikstaart, kievit, kneu, holenduif, zwarte kraai, zwartkop, grasmus
+
+Uit het bestand `BO_2021_VLM_EXTERN.shp` kan ik niet afleiden of de oppervlakte BO gestegen is.
+Dit geeft gewoon een toestand voor 2021 en per BO is er vermeld wanneer deze start en stopt.
+Om deze analyse te kunnen maken, hebben we dus ook de data nodig van 2018, 2019 en 2020.
+
+```{r}
+max_aantal_bo <- tellingen_vogels %>%
+  inner_join(bo_fauna,
+             by = c("plotnaam" = "naam", "regio" = "regio")) %>%
+  filter(aantal >= 1) %>%
+  st_drop_geometry() %>%
+  select(regio, plotnaam, naam, aantal, jaar, periode_in_jaar, totopp_fauna) %>%
+  complete(nesting(regio, plotnaam, naam, totopp_fauna), jaar, periode_in_jaar,
+           fill = list(aantal = 0)) %>%
+  group_by(regio, plotnaam, jaar, totopp_fauna, naam) %>%
+  summarize(max_aantal = max(aantal),
+            .groups = "drop") %>%
+  filter(naam %in% c(
+    "Veldleeuwerik",
+    "Gele Kwikstaart",
+    "Kievit",
+    "Kneu",
+    "Holenduif",
+    "Zwarte Kraai",
+    "Zwartkop",
+    "Grasmus")) %>%
+  mutate(tot_aandeel_fauna_f = cut(totopp_fauna, c(0, 0.05, 0.2, 1), include.lowest = TRUE))
+
+plot_ifv_opp <- function(x, y) {
+  x %>%
+    ggplot() +
+    geom_line(aes(x = totopp_fauna, y = max_aantal,
+                  group = plotnaam,
+                  colour = jaar)) +
+    facet_wrap(~regio) +
+    labs(title = y)}
+
+plot_ifv_jaar <- function(x, y) {
+  x %>%
+    ggplot() +
+    geom_line(aes(x = jaar, y = max_aantal, group = plotnaam,
+                  colour = tot_aandeel_fauna_f)) +
+    facet_wrap(~regio) +
+    labs(title = y)}
+
+
+plot_ifv_jaar_bp <- function(x, y) {
+  x %>%
+    ggplot() +
+    geom_boxplot(aes(x = factor(jaar), y = max_aantal,
+                  fill = tot_aandeel_fauna_f)) +
+    facet_wrap(~regio) +
+    labs(title = y)}
+
+plot_ifv_jaar_smoother <- function(x, y) {
+  x %>%
+    ggplot() +
+    #stat_sum(aes(x = jaar, y = max_aantal,
+    #              colour = cut_interval(totopp_fauna, 3))) +
+    geom_smooth(aes(x = jaar, y = max_aantal,
+                    colour = tot_aandeel_fauna_f),
+                se = FALSE) +
+    facet_wrap(~regio, scales = "free") +
+    labs(title = y)}
+
+
+plot_ifv_jaar_smoother_metdata <- function(x, y) {
+  x %>%
+    ggplot() +
+    stat_sum(aes(x = jaar, y = max_aantal,
+                  colour = tot_aandeel_fauna_f)) +
+    geom_smooth(aes(x = jaar, y = max_aantal,
+                    colour = tot_aandeel_fauna_f),
+                se = FALSE) +
+    facet_wrap(~regio, scales = "free") +
+    labs(title = y)}
+
+
+max_aantal_bo_figuren <- max_aantal_bo %>%
+  group_by(naam) %>%
+  nest() %>%
+  mutate(plot_jaar = map2(data, naam, plot_ifv_jaar),
+         plot_opp = map2(data, naam, plot_ifv_opp),
+         plot_jaar_bp = map2(data, naam, plot_ifv_jaar_bp),
+         plot_jaar_smooth_zonderdata = map2(data, naam, plot_ifv_jaar_smoother),
+         plot_jaar_smooth_metdata =
+           map2(data, naam, plot_ifv_jaar_smoother_metdata))
+  
+
+```
+
+Wijzigingen in gemiddelde max aantallen van enkele vogelsoorten in de Moeren en de Leemstreek.
+De data zijn opgesplitst in telpunten met < 5%, 5 - 20% en > 20% BO fauna aandeel in 2021.
+Er is een versie van de figuren met de datapunten en een versie zonder de datapunten (enkel de smoother).
+Er is een aparte y-as voor beide regio's.
+
+```{r warning = FALSE}
+c(max_aantal_bo_figuren$plot_jaar_smooth_zonderdata,
+  max_aantal_bo_figuren$plot_jaar_smooth_metdata)
+```
+
