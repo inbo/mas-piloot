@@ -376,6 +376,139 @@ meanabu %>%
   kable(digits = 2)
 ```
 
+## Dichtheden ingeschat via Distance sampling en toegepast op Veldleeuwerik
+
+```{r dataprep}
+areas <- plan_kiekendief_leemstreek_moeren %>%
+  mutate(regio = ifelse(Name == "moeren",
+                        "Vlaanderen - De Moeren",
+                        "Vlaanderen - Leemstreek"),
+         Area = as.numeric(st_area(.$geometry)) / 1e6) %>%
+  st_drop_geometry()
+
+areas_leemstreek_moeren <- areas %>%
+  group_by(regio) %>%
+  summarise(Area = sum(Area))
+
+tellingen_vogels_nulw <- tellingen_vogels %>%
+  st_drop_geometry() %>%
+  # indien soort niet gezien: aantal en afstand NA
+  full_join(
+    bezoekenlijst_avimap,
+    by = c("projectid", "plotid", "plotnaam", "jaar", "maand", "dag", "doy",
+           "periode_in_jaar")) %>%
+  left_join(telpunten_avimap %>%
+              st_drop_geometry() %>%
+              select(plotid, regio),
+            by = c("plotid", "regio")) %>%
+  left_join(areas_leemstreek_moeren, by = "regio") %>%
+  mutate(fjaar = factor(jaar)) %>%
+  filter(regio != "Vlaanderen - Bilzen") %>%
+  select(
+    naam,
+    object = id,
+    distance = distance2p,
+    size = aantal,
+    regio,
+    Area,
+    Sample.Label = plotid,
+    fjaar,
+    periode_in_jaar) %>%
+  group_by(naam, Sample.Label, fjaar) %>%
+  mutate(Effort = n_distinct(periode_in_jaar),
+         Region.Label = paste(regio, fjaar, sep = "_"))
+
+# distance, size, Region.label, Area, Sample.Label, Region.Label, Effort, object
+```
+
+Voorbeeld van berekening dichtheden via distance sampling technieken.
+
+We fitten een model voor regio-specifieke detectiekans (alle jaren worden samen gebruikt om detectiekans per regio in te schatten).
+Voor dit model veronderstellen we dat de detectiekans 1 is bij afstand 0 en monotoon afneemt volgens een half-normale verdeling met de afstand.
+In het model stellen we in dat afstanden groter dan 300 m worden afgetopt (aangezien dit ook de maximale zoekafstand is).
+We beschouwen elk van deze telrondes binnen een jaar als een herhaling (bepaalt de "Effort" in het model).
+Nadat de detectiekans is ingeschat, laat het model toe om hiermee abundanties (totale aantallen in een stratum) en densiteiten (aantal hazen per 100 ha) te schatten die gecorrigeerd worden voor de detectiekans.
+We beschouwen elke combinatie van jaar en regio als een apart stratum waarvoor we deze schattingen willen.
+
+```{r half-normal}
+library(Distance)
+conversion_factor <- convert_units("meter", NULL, "Square kilometer")
+
+veldleeuwerik_hn <- ds(
+  data = tellingen_vogels_nulw %>%
+    filter(naam == "Veldleeuwerik") %>%
+    ungroup() %>%
+    select(-naam) %>%
+    as.data.frame(),
+  formula = ~ regio,
+  key = "hn",
+  convert_units = conversion_factor,
+  adjustment = NULL,
+  transect = "point",
+  truncation = 300)
+```
+
+### Detectiekans
+
+```{r detectiekans-summary, results = "asis"}
+summary_vlhn <- summary(veldleeuwerik_hn)
+summary_vlhn$ds$coeff$key.scale %>%
+  kable(digits = 2)
+```
+
+Visuele check en Cramer-von Mises test voor goodness of fit.
+
+```{r diagnose}
+gof_ds(veldleeuwerik_hn)
+cutpoints <- c(0, 10, 20, 50, 100, 150, 200, 250, 300)
+plot(veldleeuwerik_hn, breaks = cutpoints, pdf = TRUE)
+```
+
+Plot van de detectiekans:
+
+```{r detectiekans-plot}
+plot(veldleeuwerik_hn, subset= regio == "Vlaanderen - Leemstreek",
+     main = "Leemstreek")
+plot(veldleeuwerik_hn, subset= regio == "Vlaanderen - De Moeren",
+     main = "De Moeren")
+```
+
+Mogelijk hangt de detectiekans ook af van het aantal minuten na zonsopkomst.
+Dit is niet bekeken.
+
+
+### Densiteiten en abundanties
+
+```{r tidy-results}
+summary_results <- bind_rows(
+  summary_vlhn$dht$clusters$D %>%
+    mutate(variable = "density",
+           type = "clusters"),
+  summary_vlhn$dht$clusters$N %>%
+    mutate(variable = "abundance",
+           type = "clusters"),
+  summary_vlhn$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "individuals"),
+  summary_vlhn$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "individuals")
+  ) %>%
+  as_tibble() %>%
+  separate(Label, c("regio", "jaar"), sep = "_") %>%
+  filter(!is.na(jaar))
+```
+
+
+```{r vlhn-estimates}
+summary_results %>%
+  filter(type == "clusters") %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+  geom_pointrange(aes(ymin = lcl, ymax = ucl, colour = jaar),
+                  position = position_dodge(width = 0.5)) + 
+  facet_wrap(~variable, scales = "free_y")
+```
+
 
 
 ## Trends en linken met beheerovereenkomsten
