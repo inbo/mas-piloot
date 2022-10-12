@@ -2513,10 +2513,10 @@
     },
     "rstan": {
       "Package": "rstan",
-      "Version": "2.26.11",
+      "Version": "2.26.13",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "aaf9f579571fd823bc76dd571709a79e",
+      "Hash": "a23e5a0f93ed81cf2f0fd8f380fce9ec",
       "Requirements": [
         "BH",
         "Rcpp",
