@@ -55,6 +55,7 @@ landusemetrics_grid_cell <- function(
   layer_group_by_col = "",
   progress = FALSE
 ) {
+  require(duckdb)
   if (inherits(layer, "SpatRaster") | inherits(layer, "RasterLayer")) {
     assertthat::assert_that(sf::st_crs(grid_cell)$wkt == terra::crs(layer))
 

@@ -883,6 +883,16 @@
         "vctrs"
       ]
     },
+    "duckdb": {
+      "Package": "duckdb",
+      "Version": "0.5.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "ed86d0ef128329ddd146663edf61d039",
+      "Requirements": [
+        "DBI"
+      ]
+    },
     "dygraphs": {
       "Package": "dygraphs",
       "Version": "1.1.1.6",
