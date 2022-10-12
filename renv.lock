@@ -253,10 +253,10 @@
     },
     "StanHeaders": {
       "Package": "StanHeaders",
-      "Version": "2.26.11",
+      "Version": "2.26.13",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "44fcb74180563bc8837f653bd006177b",
+      "Hash": "f54ef22dec1b0710070e2d9bd3fc0174",
       "Requirements": [
         "RcppEigen",
         "RcppParallel"
@@ -2401,10 +2401,10 @@
     },
     "renv": {
       "Package": "renv",
-      "Version": "0.15.4",
+      "Version": "0.16.0",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "c1078316e1d4f70275fc1ea60c0bc431",
+      "Hash": "c9e8442ab69bc21c9697ecf856c1e6c7",
       "Requirements": []
     },
     "reprex": {
