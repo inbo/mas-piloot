@@ -8,6 +8,8 @@ output:
     toc: true
     toc_float: true
     toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -56,10 +58,105 @@ mas <- read_sf(
     ))
 ```
 
-
 ```{r eval=FALSE}
+head(mas)
 summary(mas)
 glimpse(mas)
 ```
+
+```{r selectie}
+mas2022 <- mas %>% filter(soortgrp == 2,               # vogels
+                          jaar == 2022,                # 2022
+                          !is.na(periode_in_jaar),     # binnen telronde
+                          !grepl("ovl", plotnaam)) %>% # Moeren en Leemstreek
+                   mutate(regio = ifelse(x_coord < 0, 
+                                          "De Moeren", "Leemstreek"))
+
+```
+
+```{r check-dubbeltelling}
+dubbels <- mas2022 %>%
+  st_drop_geometry() %>%
+  group_by(plotid, jaar, periode_in_jaar, soortnr) %>%
+  summarize(aantal_teldagen = n_distinct(doy),
+            .groups = "drop") %>%
+  filter(aantal_teldagen > 1)
+# kan zowel zelfde waarnemer als andere waarnemer zijn
+
+mas2022 <- mas2022 %>%
+  semi_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")) %>%
+  group_by(plotid, jaar, periode_in_jaar) %>%
+  filter(doy == max(doy)) %>%
+  ungroup() %>%
+  bind_rows(mas2022 %>%
+              anti_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")))
+```
+
+Selectie van vogelsoorten waargenomen in 2022. Waarnemingen buiten officiële telrondes en buiten De Moeren en de Leemstreek zijn eruit gehaald. Dubbeltellingen zijn eruit (soort gezien op meerdere teldagen binnen eenzelfde telperiode): in dat geval de laatste teldag genomen.
+
+
+# Resultaten vogels 2022
+## Enkele cijfers
+
+```{r tabel}
+mas2022 %>% group_by(regio) %>%
+  st_drop_geometry() %>%
+  summarise(aantal_tellingen = n_distinct(oid), 
+            aantal_soorten = n_distinct(naam)) %>%
+  kable()
+```
+
+## Soortendiversiteit
+
+Is de soortendiversiteit in De Moeren hoger dan in de leemstreek?
+
+```{r soortendiversiteit}
+diversiteit <- mas2022 %>%
+  st_drop_geometry() %>%
+  group_by(regio, plotnaam, periode_in_jaar, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop_last") %>%
+  summarize(aantal_soorten = n(),
+            .groups = "drop")
+```
+
+```{r soortenaantal-boxplot}
+diversiteit %>%
+  ggplot() +
+  labs(y = "Aantal soorten", x = "Telperiode") +
+  geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = regio))
+```
+
+Om welke soorten gaat het?
+
+```{r relfreqs}
+relfreqs <- mas2022 %>%
+  st_drop_geometry() %>%
+  group_by(regio, plotnaam, periode_in_jaar, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, regio) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+            .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+```
+
+Overzicht van relatieve frequenties van de 30 meest frequente soorten in een bepaalde regio. Elk punt staat voor een relatieve frequentie in een bepaalde telperiode van 2022.
+
+```{r soortenfreqs, fig.height = 200/25.4}
+relfreqs %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean")) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 30) %>%
+  ggplot() +
+  labs(y = "", x = "Relatieve frequentie") +
+  geom_point(aes(x = relfreq, y = naam, colour = regio))
+```
+
 
 
