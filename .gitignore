@@ -44,3 +44,7 @@ vignettes/*.pdf
 # markdown output files
 *.html
 images/
+
+# brms model
+mod_haas.rds
+
