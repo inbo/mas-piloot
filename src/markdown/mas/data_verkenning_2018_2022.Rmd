@@ -1,0 +1,65 @@
+---
+title: "Verkenning MAS veldwerk data van 2018 tot en met 2022"
+author: "Ward Langeraert, Hans Van Calster"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE)
+opts_knit$set(root.dir = here::here())
+library(tidyverse)
+library(sf)
+library(lubridate)
+```
+
+# Inlezen data
+
+```{r ronde-intervallen}
+r1_start <- "04-01"
+r1_stop <- "04-20"
+r2_start <- "04-21"
+r2_stop <- "05-10"
+r3_start <- "05-11"
+r3_stop <- "06-10"
+r4_start <- "06-21"
+r4_stop <- "07-15"
+```
+
+```{r inlezen-mas-data}
+mas <- read_sf(
+  here("data/mas/20220906_qgis_export_sovon_wfs.gpkg")) %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    ))
+```
+
+
+```{r eval=FALSE}
+summary(mas)
+glimpse(mas)
+```
+
+
