@@ -88,12 +88,12 @@ mas_clean <- mas %>%
 # Resultaten vogels 2022
 
 ```{r selectie-vogels}
-mas2022 <- mas_clean %>% filter(soortgrp == 2,         # vogels
-                          jaar == 2022,                # 2022
-                          !is.na(periode_in_jaar),     # binnen telronde
-                          !grepl("ovl", plotnaam)) %>% # Moeren en Leemstreek
-                   mutate(regio = ifelse(x_coord < 0, 
-                                         "De Moeren", "Leemstreek"))
+mas2022 <- mas_clean %>% 
+  filter(soortgrp == 2,                # vogels
+         jaar == 2022,                 # 2022
+         !is.na(periode_in_jaar),      # binnen telronde
+         !grepl("ovl", plotnaam)) %>%  # Moeren en Leemstreek
+  mutate(regio = ifelse(x_coord < 0, "De Moeren", "Leemstreek"))
 ```
 
 Selectie van vogelsoorten waargenomen in 2022. Waarnemingen buiten officiële telrondes en buiten De Moeren en de Leemstreek zijn eruit gehaald.
@@ -146,7 +146,7 @@ relfreqs <- mas2022 %>%
   group_by(periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-            .groups = "drop") %>%
+                   .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
@@ -203,7 +203,7 @@ doelsoorten <- c("Veldleeuwerik", "Gele Kwikstaart", "Geelgors", "Fazant")
 doel_df <- mas2022 %>% filter(naam %in% doelsoorten, wrntype > 0L) 
 ```
 
-Enkel data met broedcode > 0 zijn weerhouden. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.
+Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **2.2**. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.
 
 ```{r diversiteit-doelsoorten}
 relfreqs_doel <- mas2022 %>% 
@@ -218,7 +218,7 @@ relfreqs_doel <- mas2022 %>%
   group_by(periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-            .groups = "drop") %>%
+                   .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
@@ -240,12 +240,12 @@ relfreqs_doel %>%
 De volgende figuur geeft een overzicht van de genoteerde broedcodes per regio voor elke soort. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuur geeft enkel de absolute aantallen weer.
 
 ```{r broedcodes-doelsoorten, message=FALSE}
-# Save totals to put lables on plot
+# Save totals to put labels on plot
 totals <- doel_df %>%
     group_by(naam, regio) %>%
     summarise(total = n())
 
-# Summarise data and make plot
+# Summarize data and make plot
 doel_df %>% 
   group_by(naam, regio, wrntype) %>%
   summarise(N = n()) %>%
@@ -291,7 +291,7 @@ ggplot() +
 ```
 
 
-Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik.
+Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De relatieve frequentie is dus identiek als in **2.2**.
 
 ```{r freq-torenvalk}
 relfreqs %>%
@@ -333,12 +333,12 @@ mas2022 %>% filter(naam == "Torenvalk") %>%
 # Resultaten zoogdieren 2022
 
 ```{r selectie-zoogdieren}
-zoogdieren <- mas_clean %>% filter(soortgrp == 1,         # zoogdieren
-                             jaar == 2022,                # 2022
-                             !is.na(periode_in_jaar),     # binnen telronde
-                             !grepl("ovl", plotnaam)) %>% # Moeren en Leemstreek
-                   mutate(regio = ifelse(x_coord < 0, 
-                                         "De Moeren", "Leemstreek"))
+zoogdieren <- mas_clean %>% 
+  filter(soortgrp == 1,                # zoogdieren
+         jaar == 2022,                 # 2022
+         !is.na(periode_in_jaar),      # binnen telronde
+         !grepl("ovl", plotnaam)) %>%  # Moeren en Leemstreek
+  mutate(regio = ifelse(x_coord < 0, "De Moeren", "Leemstreek"))
 ```
 
 Selectie van zoogdieren waargenomen in 2022. Waarnemingen buiten officiële telrondes en buiten De Moeren en de Leemstreek zijn eruit gehaald.
@@ -369,13 +369,13 @@ relfreqs_z <- zoogdieren %>%
   group_by(periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-            .groups = "drop") %>%
+                   .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
 ```
 
-Overzicht van relatieve frequenties de zoogdieren in een bepaalde regio. Elk punt staat voor een relatieve frequentie in een bepaalde telperiode van 2022. Als er een zoogdier wordt gezien, is dit vaak de Haas.
+Overzicht van relatieve frequenties van de zoogdieren in een bepaalde regio. Elk punt staat voor een relatieve frequentie in een bepaalde telperiode van 2022. De frequenties zijn relatief ten opzichte van de andere zoogdieren. Als er een zoogdier wordt gezien, is dit vaak de Haas.
 
 ```{r soortenfreqs-zoogdieren}
 relfreqs_z %>%
@@ -395,6 +395,7 @@ relfreqs_z %>%
               values_fill = 0) %>%
   mutate(verschilfreq = `De Moeren` - `Leemstreek`) %>%
   ungroup() %>%
+  # Same order as in the previous plot
   rowwise() %>%
   mutate(max = max(`De Moeren`, `Leemstreek`)) %>%
   arrange(desc(max)) %>% select(-max) %>%
@@ -405,11 +406,11 @@ relfreqs_z %>%
 # Resultaten vogels 2018--2022
 
 ```{r selectie-vogels-langetermijn}
-mas_vogels <- mas_clean %>% filter(soortgrp == 2,          # vogels
-                              !is.na(periode_in_jaar),     # binnen telronde
-                              !grepl("ovl", plotnaam)) %>% # Moeren en Leemstreek
-                            mutate(regio = ifelse(x_coord < 0, 
-                                         "De Moeren", "Leemstreek"))
+mas_vogels <- mas_clean %>% 
+  filter(soortgrp == 2,                # vogels
+         !is.na(periode_in_jaar),      # binnen telronde
+         !grepl("ovl", plotnaam)) %>%  # Moeren en Leemstreek
+  mutate(regio = ifelse(x_coord < 0, "De Moeren", "Leemstreek"))
 ```
 
 Selectie van vogelsoorten. Waarnemingen buiten officiële telrondes en buiten De Moeren en de Leemstreek zijn eruit gehaald.
@@ -463,7 +464,7 @@ relfreqs_vogels <- mas_vogels %>%
   group_by(jaar, periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-            .groups = "drop") %>%
+                   .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
@@ -519,7 +520,7 @@ relfreqs_vogels %>%
 doel_vogels <- mas_vogels %>% filter(naam %in% doelsoorten, wrntype > 0L) 
 ```
 
-Enkel data met broedcode > 0 zijn weerhouden. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.
+Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **4.2**. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.
 
 ```{r diversiteit-doelsoorten-langetermijn}
 relfreqs_doelvogels <- mas_vogels %>% 
@@ -534,7 +535,7 @@ relfreqs_doelvogels <- mas_vogels %>%
   group_by(jaar, periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-            .groups = "drop") %>%
+                   .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
@@ -604,7 +605,7 @@ for (soort in doelsoorten) {
 }
 ```
 
-Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik.
+Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De relatieve frequentie is dus identiek als in **2.2**.
 
 ```{r freq-torenvalk-langetermijn}
 relfreqs_vogels %>%
@@ -634,16 +635,18 @@ mas_vogels %>% filter(naam == "Torenvalk") %>%
 ```
 
 ```{r datum-torenvalk-langetermijn, message=FALSE}
-test <- mas_vogels %>% filter(naam == "Torenvalk") %>%
+summary_torenvalk <- mas_vogels %>% 
+  filter(naam == "Torenvalk") %>%
   group_by(regio, jaar, datum) %>% 
   summarise(N = n())
 
-subset_loess3 <- test %>% filter(!(jaar %in% c(2018, 2019, 2020) &
-                                   regio == "De Moeren"))
+# Not enough data to make loess smoother for each year
+subset_loess3 <- summary_torenvalk %>% 
+  filter(!(jaar %in% c(2018, 2019, 2020) & regio == "De Moeren"))
 
 ggplot() +
   labs(title = "Torenvalk", y = "Aantal tellingen", x = "") +
-  geom_point(data = test, aes(x = datum, y = N, colour = regio)) +
+  geom_point(data = summary_torenvalk, aes(x = datum, y = N, colour = regio)) +
   geom_smooth(data = subset_loess3, aes(x = datum, y = N, colour = regio),
               method = "loess", formula = "y ~ x", se = FALSE) +
   facet_wrap(~jaar, scales = "free")
