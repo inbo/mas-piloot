@@ -58,6 +58,18 @@ mas <- read_sf(
     ))
 ```
 
+```{r design}
+design2022 <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"))
+```
+
 ```{r overzicht-data, eval=FALSE}
 head(mas)
 summary(mas)
@@ -91,9 +103,13 @@ mas_clean <- mas %>%
 mas2022 <- mas_clean %>% 
   filter(soortgrp == 2,                # vogels
          jaar == 2022,                 # 2022
-         !is.na(periode_in_jaar),      # binnen telronde
-         !grepl("ovl", plotnaam)) %>%  # Moeren en Leemstreek
-  mutate(regio = ifelse(x_coord < 0, "De Moeren", "Leemstreek"))
+         !is.na(periode_in_jaar)       # binnen telronde
+         ) %>%  # Moeren en Leemstreek
+  inner_join(design2022, by = "plotnaam")
+
+# To detect absences
+bezoekenlijst_2022 <- design2022 %>% 
+  expand_grid(distinct(mas2022, periode_in_jaar))
 ```
 
 Selectie van vogelsoorten waargenomen in 2022. Waarnemingen buiten officiële telrondes en buiten De Moeren en de Leemstreek zijn eruit gehaald.
@@ -102,12 +118,16 @@ Selectie van vogelsoorten waargenomen in 2022. Waarnemingen buiten officiële te
 ## Enkele cijfers
 
 ```{r tabel-vogels}
-mas2022 %>% group_by(regio) %>%
+mas2022 %>% group_by(regio, openheid, sbp) %>%
   st_drop_geometry() %>%
   summarise(aantal_tellingen = n_distinct(oid), 
             aantal_plots = n_distinct(plotid), 
             aantal_soorten = n_distinct(naam)) %>%
   kable()
+
+mas2022 <- mas2022 %>% 
+  group_by(regio) %>%
+  mutate(plots_per_regio = n_distinct(plotid))
 ```
 
 
@@ -173,7 +193,7 @@ relfreqs %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Leemstreek`) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   slice_max(verschilfreq, n = 20) %>%
   kable(digits = 2)
@@ -189,7 +209,7 @@ relfreqs %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Leemstreek`) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   slice_max(-verschilfreq, n = 20) %>%
   kable(digits = 2)
@@ -231,65 +251,77 @@ relfreqs_doel %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Leemstreek`) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   arrange(naam) %>%
   kable(digits = 2)
 ```
 
-De volgende figuur geeft een overzicht van de genoteerde broedcodes per regio voor elke soort. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuur geeft enkel de absolute aantallen weer.
+De volgende figuur geeft een overzicht van de genoteerde broedcodes per regio voor elke soort. Een telling is hier geïnterpreteerd als een waarneming van een bepaalde soort op een bepaalde afstand in een bepaalde plot in een bepaalde telperiode. Er is dus geen rekening gehouden met het aantal vogels genoteerd per telling. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuur geeft dus enkel de absolute aantallen weer. 
 
 ```{r broedcodes-doelsoorten, message=FALSE}
 # Save totals to put labels on plot
 totals <- doel_df %>%
+    st_drop_geometry() %>%
     group_by(naam, regio) %>%
     summarise(total = n())
 
 # Summarize data and make plot
 doel_df %>% 
-  group_by(naam, regio, wrntype) %>%
+  st_drop_geometry() %>%
+  mutate(wrntype_omschrijving2 = paste(wrntype, wrntype_omschrijving, 
+                                       sep = ": ")) %>%
+  group_by(naam, regio, wrntype_omschrijving2) %>%
   summarise(N = n()) %>%
-  ggplot(aes(x = regio, y = N, fill = wrntype)) +
-  geom_bar(stat = "identity", colour = "black") +
-  labs(y = "Aantal tellingen", x = "") +
-  guides(fill = guide_legend(title = "broedcode")) +
-  facet_wrap(~naam, scales = "free_y") +
-  geom_text(data = totals, aes(regio, total + c(rep(30, 6), rep(125, 2)),
-            label = total, fill = NULL))
+  ggplot(aes(x = regio, y = N, fill = wrntype_omschrijving2)) +
+    geom_bar(stat = "identity", colour = "black") +
+    labs(y = "Aantal tellingen", x = "") +
+    guides(fill = guide_legend(title = "broedcode")) +
+    facet_wrap(~naam, scales = "free_y") +
+    geom_text(data = totals, aes(regio, total + c(rep(30, 6), rep(125, 2)),
+              label = total, fill = NULL))
 ```
 
-De volgende figuren tonen hoeveel keer een soort is gezien in een bepaalde telperiode en per dag voor de verschillende regio's. De curve is een loess smoother. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuren geven enkel de absolute aantallen weer.
+De volgende figuur toont de relatieve frequentie van de doelsoorten in een bepaalde telperiode voor de verschillende regio's. 
 
 ```{r telperiode-doelsoorten, message=FALSE}
-doel_df %>%
-  group_by(naam, regio, periode_in_jaar) %>% 
-  summarise(N = n()) %>%
+relfreqs_doel %>%
+  filter(naam %in% doelsoorten) %>%
   ggplot() +
-  labs(y = "Aantal tellingen", x = "Telperiode") +
-  geom_point(aes(x = periode_in_jaar, y = N, colour = regio)) +
-  facet_wrap(~naam, scales = "free_y")
+    labs(y = "Relatieve frequentie", x = "Telperiode") +
+    geom_point(aes(x = periode_in_jaar, y = relfreq, colour = regio)) +
+    facet_wrap(~naam) +
+    scale_y_continuous(limits = c(0, 1))
 ```
 
+Relatief aantal tellingen waarbij het aantal tellingen in de verschillende regio's is gedeeld door het aantal plots in die regio (zie hoger). De curve is een loess smoother.
+
 ```{r datum-doelsoorten, message=FALSE}
-# Summarise data to plot
+# Summarize data to plot
+plots_per_regio_merge <- mas2022 %>%
+  st_drop_geometry() %>%
+  select(regio, plots_per_regio) %>%
+  distinct()
 summary_doel <- doel_df %>%
   st_drop_geometry() %>%
   group_by(naam, regio, datum) %>% 
-  summarise(N = n())
+  summarise(N = n())  %>% 
+  left_join(plots_per_regio_merge, by = "regio") %>%
+  ungroup() %>%
+  mutate(relatief_aantal = N / plots_per_regio)
 
-# Summarise data to make loess smoother
+# Summarize data to make loess smoother
 subset_loess <- summary_doel %>%
   filter(!(naam == "Geelgors" & regio == "De Moeren"))
 
 # Create plot
 ggplot() +
-  labs(y = "Aantal tellingen", x = "") +
-  geom_point(data = summary_doel, aes(x = datum, y = N, colour = regio)) +
-  geom_smooth(data = subset_loess, aes(x = datum, y = N, colour = regio),
+  labs(y = "Aantal tellingen / aantal plots", x = "") +
+  geom_point(data = summary_doel, aes(x = datum, y = relatief_aantal, colour = regio)) +
+  geom_smooth(data = subset_loess, aes(x = datum, y = relatief_aantal, colour = regio),
               method = "loess", formula = "y ~ x", se = FALSE) +
   facet_wrap(~naam, scales = "free_y")
 ```
-
 
 Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De relatieve frequentie is dus identiek als in **2.2**.
 
@@ -302,7 +334,7 @@ relfreqs %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Leemstreek`) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   kable(digits = 2)
 ```
@@ -310,23 +342,28 @@ relfreqs %>%
 De volgende figuren tonen hoeveel keer de soort is gezien in een bepaalde telperiode en per dag voor de verschillende regio's. De curve is een loess smoother. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuren geven enkel de absolute aantallen weer.
 
 ```{r telperiode-torenvalk, message=FALSE}
-mas2022 %>% filter(naam == "Torenvalk") %>%
-  group_by(regio, periode_in_jaar) %>% 
-  summarise(N = n()) %>%
+relfreqs %>%
+  filter(naam == "Torenvalk") %>%
   ggplot() +
-  labs(title = "Torenvalk", y = "Aantal tellingen", x = "Telperiode") +
-  geom_point(aes(x = periode_in_jaar, y = N, colour = regio))
+    labs(y = "Relatieve frequentie", x = "Telperiode") +
+    geom_point(aes(x = periode_in_jaar, y = relfreq, colour = regio)) +
+    scale_y_continuous(limits = c(0, 1))
 ```
 
 ```{r datum-torenvalk, message=FALSE}
-mas2022 %>% filter(naam == "Torenvalk") %>%
+mas2022 %>%
+  st_drop_geometry() %>% 
+  filter(naam == "Torenvalk") %>%
   group_by(naam, regio, datum) %>% 
   summarise(N = n()) %>% 
+  left_join(plots_per_regio_merge, by = "regio") %>%
+  ungroup() %>%
+  mutate(relatief_aantal = N / plots_per_regio) %>%
   ggplot() +
-  labs(title = "Torenvalk", y = "Aantal tellingen", x = "") +
-  geom_point(aes(x = datum, y = N, colour = regio)) +
-  geom_smooth(aes(x = datum, y = N, colour = regio),
-              method = "loess", formula = "y ~ x", se = FALSE)
+    labs(title = "Torenvalk", y = "Aantal tellingen / aantal plots", x = "") +
+    geom_point(aes(x = datum, y = relatief_aantal, colour = regio)) +
+    geom_smooth(aes(x = datum, y = relatief_aantal, colour = regio),
+                method = "loess", formula = "y ~ x", se = FALSE)
 ```
 
 
@@ -336,9 +373,9 @@ mas2022 %>% filter(naam == "Torenvalk") %>%
 zoogdieren <- mas_clean %>% 
   filter(soortgrp == 1,                # zoogdieren
          jaar == 2022,                 # 2022
-         !is.na(periode_in_jaar),      # binnen telronde
-         !grepl("ovl", plotnaam)) %>%  # Moeren en Leemstreek
-  mutate(regio = ifelse(x_coord < 0, "De Moeren", "Leemstreek"))
+         !is.na(periode_in_jaar)       # binnen telronde
+         ) %>%  # Moeren en Leemstreek
+  inner_join(design2022, by = "plotnaam")
 ```
 
 Selectie van zoogdieren waargenomen in 2022. Waarnemingen buiten officiële telrondes en buiten De Moeren en de Leemstreek zijn eruit gehaald.
@@ -393,11 +430,11 @@ relfreqs_z %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Leemstreek`) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   # Same order as in the previous plot
   rowwise() %>%
-  mutate(max = max(`De Moeren`, `Leemstreek`)) %>%
+  mutate(max = max(`De Moeren`, `Oostelijke leemstreek`)) %>%
   arrange(desc(max)) %>% select(-max) %>%
   kable(digits = 3)
 ```
@@ -408,9 +445,9 @@ relfreqs_z %>%
 ```{r selectie-vogels-langetermijn}
 mas_vogels <- mas_clean %>% 
   filter(soortgrp == 2,                # vogels
-         !is.na(periode_in_jaar),      # binnen telronde
-         !grepl("ovl", plotnaam)) %>%  # Moeren en Leemstreek
-  mutate(regio = ifelse(x_coord < 0, "De Moeren", "Leemstreek"))
+         !is.na(periode_in_jaar)       # binnen telronde
+         ) %>%  # Moeren en Leemstreek
+  inner_join(design2022, by = "plotnaam")
 ```
 
 Selectie van vogelsoorten. Waarnemingen buiten officiële telrondes en buiten De Moeren en de Leemstreek zijn eruit gehaald.
@@ -425,6 +462,24 @@ mas_vogels %>% group_by(regio, jaar) %>%
             aantal_plots = n_distinct(plotid), 
             aantal_soorten = n_distinct(naam)) %>%
   kable()
+```
+
+```{r aantal-plots}
+for (reg in unique(mas_vogels$regio)) {
+  print(mas_vogels %>% 
+    filter(regio == reg) %>%
+    group_by(jaar) %>%
+    st_drop_geometry() %>%
+    summarise(aantal_tellingen = n_distinct(oid), 
+              aantal_plots = n_distinct(plotid), 
+              aantal_soorten = n_distinct(naam)) %>%
+    pivot_longer(cols = c(aantal_tellingen, aantal_plots),
+                 names_to = "legende",
+                 values_to = "Aantal") %>%
+    ggplot() +
+      geom_point(aes(x = jaar, y = Aantal, colour = legende)) +
+      labs(title = as.character(reg)))
+}
 ```
 
 
@@ -491,7 +546,7 @@ relfreqs_vogels %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Leemstreek`) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   slice_max(verschilfreq, n = 20) %>%
   kable(digits = 2)
@@ -507,7 +562,7 @@ relfreqs_vogels %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Leemstreek`) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   slice_max(-verschilfreq, n = 20) %>%
   kable(digits = 2)
@@ -548,7 +603,7 @@ relfreqs_doelvogels %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Leemstreek`) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   arrange(naam) %>%
   kable(digits = 2)
@@ -571,7 +626,7 @@ for (soort in doelsoorten) {
 ```
 
 ```{r datum-doelsoorten-langetermijn, message=FALSE}
-# Summarise data to plot
+# Summarize data to plot
 summary_doelvogels <- doel_vogels %>%
   st_drop_geometry() %>%
   group_by(naam, regio, jaar, datum) %>% 
@@ -616,7 +671,7 @@ relfreqs_vogels %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Leemstreek`) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   arrange(naam) %>%
   kable(digits = 2)
