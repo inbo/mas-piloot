@@ -600,7 +600,7 @@ diversiteit_vogels %>%
     facet_wrap(~jaar)
 ```
 
-Overzichtelijkere figuren om te vergelijken tussen gebieden:
+Overzichtelijkere figuren om te vergelijken binnen gebieden:
 
 ```{r soortenaantal-boxplot-langetermijn2}
 cols <- c("#F8766D", "#00BA38", "#619CFF")
@@ -768,7 +768,7 @@ for (soort in doelsoorten) {
 }
 ```
 
-```{r telperiode-doelsoorten-langetermijn, message=FALSE}
+```{r telperiode-doelsoorten-langetermijn-strat, message=FALSE}
 for (soort in doelsoorten) {
   for (reg in unique(diversiteit_vogels_strat$regio)) {
     print(
@@ -813,4 +813,7 @@ relfreqs_vogels %>%
     scale_y_continuous(limits = c(0, 1)) +
     facet_wrap(~jaar, scales = "free_y")
 ```
+
+!!nog toevoegen per stratum!!
+
 
