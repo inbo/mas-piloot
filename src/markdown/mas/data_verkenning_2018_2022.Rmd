@@ -417,14 +417,16 @@ relfreqs_doel %>%
 
 Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De relatieve frequentie is dus identiek als in **2.2**.
 
-```{r relfreq-torenvalk, warning=FALSE}
+```{r relfreq-torenvalk, message=FALSE}
 relfreq_torenvalk <- mas2022 %>%
   st_drop_geometry() %>%
   filter(naam == "Torenvalk") %>%
   group_by(regio, plotnaam, stratum, openheid, sbp, periode_in_jaar, naam) %>%
   summarize(totaal_aantal = sum(aantal),
             .groups = "drop") %>%
-  full_join(bezoekenlijst_2022) %>%
+  full_join(bezoekenlijst_2022, 
+            by = c("regio", "plotnaam", "stratum", "openheid", "sbp", 
+                   "periode_in_jaar")) %>%
   mutate(totaal_aantal = ifelse(is.na(totaal_aantal), 0, totaal_aantal)) %>%
   group_by(periode_in_jaar, regio, stratum, openheid, sbp) %>%
   summarise(relfreq = sum(totaal_aantal > 0) / n(),
@@ -555,42 +557,7 @@ mas_vogels %>% group_by(regio, jaar) %>%
   kable()
 ```
 
-```{r aantal-plots}
-mas_vogels %>% 
-  filter(regio != "Bilzen") %>%
-  group_by(regio, jaar) %>%
-  st_drop_geometry() %>%
-  summarise(aantal_tellingen = n_distinct(oid), 
-            aantal_plots = n_distinct(plotid), 
-            aantal_soorten = n_distinct(naam)) %>%
-  pivot_longer(cols = c(aantal_tellingen, aantal_plots),
-               names_to = "legende",
-               values_to = "Aantal") %>%
-  ggplot() +
-    geom_point(aes(x = jaar, y = Aantal, colour = legende)) +
-    labs(title = as.character(reg))
-
-
-```
-
-```{r aantal-plots, warning=FALSE}
-mas_vogels %>% 
-  filter(regio != "Bilzen") %>%
-  group_by(regio, jaar, openheid, sbp) %>%
-  st_drop_geometry() %>%
-  summarise(tellingen = n_distinct(oid), 
-            plots = n_distinct(plotid)) %>%
-  pivot_longer(cols = c(tellingen, plots),
-               names_to = "legende",
-               values_to = "Aantal") %>%
-  ggplot() +
-    geom_point(aes(x = jaar, y = Aantal, colour = openheid, shape = sbp)) +
-    labs(x = "") +
-    facet_grid(legende~regio, scales = "free_y") 
-
-```
-
-```{r aantal-plots, warning=FALSE}
+```{r aantal-plots, message=FALSE}
 mas_vogels %>% 
   filter(regio != "Bilzen") %>%
   group_by(regio, jaar, openheid, sbp) %>%
@@ -606,7 +573,7 @@ mas_vogels %>%
     geom_point(aes(x = jaar, y = aantal, colour = openheid, shape = sbp)) +
     geom_point(aes(x = jaar, y = tot, alpha = ""),
              shape = 8, colour = "darkgreen") +
-    labs(x = "", y = "Aantal", alpha = "totaal aantal") +
+    labs(x = "", y = "Aantal", alpha = "totaal aantal\nper jaar in regio") +
     scale_alpha_manual(values = 1) +
     facet_grid(legende~regio, scales = "free_y") 
 ```
@@ -628,9 +595,44 @@ diversiteit_vogels <- mas_vogels %>%
 ```{r soortenaantal-boxplot-langetermijn}
 diversiteit_vogels %>%
   ggplot() +
-    labs(y = "Aantal soorten", x = "Telperiode") +
     geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = regio)) +
+    labs(y = "Aantal soorten", x = "Telperiode") +
     facet_wrap(~jaar)
+```
+
+```{r soortenaantal-boxplot-langetermijn2}
+# Different way of showing plot
+diversiteit_vogels %>%
+  ggplot() +
+    geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = regio)) +
+    facet_wrap(regio~jaar) +
+    labs(y = "Aantal soorten", x = "Telperiode") +
+    theme(legend.position = "none")
+```
+
+Gestratificeerd:
+
+```{r soortendiversiteit-langetermijn-strat}
+diversiteit_vogels_strat <- mas_vogels %>%
+  st_drop_geometry() %>%
+  group_by(regio, plotnaam, openheid, sbp, stratum, jaar, periode_in_jaar, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop_last") %>%
+  summarize(aantal_soorten = n(),
+            .groups = "drop")
+```
+
+```{r soortenaantal-boxplot-langetermijn-strat}
+for (reg in unique(diversiteit_vogels_strat$regio)) {
+  print(
+  diversiteit_vogels_strat %>%
+  filter(regio == reg) %>%
+  ggplot() +
+    labs(y = "Aantal soorten", x = "Telperiode") +
+    geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = stratum)) +
+    facet_wrap(regio~jaar)
+  )
+}
 ```
 
 Om welke soorten gaat het?
