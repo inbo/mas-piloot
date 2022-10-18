@@ -607,12 +607,12 @@ cols <- c("#F8766D", "#00BA38", "#619CFF")
 for (i in 1:length(unique(diversiteit_vogels$regio))) {
   reg <- unique(diversiteit_vogels$regio)[i]
   print(
-  diversiteit_vogels %>%
-  filter(regio == reg) %>%
-  ggplot() +
-    geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten), fill = cols[i]) +
-    facet_wrap(regio~jaar) +
-    labs(y = "Aantal soorten", x = "Telperiode")
+    diversiteit_vogels %>%
+    filter(regio == reg) %>%
+    ggplot() +
+      geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten), fill = cols[i]) +
+      facet_wrap(regio~jaar) +
+      labs(y = "Aantal soorten", x = "Telperiode")
   )
 }
 ```
@@ -632,12 +632,12 @@ diversiteit_vogels_strat <- mas_vogels %>%
 ```{r soortenaantal-boxplot-langetermijn-strat}
 for (reg in unique(diversiteit_vogels_strat$regio)) {
   print(
-  diversiteit_vogels_strat %>%
-  filter(regio == reg) %>%
-  ggplot() +
-    labs(y = "Aantal soorten", x = "Telperiode") +
-    geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = stratum)) +
-    facet_wrap(regio~jaar)
+    diversiteit_vogels_strat %>%
+    filter(regio == reg) %>%
+    ggplot() +
+      labs(y = "Aantal soorten", x = "Telperiode") +
+      geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = stratum)) +
+      facet_wrap(regio~jaar)
   )
 }
 ```
@@ -715,18 +715,19 @@ doel_vogels <- mas_vogels %>% filter(naam %in% doelsoorten, wrntype > 0L)
 ```
 
 Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **4.2**. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.
+!!nog fout in code bij toevoegen stratum (zie ook eerder)!!
 
 ```{r diversiteit-doelsoorten-langetermijn}
 relfreqs_doelvogels <- mas_vogels %>% 
   filter(wrntype > 0L) %>%
   st_drop_geometry() %>%
-  group_by(regio, plotnaam, jaar, periode_in_jaar, naam) %>%
+  group_by(regio, plotnaam, jaar, stratum, periode_in_jaar, naam) %>%
   summarize(totaal_aantal = sum(aantal),
             .groups = "drop") %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
-  group_by(jaar, periode_in_jaar, regio) %>%
+  group_by(periode_in_jaar, jaar, regio, stratum) %>%
   summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
                    .groups = "drop") %>%
@@ -742,28 +743,48 @@ relfreqs_doelvogels %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   arrange(naam) %>%
   kable(digits = 2)
 ```
 
-De volgende figuren tonen hoeveel keer een soort is gezien in een bepaalde telperiode en per dag voor de verschillende regio's.
+De volgende figuren tonen de relatieve frequentie van de doelsoorten in een bepaalde telperiode voor de verschillende regio’s over de jaren.
 
 ```{r telperiode-doelsoorten-langetermijn, message=FALSE}
-tel_df <- doel_vogels %>%
-  group_by(naam, regio, jaar, periode_in_jaar) %>% 
-  summarise(N = n())
-
 for (soort in doelsoorten) {
-  print(tel_df %>% filter(naam == soort) %>%
-  ggplot() +
-    labs(title = toString(soort), y = "Aantal tellingen", x = "Telperiode") +
-    geom_point(aes(x = periode_in_jaar, y = N, colour = regio)) +
-    facet_wrap(~jaar, scales = "free_y"))
+  print(
+    relfreqs_doelvogels %>% 
+    filter(naam == soort) %>%
+    group_by(regio, jaar, periode_in_jaar) %>%
+    mutate(gemiddelde_freq = mean(relfreq)) %>%
+    ggplot() +
+      geom_point(aes(x = periode_in_jaar, y = gemiddelde_freq, colour = regio)) +
+      labs(title = toString(soort), 
+           y = "Relatieve frequentie", 
+           x = "Telperiode") +
+      scale_y_continuous(limits = c(0, 1)) +
+      facet_wrap(~jaar, scales = "free_y")
+    )
 }
 ```
 
+```{r telperiode-doelsoorten-langetermijn, message=FALSE}
+for (soort in doelsoorten) {
+  for (reg in unique(diversiteit_vogels_strat$regio)) {
+    print(
+      relfreqs_doelvogels %>% 
+      filter(naam == soort, regio == reg) %>%
+      ggplot() +
+        geom_point(aes(x = periode_in_jaar, y = relfreq, colour = stratum)) +
+        labs(title = toString(soort), 
+             y = "Relatieve frequentie", 
+             x = "Telperiode") +
+        scale_y_continuous(limits = c(0, 1)) +
+        facet_wrap(regio~jaar, scales = "free_y")
+      )
+  }
+}
+```
 
 Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De relatieve frequentie is dus identiek als in **2.2**.
 
@@ -776,21 +797,20 @@ relfreqs_vogels %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   arrange(naam) %>%
   kable(digits = 2)
 ```
 
-De volgende figuren tonen hoeveel keer de soort is gezien in een bepaalde telperiode en per dag voor de verschillende regio's.
+De volgende figuur toont de relatieve frequentie van de soort in een bepaalde telperiode voor de verschillende regio's over de jaren.
 
 ```{r telperiode-torenvalk-langetermijn, message=FALSE}
-mas_vogels %>% filter(naam == "Torenvalk") %>%
-  group_by(regio, jaar, periode_in_jaar) %>% 
-  summarise(N = n()) %>%
+relfreqs_vogels %>%
+  filter(naam == "Torenvalk") %>%
   ggplot() +
-    labs(title = "Torenvalk", y = "Aantal tellingen", x = "Telperiode") +
-    geom_point(aes(x = periode_in_jaar, y = N, colour = regio)) +
+    geom_point(aes(x = periode_in_jaar, y = relfreq, colour = regio)) +
+    labs(title = "Torenvalk", y = "Relatieve frequentie", x = "Telperiode") +
+    scale_y_continuous(limits = c(0, 1)) +
     facet_wrap(~jaar, scales = "free_y")
 ```
 
