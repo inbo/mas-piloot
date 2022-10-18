@@ -541,7 +541,7 @@ mas_vogels <- mas_clean %>%
   inner_join(design_2018_2022, by = "plotnaam")
 ```
 
-Selectie van vogelsoorten. Waarnemingen buiten officiële telrondes en buiten De Moeren en de Leemstreek zijn eruit gehaald.
+Selectie van vogelsoorten. Waarnemingen buiten officiële telrondes en buiten Bilzen, De Moeren en de Leemstreek zijn eruit gehaald.
 
 
 ## Enkele cijfers
@@ -556,23 +556,60 @@ mas_vogels %>% group_by(regio, jaar) %>%
 ```
 
 ```{r aantal-plots}
-for (reg in unique(mas_vogels$regio)) {
-  print(mas_vogels %>% 
-    filter(regio == reg) %>%
-    group_by(jaar) %>%
-    st_drop_geometry() %>%
-    summarise(aantal_tellingen = n_distinct(oid), 
-              aantal_plots = n_distinct(plotid), 
-              aantal_soorten = n_distinct(naam)) %>%
-    pivot_longer(cols = c(aantal_tellingen, aantal_plots),
-                 names_to = "legende",
-                 values_to = "Aantal") %>%
-    ggplot() +
-      geom_point(aes(x = jaar, y = Aantal, colour = legende)) +
-      labs(title = as.character(reg)))
-}
+mas_vogels %>% 
+  filter(regio != "Bilzen") %>%
+  group_by(regio, jaar) %>%
+  st_drop_geometry() %>%
+  summarise(aantal_tellingen = n_distinct(oid), 
+            aantal_plots = n_distinct(plotid), 
+            aantal_soorten = n_distinct(naam)) %>%
+  pivot_longer(cols = c(aantal_tellingen, aantal_plots),
+               names_to = "legende",
+               values_to = "Aantal") %>%
+  ggplot() +
+    geom_point(aes(x = jaar, y = Aantal, colour = legende)) +
+    labs(title = as.character(reg))
+
+
 ```
 
+```{r aantal-plots, warning=FALSE}
+mas_vogels %>% 
+  filter(regio != "Bilzen") %>%
+  group_by(regio, jaar, openheid, sbp) %>%
+  st_drop_geometry() %>%
+  summarise(tellingen = n_distinct(oid), 
+            plots = n_distinct(plotid)) %>%
+  pivot_longer(cols = c(tellingen, plots),
+               names_to = "legende",
+               values_to = "Aantal") %>%
+  ggplot() +
+    geom_point(aes(x = jaar, y = Aantal, colour = openheid, shape = sbp)) +
+    labs(x = "") +
+    facet_grid(legende~regio, scales = "free_y") 
+
+```
+
+```{r aantal-plots, warning=FALSE}
+mas_vogels %>% 
+  filter(regio != "Bilzen") %>%
+  group_by(regio, jaar, openheid, sbp) %>%
+  st_drop_geometry() %>%
+  summarise(tellingen = n_distinct(oid), 
+            plots = n_distinct(plotid)) %>%
+  pivot_longer(cols = c(tellingen, plots),
+               names_to = "legende",
+               values_to = "aantal") %>%
+  group_by(regio, jaar, legende) %>%
+  mutate(tot = sum(aantal)) %>%
+  ggplot() +
+    geom_point(aes(x = jaar, y = aantal, colour = openheid, shape = sbp)) +
+    geom_point(aes(x = jaar, y = tot, alpha = ""),
+             shape = 8, colour = "darkgreen") +
+    labs(x = "", y = "Aantal", alpha = "totaal aantal") +
+    scale_alpha_manual(values = 1) +
+    facet_grid(legende~regio, scales = "free_y") 
+```
 
 ## Soortendiversiteit
 
