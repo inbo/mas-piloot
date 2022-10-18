@@ -715,40 +715,6 @@ for (soort in doelsoorten) {
 }
 ```
 
-```{r datum-doelsoorten-langetermijn, message=FALSE}
-# Summarize data to plot
-summary_doelvogels <- doel_vogels %>%
-  st_drop_geometry() %>%
-  group_by(naam, regio, jaar, datum) %>% 
-  summarise(N = n())
-
-# Create plot
-for (soort in doelsoorten) {
-  
-  # Not enough data to make loess smoother for Geelgors
-  if (soort == "Geelgors") {
-    subset_loess2 <- summary_doelvogels %>%
-                     filter(naam == soort,
-                            regio != "De Moeren")
-    print(summary_doelvogels %>% filter(naam == soort) %>%
-    ggplot() +
-    geom_point(aes(x = datum, y = N, colour = regio)) +
-    geom_smooth(data = subset_loess2, aes(x = datum, y = N, colour = regio),
-                method = "loess", formula = "y ~ x", se = FALSE) +
-    labs(title = toString(soort), y = "Aantal tellingen", x = "") +
-    facet_wrap(~jaar, scales = "free"))
-    
-  } else {
-    print(summary_doelvogels %>% filter(naam == soort) %>%
-    ggplot() +
-    geom_point(aes(x = datum, y = N, colour = regio)) +
-    geom_smooth(aes(x = datum, y = N, colour = regio),
-                method = "loess", formula = "y ~ x", se = FALSE) +
-    labs(title = toString(soort), y = "Aantal tellingen", x = "") +
-    facet_wrap(~jaar, scales = "free"))
-  }
-}
-```
 
 Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De relatieve frequentie is dus identiek als in **2.2**.
 
@@ -779,20 +745,3 @@ mas_vogels %>% filter(naam == "Torenvalk") %>%
   facet_wrap(~jaar, scales = "free_y")
 ```
 
-```{r datum-torenvalk-langetermijn, message=FALSE}
-summary_torenvalk <- mas_vogels %>% 
-  filter(naam == "Torenvalk") %>%
-  group_by(regio, jaar, datum) %>% 
-  summarise(N = n())
-
-# Not enough data to make loess smoother for each year
-subset_loess3 <- summary_torenvalk %>% 
-  filter(!(jaar %in% c(2018, 2019, 2020) & regio == "De Moeren"))
-
-ggplot() +
-  labs(title = "Torenvalk", y = "Aantal tellingen", x = "") +
-  geom_point(data = summary_torenvalk, aes(x = datum, y = N, colour = regio)) +
-  geom_smooth(data = subset_loess3, aes(x = datum, y = N, colour = regio),
-              method = "loess", formula = "y ~ x", se = FALSE) +
-  facet_wrap(~jaar, scales = "free")
-```
