@@ -699,7 +699,7 @@ relfreqs_doelvogels %>%
   kable(digits = 2)
 ```
 
-De volgende figuren tonen hoeveel keer een soort is gezien in een bepaalde telperiode en per dag voor de verschillende regio's. De curve is een loess smoother. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuren geven enkel de absolute aantallen weer.
+De volgende figuren tonen hoeveel keer een soort is gezien in een bepaalde telperiode en per dag voor de verschillende regio's.
 
 ```{r telperiode-doelsoorten-langetermijn, message=FALSE}
 tel_df <- doel_vogels %>%
@@ -733,7 +733,7 @@ relfreqs_vogels %>%
   kable(digits = 2)
 ```
 
-De volgende figuren tonen hoeveel keer de soort is gezien in een bepaalde telperiode en per dag voor de verschillende regio's. De curve is een loess smoother. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuren geven enkel de absolute aantallen weer.
+De volgende figuren tonen hoeveel keer de soort is gezien in een bepaalde telperiode en per dag voor de verschillende regio's.
 
 ```{r telperiode-torenvalk-langetermijn, message=FALSE}
 mas_vogels %>% filter(naam == "Torenvalk") %>%
