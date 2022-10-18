@@ -127,7 +127,8 @@ mas2022 %>% group_by(regio, openheid, sbp) %>%
 
 mas2022 <- mas2022 %>% 
   group_by(regio) %>%
-  mutate(plots_per_regio = n_distinct(plotid))
+  mutate(plots_per_regio = n_distinct(plotid),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum))
 ```
 
 
@@ -147,7 +148,6 @@ diversiteit <- mas2022 %>%
 
 ```{r soortenaantal-boxplot}
 diversiteit %>%
-  mutate(stratum = gsub("L\\s{1}", "L\\\n", stratum)) %>%
   ggplot() +
   geom_boxplot(aes(x = stratum, y = aantal_soorten,
                    fill = periode_in_jaar)) +
@@ -229,16 +229,15 @@ doel_df <- mas2022 %>% filter(naam %in% doelsoorten, wrntype > 0L)
 Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **2.2**. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.
 
 ```{r diversiteit-doelsoorten}
-relfreqs_doel <- mas2022 %>% 
-  filter(wrntype > 0L) %>%
+relfreqs_doel <- doel_df %>% 
   st_drop_geometry() %>%
-  group_by(regio, plotnaam, periode_in_jaar, naam) %>%
+  group_by(regio, plotnaam, stratum, openheid, sbp, periode_in_jaar, naam) %>%
   summarize(totaal_aantal = sum(aantal),
             .groups = "drop") %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
-  group_by(periode_in_jaar, regio) %>%
+  group_by(periode_in_jaar, regio, stratum, openheid, sbp) %>%
   summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
                    .groups = "drop") %>%
@@ -247,16 +246,15 @@ relfreqs_doel <- mas2022 %>%
                values_to = "relfreq")
 
 relfreqs_doel %>%
-  filter(naam %in% doelsoorten) %>%
-  group_by(regio, naam) %>%
+  group_by(regio, stratum, openheid, sbp, naam) %>%
   mutate(gemiddelde_freq = mean(relfreq)) %>%
-  distinct(regio, naam, gemiddelde_freq) %>%
+  distinct(regio, stratum, openheid, sbp, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
-              values_from = gemiddelde_freq,
-              values_fill = 0) %>%
+              values_from = gemiddelde_freq) %>%
   mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
-  ungroup() %>%
+  group_by(stratum, openheid, sbp) %>%
   arrange(naam) %>%
+  select(-stratum) %>%
   kable(digits = 2)
 ```
 
@@ -266,7 +264,7 @@ De volgende figuur geeft een overzicht van de genoteerde broedcodes per regio vo
 # Save totals to put labels on plot
 totals <- doel_df %>%
     st_drop_geometry() %>%
-    group_by(naam, regio) %>%
+    group_by(naam, stratum, regio) %>%
     summarise(total = n())
 
 # Summarize data and make plot
@@ -274,15 +272,15 @@ doel_df %>%
   st_drop_geometry() %>%
   mutate(wrntype_omschrijving2 = paste(wrntype, wrntype_omschrijving, 
                                        sep = ": ")) %>%
-  group_by(naam, regio, wrntype_omschrijving2) %>%
+  group_by(naam, stratum, regio, wrntype_omschrijving2) %>%
   summarise(N = n()) %>%
-  ggplot(aes(x = regio, y = N, fill = wrntype_omschrijving2)) +
+  ggplot(aes(x = stratum, y = N, fill = wrntype_omschrijving2)) +
     geom_bar(stat = "identity", colour = "black") +
+    geom_text(data = totals, aes(x = stratum, y = total + c(rep(30, 6), rep(125, 2)),
+              label = total, fill = NULL)) +
     labs(y = "Aantal tellingen", x = "") +
     guides(fill = guide_legend(title = "broedcode")) +
-    facet_wrap(~naam, scales = "free_y") +
-    geom_text(data = totals, aes(regio, total + c(rep(30, 6), rep(125, 2)),
-              label = total, fill = NULL))
+    facet_grid(naam~regio, scales = "free") 
 ```
 
 De volgende figuur toont de relatieve frequentie van de doelsoorten in een bepaalde telperiode voor de verschillende regio's. 
