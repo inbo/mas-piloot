@@ -138,7 +138,7 @@ Is de soortendiversiteit in De Moeren hoger dan in de leemstreek?
 ```{r soortendiversiteit}
 diversiteit <- mas2022 %>%
   st_drop_geometry() %>%
-  group_by(regio, plotnaam, periode_in_jaar, naam) %>%
+  group_by(regio, plotnaam, openheid, sbp, stratum, periode_in_jaar, naam) %>%
   summarize(totaal_aantal = sum(aantal),
             .groups = "drop_last") %>%
   summarize(aantal_soorten = n(),
@@ -147,9 +147,12 @@ diversiteit <- mas2022 %>%
 
 ```{r soortenaantal-boxplot}
 diversiteit %>%
+  mutate(stratum = gsub("L\\s{1}", "L\\\n", stratum)) %>%
   ggplot() +
-  labs(y = "Aantal soorten", x = "Telperiode") +
-  geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = regio))
+  geom_boxplot(aes(x = stratum, y = aantal_soorten,
+                   fill = periode_in_jaar)) +
+  facet_wrap(~regio, scales = "free_x") +
+  labs(y = "Aantal soorten", x = "Stratum", fill = "Telperipode")
 ```
 
 Om welke soorten gaat het?
