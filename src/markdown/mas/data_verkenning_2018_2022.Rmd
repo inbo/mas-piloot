@@ -67,7 +67,8 @@ design2022 <- read_csv(here(
          regio,
          stratum) %>%
   mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
-         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"))
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum))
 ```
 
 ```{r overzicht-data, eval=FALSE}
@@ -127,8 +128,7 @@ mas2022 %>% group_by(regio, openheid, sbp) %>%
 
 mas2022 <- mas2022 %>% 
   group_by(regio) %>%
-  mutate(plots_per_regio = n_distinct(plotid),
-         stratum = gsub("L\\s{1}", "L\\\n", stratum))
+  mutate(plots_per_regio = n_distinct(plotid))
 ```
 
 
@@ -295,76 +295,47 @@ relfreqs_doel %>%
     scale_y_continuous(limits = c(0, 1))
 ```
 
-Relatief aantal tellingen waarbij het aantal tellingen in de verschillende regio's is gedeeld door het aantal plots in die regio (zie hoger). De curve is een loess smoother.
-
-```{r datum-doelsoorten, message=FALSE}
-# Summarize data to plot
-plots_per_regio_merge <- mas2022 %>%
-  st_drop_geometry() %>%
-  select(regio, plots_per_regio) %>%
-  distinct()
-summary_doel <- doel_df %>%
-  st_drop_geometry() %>%
-  group_by(naam, regio, datum) %>% 
-  summarise(N = n())  %>% 
-  left_join(plots_per_regio_merge, by = "regio") %>%
-  ungroup() %>%
-  mutate(relatief_aantal = N / plots_per_regio)
-
-# Summarize data to make loess smoother
-subset_loess <- summary_doel %>%
-  filter(!(naam == "Geelgors" & regio == "De Moeren"))
-
-# Create plot
-ggplot() +
-  labs(y = "Aantal tellingen / aantal plots", x = "") +
-  geom_point(data = summary_doel, aes(x = datum, y = relatief_aantal, colour = regio)) +
-  geom_smooth(data = subset_loess, aes(x = datum, y = relatief_aantal, colour = regio),
-              method = "loess", formula = "y ~ x", se = FALSE) +
-  facet_wrap(~naam, scales = "free_y")
-```
 
 Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De relatieve frequentie is dus identiek als in **2.2**.
 
-```{r freq-torenvalk}
-relfreqs %>%
+```{r relfreq-torenvalk}
+relfreq_torenvalk <- mas2022 %>%
+  st_drop_geometry() %>%
   filter(naam == "Torenvalk") %>%
-  group_by(regio, naam) %>%
+  group_by(regio, plotnaam, stratum, openheid, sbp, periode_in_jaar, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  full_join(bezoekenlijst_2022) %>%
+  mutate(totaal_aantal = ifelse(is.na(totaal_aantal), 0, totaal_aantal)) %>%
+  group_by(periode_in_jaar, regio, stratum, openheid, sbp) %>%
+  summarise(relfreq = sum(totaal_aantal > 0) / n(),
+                   .groups = "drop")
+
+```
+
+
+```{r freq-torenvalk}
+relfreq_torenvalk %>%
+  group_by(regio, openheid, sbp) %>%
   mutate(gemiddelde_freq = mean(relfreq)) %>%
-  distinct(regio, naam, gemiddelde_freq) %>%
+  distinct(regio, openheid, sbp, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
-              values_from = gemiddelde_freq,
-              values_fill = 0) %>%
+              values_from = gemiddelde_freq) %>%
   mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   kable(digits = 2)
 ```
 
-De volgende figuren tonen hoeveel keer de soort is gezien in een bepaalde telperiode en per dag voor de verschillende regio's. De curve is een loess smoother. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuren geven enkel de absolute aantallen weer.
+De volgende figuur toont hoeveel keer de soort is gezien in een bepaalde telperiode voor de verschillende regio's en strata.
 
 ```{r telperiode-torenvalk, message=FALSE}
-relfreqs %>%
-  filter(naam == "Torenvalk") %>%
+relfreq_torenvalk %>%
   ggplot() +
     labs(y = "Relatieve frequentie", x = "Telperiode") +
-    geom_point(aes(x = periode_in_jaar, y = relfreq, colour = regio)) +
+    geom_point(aes(x = periode_in_jaar, y = relfreq,
+                   colour = openheid, shape = sbp)) +
+    facet_wrap(~regio) +
     scale_y_continuous(limits = c(0, 1))
-```
-
-```{r datum-torenvalk, message=FALSE}
-mas2022 %>%
-  st_drop_geometry() %>% 
-  filter(naam == "Torenvalk") %>%
-  group_by(naam, regio, datum) %>% 
-  summarise(N = n()) %>% 
-  left_join(plots_per_regio_merge, by = "regio") %>%
-  ungroup() %>%
-  mutate(relatief_aantal = N / plots_per_regio) %>%
-  ggplot() +
-    labs(title = "Torenvalk", y = "Aantal tellingen / aantal plots", x = "") +
-    geom_point(aes(x = datum, y = relatief_aantal, colour = regio)) +
-    geom_smooth(aes(x = datum, y = relatief_aantal, colour = regio),
-                method = "loess", formula = "y ~ x", se = FALSE)
 ```
 
 
