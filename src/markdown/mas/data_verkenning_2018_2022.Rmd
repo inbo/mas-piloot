@@ -600,14 +600,21 @@ diversiteit_vogels %>%
     facet_wrap(~jaar)
 ```
 
+Overzichtelijkere figuren om te vergelijken tussen gebieden:
+
 ```{r soortenaantal-boxplot-langetermijn2}
-# Different way of showing plot
-diversiteit_vogels %>%
+cols <- c("#F8766D", "#00BA38", "#619CFF")
+for (i in 1:length(unique(diversiteit_vogels$regio))) {
+  reg <- unique(diversiteit_vogels$regio)[i]
+  print(
+  diversiteit_vogels %>%
+  filter(regio == reg) %>%
   ggplot() +
-    geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = regio)) +
+    geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten), fill = cols[i]) +
     facet_wrap(regio~jaar) +
-    labs(y = "Aantal soorten", x = "Telperiode") +
-    theme(legend.position = "none")
+    labs(y = "Aantal soorten", x = "Telperiode")
+  )
+}
 ```
 
 Gestratificeerd:
@@ -666,7 +673,7 @@ relfreqs_vogels %>%
     geom_point(aes(x = relfreq, y = naam, colour = regio))
 ```
 
-Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in __De Moeren__:
+Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in __De Moeren__ dan in de Oostelijke leemstreek:
 
 ```{r meerfrequent-moeren-langetermijn}
 relfreqs_vogels %>%
@@ -679,10 +686,11 @@ relfreqs_vogels %>%
   mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   slice_max(verschilfreq, n = 20) %>%
+  select(-Bilzen) %>%
   kable(digits = 2)
 ```
 
-Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in __de Leemstreek__:
+Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in __de Oostelijke leemstreek__ dan in De Moeren:
 
 ```{r meerfrequent-leemstreek-langetermijn}
 relfreqs_vogels %>%
@@ -695,6 +703,7 @@ relfreqs_vogels %>%
   mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   slice_max(-verschilfreq, n = 20) %>%
+  select(-Bilzen) %>%
   kable(digits = 2)
 ```
 
