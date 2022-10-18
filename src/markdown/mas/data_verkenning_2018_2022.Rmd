@@ -287,11 +287,11 @@ De volgende figuur toont de relatieve frequentie van de doelsoorten in een bepaa
 
 ```{r telperiode-doelsoorten, message=FALSE}
 relfreqs_doel %>%
-  filter(naam %in% doelsoorten) %>%
   ggplot() +
     labs(y = "Relatieve frequentie", x = "Telperiode") +
-    geom_point(aes(x = periode_in_jaar, y = relfreq, colour = regio)) +
-    facet_wrap(~naam) +
+    geom_point(aes(x = periode_in_jaar, y = relfreq,
+                   colour = openheid, shape = sbp)) +
+    facet_grid(naam~regio) +
     scale_y_continuous(limits = c(0, 1))
 ```
 
