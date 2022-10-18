@@ -236,7 +236,7 @@ Selectie van vogelsoorten waargenomen in 2022. Waarnemingen buiten officiële te
 
 ## Enkele cijfers
 
-```{r tabel-vogels}
+```{r tabel-vogels, message=FALSE}
 mas2022 %>% group_by(regio, openheid, sbp) %>%
   st_drop_geometry() %>%
   summarise(aantal_tellingen = n_distinct(oid), 
@@ -267,10 +267,10 @@ diversiteit <- mas2022 %>%
 ```{r soortenaantal-boxplot}
 diversiteit %>%
   ggplot() +
-  geom_boxplot(aes(x = stratum, y = aantal_soorten,
-                   fill = periode_in_jaar)) +
-  facet_wrap(~regio, scales = "free_x") +
-  labs(y = "Aantal soorten", x = "Stratum", fill = "Telperipode")
+    geom_boxplot(aes(x = stratum, y = aantal_soorten,
+                     fill = periode_in_jaar)) +
+    facet_wrap(~regio, scales = "free_x") +
+    labs(y = "Aantal soorten", x = "Stratum", fill = "Telperipode")
 ```
 
 Om welke soorten gaat het?
@@ -300,8 +300,8 @@ relfreqs %>%
   mutate(naam = reorder(naam, relfreq, FUN = "mean")) %>%
   filter(as.numeric(naam) > length(unique(naam)) - 30) %>%
   ggplot() +
-  labs(y = "", x = "Relatieve frequentie") +
-  geom_point(aes(x = relfreq, y = naam, colour = regio))
+    labs(y = "", x = "Relatieve frequentie") +
+    geom_point(aes(x = relfreq, y = naam, colour = regio))
 ```
 
 Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in __De Moeren__:
@@ -344,7 +344,7 @@ doelsoorten <- c("Veldleeuwerik", "Gele Kwikstaart", "Geelgors", "Fazant")
 doel_df <- mas2022 %>% filter(naam %in% doelsoorten, wrntype > 0L) 
 ```
 
-Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **2.2**. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.
+Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **2.2**. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben. In De Moeren is geen half-open landschap aanwezig (NA).
 
 ```{r diversiteit-doelsoorten}
 relfreqs_doel <- doel_df %>% 
@@ -370,7 +370,7 @@ relfreqs_doel %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq) %>%
   mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
-  group_by(stratum, openheid, sbp) %>%
+  group_by(openheid, sbp) %>%
   arrange(naam) %>%
   select(-stratum) %>%
   kable(digits = 2)
@@ -378,7 +378,7 @@ relfreqs_doel %>%
 
 De volgende figuur geeft een overzicht van de genoteerde broedcodes per regio voor elke soort. Een telling is hier geïnterpreteerd als een waarneming van een bepaalde soort op een bepaalde afstand in een bepaalde plot in een bepaalde telperiode. Er is dus geen rekening gehouden met het aantal vogels genoteerd per telling. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuur geeft dus enkel de absolute aantallen weer. 
 
-```{r broedcodes-doelsoorten, message=FALSE}
+```{r broedcodes-doelsoorten, message=FALSE, fig.height=7, fig.width=9}
 # Save totals to put labels on plot
 totals <- doel_df %>%
     st_drop_geometry() %>%
@@ -394,14 +394,15 @@ doel_df %>%
   summarise(N = n()) %>%
   ggplot(aes(x = stratum, y = N, fill = wrntype_omschrijving2)) +
     geom_bar(stat = "identity", colour = "black") +
-    geom_text(data = totals, aes(x = stratum, y = total + c(rep(30, 6), rep(125, 2)),
-              label = total, fill = NULL)) +
+    geom_text(data = totals, aes(x = stratum, 
+                                 y = total + c(rep(30, 17), rep(125, 6)),
+                                 label = total, fill = NULL)) +
     labs(y = "Aantal tellingen", x = "") +
     guides(fill = guide_legend(title = "broedcode")) +
     facet_grid(naam~regio, scales = "free") 
 ```
 
-De volgende figuur toont de relatieve frequentie van de doelsoorten in een bepaalde telperiode voor de verschillende regio's. 
+De volgende figuur toont de relatieve frequentie van de doelsoorten in een bepaalde telperiode voor de verschillende regio's gestratificeerd volgens openheid van het landschap en binnen of buiten sbp's. 
 
 ```{r telperiode-doelsoorten, message=FALSE}
 relfreqs_doel %>%
@@ -416,7 +417,7 @@ relfreqs_doel %>%
 
 Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De relatieve frequentie is dus identiek als in **2.2**.
 
-```{r relfreq-torenvalk}
+```{r relfreq-torenvalk, warning=FALSE}
 relfreq_torenvalk <- mas2022 %>%
   st_drop_geometry() %>%
   filter(naam == "Torenvalk") %>%
@@ -444,7 +445,7 @@ relfreq_torenvalk %>%
   kable(digits = 2)
 ```
 
-De volgende figuur toont hoeveel keer de soort is gezien in een bepaalde telperiode voor de verschillende regio's en strata.
+De volgende figuur toont de relative frequentie van de soort in een bepaalde telperiode voor de verschillende regio's en strata.
 
 ```{r telperiode-torenvalk, message=FALSE}
 relfreq_torenvalk %>%
@@ -508,8 +509,8 @@ Overzicht van relatieve frequenties van de zoogdieren in een bepaalde regio. Elk
 relfreqs_z %>%
   mutate(naam = reorder(naam, relfreq, FUN = "mean")) %>%
   ggplot() +
-  labs(y = "", x = "Relatieve frequentie") +
-  geom_point(aes(x = relfreq, y = naam, colour = regio))
+    labs(y = "", x = "Relatieve frequentie") +
+    geom_point(aes(x = relfreq, y = naam, colour = regio))
 ```
 
 ```{r freqtable-zoogdieren}
@@ -590,9 +591,9 @@ diversiteit_vogels <- mas_vogels %>%
 ```{r soortenaantal-boxplot-langetermijn}
 diversiteit_vogels %>%
   ggplot() +
-  labs(y = "Aantal soorten", x = "Telperiode") +
-  geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = regio)) +
-  facet_wrap(~jaar)
+    labs(y = "Aantal soorten", x = "Telperiode") +
+    geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = regio)) +
+    facet_wrap(~jaar)
 ```
 
 Om welke soorten gaat het?
@@ -622,8 +623,8 @@ relfreqs_vogels %>%
   mutate(naam = reorder(naam, relfreq, FUN = "mean")) %>%
   filter(as.numeric(naam) > length(unique(naam)) - 30) %>%
   ggplot() +
-  labs(y = "", x = "Relatieve frequentie") +
-  geom_point(aes(x = relfreq, y = naam, colour = regio))
+    labs(y = "", x = "Relatieve frequentie") +
+    geom_point(aes(x = relfreq, y = naam, colour = regio))
 ```
 
 Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in __De Moeren__:
@@ -709,9 +710,9 @@ tel_df <- doel_vogels %>%
 for (soort in doelsoorten) {
   print(tel_df %>% filter(naam == soort) %>%
   ggplot() +
-  labs(title = toString(soort), y = "Aantal tellingen", x = "Telperiode") +
-  geom_point(aes(x = periode_in_jaar, y = N, colour = regio)) +
-  facet_wrap(~jaar, scales = "free_y"))
+    labs(title = toString(soort), y = "Aantal tellingen", x = "Telperiode") +
+    geom_point(aes(x = periode_in_jaar, y = N, colour = regio)) +
+    facet_wrap(~jaar, scales = "free_y"))
 }
 ```
 
@@ -740,8 +741,8 @@ mas_vogels %>% filter(naam == "Torenvalk") %>%
   group_by(regio, jaar, periode_in_jaar) %>% 
   summarise(N = n()) %>%
   ggplot() +
-  labs(title = "Torenvalk", y = "Aantal tellingen", x = "Telperiode") +
-  geom_point(aes(x = periode_in_jaar, y = N, colour = regio)) +
-  facet_wrap(~jaar, scales = "free_y")
+    labs(title = "Torenvalk", y = "Aantal tellingen", x = "Telperiode") +
+    geom_point(aes(x = periode_in_jaar, y = N, colour = regio)) +
+    facet_wrap(~jaar, scales = "free_y")
 ```
 
