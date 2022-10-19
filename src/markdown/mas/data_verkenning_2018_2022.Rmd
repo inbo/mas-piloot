@@ -970,7 +970,7 @@ De volgende figuur geeft de cumulatieve oppervlakte aan afgesloten beheerovereen
 Deze cijfers gelden voor het volledige projectgebied van de Moeren en de Oostelijke leemstreek zoals gedefinieerd in het MAS pilootproject.
 De data voor 2022 zitten hier nog niet bij.
 
-```{r opp-bo-evolutie}
+```{r opp-bo-evolutie, out.width="100%"}
 library(units)
 opp_evolutie %>%
   expand_grid(jaar = ymd(paste0(2017:2021, "-02-02"))) %>%
@@ -987,7 +987,9 @@ opp_evolutie %>%
   geom_bar(aes(x = jaar, weight = tot_opp_ha,
                fill = srt_object)) +
   facet_grid(regio ~ openheid + is_sbp, scales = "free") +
-  labs(y = "Oppervlakte (Hectare)")
+  labs(y = "Oppervlakte (Hectare)") +
+  theme(legend.position = "bottom",
+        legend.title = element_blank())
 ```
 
 
