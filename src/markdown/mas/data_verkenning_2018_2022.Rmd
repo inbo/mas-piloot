@@ -346,7 +346,9 @@ doelsoorten <- c("Veldleeuwerik", "Gele Kwikstaart", "Geelgors", "Fazant")
 doel_df <- mas2022 %>% filter(naam %in% doelsoorten, wrntype > 0L) 
 ```
 
-Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **2.2**. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben. In De Moeren is geen half-open landschap aanwezig (NA).
+Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **2.2**.
+
+<!--Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben. In De Moeren is geen half-open landschap aanwezig (NA).-->
 
 ```{r diversiteit-doelsoorten}
 relfreqs_doel <- doel_df %>% 
@@ -718,7 +720,9 @@ relfreqs_vogels %>%
 doel_vogels <- mas_vogels %>% filter(naam %in% doelsoorten, wrntype > 0L) 
 ```
 
-Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **4.2**. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.
+Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **4.2**.
+
+<!--Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.-->
 
 > Opgepast! In de volgende tabel wordt de gemiddelde relatieve frequentie berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
 
@@ -1019,7 +1023,7 @@ meanabu <- mas_vogels %>%
                values_to = "aantal_per_100ha")
 ```
 
-Overzicht van de 30 meest abundante soorten in een bepaalde regio. Elk punt staat voor een aantal per 100 ha in een bepaald jaar en een bepaalde telperiode van dat jaar.
+Overzicht van de 30 meest abundante soorten in een bepaalde regio. Elk punt staat voor een gemiddeld aantal broedparen per 100 ha in een bepaald jaar en een bepaalde telperiode van dat jaar.
 
 ```{r}
 meanabu %>%
@@ -1081,7 +1085,11 @@ meanabu %>%
 
 ### Doelsoorten
 
-Enkel data met broedcode > 0 zijn weerhouden. De dichtheden zullen dus niet exact hetzelfde zijn als in **4.5.1**. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.
+#### Gemiddelde dichtheden
+
+Enkel data met broedcode > 0 zijn weerhouden. De dichtheden zullen dus niet exact hetzelfde zijn als in sectie \@ref(algemeen).
+
+<!--Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.-->
 
 ```{r dichtheden-doelsoorten}
 meanabu_doel <- mas_vogels %>%
@@ -1171,6 +1179,8 @@ meanabu_doelvogels_strat <- mas_vogels %>%
                names_to = "naam",
                values_to = "aantal_per_100ha")
 ```
+
+
 
 ```{r telperiode-doelsoorten-dichtheden-strat, message=FALSE}
 for (soort in doelsoorten) {
@@ -1266,3 +1276,72 @@ for (reg in unique(diversiteit_vogels_strat$regio)) {
     )
 }
 ```
+
+
+#### Gemiddelde dichtheden op basis van max-aantal broedparen
+
+Voor de volgende figuren werd eerst per soort voor elk telpunt het max aantal broedparen bepaald in een jaar (over telrondes heen).
+Dit werd gedaan om de methodiek van SOVON te benaderen.
+Deze maximum aantallen zijn een benadering voor het aantal territoria.
+De gemiddelden werden hiervan berekend en een 95% betrouwbaarheidsinterval op basis van bootstrap samples.
+__Hier is ook geen rekening gehouden met detectiekansen.__
+
+
+```{r diversiteit-doelsoorten-dichtheden-strat-maxaantal}
+mean_maxabu_doelvogels_strat <- mas_vogels %>% 
+  filter((wrntype > 0L & 
+         naam %in% doelsoorten) |
+           naam == "Torenvalk") %>%
+  st_drop_geometry() %>%
+  group_by(regio, plotnaam, jaar, stratum, periode_in_jaar, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(jaar, plotnaam, stratum, regio) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~max(.x)),
+            .groups = "drop") %>%
+  pivot_longer(cols = where(~ is.integer(.x) && min(.x) == 0),
+               names_to = "naam",
+               values_to = "max_aantal") %>%
+  group_by(jaar, stratum, regio, naam) %>%
+  summarise(n = n(),
+            mean_cl_boot(max_aantal),
+            .groups = "drop") %>%
+  mutate(y = y * (100 * 1e4) / (pi * 300^2),
+         ymin = ymin * (100 * 1e4) / (pi * 300^2),
+         ymax = ymin * (100 * 1e4) / (pi * 300^2))
+```
+
+```{r plot-maxaantal-dichtheden}
+plotdichtheden <- function(data, regio, naam) {
+  if (naam != "Torenvalk") {
+    ggplot(data = data) +
+      geom_pointrange(aes(x = factor(jaar), y = y, ymin = ymin, ymax = ymax,
+                          colour = stratum),
+                      position = position_dodge(width = 0.5)) +
+      labs(x = "Jaar", y = "Aantal broedparen per 100 ha") +
+      ggtitle(paste(regio, naam))
+  } else {
+    ggplot(data = data) +
+      geom_pointrange(aes(x = factor(jaar), y = y, ymin = ymin, ymax = ymax,
+                          colour = stratum),
+                      position = position_dodge(width = 0.5)) +
+      labs(x = "Jaar",
+           y = "Aantal waarnemingen per 100 ha (incl. broedcode 0)") +
+      ggtitle(paste(regio, naam))
+  }
+}
+  
+mean_maxabu_doelvogels_strat %>%
+  group_by(regio, naam) %>%
+  nest() %>%
+  mutate(plot = pmap(list(data = data, regio = regio, naam = naam),
+                     plotdichtheden)) %>%
+  select(plot) %>%
+  pull(plot)
+```
+
+
