@@ -17,7 +17,9 @@ renv::restore()
 library(knitr)
 library(here)
 opts_chunk$set(
-  echo = TRUE)
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
 opts_knit$set(root.dir = here::here())
 library(tidyverse)
 library(sf)
