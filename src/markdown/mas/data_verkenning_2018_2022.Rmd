@@ -821,7 +821,7 @@ relfreqs_vogels %>%
   kable(digits = 2)
 ```
 
-De volgende figuur toont de relatieve frequentie van de soort in een bepaalde telperiode voor de verschillende regio's over de jaren.
+De volgende figuur toont de relatieve frequentie van de soort in een bepaalde telperiode voor de verschillende regio's over de jaren. test
 
 ```{r telperiode-torenvalk-langetermijn, message=FALSE}
 relfreqs_vogels %>%
