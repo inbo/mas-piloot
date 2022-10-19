@@ -847,7 +847,6 @@ ggplot() +
   scale_y_continuous(limits = c(0, 1))
 ```
 
-<<<<<<< HEAD
 ```{r telperiode-torenvalk-langetermijn-strat, message=FALSE}
 for (reg in unique(diversiteit_vogels_strat$regio)) {
   print(
@@ -864,7 +863,8 @@ for (reg in unique(diversiteit_vogels_strat$regio)) {
     )
 }
 ```
-=======
+
+
 ## Oppervlakte beheerovereenkomsten
 
 
@@ -942,4 +942,3 @@ opp_evolutie %>%
   labs(y = "Oppervlakte (Hectare)")
 ```
 
->>>>>>> ab14cdf8c400a86c19d345ff096a5eaa34b3931d
