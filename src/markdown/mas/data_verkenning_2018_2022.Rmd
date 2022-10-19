@@ -768,6 +768,24 @@ for (soort in doelsoorten) {
 }
 ```
 
+Telperiodes zijn herhalingen binnen een jaar en we zijn vooral geïnteresseerd in de wijzigingen van jaar tot jaar:
+
+```{r telperiode-doelsoorten-langetermijn2, message=FALSE}
+for (soort in doelsoorten) {
+  print(
+    relfreqs_doelvogels %>% 
+    filter(naam == soort) %>%
+    group_by(regio, jaar, periode_in_jaar) %>%
+    mutate(gemiddelde_freq = mean(relfreq)) %>%
+    ggplot() +
+      geom_point(aes(x = jaar, y = gemiddelde_freq, colour = regio, 
+                     shape = periode_in_jaar)) +
+      labs(title = toString(soort), y = "Relatieve frequentie", x = "") +
+      scale_y_continuous(limits = c(0, 1))
+    )
+}
+```
+
 ```{r telperiode-doelsoorten-langetermijn-strat, message=FALSE}
 for (soort in doelsoorten) {
   for (reg in unique(diversiteit_vogels_strat$regio)) {
@@ -775,12 +793,13 @@ for (soort in doelsoorten) {
       relfreqs_doelvogels %>% 
       filter(naam == soort, regio == reg) %>%
       ggplot() +
-        geom_point(aes(x = periode_in_jaar, y = relfreq, colour = stratum)) +
+        geom_point(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
+                       shape = periode_in_jaar)) +
         labs(title = toString(soort), 
              y = "Relatieve frequentie", 
-             x = "Telperiode") +
+             x = "") +
         scale_y_continuous(limits = c(0, 1)) +
-        facet_wrap(regio~jaar, scales = "free_y")
+        facet_wrap(~regio, scales = "free_y")
       )
   }
 }
@@ -814,7 +833,36 @@ relfreqs_vogels %>%
     facet_wrap(~jaar, scales = "free_y")
 ```
 
-!!nog toevoegen per stratum!!
+Telperiodes zijn herhalingen binnen een jaar en we zijn vooral geïnteresseerd in de wijzigingen van jaar tot jaar:
+
+```{r telperiode-torenvalk-langetermijn2, message=FALSE}
+relfreqs_doelvogels %>% 
+filter(naam == "Torenvalk") %>%
+group_by(regio, jaar, periode_in_jaar) %>%
+mutate(gemiddelde_freq = mean(relfreq)) %>%
+ggplot() +
+  geom_point(aes(x = jaar, y = gemiddelde_freq, colour = regio, 
+                 shape = periode_in_jaar)) +
+  labs(title = "Torenvalk", y = "Relatieve frequentie", x = "") +
+  scale_y_continuous(limits = c(0, 1))
+```
+
+```{r telperiode-torenvalk-langetermijn-strat, message=FALSE}
+for (reg in unique(diversiteit_vogels_strat$regio)) {
+  print(
+    relfreqs_doelvogels %>% 
+    filter(naam == "Torenvalk", regio == reg) %>%
+    ggplot() +
+      geom_point(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
+                     shape = periode_in_jaar)) +
+      labs(title = "Torenvalk", 
+           y = "Relatieve frequentie", 
+           x = "") +
+      scale_y_continuous(limits = c(0, 1)) +
+      facet_wrap(~regio, scales = "free_y")
+    )
+}
+```
 
 
 ## Oppervlakte beheerovereenkomsten
