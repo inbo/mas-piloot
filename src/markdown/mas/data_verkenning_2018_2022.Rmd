@@ -758,15 +758,13 @@ for (soort in doelsoorten) {
   print(
     relfreqs_doelvogels %>% 
     filter(naam == soort) %>%
-    group_by(regio, jaar, periode_in_jaar) %>%
-    mutate(gemiddelde_freq = mean(relfreq)) %>%
     ggplot() +
-      geom_point(aes(x = periode_in_jaar, y = gemiddelde_freq, colour = regio)) +
+      geom_point(aes(x = periode_in_jaar, y = relfreq, colour = regio)) +
       labs(title = toString(soort), 
            y = "Relatieve frequentie", 
            x = "Telperiode") +
       scale_y_continuous(limits = c(0, 1)) +
-      facet_wrap(~jaar, scales = "free_y")
+      facet_wrap(~jaar)
     )
 }
 ```
@@ -778,13 +776,12 @@ for (soort in doelsoorten) {
   print(
     relfreqs_doelvogels %>% 
     filter(naam == soort) %>%
-    group_by(regio, jaar, periode_in_jaar) %>%
-    mutate(gemiddelde_freq = mean(relfreq)) %>%
     ggplot() +
-      geom_point(aes(x = jaar, y = gemiddelde_freq, colour = regio, 
-                     shape = periode_in_jaar)) +
+      geom_jitter(aes(x = jaar, y = relfreq, colour = regio, 
+                     shape = periode_in_jaar),
+                  width = 0.1) +
       labs(title = toString(soort), y = "Relatieve frequentie", x = "") +
-      scale_y_continuous(limits = c(0, 1))
+      scale_y_continuous(limits = c(NA, 1))
     )
 }
 ```
@@ -817,13 +814,14 @@ for (soort in doelsoorten) {
       relfreqs_doelvogels_strat %>% 
       filter(naam == soort, regio == reg) %>%
       ggplot() +
-        geom_point(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
-                       shape = periode_in_jaar)) +
+        geom_jitter(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
+                       shape = periode_in_jaar),
+                    width = 0.1) +
         labs(title = toString(soort), 
              y = "Relatieve frequentie", 
              x = "") +
-        scale_y_continuous(limits = c(0, 1)) +
-        facet_wrap(~regio, scales = "free_y")
+        expand_limits(y = 1) +
+        facet_wrap(~regio)
       )
   }
 }
@@ -867,10 +865,11 @@ filter(naam == "Torenvalk") %>%
 group_by(regio, jaar, periode_in_jaar) %>%
 mutate(gemiddelde_freq = mean(relfreq)) %>%
 ggplot() +
-  geom_point(aes(x = jaar, y = gemiddelde_freq, colour = regio, 
-                 shape = periode_in_jaar)) +
+  geom_jitter(aes(x = jaar, y = gemiddelde_freq, colour = regio, 
+                 shape = periode_in_jaar),
+              width = 0.1) +
   labs(title = "Torenvalk", y = "Relatieve frequentie", x = "") +
-  scale_y_continuous(limits = c(0, 1))
+  expand_limits(y = 1)
 ```
 
 > We berekenen de relatieve frequenties apart binnen voor elke regio binnen elk stratum in elke telperiode in elk jaar. Deze resultaten kunnen niet zomaar uitgemiddeld worden om tot een gemiddelde over de strata en over de jaren te komen. Dit moet verder uitgezocht worden.
@@ -899,13 +898,14 @@ for (reg in unique(diversiteit_vogels_strat$regio)) {
     relfreqs_torenvalk_strat %>% 
     filter(naam == "Torenvalk", regio == reg) %>%
     ggplot() +
-      geom_point(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
-                     shape = periode_in_jaar)) +
+      geom_jitter(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
+                     shape = periode_in_jaar),
+                  width = 0.1) +
       labs(title = "Torenvalk", 
            y = "Relatieve frequentie", 
            x = "") +
-      scale_y_continuous(limits = c(0, 1)) +
-      facet_wrap(~regio, scales = "free_y")
+      expand_limits(y = 1) +
+      facet_wrap(~regio)
     )
 }
 ```
