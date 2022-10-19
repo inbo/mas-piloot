@@ -673,12 +673,14 @@ relfreqs_vogels %>%
     geom_point(aes(x = relfreq, y = naam, colour = regio))
 ```
 
+> Opgepast! In de volgende tabellen wordt de gemiddelde relatieve frequentie berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
+
 Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in __De Moeren__ dan in de Oostelijke leemstreek:
 
 ```{r meerfrequent-moeren-langetermijn}
 relfreqs_vogels %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>% # Correct?
   distinct(regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -695,7 +697,7 @@ Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie
 ```{r meerfrequent-leemstreek-langetermijn}
 relfreqs_vogels %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>% # Correct?
   distinct(regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -715,19 +717,20 @@ doel_vogels <- mas_vogels %>% filter(naam %in% doelsoorten, wrntype > 0L)
 ```
 
 Enkel data met broedcode > 0 zijn weerhouden. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **4.2**. Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.
-!!nog fout in code bij toevoegen stratum (zie ook eerder)!!
+
+> Opgepast! In de volgende tabel wordt de gemiddelde relatieve frequentie berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
 
 ```{r diversiteit-doelsoorten-langetermijn}
 relfreqs_doelvogels <- mas_vogels %>% 
   filter(wrntype > 0L) %>%
   st_drop_geometry() %>%
-  group_by(regio, plotnaam, jaar, stratum, periode_in_jaar, naam) %>%
+  group_by(regio, plotnaam, jaar, periode_in_jaar, naam) %>%
   summarize(totaal_aantal = sum(aantal),
             .groups = "drop") %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
-  group_by(periode_in_jaar, jaar, regio, stratum) %>%
+  group_by(periode_in_jaar, jaar, regio) %>%
   summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
                    .groups = "drop") %>%
@@ -738,7 +741,7 @@ relfreqs_doelvogels <- mas_vogels %>%
 relfreqs_doelvogels %>%
   filter(naam %in% doelsoorten) %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>% # Correct?
   distinct(regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -786,11 +789,32 @@ for (soort in doelsoorten) {
 }
 ```
 
+> We berekenen de relatieve frequenties apart binnen voor elke regio binnen elk stratum in elke telperiode in elk jaar. Deze resultaten kunnen niet zomaar uitgemiddeld worden om tot een gemiddelde over de strata en over de jaren te komen. Dit moet verder uitgezocht worden.
+
+```{r diversiteit-doelsoorten-langetermijn-strat}
+relfreqs_doelvogels_strat <- mas_vogels %>% 
+  filter(wrntype > 0L) %>%
+  st_drop_geometry() %>%
+  group_by(regio, plotnaam, jaar, stratum, periode_in_jaar, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, jaar, regio, stratum) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+```
+
 ```{r telperiode-doelsoorten-langetermijn-strat, message=FALSE}
 for (soort in doelsoorten) {
   for (reg in unique(diversiteit_vogels_strat$regio)) {
     print(
-      relfreqs_doelvogels %>% 
+      relfreqs_doelvogels_strat %>% 
       filter(naam == soort, regio == reg) %>%
       ggplot() +
         geom_point(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
@@ -806,6 +830,8 @@ for (soort in doelsoorten) {
 ```
 
 Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De relatieve frequentie is dus identiek als in **2.2**.
+
+> Opgepast! In de volgende tabel wordt de gemiddelde relatieve frequentie berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
 
 ```{r freq-torenvalk-langetermijn}
 relfreqs_vogels %>%
@@ -847,10 +873,30 @@ ggplot() +
   scale_y_continuous(limits = c(0, 1))
 ```
 
+> We berekenen de relatieve frequenties apart binnen voor elke regio binnen elk stratum in elke telperiode in elk jaar. Deze resultaten kunnen niet zomaar uitgemiddeld worden om tot een gemiddelde over de strata en over de jaren te komen. Dit moet verder uitgezocht worden.
+
+```{r diversiteit-torenvalk-langetermijn-strat}
+relfreqs_torenvalk_strat <- mas_vogels %>%
+  st_drop_geometry() %>%
+  group_by(regio, plotnaam, jaar, stratum, periode_in_jaar, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, jaar, regio, stratum) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+```
+
 ```{r telperiode-torenvalk-langetermijn-strat, message=FALSE}
 for (reg in unique(diversiteit_vogels_strat$regio)) {
   print(
-    relfreqs_doelvogels %>% 
+    relfreqs_torenvalk_strat %>% 
     filter(naam == "Torenvalk", regio == reg) %>%
     ggplot() +
       geom_point(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
