@@ -1308,7 +1308,7 @@ mean_maxabu_doelvogels_strat <- mas_vogels %>%
                values_to = "max_aantal") %>%
   group_by(jaar, stratum, regio, naam) %>%
   summarise(n = n(),
-            mean_cl_boot(max_aantal),
+            Hmisc::mean_cl_boot(max_aantal),
             .groups = "drop") %>%
   mutate(y = y * (100 * 1e4) / (pi * 300^2),
          ymin = ymin * (100 * 1e4) / (pi * 300^2),
