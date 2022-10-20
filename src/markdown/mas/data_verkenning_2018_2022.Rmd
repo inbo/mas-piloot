@@ -14,6 +14,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 renv::restore()
+library(Hmisc)
 library(knitr)
 library(here)
 opts_chunk$set(
@@ -1308,7 +1309,7 @@ mean_maxabu_doelvogels_strat <- mas_vogels %>%
                values_to = "max_aantal") %>%
   group_by(jaar, stratum, regio, naam) %>%
   summarise(n = n(),
-            Hmisc::mean_cl_boot(max_aantal),
+            mean_cl_boot(max_aantal),
             .groups = "drop") %>%
   mutate(y = y * (100 * 1e4) / (pi * 300^2),
          ymin = ymin * (100 * 1e4) / (pi * 300^2),
