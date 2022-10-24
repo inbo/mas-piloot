@@ -35,3 +35,187 @@ library(Distance)
 ```
 
 
+# Inlezen data
+
+```{r ronde-intervallen}
+r1_start <- "04-01"
+r1_stop <- "04-20"
+r2_start <- "04-21"
+r2_stop <- "05-10"
+r3_start <- "05-11"
+r3_stop <- "06-10"
+r4_start <- "06-21"
+r4_stop <- "07-15"
+```
+
+```{r inlezen-mas-data}
+mas <- read_sf(
+  here("data/mas/20220906_qgis_export_sovon_wfs.gpkg")) %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    ))
+```
+
+```{r design2022}
+design2022 <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum))
+```
+
+```{r design-2018-2022}
+telpunten_avimap_2021 <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
+) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger")) %>%
+  select(-st_x, -st_y)
+
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
+
+vlaanderen <- get_feature_wfs(
+  wfs = "https://eservices.minfin.fgov.be/arcgis/services/R2C/Regions/MapServer/WFSServer",
+  layername = "regions",
+  crs = "EPSG:31370",
+  filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
+  select(NameDUT)
+
+
+sbp_akkervogels <- tar_read(sbp_akkervogels,
+                            store = targets_store)
+
+design_2018_2021 <- add_openheid_landschap_to_frame(
+  path = here("data", "dem",
+    "openness300m_chm_res25_c300_mean_vlaanderen.tif"),
+  punten_sf = telpunten_avimap_2021,
+  gebied = vlaanderen,
+  cutlevels = c(1.25, 1.35, 1.51),
+  class_labels = c("GL", "HGL", "HOL", "OL")) %>%
+  select(plotnaam = naam, regio, openheid = openheid_klasse) %>%
+  mutate(sbp = st_intersects(.,
+                             st_union(sbp_akkervogels),
+                             sparse = FALSE) %>%
+           as.logical(),
+         sbp = ifelse(sbp, "binnen", "buiten")
+  ) %>%
+  st_drop_geometry() %>%
+  mutate(stratum = paste0(openheid, "\n", sbp, " plan"),
+         regio = gsub("Vlaanderen - ", "", regio),
+         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio))
+ 
+plotlijst_2018_2022 <- mas %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam) %>%
+  arrange(plotnaam)
+
+design_2018_2022 <- bind_rows(
+  design_2018_2021,
+  design2022) %>%
+  distinct() %>%
+  arrange(plotnaam)
+# er zitten duplos in (zie volgende chunk)
+```
+
+```{r probleemgevallen, eval=FALSE}
+# probleemgevallen met verschillende classificatie
+is_duplo <- duplicated(design_2018_2022$plotnaam)
+duplo_plotnaam <- design_2018_2022 %>%
+  select(plotnaam) %>%
+  filter(is_duplo)
+design_2018_2022 %>%
+  inner_join(duplo_plotnaam) %>%
+  View()
+
+# volgens bestand buiten plan, maar lijkt niet te kloppen
+# iets mis in targets analyse pipeline?
+avimap <- telpunten_avimap_2021 %>%
+  filter(naam == "VL0003")
+
+read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  filter(definitief_punt == "VL0003") %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370) %>%
+  mapview::mapview()  +
+  mapview::mapview(sbp_akkervogels, col.regions = "yellow") +
+  mapview::mapview(avimap)
+
+read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  inner_join(duplo_plotnaam, by = c("definitief_punt" = "plotnaam")) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370) %>%
+  mapview::mapview()  +
+  mapview::mapview(sbp_akkervogels, col.regions = "yellow")
+```
+
+```{r omzeilen-probleemgevallen}
+# probleemgevallen voorlopig omzeilen
+design_2018_2022 <- bind_rows(
+  design_2018_2021,
+  design2022 %>%
+    filter(!grepl("^VL", plotnaam))) %>%
+  distinct() %>%
+  arrange(plotnaam)
+```
+
+
+```{r overzicht-data, eval=FALSE}
+head(mas)
+summary(mas)
+glimpse(mas)
+```
+
+Dubbeltellingen zijn eruit (soort gezien op meerdere teldagen binnen eenzelfde telperiode): in dat geval de laatste teldag genomen.
+
+```{r check-dubbeltelling}
+dubbels <- mas %>%
+  st_drop_geometry() %>%
+  group_by(plotid, jaar, periode_in_jaar, soortnr) %>%
+  summarize(aantal_teldagen = n_distinct(doy),
+            .groups = "drop") %>%
+  filter(aantal_teldagen > 1)
+# kan zowel zelfde waarnemer als andere waarnemer zijn
+
+mas_clean <- mas %>%
+  semi_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")) %>%
+  group_by(plotid, jaar, periode_in_jaar) %>%
+  filter(doy == max(doy)) %>%
+  ungroup() %>%
+  bind_rows(mas %>%
+              anti_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")))
+```
+
+
+
+
