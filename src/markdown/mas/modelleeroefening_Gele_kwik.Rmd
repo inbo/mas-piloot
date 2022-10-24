@@ -217,5 +217,48 @@ mas_clean <- mas %>%
 ```
 
 
+# Gele kwikstaart 2022
+
+We starten met een beperkte dataset om het aantal broedparen van de Gele kwikstaart te modelleren. We beginnen met data exploratie en bouwen dan verschillende modellen op van simpel naar meer complexe modellen. 
+
+We selecteren de data voor Gele kwikstaart van 2022 met broedcode > 0. Voorlopig houden we geen rekening met detectiekans. We sommen de aantallen op per plot per telperiode (elke plot is 1x per telperiode bezocht). Opmerking: wat met *Gele kwikstaart (spec)*?
+
+```{r selectie-gelekwik-2022}
+gele_kwik_2022_presences <- mas_clean %>% 
+  st_drop_geometry() %>%
+  filter(naam == "Gele Kwikstaart", jaar == 2022, 
+         !is.na(periode_in_jaar), wrntype > 0L) %>%  
+  inner_join(design2022, by = "plotnaam") # Moeren en Leemstreek
+
+# Totale lijst van bezochte plots in 2022
+bezoekenlijst_2022 <- design2022 %>% 
+  expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # Voeg telperiodes toe
+  filter(!is.na(periode_in_jaar))
+
+# Voeg afwezigheden toe door te mergen met alle bezoeken
+gele_kwik_2022 <- gele_kwik_2022_presences %>%
+  group_by(plotnaam, periode_in_jaar) %>%
+  summarise(aantal = sum(aantal)) %>% # Som aantallen gespot per dag 
+  full_join(bezoekenlijst_2022, by = c("plotnaam", "periode_in_jaar")) %>%
+  replace(is.na(.), 0) %>%
+  arrange(plotnaam, periode_in_jaar)
+```
+
+
+## Data exploratie
+
+```{r summary}
+summary(gele_kwik_2022$aantal)
+table(gele_kwik_2022$aantal)
+```
+
+
+```{r}
+gele_kwik_2022 %>%
+  ggplot() +
+    geom_bar(aes(x = aantal)) +
+    facet_wrap(~periode_in_jaar) +
+    labs(y = "")
+```
 
 
