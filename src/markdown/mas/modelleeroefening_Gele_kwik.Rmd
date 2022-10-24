@@ -1,0 +1,37 @@
+---
+title: "Modelleren en distance sampling Gele kwikstaart"
+author: "Ward Langeraert, Hans Van Calster"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+library(Hmisc)
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here::here())
+library(tidyverse)
+library(sf)
+library(lubridate)
+library(targets)
+library(terra)
+targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+source(here("src", "R", "berekening_hulpvariabelen.R"))
+source(here("src", "R", "wfs_wcs.R"))
+library(brms)
+library(Distance)
+```
+
+
