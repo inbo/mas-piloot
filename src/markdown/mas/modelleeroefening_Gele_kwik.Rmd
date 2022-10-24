@@ -14,6 +14,10 @@ editor_options:
 
 ```{r setup, include=FALSE}
 renv::restore()
+library(brms)
+library(Distance)
+library(MASS)
+library(pscl)
 library(Hmisc)
 library(knitr)
 library(here)
@@ -30,8 +34,6 @@ library(terra)
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
-library(brms)
-library(Distance)
 ```
 
 
@@ -272,9 +274,35 @@ gele_kwik_2022 %>%
   kable()
 ```
 
+```{r tellingen-regio}
+gele_kwik_2022 %>%
+  group_by(regio, periode_in_jaar, aantal) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  arrange(aantal) %>%
+  pivot_wider(names_from = aantal, values_from = n) %>%
+  replace(is.na(.), 0) %>%
+  kable()
+```
+
 We zien duidelijk zero-inflation en een slechte fit door Poisson.
 
 ```{r verdeling-counts}
+gele_kwik_2022 %>%
+  group_by(aantal) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  mutate(nmod = n/sum(n),
+         pois = dpois(aantal, lambda = mean(aantal)),
+         nbinom = dnbinom(aantal, mu = mean(aantal), size = 1)) %>%
+  ggplot(aes(x = aantal, y = nmod)) +
+    geom_histogram(stat = "identity") +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank()) + 
+    geom_line(aes(y = pois, col = "Poisson"), lwd = 1) + 
+    geom_line(aes(y = nbinom, col = "Negative\nbinomial"), lwd = 1) +
+    labs(y = "", x = "Aantal Gele kwikstaarten")
+```
+
+```{r}
 gele_kwik_2022 %>%
   group_by(periode_in_jaar, aantal) %>%
   summarise(n = n(), .groups = "drop_last") %>%
@@ -288,7 +316,72 @@ gele_kwik_2022 %>%
     geom_line(aes(y = pois, col = "Poisson"), lwd = 1) + 
     geom_line(aes(y = nbinom, col = "Negative\nbinomial"), lwd = 1) +
     facet_wrap(~periode_in_jaar, scales = "free") +
-    labs(y = "")
+    labs(y = "", x = "Aantal Gele kwikstaarten")
 ```
 
 
+## Modellen
+
+```{r}
+model1p <- glm(aantal ~ regio, family = poisson(link = log), 
+              data = gele_kwik_2022)
+summary(model1p)
+```
+
+```{r}
+model1zip <- zeroinfl(aantal ~ regio|regio, data = gele_kwik_2022, 
+                      link = "logit", dist = "poisson")
+summary(model1zip)
+```
+
+```{r}
+model1nb <- glm.nb(aantal ~ regio, data = gele_kwik_2022)
+summary(model1nb)
+```
+
+```{r}
+model1zinb <- zeroinfl(aantal ~ regio|regio, data = gele_kwik_2022, 
+                       link = "logit", dist = "negbin")
+summary(model1zinb)
+```
+
+```{r}
+cbind(AIC(model1p),AIC(model1nb),AIC(model1zip),AIC(model1zinb))
+```
+
+```{r}
+estobsk <- function(k){
+  cbind(
+    sum(dpois(k, fitted(model1p))),
+    sum(dnbinom(k, mu = fitted(model1nb),size = model1nb$theta)),
+    sum(predict(model1zip,type = "prob")[,1 + k]),
+    sum(predict(model1zinb,type = "prob")[,1 + k])
+    )
+}
+
+estimatedobs <- sapply(min(gele_kwik_2022$aantal):max(gele_kwik_2022$aantal), 
+                       estobsk)
+row.names(estimatedobs) <- c("Poisson", "Negative binomial", "ZIP", "ZINB")
+colnames(estimatedobs) <- min(gele_kwik_2022$aantal):max(gele_kwik_2022$aantal)
+
+predictions <- estimatedobs %>%
+  as.data.frame() %>%
+  mutate(models = c("Poisson", "Negative\nbinomial", "ZIP", "ZINB")) %>%
+  pivot_longer(cols = as.character(0:6), names_to = "aantal", values_to = "pred") %>%
+  mutate(aantal = as.numeric(aantal))
+```
+
+```{r}
+gele_kwik_2022 %>%
+  group_by(aantal) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  full_join(predictions, by = "aantal") %>%
+  ggplot(aes(x = aantal, y = n)) +
+    geom_histogram(stat = "identity") +
+    geom_point(data = predictions, aes(x = as.numeric(aantal), y = pred,
+                                       colour = models)) +
+    geom_line(data = predictions, aes(x = as.numeric(aantal), y = pred,
+                                       colour = models)) +
+    labs(y = "", x = "Aantal Gele kwikstaarten") +
+  facet_wrap(~models)
+```
