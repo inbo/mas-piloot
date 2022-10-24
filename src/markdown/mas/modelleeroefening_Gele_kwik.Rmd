@@ -247,17 +247,47 @@ gele_kwik_2022 <- gele_kwik_2022_presences %>%
 
 ## Data exploratie
 
-```{r summary}
-summary(gele_kwik_2022$aantal)
-table(gele_kwik_2022$aantal)
+Enkele samenvattende statistieken:
+
+```{r summary-stats}
+gele_kwik_2022 %>%
+  group_by(periode_in_jaar) %>%
+  summarise(min = min(aantal), 
+            mediaan = median(aantal),
+            gemiddelde = mean(aantal),
+            max = max(aantal),
+            varantie = var(aantal)) %>%
+  kable()
 ```
 
+Verdeling van tellingen:
 
-```{r}
+```{r tellingen}
 gele_kwik_2022 %>%
-  ggplot() +
-    geom_bar(aes(x = aantal)) +
-    facet_wrap(~periode_in_jaar) +
+  group_by(periode_in_jaar, aantal) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  arrange(aantal) %>%
+  pivot_wider(names_from = aantal, values_from = n) %>%
+  replace(is.na(.), 0) %>%
+  kable()
+```
+
+We zien duidelijk zero-inflation en een slechte fit door Poisson.
+
+```{r verdeling-counts}
+gele_kwik_2022 %>%
+  group_by(periode_in_jaar, aantal) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  mutate(nmod = n/sum(n),
+         pois = dpois(aantal, lambda = mean(aantal)),
+         nbinom = dnbinom(aantal, mu = mean(aantal), size = 1)) %>%
+  ggplot(aes(x = aantal, y = nmod)) +
+    geom_histogram(stat = "identity") +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank()) + 
+    geom_line(aes(y = pois, col = "Poisson"), lwd = 1) + 
+    geom_line(aes(y = nbinom, col = "Negative\nbinomial"), lwd = 1) +
+    facet_wrap(~periode_in_jaar, scales = "free") +
     labs(y = "")
 ```
 
