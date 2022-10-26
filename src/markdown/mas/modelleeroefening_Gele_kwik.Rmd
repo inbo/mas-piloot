@@ -14,10 +14,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 renv::restore()
-library(brms)
 library(Distance)
-library(MASS)
-library(pscl)
 library(Hmisc)
 library(knitr)
 library(here)
@@ -31,6 +28,7 @@ library(sf)
 library(lubridate)
 library(targets)
 library(terra)
+library(brms)
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
@@ -262,7 +260,7 @@ gele_kwik_2022 %>%
   kable()
 ```
 
-Verdeling van tellingen:
+Aantal tellingen per categorie:
 
 ```{r tellingen}
 gele_kwik_2022 %>%
@@ -284,104 +282,133 @@ gele_kwik_2022 %>%
   kable()
 ```
 
-We zien duidelijk zero-inflation en een slechte fit door Poisson.
+Verdeling van de tellingen
 
-```{r verdeling-counts}
-gele_kwik_2022 %>%
-  group_by(aantal) %>%
-  summarise(n = n(), .groups = "drop_last") %>%
-  mutate(nmod = n/sum(n),
-         pois = dpois(aantal, lambda = mean(aantal)),
-         nbinom = dnbinom(aantal, mu = mean(aantal), size = 1)) %>%
-  ggplot(aes(x = aantal, y = nmod)) +
-    geom_histogram(stat = "identity") +
-    theme(panel.grid.minor.x = element_blank(),
-          panel.grid.major.x = element_blank()) + 
-    geom_line(aes(y = pois, col = "Poisson"), lwd = 1) + 
-    geom_line(aes(y = nbinom, col = "Negative\nbinomial"), lwd = 1) +
-    labs(y = "", x = "Aantal Gele kwikstaarten")
-```
-
-```{r}
+```{r histogram}
 gele_kwik_2022 %>%
   group_by(periode_in_jaar, aantal) %>%
   summarise(n = n(), .groups = "drop_last") %>%
-  mutate(nmod = n/sum(n),
-         pois = dpois(aantal, lambda = mean(aantal)),
-         nbinom = dnbinom(aantal, mu = mean(aantal), size = 1)) %>%
-  ggplot(aes(x = aantal, y = nmod)) +
-    geom_histogram(stat = "identity") +
+  ggplot(aes(x = aantal, y = n)) +
+    geom_histogram(stat = "identity", fill = "orange", col = "black") +
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank()) + 
-    geom_line(aes(y = pois, col = "Poisson"), lwd = 1) + 
-    geom_line(aes(y = nbinom, col = "Negative\nbinomial"), lwd = 1) +
     facet_wrap(~periode_in_jaar, scales = "free") +
     labs(y = "", x = "Aantal Gele kwikstaarten")
+```
+
+Totaal aantal getelde Gele kwikstaarten per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval.
+
+```{r boxplots}
+gele_kwik_2022 %>%
+  ggplot(aes(x = periode_in_jaar, y = aantal, colour = periode_in_jaar)) +
+  stat_sum(position = position_dodge(width = 0.5), alpha = 0.5) +
+  stat_summary(fun.data = mean_cl_boot,
+               position = position_dodge(width = 0.5),
+               fatten = 4, shape = "square") +
+  facet_wrap(~regio) +
+  labs(y = "Aantal Gele kwikstaarten", x = "Telperiode")
 ```
 
 
 ## Modellen
 
-```{r}
-model1p <- glm(aantal ~ regio, family = poisson(link = log), 
-              data = gele_kwik_2022)
-summary(model1p)
+Met deze data fitten we een model waarbij de aantallen Gele kwikstaarten per telcirkel afhangen van regio en een effect van tijdstip van de telling in 2022. Als random effect wordt plotid in het model gestoken om rekening te houden met gepaardheid van de waarnemingen doorheen het jaar. 
+
+We vergelijken vier modellen met verschillende verdelingsassumpties gebruikmakend van 5-fold cross validation (leave one out CV en WAIC berekenen niet mogelijk):
+1. Poisson
+2. Negative binomial
+3. Zero-inflated Poisson
+4. Zero-inflated Negative binomial
+
+```{r fit-models, results=FALSE}
+brmpois1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
+               data = gele_kwik_2022, family = poisson(), 
+               chains = 3, iter = 3000, cores = 3,
+               file = "brmpois1", file_refit = "on_change")
+summary(brmpois1)
+plot(brmpois1)
+
+brmnegbin1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
+                 data = gele_kwik_2022, family = negbinomial(), 
+               chains = 3, iter = 3000, cores = 3,
+               file = "brmnegbin1", file_refit = "on_change")
+summary(brmnegbin1)
+plot(brmnegbin1)
+
+brmZIP1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
+              data = gele_kwik_2022, family = zero_inflated_poisson(), 
+               chains = 3, iter = 3000, cores = 3,
+               file = "brmZIP1", file_refit = "on_change")
+summary(brmZIP1)
+plot(brmZIP1)
+
+brmZINB1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
+               data = gele_kwik_2022, family = zero_inflated_negbinomial(), 
+               chains = 3, iter = 3000, cores = 3,
+               file = "brmZINB1", file_refit = "on_change")
+summary(brmZINB1)
+plot(brmZINB1)
 ```
 
-```{r}
-model1zip <- zeroinfl(aantal ~ regio|regio, data = gele_kwik_2022, 
-                      link = "logit", dist = "poisson")
-summary(model1zip)
-```
+Convergentie voor alle modellen ok.
 
-```{r}
-model1nb <- glm.nb(aantal ~ regio, data = gele_kwik_2022)
-summary(model1nb)
-```
-
-```{r}
-model1zinb <- zeroinfl(aantal ~ regio|regio, data = gele_kwik_2022, 
-                       link = "logit", dist = "negbin")
-summary(model1zinb)
-```
-
-```{r}
-cbind(AIC(model1p),AIC(model1nb),AIC(model1zip),AIC(model1zinb))
-```
-
-```{r}
-estobsk <- function(k){
-  cbind(
-    sum(dpois(k, fitted(model1p))),
-    sum(dnbinom(k, mu = fitted(model1nb),size = model1nb$theta)),
-    sum(predict(model1zip,type = "prob")[,1 + k]),
-    sum(predict(model1zinb,type = "prob")[,1 + k])
-    )
+```{r k-foldCV}
+if (!file.exists("fit_brmpois1.rds")) {
+  fit_brmpois1 <- add_criterion(brmpois1, c("kfold"), K = 5,
+                                file = "fit_brmpois1")
+  fit_brmnegbin1 <- add_criterion(brmnegbin1, c("kfold"), K = 5,
+                                file = "fit_brmnegbin1")
+  fit_brmZIP1 <- add_criterion(brmZIP1, c("kfold"), K = 5,
+                                file = "fit_brmZIP1")
+  fit_brmZINB1 <- add_criterion(brmZINB1, c("kfold"), K = 5,
+                                file = "fit_brmZINB1")
+} else {
+  fit_brmpois1 <- readRDS("fit_brmpois1.rds")
+  fit_brmnegbin1 <- readRDS("fit_brmnegbin1.rds")
+  fit_brmZIP1 <- readRDS("fit_brmZIP1.rds")
+  fit_brmZINB1 <- readRDS("fit_brmZINB1.rds")
 }
-
-estimatedobs <- sapply(min(gele_kwik_2022$aantal):max(gele_kwik_2022$aantal), 
-                       estobsk)
-row.names(estimatedobs) <- c("Poisson", "Negative binomial", "ZIP", "ZINB")
-colnames(estimatedobs) <- min(gele_kwik_2022$aantal):max(gele_kwik_2022$aantal)
-
-predictions <- estimatedobs %>%
-  as.data.frame() %>%
-  mutate(models = c("Poisson", "Negative\nbinomial", "ZIP", "ZINB")) %>%
-  pivot_longer(cols = as.character(0:6), names_to = "aantal", values_to = "pred") %>%
-  mutate(aantal = as.numeric(aantal))
 ```
+
+
+```{r table-CV}
+as_tibble(rbind(c("Poisson", fit_brmpois1$criteria$kfold$estimates[, "Estimate"]),
+c("Negative binomial", fit_brmnegbin1$criteria$kfold$estimates[, "Estimate"]),
+c("Zero-inflated Poisson", fit_brmZIP1$criteria$kfold$estimates[, "Estimate"]),
+c("Zero-inflated Negative binomial", fit_brmZINB1$criteria$kfold$estimates[, "Estimate"]))) %>%
+  kable(digits = 3)
+```
+
+
 
 ```{r}
-gele_kwik_2022 %>%
-  group_by(aantal) %>%
-  summarise(n = n(), .groups = "drop_last") %>%
-  full_join(predictions, by = "aantal") %>%
-  ggplot(aes(x = aantal, y = n)) +
-    geom_histogram(stat = "identity") +
-    geom_point(data = predictions, aes(x = as.numeric(aantal), y = pred,
-                                       colour = models)) +
-    geom_line(data = predictions, aes(x = as.numeric(aantal), y = pred,
-                                       colour = models)) +
-    labs(y = "", x = "Aantal Gele kwikstaarten") +
-  facet_wrap(~models)
+pp_check(brmpois, type = "bars_grouped", ndraws = 100, group = "regio",
+         facet_args = list(ncol = 1, scales = "free_y"))
 ```
+
+
+
+```{r}
+pp_check(brmnegbin, type = "bars_grouped", ndraws = 100, group = "regio",
+         facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+
+
+```{r}
+pp_check(brmZIP, type = "bars_grouped", ndraws = 100, group = "regio",
+         facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+
+```{r}
+pp_check(brmZINB, type = "bars_grouped", ndraws = 100, group = "regio",
+         facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+handige links:
+file:///G:/Gedeelde%20drives/PRJ_MAS/project-rapport/verkenning_haas.html
+https://www.rensvandeschoot.com/tutorials/brms-started/
+https://ourcodingclub.github.io/tutorials/brms/#part2
+https://tem11010.github.io/regression_brms/
+
