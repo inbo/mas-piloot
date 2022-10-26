@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.2.0",
+    "Version": "4.2.1",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -88,11 +88,14 @@
     "GVI": {
       "Package": "GVI",
       "Version": "1.0",
-      "Source": "Git",
-      "RemoteType": "git2r",
-      "RemoteUrl": "https://github.com/STBrinkmann/GVI",
-      "RemoteSha": "",
-      "Hash": "4361008f8cf1e206022a7e5c769caaeb",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "STBrinkmann",
+      "RemoteRepo": "GVI",
+      "RemoteRef": "main",
+      "RemoteSha": "7d384ccecdb8a4285a43e6bdc02c7b7567c1bc70",
+      "Hash": "d6f463974a46cd036ea083104594fd8f",
       "Requirements": [
         "Rcpp",
         "RcppProgress",
@@ -691,10 +694,13 @@
     },
     "commonmark": {
       "Package": "commonmark",
-      "Version": "1.8.0",
+      "Version": "1.8.1",
       "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "2ba81b120c1655ab696c935ef33ea716",
+      "Repository": "https://ropensci.r-universe.dev",
+      "RemoteUrl": "https://github.com/r-lib/commonmark",
+      "RemoteRef": "main",
+      "RemoteSha": "7d908079d06c6b5ffee2b6c35ff5f3409253278c",
+      "Hash": "b6e3e947d1d7ebf3d2bdcea1bde63fe7",
       "Requirements": []
     },
     "compositions": {
@@ -810,10 +816,13 @@
     },
     "digest": {
       "Package": "digest",
-      "Version": "0.6.29",
+      "Version": "0.6.30",
       "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "cf6b206a045a684728c3267ef7596190",
+      "Repository": "https://thierryo.r-universe.dev",
+      "RemoteUrl": "https://github.com/eddelbuettel/digest",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "ac1d19477c768e9d1c1ac91149ac79a7858e77fc",
+      "Hash": "bf1cd206a5d170d132ef75c7537b9bdb",
       "Requirements": []
     },
     "distributional": {
@@ -1210,13 +1219,10 @@
     },
     "git2r": {
       "Package": "git2r",
-      "Version": "0.30.1.9000",
+      "Version": "0.30.1",
       "Source": "Repository",
-      "Repository": "https://ropensci.r-universe.dev",
-      "RemoteUrl": "https://github.com/ropensci/git2r",
-      "RemoteRef": "master",
-      "RemoteSha": "80ba18571dbbaf6c2b662043719045ecc4024719",
-      "Hash": "efe189767d7734261ca8e78640f8695d",
+      "Repository": "CRAN",
+      "Hash": "e0c6a04a3e7b90e64213d09128f74f1b",
       "Requirements": []
     },
     "git2rdata": {
@@ -1797,8 +1803,8 @@
       "Repository": "https://inbo.r-universe.dev",
       "RemoteUrl": "https://github.com/tidyverse/lubridate",
       "RemoteRef": "HEAD",
-      "RemoteSha": "c4714046ec412e669906ab8d1cd9a8e4fb125e13",
-      "Hash": "c00dc2b6d235358d3b876e5d3cd2906b",
+      "RemoteSha": "be024010ededa0d09cffe6e323777e3ab266f419",
+      "Hash": "16c7ce1bc02b20b0a2371d545e315812",
       "Requirements": [
         "cpp11",
         "generics"
@@ -2305,12 +2311,12 @@
       "Version": "0.0.0.9000",
       "Source": "GitHub",
       "RemoteType": "github",
-      "RemoteUsername": "paleolimbot",
-      "RemoteRepo": "qgisprocess",
-      "RemoteRef": "HEAD",
-      "RemoteSha": "f3aa232039bb598a29a4574001e9519d751753d2",
       "RemoteHost": "api.github.com",
-      "Hash": "2ea6273ef25a545ac5da461dbe773e86",
+      "RemoteRepo": "qgisprocess",
+      "RemoteUsername": "paleolimbot",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "96c77b7a0d5f5c90fa5160d74489e45b17946ac6",
+      "Hash": "77425e7f4d866525b1896fff17465632",
       "Requirements": [
         "glue",
         "jsonlite",
@@ -2943,7 +2949,7 @@
       "Repository": "https://ropensci.r-universe.dev",
       "RemoteUrl": "https://github.com/ropensci/tarchetypes",
       "RemoteRef": "main",
-      "RemoteSha": "441948ced3a9b5b97f9b43fee610b7593fbc9b53",
+      "RemoteSha": "4f75effd39342dd863fb6970fcbf54dcf92cbb13",
       "Hash": "e9acaa614fb0940956b59a5219fc253a",
       "Requirements": [
         "digest",
@@ -2959,13 +2965,13 @@
     },
     "targets": {
       "Package": "targets",
-      "Version": "0.13.5.9001",
+      "Version": "0.13.5.9002",
       "Source": "Repository",
       "Repository": "https://ropensci.r-universe.dev",
       "RemoteUrl": "https://github.com/ropensci/targets",
       "RemoteRef": "main",
-      "RemoteSha": "b3f0566b0f8435bf45b82ebec12e0fd43aca48ca",
-      "Hash": "a6f5b554d8db4436b604ee16c8df73ff",
+      "RemoteSha": "87d1fd4854db012cec0cb2643ed02e26b7114271",
+      "Hash": "6076cf385e9ef7280e9da35914d2aac4",
       "Requirements": [
         "R6",
         "base64url",
@@ -3005,14 +3011,12 @@
     "territoria": {
       "Package": "territoria",
       "Version": "0.0.2",
-      "Source": "GitHub",
-      "RemoteType": "github",
-      "RemoteHost": "api.github.com",
-      "RemoteRepo": "territoria",
-      "RemoteUsername": "inbo",
-      "RemoteRef": "faster",
-      "RemoteSha": "8ca7fd237f05b37f91324076df0026f065c43002",
-      "Hash": "557532b4dcca792debfc1e44b76e792d",
+      "Source": "Repository",
+      "Repository": "https://inbo.r-universe.dev",
+      "RemoteUrl": "https://github.com/inbo/territoria",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "97bd05b248e6950d6f54a4fc97d8a039745ab436",
+      "Hash": "310b95db8a0e0ba9819a50a20d15cc35",
       "Requirements": [
         "RSQLite",
         "assertthat",
