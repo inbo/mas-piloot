@@ -85,6 +85,31 @@
         "rlang"
       ]
     },
+    "GVI": {
+      "Package": "GVI",
+      "Version": "1.0",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "STBrinkmann",
+      "RemoteRepo": "GVI",
+      "RemoteRef": "main",
+      "RemoteSha": "7d384ccecdb8a4285a43e6bdc02c7b7567c1bc70",
+      "Hash": "d6f463974a46cd036ea083104594fd8f",
+      "Requirements": [
+        "Rcpp",
+        "RcppProgress",
+        "doParallel",
+        "dplyr",
+        "foreach",
+        "ggplot2",
+        "magrittr",
+        "raster",
+        "scales",
+        "sf",
+        "terra"
+      ]
+    },
     "KernSmooth": {
       "Package": "KernSmooth",
       "Version": "2.23-20",
@@ -186,6 +211,14 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "f3e94e34ff656a7c8336ce01207bc2b8",
+      "Requirements": []
+    },
+    "RcppProgress": {
+      "Package": "RcppProgress",
+      "Version": "0.4.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "1c0aa18b97e6aaa17f93b8b866c0ace5",
       "Requirements": []
     },
     "RefManageR": {
@@ -399,6 +432,22 @@
       "Requirements": [
         "rlang",
         "vctrs"
+      ]
+    },
+    "bookdown": {
+      "Package": "bookdown",
+      "Version": "0.29",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "bf913e433c84b3a616a9ea6ee0bf0b14",
+      "Requirements": [
+        "htmltools",
+        "jquerylib",
+        "knitr",
+        "rmarkdown",
+        "tinytex",
+        "xfun",
+        "yaml"
       ]
     },
     "brew": {
@@ -794,6 +843,17 @@
         "vctrs"
       ]
     },
+    "doParallel": {
+      "Package": "doParallel",
+      "Version": "1.0.17",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "451e5edf411987991ab6a5410c45011f",
+      "Requirements": [
+        "foreach",
+        "iterators"
+      ]
+    },
     "dplyr": {
       "Package": "dplyr",
       "Version": "1.0.10",
@@ -972,6 +1032,17 @@
         "rlang",
         "tibble",
         "withr"
+      ]
+    },
+    "foreach": {
+      "Package": "foreach",
+      "Version": "1.5.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "618609b42c9406731ead03adf5379850",
+      "Requirements": [
+        "codetools",
+        "iterators"
       ]
     },
     "fresh": {
@@ -1468,6 +1539,14 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "cfdea9dea85c1a973991c8cbe299f4da",
+      "Requirements": []
+    },
+    "iterators": {
+      "Package": "iterators",
+      "Version": "1.0.14",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "8954069286b4b2b0d023d1b288dce978",
       "Requirements": []
     },
     "janitor": {
@@ -2225,6 +2304,29 @@
       "Requirements": [
         "magrittr",
         "rlang"
+      ]
+    },
+    "qgisprocess": {
+      "Package": "qgisprocess",
+      "Version": "0.0.0.9000",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "qgisprocess",
+      "RemoteUsername": "paleolimbot",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "96c77b7a0d5f5c90fa5160d74489e45b17946ac6",
+      "Hash": "77425e7f4d866525b1896fff17465632",
+      "Requirements": [
+        "glue",
+        "jsonlite",
+        "processx",
+        "rappdirs",
+        "rlang",
+        "stringr",
+        "tibble",
+        "vctrs",
+        "withr"
       ]
     },
     "qs": {
