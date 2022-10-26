@@ -47,4 +47,12 @@ images/
 
 # brms model
 mod_haas.rds
+brmnegbin1.rds
+brmpois1.rds
+brmZINB1.rds
+brmZIP1.rds
 
+fit_brmnegbin1.rds
+fit_brmpois1.rds
+fit_brmZINB1.rds
+fit_brmZIP1.rds
