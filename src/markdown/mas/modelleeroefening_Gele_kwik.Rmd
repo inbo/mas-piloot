@@ -249,7 +249,7 @@ gele_kwik_2022 <- gele_kwik_2022_presences %>%
 
 Enkele samenvattende statistieken:
 
-```{r summary-stats}
+```{r stats-aantallen-nodist}
 gele_kwik_2022 %>%
   group_by(regio, periode_in_jaar) %>%
   summarise(min = min(aantal), 
@@ -262,7 +262,7 @@ gele_kwik_2022 %>%
 
 Aantal tellingen per categorie:
 
-```{r tellingen-regio}
+```{r tellingen-aantallen-nodist}
 gele_kwik_2022 %>%
   group_by(regio, periode_in_jaar, aantal) %>%
   summarise(n = n(), .groups = "drop") %>%
@@ -274,7 +274,7 @@ gele_kwik_2022 %>%
 
 Verdeling van de tellingen:
 
-```{r histogram}
+```{r histogram-aantallen-nodist}
 gele_kwik_2022 %>%
   group_by(regio, periode_in_jaar, aantal) %>%
   summarise(n = n(), .groups = "drop_last") %>%
@@ -288,7 +288,7 @@ gele_kwik_2022 %>%
 
 Totaal aantal getelde Gele kwikstaarten per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval.
 
-```{r boxplots}
+```{r boxplots-aantallen-nodist}
 gele_kwik_2022 %>%
   ggplot(aes(x = periode_in_jaar, y = aantal, colour = periode_in_jaar)) +
   stat_sum(position = position_dodge(width = 0.5), alpha = 0.5) +
@@ -312,56 +312,70 @@ We vergelijken vier modellen met verschillende verdelingsassumpties gebruikmaken
 3. Zero-inflated Poisson
 4. Zero-inflated Negative binomial
 
-```{r fit-models, results=FALSE, fig.show='hide'}
+```{r fit-GLMMs, results=FALSE, fig.show='hide'}
+# Save brms models to this path
+model_path <- "./src/markdown/mas/brms_models/"
+
+# 1. Poisson
 brmpois1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                data = gele_kwik_2022, family = poisson(), 
                chains = 3, iter = 3000, cores = 3,
-               file = "brmpois1", file_refit = "on_change")
+               file = paste0(model_path, "brmpois1"), 
+               file_refit = "on_change")
 summary(brmpois1)
 plot(brmpois1)
 
+# 2. Negative binomial
 brmnegbin1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                  data = gele_kwik_2022, family = negbinomial(), 
-               chains = 3, iter = 3000, cores = 3,
-               file = "brmnegbin1", file_refit = "on_change")
+                 chains = 3, iter = 3000, cores = 3,
+                 file = paste0(model_path, "brmnegbin1"), 
+                 file_refit = "on_change")
 summary(brmnegbin1)
 plot(brmnegbin1)
 
+# 3. Zero-inflated Poisson
 brmZIP1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
-              data = gele_kwik_2022, family = zero_inflated_poisson(), 
+               data = gele_kwik_2022, family = zero_inflated_poisson(), 
                chains = 3, iter = 3000, cores = 3,
-               file = "brmZIP1", file_refit = "on_change")
+               file = paste0(model_path, "brmZIP1"), 
+               file_refit = "on_change")
 summary(brmZIP1)
 plot(brmZIP1)
 
+# 4. Zero-inflated Negative binomial
 brmZINB1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                data = gele_kwik_2022, family = zero_inflated_negbinomial(), 
                chains = 3, iter = 3000, cores = 3,
-               file = "brmZINB1", file_refit = "on_change")
+               file = paste0(model_path, "brmZINB1"), 
+               file_refit = "on_change")
 summary(brmZINB1)
 plot(brmZINB1)
 ```
 
-Convergentie voor alle modellen ok.
+Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
 
-Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte. Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. Beter zou zijn te stratificeren volgens regio; dat is voorlopig niet gedaan (`folds = stratified`, `group = regio`). Hierbij wordt er voor gezorgt dat relatieve categoriefrequenties bij benadering behouden blijven.
+Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte. Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. We stratificeren volgens regio. Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
 
-
-```{r k-foldCV}
-if (!file.exists("fit_brmpois1.rds")) {
-  fit_brmpois1 <- add_criterion(brmpois1, c("kfold"), K = 5,
-                                file = "fit_brmpois1")
-  fit_brmnegbin1 <- add_criterion(brmnegbin1, c("kfold"), K = 5,
-                                file = "fit_brmnegbin1")
-  fit_brmZIP1 <- add_criterion(brmZIP1, c("kfold"), K = 5,
-                                file = "fit_brmZIP1")
-  fit_brmZINB1 <- add_criterion(brmZINB1, c("kfold"), K = 5,
-                                file = "fit_brmZINB1")
+```{r k-foldCV-GLMMs}
+if (!file.exists(paste0(model_path, "fit_brmpois1.rds"))) {
+  fit_brmpois1 <- add_criterion(brmpois1, c("kfold"), K = 5, 
+                                folds = "stratified", group = "regio", 
+                                file = paste0(model_path, "fit_brmpois1"))
+  fit_brmnegbin1 <- add_criterion(brmnegbin1, c("kfold"), K = 5, 
+                                folds = "stratified", group = "regio", 
+                                file = paste0(model_path, "fit_brmnegbin1"))
+  fit_brmZIP1 <- add_criterion(brmZIP1, c("kfold"), K = 5, 
+                                folds = "stratified", group = "regio", 
+                                file = paste0(model_path, "fit_brmZIP1"))
+  fit_brmZINB1 <- add_criterion(brmZINB1, c("kfold"), K = 5, 
+                                folds = "stratified", group = "regio",
+                                file = paste0(model_path, "fit_brmZINB1"))
 } else {
-  fit_brmpois1 <- readRDS("fit_brmpois1.rds")
-  fit_brmnegbin1 <- readRDS("fit_brmnegbin1.rds")
-  fit_brmZIP1 <- readRDS("fit_brmZIP1.rds")
-  fit_brmZINB1 <- readRDS("fit_brmZINB1.rds")
+  fit_brmpois1 <- readRDS(paste0(model_path, "fit_brmpois1.rds"))
+  fit_brmnegbin1 <- readRDS(paste0(model_path, "fit_brmnegbin1.rds"))
+  fit_brmZIP1 <- readRDS(paste0(model_path, "fit_brmZIP1.rds"))
+  fit_brmZINB1 <- readRDS(paste0(model_path, "fit_brmZINB1.rds"))
 }
 
 comparisons <- loo_compare(fit_brmpois1, fit_brmnegbin1, fit_brmZIP1, 
@@ -372,7 +386,7 @@ comparisons <- loo_compare(fit_brmpois1, fit_brmnegbin1, fit_brmZIP1,
                                      "Zero-inflated Negative binomial")))
 ```
 
-```{r table-CV}
+```{r table-CV-GLMMs}
 rbind(fit_brmpois1$criteria$kfold$estimates[, "Estimate"],
   fit_brmnegbin1$criteria$kfold$estimates[, "Estimate"],
   fit_brmZIP1$criteria$kfold$estimates[, "Estimate"], 
@@ -390,7 +404,7 @@ rbind(fit_brmpois1$criteria$kfold$estimates[, "Estimate"],
 Het Zero-inflated Negative binomial model toont de beste fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
 
 
-```{r}
+```{r ppcheck-final-GLMM}
 pp_check(fit_brmZINB1, ndraws = 100)
 
 pp_check(fit_brmZINB1, type = "bars_grouped", ndraws = 100, group = "regio",
@@ -403,13 +417,13 @@ pp_check(fit_brmZINB1, type = "bars_grouped", ndraws = 100,
 
 Overzicht van de gefitte modelparameters, hun onzekerheid en enkele maten die aangeven of het model geconvergeerd is.
 
-```{r}
+```{r parameters-final-GLMM}
 summary(brmZINB1)
 ```
 
 Visualisatie van de modelpredicties voor de verschillende regios en telperiodes.
 
-```{r prediction-plots}
+```{r prediction-plots-final-GLMM}
 pred <- conditional_effects(brmZINB1, effects = c("regio:periode_in_jaar"))
 
 cirkelopp <- pi * 300^2
@@ -430,13 +444,13 @@ Nulhypothese:
   &\Rightarrow \beta_1 < 0
 \end{aligned}
 
-```{r hypothesis}
-hyp <- hypothesis(
+```{r hypothesis-regio}
+hyp1 <- hypothesis(
   x = brmZINB1,
   "regioOostelijkeleemstreek < 0",
   class = "b", alpha = 0.05)
-hyp
-plot(hyp)
+hyp1
+plot(hyp1)
 ```
 
 De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal Gele kwikstaarten in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is -0.47. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder Gele kwikstaarten in de Oostelijke leemstreek dan in De Moeren.
@@ -460,7 +474,18 @@ gele_kwik_2022_distance <- gele_kwik_2022_presences %>%
 
 Wat is de verdeling van de geregistreerde afstanden?
 
-```{r histogram-afstanden}
+```{r tabel-dist}
+gele_kwik_2022_distance %>%
+  group_by(regio, periode_in_jaar) %>%
+  summarise(min = min(distance2plot, na.rm = T), 
+            mediaan = median(distance2plot, na.rm = T),
+            gemiddelde = mean(distance2plot, na.rm = T),
+            max = max(distance2plot, na.rm = T),
+            varantie = var(distance2plot, na.rm = T)) %>%
+  kable(digits = 1)
+```
+
+```{r histogram-dist}
 gele_kwik_2022_distance %>%
   ggplot() +
     geom_histogram(aes(x = distance2plot, fill = periode_in_jaar)) +
@@ -472,4 +497,11 @@ gele_kwik_2022_distance %>%
 
 
 welke afstand absences?
+
+
+```{r}
+dsmodel <- ds(gele_kwik_2022_distance$distance2plot, key = "hn", 
+              adjustment = NULL, truncation = 300)
+plot(dsmodel)
+```
 
