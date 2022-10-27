@@ -301,6 +301,7 @@ gele_kwik_2022 %>%
 
 
 ## Modellen
+### Generalized linear mixed models
 
 Met deze data fitten we een model waarbij de aantallen Gele kwikstaarten per telcirkel afhangen van regio en een effect van tijdstip van de telling in 2022. Als random effect wordt de plot in het model gestoken om rekening te houden met gepaardheid van de waarnemingen doorheen het jaar. 
 
@@ -406,9 +407,6 @@ Overzicht van de gefitte modelparameters, hun onzekerheid en enkele maten die aa
 summary(brmZINB1)
 ```
 
-
-## Visualizatie en hypotheses
-
 Visualisatie van de modelpredicties voor de verschillende regios en telperiodes.
 
 ```{r prediction-plots}
@@ -443,3 +441,4 @@ plot(hyp)
 
 De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal Gele kwikstaarten in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is -0.47. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder Gele kwikstaarten in de Oostelijke leemstreek dan in De Moeren.
 
+Het toevoegen van een interactie `regio:periode_in_jaar` blijkt geen meerwaarde voor het model: interactieparameters niet significant verschillend van nul en elpd_diff = -23.4 voor interactiemodel (resultaten niet getoond).
