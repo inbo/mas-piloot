@@ -442,3 +442,23 @@ plot(hyp)
 De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal Gele kwikstaarten in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is -0.47. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder Gele kwikstaarten in de Oostelijke leemstreek dan in De Moeren.
 
 Het toevoegen van een interactie `regio:periode_in_jaar` blijkt geen meerwaarde voor het model: interactieparameters niet significant verschillend van nul en elpd_diff = -23.4 voor interactiemodel (resultaten niet getoond).
+
+
+### Distance sampling
+
+In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarmate de dieren zich verder bevinden. In voorgaande sectie hadden we de data geaggregeerd per telcirkel per telperiode, in deze sectie werken we met de directe observaties: waarnemingen van $n$ aantal Gele kwikstaarten op een afstand van $x$ meter van het telpunt per telperiode in 2022.
+
+```{r data-dist}
+gele_kwik_2022_distance <- gele_kwik_2022_presences %>%
+  # Add absences
+  full_join(bezoekenlijst_2022, by = c("plotnaam", "periode_in_jaar", "regio", 
+                                       "stratum", "openheid", "sbp")) %>%
+  # Replace NA's by 0's
+  mutate(aantal = ifelse(is.na(aantal), 0, aantal)) %>%
+  arrange(plotnaam, periode_in_jaar)
+```
+
+
+
+
+
