@@ -224,6 +224,8 @@ We starten met een beperkte dataset om het aantal broedparen van de Gele kwiksta
 We selecteren de data voor Gele kwikstaart van 2022 met broedcode > 0. Voorlopig houden we geen rekening met detectiekans. We sommen de aantallen op per plot per telperiode (elke plot is 1x per telperiode bezocht). Opmerking: wat met *Gele kwikstaart (spec)*?
 
 ```{r selectie-gelekwik-2022}
+# Selecteer tellingen van Gele kwikstaart in 2022 in de twee regios
+# met broedcode > 0 en binnen telrondes
 gele_kwik_2022_presences <- mas_clean %>% 
   st_drop_geometry() %>%
   filter(naam == "Gele Kwikstaart", jaar == 2022, 
@@ -232,13 +234,13 @@ gele_kwik_2022_presences <- mas_clean %>%
 
 # Totale lijst van bezochte plots in 2022
 bezoekenlijst_2022 <- design2022 %>% 
-  expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # Voeg telperiodes toe
+  expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # voeg telperiodes toe
   filter(!is.na(periode_in_jaar))
 
 # Voeg afwezigheden toe door te mergen met alle bezoeken
 gele_kwik_2022 <- gele_kwik_2022_presences %>%
   group_by(plotnaam, periode_in_jaar) %>%
-  summarise(aantal = sum(aantal)) %>% # Som aantallen gespot per dag 
+  summarise(aantal = sum(aantal)) %>% # som aantallen gespot per dag 
   full_join(bezoekenlijst_2022, by = c("plotnaam", "periode_in_jaar")) %>%
   replace(is.na(.), 0) %>%
   arrange(plotnaam, periode_in_jaar)
@@ -317,19 +319,21 @@ We fitten vier modellen met verschillende verdelingsassumpties:
 ```{r fit-GLMMs, results=FALSE, fig.show='hide'}
 # Save brms models to this path
 model_path <- "./src/markdown/mas/brms_models/"
+models <- c("Poisson", "Negative binomial", "Zero-inflated Poisson", 
+            "Zero-inflated Negative binomial")
 
 # MCMC parameters
-nchains <- 3
-niter <- 4000
-burnin <- niter / 2
-nparallel <- nchains
+nchains <- 3           # number of chains
+niter <- 4000          # number of iterations (incl. burn-in)
+burnin <- niter / 2    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
 
 # 1. Poisson
 brmpois1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                data = gele_kwik_2022, family = poisson(), 
                chains = nchains, warmup = burnin, iter = niter, 
                cores = nparallel,
-               file = paste0(model_path, "brmpois1"), 
+               file = paste0(model_path, "brmpois1"),
                file_refit = "on_change")
 summary(brmpois1)
 plot(brmpois1)
@@ -339,7 +343,7 @@ brmnegbin1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)),
                  data = gele_kwik_2022, family = negbinomial(), 
                  chains = nchains, warmup = burnin, iter = niter, 
                  cores = nparallel,
-                 file = paste0(model_path, "brmnegbin1"), 
+                 file = paste0(model_path, "brmnegbin1"),
                  file_refit = "on_change")
 summary(brmnegbin1)
 plot(brmnegbin1)
@@ -349,7 +353,7 @@ brmZIP1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)),
                data = gele_kwik_2022, family = zero_inflated_poisson(), 
                chains = nchains, warmup = burnin, iter = niter, 
                cores = nparallel,
-               file = paste0(model_path, "brmZIP1"), 
+               file = paste0(model_path, "brmZIP1"),
                file_refit = "on_change")
 summary(brmZIP1)
 plot(brmZIP1)
@@ -359,7 +363,7 @@ brmZINB1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)),
                data = gele_kwik_2022, family = zero_inflated_negbinomial(), 
                chains = nchains, warmup = burnin, iter = niter, 
                cores = nparallel,
-               file = paste0(model_path, "brmZINB1"), 
+               file = paste0(model_path, "brmZINB1"),
                file_refit = "on_change")
 summary(brmZINB1)
 plot(brmZINB1)
@@ -393,9 +397,7 @@ if (!file.exists(paste0(model_path, "fit_brmpois1.rds"))) {
 comparisons <- loo_compare(fit_brmpois1, fit_brmnegbin1, fit_brmZIP1, 
                            fit_brmZINB1, criterion = "kfold")[, c(1, 2)] %>%
                 as.data.frame() %>%
-                mutate(model = rev(c("Poisson", "Negative binomial", 
-                                     "Zero-inflated Poisson", 
-                                     "Zero-inflated Negative binomial")))
+                mutate(model = rev(models))
 ```
 
 ```{r table-CV-GLMMs}
@@ -405,9 +407,7 @@ rbind(fit_brmpois1$criteria$kfold$estimates[, "Estimate"],
   fit_brmZINB1$criteria$kfold$estimates[, "Estimate"]
   ) %>%
   as.data.frame() %>%
-  mutate(model = c("Poisson", "Negative binomial", 
-                   "Zero-inflated Poisson", 
-                   "Zero-inflated Negative binomial")) %>%
+  mutate(model = models) %>%
   full_join(comparisons, by = "model") %>%
   select(model, everything()) %>%
   kable(digits = 3)
@@ -445,9 +445,9 @@ plot(pred, plot = FALSE)[[1]] +
   labs(y = "Aantal Gele kwikstaarten", x = "Regio")
 ```
 
-Testen van een hypothese bv.: Is het gemiddeld aantal Gele kwikstaarten significant lager in de Oostelijke leemstreek dan in De Moeren?
+Testen van een hypothese. Voorbeeld: Is het gemiddeld aantal Gele kwikstaarten significant lager in de Oostelijke leemstreek dan in De Moeren?
 
-Nulhypothese:
+Hypothese:
 
 \begin{aligned}
   &\frac{\exp(\beta_0) + \exp(\beta_0 + \beta_2) + \exp(\beta_0 + \beta_3) + \exp(\beta_0 + \beta_4)}{4} > \frac{\exp(\beta_0 + \beta_1) + \exp(\beta_0 + \beta_1 + \beta_2) + \exp(\beta_0 + \beta_1 + \beta_3) + \exp(\beta_0 + \beta_1 + \beta_4)}{4}\\
@@ -467,7 +467,12 @@ plot(hyp1)
 
 De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal Gele kwikstaarten in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is -0.47. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder Gele kwikstaarten in de Oostelijke leemstreek dan in De Moeren.
 
-Het toevoegen van een interactie `regio:periode_in_jaar` blijkt geen meerwaarde voor het model: interactieparameters niet significant verschillend van nul en elpd_diff = -23.4 voor interactiemodel (resultaten niet getoond).
+Het toevoegen van een interactie `regio:periode_in_jaar` blijkt geen meerwaarde voor het model: interactieparameters niet significant verschillend van nul en elpd_diff = -23.4 voor interactiemodel.
+
+```{r GLMM-interaction}
+
+```
+
 
 
 ### Distance sampling
