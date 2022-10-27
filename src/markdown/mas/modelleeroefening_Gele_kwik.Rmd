@@ -458,7 +458,18 @@ gele_kwik_2022_distance <- gele_kwik_2022_presences %>%
   arrange(plotnaam, periode_in_jaar)
 ```
 
+Wat is de verdeling van de geregistreerde afstanden?
+
+```{r histogram-afstanden}
+gele_kwik_2022_distance %>%
+  ggplot() +
+    geom_histogram(aes(x = distance2plot, fill = periode_in_jaar)) +
+    facet_wrap(~regio) +
+    labs(y = "Aantal tellingen van Gele kwikstaart", x = "Afstand",
+         title = "2022")
+```
 
 
 
+welke afstand absences?
 
