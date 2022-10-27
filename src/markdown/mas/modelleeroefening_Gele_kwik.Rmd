@@ -24,6 +24,7 @@ opts_chunk$set(
   warning = FALSE)
 opts_knit$set(root.dir = here::here())
 library(tidyverse)
+library(gridExtra)
 library(sf)
 library(lubridate)
 library(targets)
@@ -330,21 +331,21 @@ nparallel <- nchains   # number of cores used for parallel computing
 
 # 1. Poisson
 brmpois1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
-               data = gele_kwik_2022, family = poisson(), 
-               chains = nchains, warmup = burnin, iter = niter, 
-               cores = nparallel,
-               file = paste0(model_path, "brmpois1"),
-               file_refit = "on_change")
+                data = gele_kwik_2022, family = poisson(), 
+                chains = nchains, warmup = burnin, iter = niter, 
+                cores = nparallel,
+                file = paste0(model_path, "brmpois1"),
+                file_refit = "on_change")
 summary(brmpois1)
 plot(brmpois1)
 
 # 2. Negative binomial
 brmnegbin1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
-                 data = gele_kwik_2022, family = negbinomial(), 
-                 chains = nchains, warmup = burnin, iter = niter, 
-                 cores = nparallel,
-                 file = paste0(model_path, "brmnegbin1"),
-                 file_refit = "on_change")
+                  data = gele_kwik_2022, family = negbinomial(), 
+                  chains = nchains, warmup = burnin, iter = niter, 
+                  cores = nparallel,
+                  file = paste0(model_path, "brmnegbin1"),
+                  file_refit = "on_change")
 summary(brmnegbin1)
 plot(brmnegbin1)
 
@@ -360,31 +361,32 @@ plot(brmZIP1)
 
 # 4. Zero-inflated Negative binomial
 brmZINB1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
-               data = gele_kwik_2022, family = zero_inflated_negbinomial(), 
-               chains = nchains, warmup = burnin, iter = niter, 
-               cores = nparallel,
-               file = paste0(model_path, "brmZINB1"),
-               file_refit = "on_change")
+                data = gele_kwik_2022, family = zero_inflated_negbinomial(), 
+                chains = nchains, warmup = burnin, iter = niter, 
+                cores = nparallel,
+                file = paste0(model_path, "brmZINB1"),
+                file_refit = "on_change")
 summary(brmZINB1)
 plot(brmZINB1)
 ```
 
 Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
 
-We vergelijken de modellen gebruikmakend van 5-fold cross validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, \textcolor{red}{waarom?}). Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte. Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. We stratificeren volgens regio. Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
+We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, \textcolor{red}{waarom?}). Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte. Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. We stratificeren volgens regio. Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
 
 ```{r k-foldCV-GLMMs}
+# Perform K-fold cross-validation
 if (!file.exists(paste0(model_path, "fit_brmpois1.rds"))) {
-  fit_brmpois1 <- add_criterion(brmpois1, c("kfold"), K = 5, 
+  fit_brmpois1 <- add_criterion(brmpois1, c("kfold"), K = 5, cores = 5,
                                 folds = "stratified", group = "regio", 
                                 file = paste0(model_path, "fit_brmpois1"))
-  fit_brmnegbin1 <- add_criterion(brmnegbin1, c("kfold"), K = 5, 
+  fit_brmnegbin1 <- add_criterion(brmnegbin1, c("kfold"), K = 5, cores = 5, 
                                 folds = "stratified", group = "regio", 
                                 file = paste0(model_path, "fit_brmnegbin1"))
-  fit_brmZIP1 <- add_criterion(brmZIP1, c("kfold"), K = 5, 
+  fit_brmZIP1 <- add_criterion(brmZIP1, c("kfold"), K = 5, cores = 5,
                                 folds = "stratified", group = "regio", 
                                 file = paste0(model_path, "fit_brmZIP1"))
-  fit_brmZINB1 <- add_criterion(brmZINB1, c("kfold"), K = 5, 
+  fit_brmZINB1 <- add_criterion(brmZINB1, c("kfold"), K = 5, cores = 5,
                                 folds = "stratified", group = "regio",
                                 file = paste0(model_path, "fit_brmZINB1"))
 } else {
@@ -394,10 +396,12 @@ if (!file.exists(paste0(model_path, "fit_brmpois1.rds"))) {
   fit_brmZINB1 <- readRDS(paste0(model_path, "fit_brmZINB1.rds"))
 }
 
+# Comparison among models
 comparisons <- loo_compare(fit_brmpois1, fit_brmnegbin1, fit_brmZIP1, 
                            fit_brmZINB1, criterion = "kfold")[, c(1, 2)] %>%
                 as.data.frame() %>%
-                mutate(model = rev(models))
+                mutate(model = c("Poisson", "Zero-inflated Negative binomial",
+                                 "Zero-inflated Poisson", "Negative binomial"))
 ```
 
 ```{r table-CV-GLMMs}
@@ -409,20 +413,20 @@ rbind(fit_brmpois1$criteria$kfold$estimates[, "Estimate"],
   as.data.frame() %>%
   mutate(model = models) %>%
   full_join(comparisons, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
   select(model, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
   kable(digits = 3)
 ```
 
-Het Zero-inflated Negative binomial model toont de beste fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
-
+Het Poisson model toont het beste evenwicht tussen model parsimonie en model fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution. Bovendien voorspelt dit model geen onmogelijk grote waarden (ZINB voorspelt bijvoorbeeld grotere maxima terwijl we in de data slechts maximaal 6 individuen hadden).
 
 ```{r ppcheck-final-GLMM}
-pp_check(fit_brmZINB1, ndraws = 100)
-
-pp_check(fit_brmZINB1, type = "bars_grouped", ndraws = 100, group = "regio",
+pp_check(fit_brmpois1, type = "bars_grouped", ndraws = 100, group = "regio",
          facet_args = list(ncol = 1, scales = "free_y"))
 
-pp_check(fit_brmZINB1, type = "bars_grouped", ndraws = 100, 
+pp_check(fit_brmpois1, type = "bars_grouped", ndraws = 100, 
          group = "periode_in_jaar",
          facet_args = list(ncol = 1, scales = "free_y"))
 ```
@@ -430,19 +434,19 @@ pp_check(fit_brmZINB1, type = "bars_grouped", ndraws = 100,
 Overzicht van de gefitte modelparameters, hun onzekerheid en enkele maten die aangeven of het model geconvergeerd is.
 
 ```{r parameters-final-GLMM}
-summary(brmZINB1)
+summary(fit_brmpois1)
 ```
 
 Visualisatie van de modelpredicties voor de verschillende regios en telperiodes.
 
 ```{r prediction-plots-final-GLMM}
-pred <- conditional_effects(brmZINB1, effects = c("regio:periode_in_jaar"))
+pred <- conditional_effects(fit_brmpois1, effects = c("regio:periode_in_jaar"))
 
 cirkelopp <- pi * 300^2
 plot(pred, plot = FALSE)[[1]] + 
-  scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
-                      name = "Aantal Gele kwikstaarten per 100 ha")) +
-  labs(y = "Aantal Gele kwikstaarten", x = "Regio")
+     scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+       name = "Aantal Gele kwikstaarten per 100 ha")) +
+     labs(y = "Aantal Gele kwikstaarten", x = "Regio")
 ```
 
 Testen van een hypothese. Voorbeeld: Is het gemiddeld aantal Gele kwikstaarten significant lager in de Oostelijke leemstreek dan in De Moeren?
@@ -458,7 +462,7 @@ Hypothese:
 
 ```{r hypothesis-regio}
 hyp1 <- hypothesis(
-  x = brmZINB1,
+  x = fit_brmpois1,
   "regioOostelijkeleemstreek < 0",
   class = "b", alpha = 0.05)
 hyp1
@@ -467,12 +471,87 @@ plot(hyp1)
 
 De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal Gele kwikstaarten in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is -0.47. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder Gele kwikstaarten in de Oostelijke leemstreek dan in De Moeren.
 
-Het toevoegen van een interactie `regio:periode_in_jaar` blijkt geen meerwaarde voor het model: interactieparameters niet significant verschillend van nul en elpd_diff = -23.4 voor interactiemodel.
+Het toevoegen van een interactie `regio:periode_in_jaar` blijkt geen meerwaarde voor het model:
 
-```{r GLMM-interaction}
+```{r GLMM-interaction, results=FALSE, fig.show='hide'}
+brmpois2 <- brm(bf(aantal ~ regio + periode_in_jaar + regio:periode_in_jaar +
+                     (1 | plotnaam)), 
+                  data = gele_kwik_2022, family = poisson(), 
+                  chains = nchains, warmup = burnin, iter = niter, 
+                  cores = nparallel,
+                  file = paste0(model_path, "brmpois2"),
+                  file_refit = "on_change")
 
+# Convergence ok
+summary(brmpois2)
+plot(brmpois2)
 ```
 
+- Interactieparameters niet significant verschillend van nul.
+
+```{r GLMM-interaction-hypotheses}
+# Hypotheses
+q1 <- "regioOostelijkeleemstreek:periode_in_jaarR2 = 0"
+q2 <- "regioOostelijkeleemstreek:periode_in_jaarR3 = 0"
+q3 <- "regioOostelijkeleemstreek:periode_in_jaarR4 = 0"
+
+hypothesis(x = brmpois2, c(q1, q2, q3), class = "b", alpha = 0.05)
+```
+
+- K-fold cross-validation beter zonder interactie (toch grote standard error, maar dan opteren we voor het eenvoudigere model, i.e. zonder interactie)
+
+```{r GLMM-interaction-CV}
+# Perform K-fold cross-validation
+if (!file.exists(paste0(model_path, "fit_brmpois2.rds"))) {
+  fit_brmpois2 <- add_criterion(brmnegbin1, c("kfold"), K = 5, cores = 5,
+                        folds = "stratified", group = "regio", 
+                        file = paste0(model_path, "fit_brmpois2"))
+} else {
+  fit_brmpois2 <- readRDS(paste0(model_path, "fit_brmpois2.rds"))
+}
+
+# Comparison among models
+comparisons <- loo_compare(fit_brmpois1, fit_brmpois2, 
+                           criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                mutate(model = c("Poisson: no interaction", 
+                                 "Poisson: interaction"))
+
+# Make nice table
+rbind(fit_brmpois1$criteria$kfold$estimates[, "Estimate"],
+  fit_brmpois2$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = c("Poisson: no interaction", "Poisson: interaction")) %>%
+  full_join(comparisons, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, everything()) %>%
+  kable(digits = 3)
+```
+
+- Visueel slechts klein verschil in predicties (R2 vs R3 De Moeren)
+
+```{r GLMM-visual-comparison-interaction}
+pred_interaction <- conditional_effects(brmpois2, 
+                                        effects = c("regio:periode_in_jaar"))
+
+p_pois1 <- plot(pred, plot = FALSE)[[1]] + 
+                scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+                  name = ""), limits = c(0, 0.4)) +
+                labs(y = "Aantal Gele kwikstaarten", x = "", 
+                     title = "Poisson: no interaction") +
+                theme(legend.position = "bottom")
+
+p_pois2 <- plot(pred_interaction, plot = FALSE)[[1]] + 
+                scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+                  name = "Aantal Gele kwikstaarten per 100 ha"), 
+                  limits = c(0, 0.4)) +
+                labs(y = "", x = "", title = "Poisson: interaction") +
+                theme(legend.position = "bottom")
+
+grid.arrange(p_pois1, p_pois2, ncol = 2)
+```
 
 
 ### Distance sampling
