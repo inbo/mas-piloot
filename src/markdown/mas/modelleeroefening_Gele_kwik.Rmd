@@ -316,10 +316,17 @@ We vergelijken vier modellen met verschillende verdelingsassumpties gebruikmaken
 # Save brms models to this path
 model_path <- "./src/markdown/mas/brms_models/"
 
+# MCMC parameters
+nchains <- 3
+niter <- 4000
+burnin <- niter / 2
+nparallel <- nchains
+
 # 1. Poisson
 brmpois1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                data = gele_kwik_2022, family = poisson(), 
-               chains = 3, iter = 3000, cores = 3,
+               chains = nchains, warmup = burnin, iter = niter, 
+               cores = nparallel, sample_prior = "only",
                file = paste0(model_path, "brmpois1"), 
                file_refit = "on_change")
 summary(brmpois1)
@@ -328,7 +335,8 @@ plot(brmpois1)
 # 2. Negative binomial
 brmnegbin1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                  data = gele_kwik_2022, family = negbinomial(), 
-                 chains = 3, iter = 3000, cores = 3,
+                 chains = nchains, warmup = burnin, iter = niter, 
+                 cores = nparallel, sample_prior = "only",
                  file = paste0(model_path, "brmnegbin1"), 
                  file_refit = "on_change")
 summary(brmnegbin1)
@@ -337,7 +345,8 @@ plot(brmnegbin1)
 # 3. Zero-inflated Poisson
 brmZIP1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                data = gele_kwik_2022, family = zero_inflated_poisson(), 
-               chains = 3, iter = 3000, cores = 3,
+               chains = nchains, warmup = burnin, iter = niter, 
+               cores = nparallel, sample_prior = "only",
                file = paste0(model_path, "brmZIP1"), 
                file_refit = "on_change")
 summary(brmZIP1)
@@ -346,7 +355,8 @@ plot(brmZIP1)
 # 4. Zero-inflated Negative binomial
 brmZINB1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                data = gele_kwik_2022, family = zero_inflated_negbinomial(), 
-               chains = 3, iter = 3000, cores = 3,
+               chains = nchains, warmup = burnin, iter = niter, 
+               cores = nparallel, sample_prior = "only",
                file = paste0(model_path, "brmZINB1"), 
                file_refit = "on_change")
 summary(brmZINB1)
