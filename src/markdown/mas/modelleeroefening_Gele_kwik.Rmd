@@ -305,12 +305,14 @@ gele_kwik_2022 %>%
 
 Met deze data fitten we een model waarbij de aantallen Gele kwikstaarten per telcirkel afhangen van regio en een effect van tijdstip van de telling in 2022. Als random effect wordt de plot in het model gestoken om rekening te houden met gepaardheid van de waarnemingen doorheen het jaar. 
 
-We vergelijken vier modellen met verschillende verdelingsassumpties gebruikmakend van 5-fold cross validation (leave one out CV en WAIC berekenen niet mogelijk):
+We fitten vier modellen met verschillende verdelingsassumpties:
 
 1. Poisson
 2. Negative binomial
 3. Zero-inflated Poisson
 4. Zero-inflated Negative binomial
+
+\textcolor{red}{opmerking:} Met de optie `sample_prior = "only"` kunnen bijkomend trekkingen worden getrokken van de priors, waarbij de likelihood wordt genegeerd. Daarmee kan er gesampled worden van de prior predictive distribution. Hiermee kunnen de gebruikte priors gecontroleerd worden. Echter deze optie is nu niet mogelijk aangezien sommige parameters improper priors hebben: `Error occurred for parameter 'b'.`.
 
 ```{r fit-GLMMs, results=FALSE, fig.show='hide'}
 # Save brms models to this path
@@ -326,7 +328,7 @@ nparallel <- nchains
 brmpois1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                data = gele_kwik_2022, family = poisson(), 
                chains = nchains, warmup = burnin, iter = niter, 
-               cores = nparallel, sample_prior = "only",
+               cores = nparallel,
                file = paste0(model_path, "brmpois1"), 
                file_refit = "on_change")
 summary(brmpois1)
@@ -336,7 +338,7 @@ plot(brmpois1)
 brmnegbin1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                  data = gele_kwik_2022, family = negbinomial(), 
                  chains = nchains, warmup = burnin, iter = niter, 
-                 cores = nparallel, sample_prior = "only",
+                 cores = nparallel,
                  file = paste0(model_path, "brmnegbin1"), 
                  file_refit = "on_change")
 summary(brmnegbin1)
@@ -346,7 +348,7 @@ plot(brmnegbin1)
 brmZIP1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                data = gele_kwik_2022, family = zero_inflated_poisson(), 
                chains = nchains, warmup = burnin, iter = niter, 
-               cores = nparallel, sample_prior = "only",
+               cores = nparallel,
                file = paste0(model_path, "brmZIP1"), 
                file_refit = "on_change")
 summary(brmZIP1)
@@ -356,7 +358,7 @@ plot(brmZIP1)
 brmZINB1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                data = gele_kwik_2022, family = zero_inflated_negbinomial(), 
                chains = nchains, warmup = burnin, iter = niter, 
-               cores = nparallel, sample_prior = "only",
+               cores = nparallel,
                file = paste0(model_path, "brmZINB1"), 
                file_refit = "on_change")
 summary(brmZINB1)
@@ -365,7 +367,7 @@ plot(brmZINB1)
 
 Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
 
-Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte. Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. We stratificeren volgens regio. Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
+We vergelijken de modellen gebruikmakend van 5-fold cross validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, \textcolor{red}{waarom?}). Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte. Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. We stratificeren volgens regio. Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
 
 ```{r k-foldCV-GLMMs}
 if (!file.exists(paste0(model_path, "fit_brmpois1.rds"))) {
