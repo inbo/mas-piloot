@@ -251,7 +251,7 @@ Enkele samenvattende statistieken:
 
 ```{r summary-stats}
 gele_kwik_2022 %>%
-  group_by(periode_in_jaar) %>%
+  group_by(regio, periode_in_jaar) %>%
   summarise(min = min(aantal), 
             mediaan = median(aantal),
             gemiddelde = mean(aantal),
@@ -261,16 +261,6 @@ gele_kwik_2022 %>%
 ```
 
 Aantal tellingen per categorie:
-
-```{r tellingen}
-gele_kwik_2022 %>%
-  group_by(periode_in_jaar, aantal) %>%
-  summarise(n = n(), .groups = "drop") %>%
-  arrange(aantal) %>%
-  pivot_wider(names_from = aantal, values_from = n) %>%
-  replace(is.na(.), 0) %>%
-  kable()
-```
 
 ```{r tellingen-regio}
 gele_kwik_2022 %>%
@@ -282,14 +272,14 @@ gele_kwik_2022 %>%
   kable()
 ```
 
-Verdeling van de tellingen
+Verdeling van de tellingen:
 
 ```{r histogram}
 gele_kwik_2022 %>%
-  group_by(periode_in_jaar, aantal) %>%
+  group_by(regio, periode_in_jaar, aantal) %>%
   summarise(n = n(), .groups = "drop_last") %>%
-  ggplot(aes(x = aantal, y = n)) +
-    geom_histogram(stat = "identity", fill = "orange", col = "black") +
+  ggplot(aes(x = aantal, y = n, fill = regio)) +
+    geom_histogram(stat = "identity", col = "black") +
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank()) + 
     facet_wrap(~periode_in_jaar, scales = "free") +
@@ -312,15 +302,16 @@ gele_kwik_2022 %>%
 
 ## Modellen
 
-Met deze data fitten we een model waarbij de aantallen Gele kwikstaarten per telcirkel afhangen van regio en een effect van tijdstip van de telling in 2022. Als random effect wordt plotid in het model gestoken om rekening te houden met gepaardheid van de waarnemingen doorheen het jaar. 
+Met deze data fitten we een model waarbij de aantallen Gele kwikstaarten per telcirkel afhangen van regio en een effect van tijdstip van de telling in 2022. Als random effect wordt de plot in het model gestoken om rekening te houden met gepaardheid van de waarnemingen doorheen het jaar. 
 
 We vergelijken vier modellen met verschillende verdelingsassumpties gebruikmakend van 5-fold cross validation (leave one out CV en WAIC berekenen niet mogelijk):
+
 1. Poisson
 2. Negative binomial
 3. Zero-inflated Poisson
 4. Zero-inflated Negative binomial
 
-```{r fit-models, results=FALSE}
+```{r fit-models, results=FALSE, fig.show='hide'}
 brmpois1 <- brm(bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
                data = gele_kwik_2022, family = poisson(), 
                chains = 3, iter = 3000, cores = 3,
@@ -352,6 +343,9 @@ plot(brmZINB1)
 
 Convergentie voor alle modellen ok.
 
+Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte. Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. Beter zou zijn te stratificeren volgens regio; dat is voorlopig niet gedaan (`folds = stratified`, `group = regio`). Hierbij wordt er voor gezorgt dat relatieve categoriefrequenties bij benadering behouden blijven.
+
+
 ```{r k-foldCV}
 if (!file.exists("fit_brmpois1.rds")) {
   fit_brmpois1 <- add_criterion(brmpois1, c("kfold"), K = 5,
@@ -368,47 +362,84 @@ if (!file.exists("fit_brmpois1.rds")) {
   fit_brmZIP1 <- readRDS("fit_brmZIP1.rds")
   fit_brmZINB1 <- readRDS("fit_brmZINB1.rds")
 }
+
+comparisons <- loo_compare(fit_brmpois1, fit_brmnegbin1, fit_brmZIP1, 
+                           fit_brmZINB1, criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                mutate(model = rev(c("Poisson", "Negative binomial", 
+                                     "Zero-inflated Poisson", 
+                                     "Zero-inflated Negative binomial")))
 ```
 
-
 ```{r table-CV}
-as_tibble(rbind(c("Poisson", fit_brmpois1$criteria$kfold$estimates[, "Estimate"]),
-c("Negative binomial", fit_brmnegbin1$criteria$kfold$estimates[, "Estimate"]),
-c("Zero-inflated Poisson", fit_brmZIP1$criteria$kfold$estimates[, "Estimate"]),
-c("Zero-inflated Negative binomial", fit_brmZINB1$criteria$kfold$estimates[, "Estimate"]))) %>%
+rbind(fit_brmpois1$criteria$kfold$estimates[, "Estimate"],
+  fit_brmnegbin1$criteria$kfold$estimates[, "Estimate"],
+  fit_brmZIP1$criteria$kfold$estimates[, "Estimate"], 
+  fit_brmZINB1$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = c("Poisson", "Negative binomial", 
+                   "Zero-inflated Poisson", 
+                   "Zero-inflated Negative binomial")) %>%
+  full_join(comparisons, by = "model") %>%
+  select(model, everything()) %>%
   kable(digits = 3)
 ```
 
+Het Zero-inflated Negative binomial model toont de beste fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
 
 
 ```{r}
-pp_check(brmpois1, type = "bars_grouped", ndraws = 100, group = "regio",
-         facet_args = list(ncol = 1, scales = "free_y"))
-```
+pp_check(fit_brmZINB1, ndraws = 100)
 
-
-
-```{r}
-pp_check(fit_brmnegbin1, type = "bars_grouped", ndraws = 100, group = "regio",
-         facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-
-
-```{r}
-pp_check(fit_brmZIP1, type = "bars_grouped", ndraws = 100, group = "regio",
-         facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-
-```{r}
 pp_check(fit_brmZINB1, type = "bars_grouped", ndraws = 100, group = "regio",
          facet_args = list(ncol = 1, scales = "free_y"))
+
+pp_check(fit_brmZINB1, type = "bars_grouped", ndraws = 100, 
+         group = "periode_in_jaar",
+         facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
-handige links:
-file:///G:/Gedeelde%20drives/PRJ_MAS/project-rapport/verkenning_haas.html
-https://www.rensvandeschoot.com/tutorials/brms-started/
-https://ourcodingclub.github.io/tutorials/brms/#part2
-https://tem11010.github.io/regression_brms/
+Overzicht van de gefitte modelparameters, hun onzekerheid en enkele maten die aangeven of het model geconvergeerd is.
+
+```{r}
+summary(brmZINB1)
+```
+
+
+## Visualizatie en hypotheses
+
+Visualisatie van de modelpredicties voor de verschillende regios en telperiodes.
+
+```{r prediction-plots}
+pred <- conditional_effects(brmZINB1, effects = c("regio:periode_in_jaar"))
+
+cirkelopp <- pi * 300^2
+plot(pred, plot = FALSE)[[1]] + 
+  scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+                      name = "Aantal Gele kwikstaarten per 100 ha")) +
+  labs(y = "Aantal Gele kwikstaarten", x = "Regio")
+```
+
+Testen van een hypothese bv.: Is het gemiddeld aantal Gele kwikstaarten significant lager in de Oostelijke leemstreek dan in De Moeren?
+
+Nulhypothese:
+
+\begin{aligned}
+  &\frac{\exp(\beta_0) + \exp(\beta_0 + \beta_2) + \exp(\beta_0 + \beta_3) + \exp(\beta_0 + \beta_4)}{4} > \frac{\exp(\beta_0 + \beta_1) + \exp(\beta_0 + \beta_1 + \beta_2) + \exp(\beta_0 + \beta_1 + \beta_3) + \exp(\beta_0 + \beta_1 + \beta_4)}{4}\\
+  &\Rightarrow \exp(\beta_0)(\exp(\beta_2) + \exp(\beta_3) + \exp(\beta_4)) > \exp(\beta_0)\exp(\beta_1)(\exp(\beta_2) + \exp(\beta_3) + \exp(\beta_4))\\
+  &\Rightarrow \exp(\beta_1) < 1\\
+  &\Rightarrow \beta_1 < 0
+\end{aligned}
+
+```{r hypothesis}
+hyp <- hypothesis(
+  x = brmZINB1,
+  "regioOostelijkeleemstreek < 0",
+  class = "b", alpha = 0.05)
+hyp
+plot(hyp)
+```
+
+De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal Gele kwikstaarten in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is -0.47. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder Gele kwikstaarten in de Oostelijke leemstreek dan in De Moeren.
 
