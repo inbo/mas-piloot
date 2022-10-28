@@ -1,6 +1,6 @@
 ---
 title: "Modelleren en distance sampling Gele kwikstaart"
-author: "Ward Langeraert, Hans Van Calster"
+author: "Ward Langeraert"
 date: "`r Sys.Date()`"
 output:
   bookdown::html_document2:
@@ -566,6 +566,13 @@ gele_kwik_2022_distance <- gele_kwik_2022_presences %>%
   # Replace NA's by 0's
   mutate(aantal = ifelse(is.na(aantal), 0, aantal)) %>%
   arrange(plotnaam, periode_in_jaar)
+
+reg_tab <- perimeters %>% mutate(Area = as.numeric(st_area(geom)) / 1e6) %>%
+            select(Naam, Area) %>%
+            rename(Region.Label = Naam) %>%
+            st_drop_geometry()
+
+conversion_factor <- convert_units("meter", NULL, "Square kilometer")
 ```
 
 Wat is de verdeling van de geregistreerde afstanden?
@@ -573,11 +580,11 @@ Wat is de verdeling van de geregistreerde afstanden?
 ```{r tabel-dist}
 gele_kwik_2022_distance %>%
   group_by(regio, periode_in_jaar) %>%
-  summarise(min = min(distance2plot, na.rm = T), 
-            mediaan = median(distance2plot, na.rm = T),
-            gemiddelde = mean(distance2plot, na.rm = T),
-            max = max(distance2plot, na.rm = T),
-            varantie = var(distance2plot, na.rm = T)) %>%
+  summarise(min = min(distance2plot, na.rm = TRUE), 
+            mediaan = median(distance2plot, na.rm = TRUE),
+            gemiddelde = mean(distance2plot, na.rm = TRUE),
+            max = max(distance2plot, na.rm = TRUE),
+            varantie = var(distance2plot, na.rm = TRUE)) %>%
   kable(digits = 1)
 ```
 
@@ -590,14 +597,160 @@ gele_kwik_2022_distance %>%
          title = "2022")
 ```
 
+De dataframe moet een kolom met de naam `distance` bevatten (met de waargenomen afstanden) en extra benoemde kolommen voor eventuele covariaten die de detecteerbaarheid kunnen beïnvloeden (bijvoorbeeld waarnemer effect of visibiliteit). Om de densiteit te schatten of de abundatntie, is aanvullende informatie vereist. Extra kolommen moeten worden opgenomen de dataframe met vermelding van: `Sample.Label` (ID van het transect/plot), `Effort` (het aantal keren dat dat punt is bezocht); `Region.Label` (het stratum dat het transect bevat); `Area`, de oppervlakte van de strata. Transecten/plots die zijn onderzocht maar geen waarnemingen hebben, moeten worden opgenomen in de dataset met `NA` voor afstand en eventuele andere covariaten.
 
-
-welke afstand absences?
-
-
-```{r}
-dsmodel <- ds(gele_kwik_2022_distance$distance2plot, key = "hn", 
-              adjustment = NULL, truncation = 300)
-plot(dsmodel)
+```{r dist-dataframe}
+gele_kwik_2022_ds <- gele_kwik_2022_distance %>%
+  select(plotnaam, regio, periode_in_jaar, aantal, distance2plot) %>%
+  rename(Sample.Label = plotnaam, Region.Label = regio, distance = distance2plot) %>%
+  full_join(reg_tab, by = "Region.Label")
 ```
+
+We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten regio en telperiode. Voor de uniforme verdeling kunnen geen covariaten worden toegevoegd.
+
+- Fitting uniform key function
+
+```{r uniform-ds}
+dsmodelunif1 <- ds(data = gele_kwik_2022_ds, key = "unif", truncation = 300, 
+                 transect = "point", dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+```
+
+- Fitting half-normal key function
+
+```{r halfnormal-ds}
+dsmodelhn1 <- ds(data = gele_kwik_2022_ds, key = "hn", truncation = 300, 
+                 transect = "point", dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+
+dsmodelhn2 <- ds(data = gele_kwik_2022_ds, key = "hn", formula = ~ Region.Label,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+
+dsmodelhn3 <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+
+dsmodelhn4 <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ Region.Label + periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+
+dsmodelhn5 <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ Region.Label + periode_in_jaar + 
+                   Region.Label:periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+```
+
+- Fitting hazard-rate key function
+
+```{r hazard-rate-ds}
+dsmodelhr1 <- ds(data = gele_kwik_2022_ds, key = "hr", truncation = 300, 
+                 transect = "point", dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+
+dsmodelhr2 <- ds(data = gele_kwik_2022_ds, key = "hr", formula = ~ Region.Label,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+
+dsmodelhr3 <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+
+dsmodelhr4 <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ Region.Label + periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+
+dsmodelhr5 <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ Region.Label + periode_in_jaar + 
+                   Region.Label:periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, region_table = reg_tab,
+                 convert_units = conversion_factor)
+```
+
+We bekijken model fit m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
+
+```{r model-fit-ds}
+par(mfrow = c(1, 2))
+
+# Uniform model
+gof_ds(dsmodelunif1, main = "dsmodelunif1")
+plot(dsmodelunif1, pdf = TRUE, 
+     main = paste0("dsmodelunif1 - ", "AIC: ", 
+                   as.character(round(summary(dsmodelunif1)$ds$aic, digits = 2))
+                   )
+     )
+
+# Half-normal models
+for (i in 1:5) {
+  mod <- get(paste0("dsmodelhn", i))
+  name <- paste0("dsmodelhn", i)
+  
+  gof_ds(mod, main = name)
+  
+  plot(mod, pdf = TRUE, 
+       main = paste0(name, " - ", "AIC: ",
+                     as.character(round(summary(mod)$ds$aic, digits = 2))
+                     )
+       )
+}
+
+# Hazard-rate models
+for (i in 1:5) {
+  mod <- get(paste0("dsmodelhr", i))
+  name <- paste0("dsmodelhr", i)
+  
+  gof_ds(mod, main = name)
+  
+  plot(mod, pdf = TRUE, 
+       main = paste0(name, " - ", "AIC: ",
+                     as.character(round(summary(mod)$ds$aic, digits = 2))
+                     )
+       )
+}
+
+par(mfrow = c(1, 1))
+```
+
+We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC's kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. Modellen met vergelijkbare AIC's hebben vergelijkbare geschatte detectiekansen,
+dus in de praktijk is er weinig verschil in de keuze tussen deze modellen.
+
+```{r model-comparisons-ds}
+summarize_ds_models(dsmodelunif1, 
+                    dsmodelhn1, dsmodelhn2, dsmodelhn3, 
+                      dsmodelhn4, dsmodelhn5, 
+                    dsmodelhr1, dsmodelhr2, dsmodelhr3, 
+                      dsmodelhr4, dsmodelhr5) %>% kable()
+```
+
+Op basis van deze redenering kiezen we voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende detectiekans:
+
+```{r final-model-summary-ds}
+summary_hr1 <- summary(dsmodelhr1)
+summary_hr1$ds$coeff$key.scale %>%
+  kable(digits = 2)
+
+plot(dsmodelhr1)
+```
+
+Andere covariaten die invloed zouden kunnen hebben op de detectiekans zijn voorlopig niet beschouwd (ervaring, visibiliteit, uur na zonsopkomst ...?).
+
+
+
+
+
+
+
 
