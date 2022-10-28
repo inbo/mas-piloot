@@ -554,7 +554,7 @@ grid.arrange(p_pois1, p_pois2, ncol = 2)
 ```
 
 
-### Distance sampling
+### Distance sampling met Distance package
 
 In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarmate de dieren zich verder bevinden. In voorgaande sectie hadden we de data geaggregeerd per telcirkel per telperiode, in deze sectie werken we met de directe observaties: waarnemingen van $n$ aantal broedparen Gele kwikstaart op een afstand van $x$ meter van het telpunt per telperiode in 2022.
 
@@ -838,6 +838,15 @@ De schattingen van densiteit liggen duidelijk hoger dan bij de analyse waarbij w
 Andere covariaten die invloed zouden kunnen hebben op de detectiekans zijn voorlopig niet beschouwd (ervaring teller, visibiliteit, uur na zonsopkomst ...?).
 
 
-### STAN
+### Distance sampling met unmarked package
+
+https://cran.r-project.org/web/packages/unmarked/vignettes/distsamp.html
+https://www.rdocumentation.org/packages/unmarked/versions/1.2.5/topics/gdistsamp
+https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e48a92.html
+
+
+### Distance sampling in STAN
+
+
 
 
