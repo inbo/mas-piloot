@@ -286,10 +286,10 @@ gele_kwik_2022 %>%
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank()) + 
     facet_wrap(~periode_in_jaar, scales = "free") +
-    labs(y = "", x = "Aantal Gele kwikstaarten")
+    labs(y = "", x = "Aantal broedparen Gele kwikstaart per plot")
 ```
 
-Totaal aantal getelde Gele kwikstaarten per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval.
+Totaal aantal getelde broedparen Gele kwikstaart per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval.
 
 ```{r boxplots-aantallen-nodist}
 gele_kwik_2022 %>%
@@ -299,14 +299,14 @@ gele_kwik_2022 %>%
                position = position_dodge(width = 0.5),
                fatten = 4, shape = "square") +
   facet_wrap(~regio) +
-  labs(y = "Aantal Gele kwikstaarten", x = "Telperiode")
+  labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "Telperiode")
 ```
 
 
 ## Modellen
 ### Generalized linear mixed models
 
-Met deze data fitten we een model waarbij de aantallen Gele kwikstaarten per telcirkel afhangen van regio en een effect van tijdstip van de telling in 2022. Als random effect wordt de plot in het model gestoken om rekening te houden met gepaardheid van de waarnemingen doorheen het jaar. 
+Met deze data fitten we een model waarbij de aantallen broedparen Gele kwikstaart per telcirkel afhangen van regio en een effect van tijdstip van de telling in 2022. Als random effect wordt de plot in het model gestoken om rekening te houden met gepaardheid van de waarnemingen doorheen het jaar. 
 
 We fitten vier modellen met verschillende verdelingsassumpties:
 
@@ -445,11 +445,11 @@ pred <- conditional_effects(fit_brmpois1, effects = c("regio:periode_in_jaar"))
 cirkelopp <- pi * 300^2
 plot(pred, plot = FALSE)[[1]] + 
      scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
-       name = "Aantal Gele kwikstaarten per 100 ha")) +
-     labs(y = "Aantal Gele kwikstaarten", x = "Regio")
+       name = "Aantal broedparen Gele kwikstaart per 100 ha")) +
+     labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "")
 ```
 
-Testen van een hypothese. Voorbeeld: Is het gemiddeld aantal Gele kwikstaarten significant lager in de Oostelijke leemstreek dan in De Moeren?
+Testen van een hypothese. Voorbeeld: Is het gemiddeld aantal broedparen Gele kwikstaart significant lager in de Oostelijke leemstreek dan in De Moeren?
 
 Hypothese:
 
@@ -469,7 +469,7 @@ hyp1
 plot(hyp1)
 ```
 
-De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal Gele kwikstaarten in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is -0.47. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder Gele kwikstaarten in de Oostelijke leemstreek dan in De Moeren.
+De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal broedparen Gele kwikstaart in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is -0.47. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder broedparen Gele kwikstaart in de Oostelijke leemstreek dan in De Moeren.
 
 Het toevoegen van een interactie `regio:periode_in_jaar` blijkt geen meerwaarde voor het model:
 
@@ -539,13 +539,13 @@ pred_interaction <- conditional_effects(brmpois2,
 p_pois1 <- plot(pred, plot = FALSE)[[1]] + 
                 scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
                   name = ""), limits = c(0, 0.4)) +
-                labs(y = "Aantal Gele kwikstaarten", x = "", 
+                labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "", 
                      title = "Poisson: no interaction") +
                 theme(legend.position = "bottom")
 
 p_pois2 <- plot(pred_interaction, plot = FALSE)[[1]] + 
                 scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
-                  name = "Aantal Gele kwikstaarten per 100 ha"), 
+                  name = "Aantal broedparen Gele kwikstaart per 100 ha"), 
                   limits = c(0, 0.4)) +
                 labs(y = "", x = "", title = "Poisson: interaction") +
                 theme(legend.position = "bottom")
@@ -556,7 +556,7 @@ grid.arrange(p_pois1, p_pois2, ncol = 2)
 
 ### Distance sampling
 
-In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarmate de dieren zich verder bevinden. In voorgaande sectie hadden we de data geaggregeerd per telcirkel per telperiode, in deze sectie werken we met de directe observaties: waarnemingen van $n$ aantal Gele kwikstaarten op een afstand van $x$ meter van het telpunt per telperiode in 2022.
+In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarmate de dieren zich verder bevinden. In voorgaande sectie hadden we de data geaggregeerd per telcirkel per telperiode, in deze sectie werken we met de directe observaties: waarnemingen van $n$ aantal broedparen Gele kwikstaart op een afstand van $x$ meter van het telpunt per telperiode in 2022.
 
 ```{r data-dist}
 gele_kwik_2022_distance <- gele_kwik_2022_presences %>%
@@ -569,7 +569,7 @@ gele_kwik_2022_distance <- gele_kwik_2022_presences %>%
 
 reg_tab <- perimeters %>% mutate(Area = as.numeric(st_area(geom)) / 1e6) %>%
             select(Naam, Area) %>%
-            rename(Region.Label = Naam) %>%
+            rename(regio = Naam) %>%
             st_drop_geometry()
 
 conversion_factor <- convert_units("meter", NULL, "Square kilometer")
@@ -597,13 +597,16 @@ gele_kwik_2022_distance %>%
          title = "2022")
 ```
 
-De dataframe moet een kolom met de naam `distance` bevatten (met de waargenomen afstanden) en extra benoemde kolommen voor eventuele covariaten die de detecteerbaarheid kunnen beïnvloeden (bijvoorbeeld waarnemer effect of visibiliteit). Om de densiteit te schatten of de abundatntie, is aanvullende informatie vereist. Extra kolommen moeten worden opgenomen de dataframe met vermelding van: `Sample.Label` (ID van het transect/plot), `Effort` (het aantal keren dat dat punt is bezocht); `Region.Label` (het stratum dat het transect bevat); `Area`, de oppervlakte van de strata. Transecten/plots die zijn onderzocht maar geen waarnemingen hebben, moeten worden opgenomen in de dataset met `NA` voor afstand en eventuele andere covariaten.
+De dataframe moet een kolom met de naam `distance` bevatten (met de waargenomen afstanden) en extra benoemde kolommen voor eventuele covariaten die de detecteerbaarheid kunnen beïnvloeden (bijvoorbeeld waarnemer effect of visibiliteit). Om de densiteit te schatten of de abundatntie, is aanvullende informatie vereist. Extra kolommen moeten worden opgenomen de dataframe met vermelding van: `Sample.Label` (ID van het transect/plot), `Effort` (het aantal keren dat dat punt is bezocht); `Region.Label` (het stratum dat het transect bevat); `Area`, de oppervlakte van de strata. Transecten/plots die zijn onderzocht maar geen waarnemingen hebben, moeten worden opgenomen in de dataset met `NA` voor afstand en eventuele andere covariaten. De kolom `size`geeft de cluster groottes aan zodat elke rij een observatie van een cluster/groep is inplaats van een individu.
 
 ```{r dist-dataframe}
 gele_kwik_2022_ds <- gele_kwik_2022_distance %>%
   select(plotnaam, regio, periode_in_jaar, aantal, distance2plot) %>%
-  rename(Sample.Label = plotnaam, Region.Label = regio, distance = distance2plot) %>%
-  full_join(reg_tab, by = "Region.Label")
+  full_join(reg_tab, by = "regio") %>% 
+  rename(Sample.Label = plotnaam, size = aantal, distance = distance2plot) %>%
+  mutate(Region.Label = paste(regio, periode_in_jaar, sep = " - ")) %>%
+  group_by(Sample.Label) %>%
+  mutate(Effort = n_distinct(periode_in_jaar))
 ```
 
 We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten regio en telperiode. Voor de uniforme verdeling kunnen geen covariaten worden toegevoegd.
@@ -612,7 +615,7 @@ We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten 
 
 ```{r uniform-ds}
 dsmodelunif1 <- ds(data = gele_kwik_2022_ds, key = "unif", truncation = 300, 
-                 transect = "point", dht_group = FALSE, region_table = reg_tab,
+                 transect = "point", dht_group = FALSE,
                  convert_units = conversion_factor)
 ```
 
@@ -620,31 +623,31 @@ dsmodelunif1 <- ds(data = gele_kwik_2022_ds, key = "unif", truncation = 300,
 
 ```{r halfnormal-ds}
 dsmodelhn1 <- ds(data = gele_kwik_2022_ds, key = "hn", truncation = 300, 
-                 transect = "point", dht_group = FALSE, region_table = reg_tab,
+                 transect = "point", dht_group = FALSE,
                  convert_units = conversion_factor)
 
-dsmodelhn2 <- ds(data = gele_kwik_2022_ds, key = "hn", formula = ~ Region.Label,
+dsmodelhn2 <- ds(data = gele_kwik_2022_ds, key = "hn", formula = ~ regio,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, region_table = reg_tab,
+                 dht_group = FALSE,
                  convert_units = conversion_factor)
 
 dsmodelhn3 <- ds(data = gele_kwik_2022_ds, key = "hn", 
                  formula = ~ periode_in_jaar,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, region_table = reg_tab,
+                 dht_group = FALSE,
                  convert_units = conversion_factor)
 
 dsmodelhn4 <- ds(data = gele_kwik_2022_ds, key = "hn", 
-                 formula = ~ Region.Label + periode_in_jaar,
+                 formula = ~ regio + periode_in_jaar,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, region_table = reg_tab,
+                 dht_group = FALSE,
                  convert_units = conversion_factor)
 
 dsmodelhn5 <- ds(data = gele_kwik_2022_ds, key = "hn", 
-                 formula = ~ Region.Label + periode_in_jaar + 
-                   Region.Label:periode_in_jaar,
+                 formula = ~ regio + periode_in_jaar + 
+                   regio:periode_in_jaar,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, region_table = reg_tab,
+                 dht_group = FALSE,
                  convert_units = conversion_factor)
 ```
 
@@ -652,31 +655,31 @@ dsmodelhn5 <- ds(data = gele_kwik_2022_ds, key = "hn",
 
 ```{r hazard-rate-ds}
 dsmodelhr1 <- ds(data = gele_kwik_2022_ds, key = "hr", truncation = 300, 
-                 transect = "point", dht_group = FALSE, region_table = reg_tab,
+                 transect = "point", dht_group = FALSE,
                  convert_units = conversion_factor)
 
-dsmodelhr2 <- ds(data = gele_kwik_2022_ds, key = "hr", formula = ~ Region.Label,
+dsmodelhr2 <- ds(data = gele_kwik_2022_ds, key = "hr", formula = ~ regio,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, region_table = reg_tab,
+                 dht_group = FALSE,
                  convert_units = conversion_factor)
 
 dsmodelhr3 <- ds(data = gele_kwik_2022_ds, key = "hr", 
                  formula = ~ periode_in_jaar,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, region_table = reg_tab,
+                 dht_group = FALSE,
                  convert_units = conversion_factor)
 
 dsmodelhr4 <- ds(data = gele_kwik_2022_ds, key = "hr", 
-                 formula = ~ Region.Label + periode_in_jaar,
+                 formula = ~ regio + periode_in_jaar,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, region_table = reg_tab,
+                 dht_group = FALSE,
                  convert_units = conversion_factor)
 
 dsmodelhr5 <- ds(data = gele_kwik_2022_ds, key = "hr", 
-                 formula = ~ Region.Label + periode_in_jaar + 
-                   Region.Label:periode_in_jaar,
+                 formula = ~ regio + periode_in_jaar + 
+                   regio:periode_in_jaar,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, region_table = reg_tab,
+                 dht_group = FALSE,
                  convert_units = conversion_factor)
 ```
 
@@ -745,12 +748,91 @@ summary_hr1$ds$coeff$key.scale %>%
 plot(dsmodelhr1)
 ```
 
-Andere covariaten die invloed zouden kunnen hebben op de detectiekans zijn voorlopig niet beschouwd (ervaring, visibiliteit, uur na zonsopkomst ...?).
+De schattingen van abundantie (totaal aantal broedparen voor de volledige regio) en voor densiteit (aantal broedparen per 100 ha):
 
+```{r}
+summary_results <- bind_rows(
+  summary_hr1$dht$clusters$D %>%
+    mutate(variable = "density",
+           type = "clusters"),
+  summary_hr1$dht$clusters$N %>%
+    mutate(variable = "abundance",
+           type = "clusters"),
+  summary_hr1$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "individuals"),
+  summary_hr1$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "individuals")
+  ) %>%
+  as_tibble() %>%
+  separate(Label, c("regio", "periode_in_jaar"), sep = " - ") %>%
+  filter(!is.na(periode_in_jaar))
 
+summary_results %>%
+  filter(type == "individuals") %>%
+  mutate(variable = recode_factor(variable, 
+            abundance = "Totaal aantal broedparen Gele kwikstaart",
+            density = "Aantal broedparen Gele kwikstaart per 100 ha")) %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+  geom_pointrange(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar),
+                  position = position_dodge(width = 0.5)) + 
+  facet_wrap(~variable, scales = "free_y") +
+  labs(x = "", y = "")
+```
 
+Echter, voor de densiteit (aantal per 100 ha) worden het totaal aantal broedparen gedeeld door de oppervlakte van de volledige regio. Dit terwijl we enkel cirkels met radius 300 m hebben onderzocht waarbinnen we gecontroleerd hebben voor detectiekans (`truncation = 300`). Het lijkt dus logischer te kijken naar het geschatte aantal broedparen per plot en dan om te zetten naar densiteit per 100 ha m.b.v. de oppervlakte van de telcirkel. De densiteiten worden zo wel een stuk groter.
 
+```{r}
+plots_per_regio <- gele_kwik_2022_distance %>% 
+                     group_by(regio) %>% 
+                     summarise(n_plots = n_distinct(plotnaam), .groups = "drop")
 
+summary_results %>%
+  filter(type == "individuals", variable == "abundance") %>%
+  full_join(plots_per_regio, by = "regio") %>%
+  mutate(Estimate = Estimate / n_plots,
+         lcl = lcl / n_plots,
+         ucl = ucl / n_plots) %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+  geom_point(aes(colour = periode_in_jaar), size = 4, 
+             position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
+                width = 0.25, position = position_dodge(width = 0.5)) + 
+  scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+       name = "Aantal broedparen Gele kwikstaart per 100 ha")) +
+  labs(x = "", y = "Aantal broedparen Gele kwikstaart per plot")
+```
 
+Zo kunnen we ook eenvoudiger vergelijken met de vorige resultaten waarbij we geen detectiekans in beschouwing namen.
 
+```{r}
+GLMM_model <- plot(pred, plot = FALSE)[[1]] + 
+                scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+                  name = ""), limits = c(0, 2.5)) +
+                labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "", 
+                     title = "GLMM (brms)") +
+                theme(legend.position = "bottom")
 
+dist_model <- summary_results %>%
+  filter(type == "individuals", variable == "abundance") %>%
+  full_join(plots_per_regio, by = "regio") %>%
+  mutate(Estimate = Estimate / n_plots,
+         lcl = lcl / n_plots,
+         ucl = ucl / n_plots) %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+  geom_point(aes(colour = periode_in_jaar), size = 4, 
+             position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
+                width = 0.25, position = position_dodge(width = 0.5)) + 
+  scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+       name = "Aantal broedparen Gele kwikstaart per 100 ha"), limits = c(0, 2.5)) +
+  labs(x = "", y = "", title = "Distance sampling (Distance)") +
+  theme(legend.position = "bottom")
+
+grid.arrange(GLMM_model, dist_model, ncol = 2)
+```
+
+De schattingen van densiteit liggen duidelijk hoger dan bij de analyse waarbij we geen rekening hielden met detectiekans. De relatieve verschillen tussen de jaren en regio’s blijven min of meer dezelfde. Bij distance sampling hebben we wel verschillende trends over telperiodes tussen regio's. Dit laatste hebben we niet opgenomen in het GLMM (geen interactieterm). Ook was de densiteit lager in de Oostelijke leemstreek dan De Moeren in het GLMM terwijl we dit in het distance model niet meer zien.
+
+Andere covariaten die invloed zouden kunnen hebben op de detectiekans zijn voorlopig niet beschouwd (ervaring teller, visibiliteit, uur na zonsopkomst ...?).
