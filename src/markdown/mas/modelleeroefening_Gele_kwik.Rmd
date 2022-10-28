@@ -836,3 +836,8 @@ grid.arrange(GLMM_model, dist_model, ncol = 2)
 De schattingen van densiteit liggen duidelijk hoger dan bij de analyse waarbij we geen rekening hielden met detectiekans. De relatieve verschillen tussen de jaren en regio’s blijven min of meer dezelfde. Bij distance sampling hebben we wel verschillende trends over telperiodes tussen regio's. Dit laatste hebben we niet opgenomen in het GLMM (geen interactieterm). Ook was de densiteit lager in de Oostelijke leemstreek dan De Moeren in het GLMM terwijl we dit in het distance model niet meer zien.
 
 Andere covariaten die invloed zouden kunnen hebben op de detectiekans zijn voorlopig niet beschouwd (ervaring teller, visibiliteit, uur na zonsopkomst ...?).
+
+
+### STAN
+
+
