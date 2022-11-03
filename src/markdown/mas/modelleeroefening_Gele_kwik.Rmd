@@ -847,5 +847,61 @@ https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e4
 ### STAN
 
 
-## Territoria
+## Opdelen van territoria
+
+Het aantal koppels wordt bepaald o.b.v.:
+
+1. Uitsluitende waarnemingen
+Waarnemingen tijdens éénzelfde telling worden met volledige zekerheid als verschillende dieren beschouwd. Wij beschouwen vier telrondes.
+
+2. Clustering op basis van fusieafstand
+Waarnemingen gedurende verschillende tellingen maar binnen een bepaalde geografische afstand van elkaar (= fusieafstand) worden geclusterd. We gaan er dan van uit dat dit hetzelfde dier was.
+
+Deze strategie werkt voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. We zouden de range kunnen vergroten door er van uit te gaan dat een waarnemer op dezelfde dag niet hetzelfde individu 2x heeft gezien. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen.
+
+```{r broed-afstanden}
+# Selecteer tellingen van Gele kwikstaart in 2022 in de twee regios
+# met broedcode > 0 en binnen telrondes
+gele_kwik_2022_territoria <- mas_clean %>%
+  filter(naam == "Gele Kwikstaart", jaar == 2022, 
+         !is.na(periode_in_jaar), wrntype > 0L) %>%  
+  inner_join(design2022, by = "plotnaam") # Moeren en Leemstreek
+
+# Selecteer coördinaten van broedkoppels waarvan er > 1 per telling
+# (zelfde plot zelfde telperiode) werden gezien
+broedkoppels <- gele_kwik_2022_territoria %>% 
+  group_by(plotnaam, periode_in_jaar) %>%
+  mutate(group_id = cur_group_id()) %>% 
+  expand(nesting(group_id), nesting(group_id2 = group_id)) %>%
+  filter(st_geometry_type(geom) == "MULTIPOINT") %>%
+  st_cast(to = "POINT")
+
+# Bereken paarsgewijze afstanden van broedkoppels per telling 
+# (zelfde plot zelfde telperiode)
+dst <- c()
+for (group in broedkoppels$group_id) {
+  df <- broedkoppels %>% filter(group_id == group)
+  dst <- c(dst, st_distance(df))
+}
+
+# Functie om de modus te berekenen
+fun.mode <- function(x){as.numeric(names(sort(-table(x)))[1])}
+
+# Visualiseer in histogram (filter 0 m eruit)
+dst %>% as.tibble() %>% 
+  filter(value != 0) %>%
+  ggplot() +
+    geom_histogram(aes(x = value, y = ..density..), fill = "yellow", colour = "black", 
+                   binwidth = 5, alpha = 0.5) +
+    labs(x = "Kleinste afstand tot een ander koppel in dezelfde telling (m)") +
+    geom_vline(xintercept = mean(dst[dst != 0]), colour = "darkgreen", size = 1.2) + 
+    geom_vline(xintercept = quantile(dst[dst != 0], probs = c(0.25, 0.5, 0.75)), 
+               colour = "darkblue", size = 1.2) +
+    geom_vline(xintercept = fun.mode(dst[dst != 0]), colour = "darkred", size = 1.2) +
+    geom_density(aes(x = value, y = ..density..), size = 1)
+```
+
+Rood: modus. Blauw: Q1-Q3. Groen: gemiddelde.
+
+We kiezen er echter voor om diameter van de telcirkel (600 m) als fusieafstand te nemen. We vermoeden dat dit een iets lager aantal koppels zal opleveren dan de maxima te nemen over de telperiodes indien de telcirkels overlappen of op minder dan 600 m verwijderd zijn van elkaar. Bovendien lijkt het een elegante manier om deze strategie toe te passen op ons design.
 
