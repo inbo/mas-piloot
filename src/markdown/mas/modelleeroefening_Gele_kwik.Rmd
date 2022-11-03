@@ -303,8 +303,7 @@ gele_kwik_2022 %>%
 ```
 
 
-## Modellen
-### Generalized linear mixed models
+## Generalized linear mixed models
 
 Met deze data fitten we een model waarbij de aantallen broedparen Gele kwikstaart per telcirkel afhangen van regio en een effect van tijdstip van de telling in 2022. Als random effect wordt de plot in het model gestoken om rekening te houden met gepaardheid van de waarnemingen doorheen het jaar. 
 
@@ -553,8 +552,8 @@ p_pois2 <- plot(pred_interaction, plot = FALSE)[[1]] +
 grid.arrange(p_pois1, p_pois2, ncol = 2)
 ```
 
-
-### Distance sampling met Distance package
+## Distance samling
+### Distance package
 
 In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarmate de dieren zich verder bevinden. In voorgaande sectie hadden we de data geaggregeerd per telcirkel per telperiode, in deze sectie werken we met de directe observaties: waarnemingen van $n$ aantal broedparen Gele kwikstaart op een afstand van $x$ meter van het telpunt per telperiode in 2022.
 
@@ -838,15 +837,15 @@ De schattingen van densiteit liggen duidelijk hoger dan bij de analyse waarbij w
 Andere covariaten die invloed zouden kunnen hebben op de detectiekans zijn voorlopig niet beschouwd (ervaring teller, visibiliteit, uur na zonsopkomst ...?).
 
 
-### Distance sampling met unmarked package
+### unmarked package
 
 https://cran.r-project.org/web/packages/unmarked/vignettes/distsamp.html
 https://www.rdocumentation.org/packages/unmarked/versions/1.2.5/topics/gdistsamp
 https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e48a92.html
 
 
-### Distance sampling in STAN
+### STAN
 
 
-
+## Territoria
 
