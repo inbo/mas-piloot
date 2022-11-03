@@ -15,6 +15,8 @@ editor_options:
 ```{r setup, include=FALSE}
 renv::restore()
 library(Distance)
+library(territoria)
+library(DBI)
 library(Hmisc)
 library(knitr)
 library(here)
@@ -282,7 +284,7 @@ gele_kwik_2022 %>%
   group_by(regio, periode_in_jaar, aantal) %>%
   summarise(n = n(), .groups = "drop_last") %>%
   ggplot(aes(x = aantal, y = n, fill = regio)) +
-    geom_histogram(stat = "identity", col = "black") +
+    geom_bar(stat = "identity", col = "black") +
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank()) + 
     facet_wrap(~periode_in_jaar, scales = "free") +
@@ -574,7 +576,7 @@ reg_tab <- perimeters %>% mutate(Area = as.numeric(st_area(geom)) / 1e6) %>%
 conversion_factor <- convert_units("meter", NULL, "Square kilometer")
 ```
 
-Wat is de verdeling van de geregistreerde afstanden?
+Wat is de verdeling van de geregistreerde afstanden? Afstanden van absences zijn `NA`.
 
 ```{r tabel-dist}
 gele_kwik_2022_distance %>%
@@ -589,10 +591,12 @@ gele_kwik_2022_distance %>%
 
 ```{r histogram-dist}
 gele_kwik_2022_distance %>%
+  filter(!is.na(distance2plot)) %>%
   ggplot() +
-    geom_histogram(aes(x = distance2plot, fill = periode_in_jaar)) +
+    geom_histogram(aes(x = distance2plot, fill = periode_in_jaar),
+                   bins = 30) +
     facet_wrap(~regio) +
-    labs(y = "Aantal tellingen van Gele kwikstaart", x = "Afstand",
+    labs(y = "Aantal tellingen van Gele kwikstaart", x = "Afstand (m)",
          title = "2022")
 ```
 
@@ -783,7 +787,7 @@ summary_results %>%
 Echter, voor de densiteit (aantal per 100 ha) worden het totaal aantal broedparen gedeeld door de oppervlakte van de volledige regio. Dit terwijl we enkel cirkels met radius 300 m hebben onderzocht waarbinnen we gecontroleerd hebben voor detectiekans (`truncation = 300`). Het lijkt dus logischer te kijken naar het geschatte aantal broedparen per plot en dan om te zetten naar densiteit per 100 ha m.b.v. de oppervlakte van de telcirkel. De densiteiten worden zo wel een stuk groter.
 
 ```{r}
-plots_per_regio <- gele_kwik_2022_distance %>% 
+plots_per_regio <- gele_kwik_2022 %>% 
                      group_by(regio) %>% 
                      summarise(n_plots = n_distinct(plotnaam), .groups = "drop")
 
@@ -849,6 +853,8 @@ https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e4
 
 ## Opdelen van territoria
 
+**Op verkenning**
+
 Het aantal koppels wordt bepaald o.b.v.:
 
 1. Uitsluitende waarnemingen
@@ -861,7 +867,7 @@ Deze strategie werkt voor honkvaste soorten! Bovendien is de keuze van de fusiea
 
 ```{r broed-afstanden}
 # Selecteer tellingen van Gele kwikstaart in 2022 in de twee regios
-# met broedcode > 0 en binnen telrondes
+# met broedcode > 0 en binnen telrondes, we behouden de geometrie
 gele_kwik_2022_territoria <- mas_clean %>%
   filter(naam == "Gele Kwikstaart", jaar == 2022, 
          !is.na(periode_in_jaar), wrntype > 0L) %>%  
@@ -903,5 +909,130 @@ dst %>% as.tibble() %>%
 
 Rood: modus. Blauw: Q1-Q3. Groen: gemiddelde.
 
-We kiezen er echter voor om diameter van de telcirkel (600 m) als fusieafstand te nemen. We vermoeden dat dit een iets lager aantal koppels zal opleveren dan de maxima te nemen over de telperiodes indien de telcirkels overlappen of op minder dan 600 m verwijderd zijn van elkaar. Bovendien lijkt het een elegante manier om deze strategie toe te passen op ons design.
+We zullen er echter voor kiezen om diameter van de telcirkel (600 m) als fusieafstand te nemen. We vermoeden dat dit een iets lager aantal koppels zal opleveren dan de maxima te nemen over de telperiodes indien de telcirkels overlappen of op minder dan 600 m verwijderd zijn van elkaar. Bovendien lijkt het een elegante manier om de territoriastrategie toe te passen op ons design.
+
+**Data voorbereiden**
+
+We hebben voor elke waarneming hun `x`- en `y`-coördinaten nodig in een geprojecteerd coördinatensysteem. `survey` is een geheel getal id voor elke telling. Een survey is een unieke combinatie van een plot en een telperiode. `status` is een geheel getal dat de broedcode aangeeft. Een hogere waarde veronderstelt meer zekerheid over een broedgeval.
+
+```{r data-prep-territoria}
+# Voorbereiden dataframe
+df_territoria <- gele_kwik_2022_territoria %>% 
+  st_drop_geometry() %>%
+  group_by(plotnaam, periode_in_jaar) %>%
+  mutate(survey = cur_group_id(),
+         status = as.integer(wrntype)) %>%
+  ungroup() %>%
+  rename(x = x_coord, y = y_coord) %>%
+  select(oid, survey, status, x, y, aantal)
+
+# Dupliceer rijen volgens aantal (elke rij is 1 individu)
+df_territoria <- 
+  tibble(
+    df_territoria[rep(seq_len(dim(df_territoria)[1]), 
+                  df_territoria$aantal), , 
+                  drop = FALSE], 
+    row.names = NULL
+  )
+
+# Gedupliceerde rijen hebben zelfde oid --> nieuw id maken voor elke waarneming
+df_territoria <- df_territoria %>% mutate(id = row_number())
+```
+
+Zodra we een dataframe met de waarnemingen hebben, maken we verbinding met een SQLite-database en importeren de waarnemingen. Deze kent elke waarneming toe aan een eigen cluster.
+
+```{r SQLite-territoria}
+set.seed(20221103)
+
+conn <- connect_db()
+import_observations(observations = df_territoria, conn = conn, max_dist = 600)
+result <- get_cluster(conn = conn)
+```
+
+Vervolgens moeten we de afstandsmatrix berekenen. Dit is niet de volledige afstandsmatrix. We laten alle irrelevante afstanden weg, b.v. tussen waarnemingen van dezelfde telling of met een afstand groter dan tweemaal de maximale clusterafstand.
+
+```{r distmatrix-territoria}
+distance_matrix(conn = conn, max_dist = 600)
+```
+
+**Clusteren met territoria**
+
+Nu kunnen we beginnen met het clusteren. De clustering houdt rekening met alle waarnemingen met een broedcode hoger dan of gelijk aan de ingestelde broedcode. Herhaal de clustering voor elk broedcodeniveau. Merk op dat het overslaan van niveaus impliceert dat we ze combineren met het lagere niveau.
+
+```{r cluster-territoria}
+# Broedcodes
+broedcodes <- sort(unique(df_territoria$status))
+
+# Cluster van meest zekere broedcode naar minder zeker
+for (broedcode in rev(broedcodes)) {
+  print(paste0("Clusteren broedcode ", broedcode))
+  cluster_observation(conn = conn, status = broedcode, max_dist = 600)
+}
+result <- get_cluster(conn = conn)
+dbDisconnect(conn = conn)
+
+#Resultaten
+summary(result$observations)
+nrow(result$observations)
+
+summary(result$cluster)
+nrow(result$cluster)
+```
+
+
+
+```{r visualisatie-territoria}
+result$cluster %>% 
+  
+  # Join eerst om oid terug te krijgen, daarna om regio's te krijgen
+  inner_join(df_territoria, by = c("cluster" = "id")) %>%
+  inner_join(gele_kwik_2022_territoria, by = "oid") %>%
+  select(cluster, n_obs, max_status, centroid_x, centroid_y, regio) %>%
+  
+  # Voeg aantal plots per regio toe en bereken aantal per plots
+  full_join(plots_per_regio, by = "regio") %>%
+  group_by(regio, n_plots) %>%
+  summarise(broedparen = n(), .groups = "drop") %>%
+  mutate(Estimate = broedparen / n_plots) %>%
+  
+  # Visualiseer
+  ggplot(aes(x = regio, y = Estimate)) + 
+    geom_bar(aes(fill = regio), stat = "identity") + 
+    scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+         name = "Aantal broedparen Gele kwikstaart per 100 ha")) +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart per plot") +
+    theme(legend.position = "")
+```
+
+
+Gemiddeldes en maxima
+
+```{r}
+gele_kwik_2022 %>%
+  st_drop_geometry() %>%
+  group_by(plotnaam, periode_in_jaar) %>%
+  summarise(totaal = sum(aantal), .groups = "drop_last") %>%
+  summarise(gemiddelde = mean(totaal),
+            maximum = max(totaal),
+            .groups = "drop") %>%
+  inner_join(gele_kwik_2022, by = "plotnaam") %>%
+  select(plotnaam, gemiddelde, maximum, regio) %>%
+  group_by(regio) %>%
+  summarise(tot_gemiddelde = sum(gemiddelde),
+            tot_max = sum(maximum)) %>% 
+  full_join(plots_per_regio, by = "regio") %>%
+  mutate(tot_gemiddelde_plots = tot_gemiddelde / n_plots,
+         tot_max_plots = tot_max / n_plots) %>%
+  pivot_longer(cols = c("tot_gemiddelde_plots", "tot_max_plots"), names_to = "categorie", 
+               values_to = "Estimate") %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+    geom_bar(aes(fill = regio), stat = "identity") + 
+    scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+         name = "Aantal broedparen Gele kwikstaart per 100 ha")) +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart per plot") +
+    theme(legend.position = "") +
+    facet_wrap(~categorie, labeller = labeller(
+      categorie = c("tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
+                    "tot_max_plots" = "Maximum aantal broedparen per plot")))
+```
 
