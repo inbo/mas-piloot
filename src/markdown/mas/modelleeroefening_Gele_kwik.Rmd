@@ -913,7 +913,7 @@ plot_dist_terr <- dst %>% as.tibble() %>%
     geom_histogram(aes(x = value, y = ..density..), fill = "yellow", colour = "black", 
                    binwidth = 5, alpha = 0.5) +
     labs(x = "Kleinste afstand tot een ander koppel in dezelfde telling (m)") +
-    geom_vline(xintercept = 129.9003, colour = "darkgreen", size = 1.2) + 
+    geom_vline(xintercept = mean(dst[dst != 0]), colour = "darkgreen", size = 1.2) + 
     geom_vline(xintercept = quantile(dst[dst != 0], probs = c(0.25, 0.5, 0.75)), 
                colour = "darkblue", size = 1.2) +
     geom_vline(xintercept = fun.mode(dst[dst != 0]), colour = "darkred", size = 1.2) +
@@ -1017,7 +1017,6 @@ territoria_per_plot %>%
          title = "Aantal territoria") +
     theme(legend.position = "")
 ```
-
 
 We vergelijken met de vorige resultaten. Ook berekenen we het relatief aantal broedparen op basis van het gemiddeld en maximum aantal per plot over de telperiodes.
 
@@ -1133,12 +1132,132 @@ Er zijn bijgevolg nog 3 scenario's die kunnen getest worden:
 
 **2. Neem een kleinere fusieafstand**
 
-```{r}
-# Extract piek densiteit
+```{r pieken-scenario2}
+# Extract pieken
+hist_piek <- ggplot_build(plot_dist_terr)$data[[1]] %>% 
+  filter(y == max(y)) %>% 
+  pull(x)
 dens_piek <- ggplot_build(plot_dist_terr)$data[[5]] %>% 
   filter(y == max(y)) %>% 
   pull(x)
 ```
+
+De top van de densiteitscurve van de koppelafstanden lag op `r dens_piek` m, de top van de histogram op `r hist_piek` m, de mediaan op `r median(dst[dst != 0])` m en het gemiddelde op `r mean(dst[dst != 0])`. Om conservatief te blijven gaan we hier verder met het gemiddelde. 
+
+```{r}
+# Set-up
+set.seed(20221104)
+fusie_dist <- mean(dst[dst != 0])
+
+# Connect SQLite database en importeer observaties
+conn2 <- connect_db()
+import_observations(observations = df_territoria, conn = conn2, max_dist = fusie_dist)
+
+# Bereken distance matrix
+distance_matrix(conn = conn2, max_dist = fusie_dist)
+
+# Cluster van meest zekere broedcode naar minder zeker
+result2 <- vector(mode = "list", length = length(broedcodes))
+for (broedcode in rev(broedcodes)) {
+  print(paste0("Clusteren broedcode ", broedcode))
+  cluster_observation(conn = conn2, status = broedcode, max_dist = fusie_dist)
+  result2[[broedcode]] <- get_cluster(conn = conn2)
+}
+dbDisconnect(conn = conn2)
+
+# voeg clusternummer toe aan de dataset
+df_territoria2 <- df_territoria
+df_territoria2$cluster <- result2[[1]]$observations$cluster
+```
+
+Met de grotere fusieafstand van 600m hadden we `r nrow(result[[1]]$cluster)` clusters (= broedparen), nu hebben we `r nrow(result2[[1]]$cluster)` clusters.
+
+```{r, fig.height=10}
+territoria_per_plot2 <- df_territoria2 %>% 
+  
+  # Join om regio's te krijgen
+  inner_join(gele_kwik_2022_territoria, by = "oid") %>%
+  select(cluster, regio) %>%
+  
+  # Voeg aantal plots per regio toe en bereken aantal clusters per plots
+  full_join(plots_per_regio, by = "regio") %>%
+  group_by(regio, n_plots) %>%
+  summarise(broedparen = n_distinct(cluster), .groups = "drop") %>%
+  mutate(Estimate = broedparen / n_plots,
+         categorie = "territoria")
+
+plot_terr2 <- gele_kwik_2022 %>%
+  st_drop_geometry() %>%
+  
+  # Bepaal voor elke plot het gemiddeld aantal individuen en maximum over
+  # de telperiodes
+  group_by(plotnaam, periode_in_jaar) %>%
+  summarise(totaal = sum(aantal), .groups = "drop_last") %>%
+  summarise(gemiddelde = mean(totaal),
+            maximum = max(totaal),
+            .groups = "drop") %>%
+  
+  # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
+  # alle plots (som)
+  inner_join(gele_kwik_2022, by = "plotnaam") %>%
+  select(plotnaam, gemiddelde, maximum, regio) %>%
+  group_by(regio) %>%
+  summarise(tot_gemiddelde = sum(gemiddelde),
+            tot_max = sum(maximum)) %>% 
+  
+  # Deel door aantal plots om aantal broedkoppels per plot te krijgen
+  full_join(plots_per_regio, by = "regio") %>%
+  mutate(tot_gemiddelde_plots = tot_gemiddelde / n_plots,
+         tot_max_plots = tot_max / n_plots) %>%
+  pivot_longer(cols = c("tot_gemiddelde_plots", "tot_max_plots"), 
+               names_to = "categorie", values_to = "Estimate") %>%
+  
+  # Voeg territoria data toe
+  select(regio, Estimate, categorie) %>%
+  rbind(territoria_per_plot2[, -c(2, 3)]) %>%
+  
+  # Visualiseer
+  ggplot(aes(x = regio, y = Estimate)) + 
+    geom_bar(aes(fill = regio), stat = "identity") + 
+    scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+         name = "Aantal broedparen Gele kwikstaart per 100 ha")) +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart per plot") +
+    theme(legend.position = "") +
+    facet_wrap(~categorie, labeller = labeller(
+      categorie = c("tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
+                    "tot_max_plots" = "Maximum aantal broedparen per plot",
+                    "territoria" = "Aantal territoria")))
+
+grid.arrange(GLMM_model, dist_model, plot_terr2, 
+             layout_matrix = rbind(c(1, 2), c(3)))
+```
+
+Is er nog steeds overlap in plots?
+
+```{r}
+# Vind clusters met meerdere plots
+multi_clust2 <- df_territoria2 %>%
+  inner_join(gele_kwik_2022_territoria, by = "oid") %>%
+  select(oid, cluster, plotnaam, regio, periode_in_jaar) %>%
+  
+  # Aantal plots per cluster
+  group_by(cluster) %>%
+  summarise(n_plots = n_distinct(plotnaam)) %>%
+  
+  # Clusters met meer dan 1 plot
+  filter(n_plots > 1) %>%
+  pull(cluster)
+
+# Tabel
+df_territoria2 %>%
+  inner_join(gele_kwik_2022_territoria, by = "oid") %>%
+  select(oid, cluster, plotnaam, periode_in_jaar, regio) %>%
+  filter(cluster %in% multi_clust2) %>%
+  arrange(regio, cluster, plotnaam, periode_in_jaar) %>%
+  kable()
+```
+
+Geen overlap meer. \textcolour{red}{Waarom dan nog altijd zoveel lager dan maxima?}
 
 
 **3. Cluster surveys minder strikt en neem een kleinere fusieafstand**
