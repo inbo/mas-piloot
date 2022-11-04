@@ -857,13 +857,13 @@ https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e4
 
 Het aantal koppels wordt bepaald o.b.v.:
 
-1. Uitsluitende waarnemingen
+1. Uitsluitende waarnemingen  
 Waarnemingen tijdens éénzelfde telling worden met volledige zekerheid als verschillende dieren beschouwd. Wij beschouwen vier telrondes.
 
-2. Clustering op basis van fusieafstand
+2. Clustering op basis van fusieafstand  
 Waarnemingen gedurende verschillende tellingen maar binnen een bepaalde geografische afstand van elkaar (= fusieafstand) worden geclusterd. We gaan er dan van uit dat dit hetzelfde dier was.
 
-Deze strategie werkt voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. We zouden de range kunnen vergroten door er van uit te gaan dat een waarnemer op dezelfde dag niet hetzelfde individu 2x heeft gezien. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen.
+Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. We zouden de range kunnen vergroten door er van uit te gaan dat een waarnemer op dezelfde dag niet hetzelfde individu 2x heeft gezien. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen.
 
 ```{r broed-afstanden}
 # Selecteer tellingen van Gele kwikstaart in 2022 in de twee regios
@@ -970,19 +970,12 @@ for (broedcode in rev(broedcodes)) {
 }
 result <- get_cluster(conn = conn)
 dbDisconnect(conn = conn)
-
-#Resultaten
-summary(result$observations)
-nrow(result$observations)
-
-summary(result$cluster)
-nrow(result$cluster)
 ```
 
-
+In totaal hadden we `r nrow(result$observations)` observaties (waarneming van een bepaald individu in een plot in een bepaalde telperiode). Nu hebben we `r nrow(result$cluster)` clusters (= broedparen).
 
 ```{r visualisatie-territoria}
-result$cluster %>% 
+territoria_per_plot <- result$cluster %>% 
   
   # Join eerst om oid terug te krijgen, daarna om regio's te krijgen
   inner_join(df_territoria, by = c("cluster" = "id")) %>%
@@ -993,9 +986,11 @@ result$cluster %>%
   full_join(plots_per_regio, by = "regio") %>%
   group_by(regio, n_plots) %>%
   summarise(broedparen = n(), .groups = "drop") %>%
-  mutate(Estimate = broedparen / n_plots) %>%
+  mutate(Estimate = broedparen / n_plots,
+         categorie = "territoria")
   
   # Visualiseer
+territoria_per_plot %>% 
   ggplot(aes(x = regio, y = Estimate)) + 
     geom_bar(aes(fill = regio), stat = "identity") + 
     scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
@@ -1005,26 +1000,47 @@ result$cluster %>%
 ```
 
 
+
+
+
+
+
+
+
 Gemiddeldes en maxima
 
 ```{r}
-gele_kwik_2022 %>%
+plot_terr <- gele_kwik_2022 %>%
   st_drop_geometry() %>%
+  
+  # Bepaal voor elke plot het gemiddeld aantal individuen en maximum over
+  # de telperiodes
   group_by(plotnaam, periode_in_jaar) %>%
   summarise(totaal = sum(aantal), .groups = "drop_last") %>%
   summarise(gemiddelde = mean(totaal),
             maximum = max(totaal),
             .groups = "drop") %>%
+  
+  # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
+  # alle plots (som)
   inner_join(gele_kwik_2022, by = "plotnaam") %>%
   select(plotnaam, gemiddelde, maximum, regio) %>%
   group_by(regio) %>%
   summarise(tot_gemiddelde = sum(gemiddelde),
             tot_max = sum(maximum)) %>% 
+  
+  # Deel door aantal plots om aantal broedkoppels per plot te krijgen
   full_join(plots_per_regio, by = "regio") %>%
   mutate(tot_gemiddelde_plots = tot_gemiddelde / n_plots,
          tot_max_plots = tot_max / n_plots) %>%
-  pivot_longer(cols = c("tot_gemiddelde_plots", "tot_max_plots"), names_to = "categorie", 
-               values_to = "Estimate") %>%
+  pivot_longer(cols = c("tot_gemiddelde_plots", "tot_max_plots"), 
+               names_to = "categorie", values_to = "Estimate") %>%
+  
+  # Voeg territoria data toe
+  select(regio, Estimate, categorie) %>%
+  rbind(territoria_per_plot[, -c(2, 3)]) %>%
+  
+  # Visualiseer
   ggplot(aes(x = regio, y = Estimate)) + 
     geom_bar(aes(fill = regio), stat = "identity") + 
     scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
@@ -1033,6 +1049,15 @@ gele_kwik_2022 %>%
     theme(legend.position = "") +
     facet_wrap(~categorie, labeller = labeller(
       categorie = c("tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
-                    "tot_max_plots" = "Maximum aantal broedparen per plot")))
+                    "tot_max_plots" = "Maximum aantal broedparen per plot",
+                    "territoria" = "Aantal territoria")))
+plot_terr
+```
+
+
+
+```{r, fig.height=7}
+grid.arrange(GLMM_model, dist_model, plot_terr, 
+             layout_matrix = rbind(c(1, 2), c(3)))
 ```
 
