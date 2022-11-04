@@ -747,9 +747,10 @@ dus in de praktijk is er weinig verschil in de keuze tussen deze modellen.
 ```{r model-comparisons-ds}
 summarize_ds_models(dsmodelunif1, 
                     dsmodelhn1, dsmodelhn2, dsmodelhn3, 
-                      dsmodelhn4, dsmodelhn5, 
+                    dsmodelhn4, dsmodelhn5, 
                     dsmodelhr1, dsmodelhr2, dsmodelhr3, 
-                      dsmodelhr4, dsmodelhr5) %>% kable()
+                    dsmodelhr4, dsmodelhr5) %>%
+  kable()
 ```
 
 **Resultaten en visualisatie**
@@ -766,7 +767,7 @@ plot(dsmodelhr1)
 
 De schattingen van abundantie (totaal aantal broedparen voor de volledige regio) en voor densiteit (aantal broedparen per 100 ha):
 
-```{r}
+```{r visualise-final-model-ds}
 summary_results <- bind_rows(
   summary_hr1$dht$clusters$D %>%
     mutate(variable = "density",
@@ -799,7 +800,7 @@ summary_results %>%
 
 Echter, voor de densiteit (aantal per 100 ha) worden het totaal aantal broedparen gedeeld door de oppervlakte van de volledige regio. Dit terwijl we enkel cirkels met radius 300 m hebben onderzocht waarbinnen we gecontroleerd hebben voor detectiekans (`truncation = 300`). Het lijkt dus logischer te kijken naar het geschatte aantal broedparen per plot en dan om te zetten naar densiteit per 100 ha m.b.v. de oppervlakte van de telcirkel. De densiteiten worden zo wel een stuk groter.
 
-```{r}
+```{r visualise-final-model-ds-per-plot}
 plots_per_regio <- gele_kwik_2022 %>% 
                      group_by(regio) %>% 
                      summarise(n_plots = n_distinct(plotnaam), .groups = "drop")
@@ -822,7 +823,7 @@ summary_results %>%
 
 Zo kunnen we ook eenvoudiger vergelijken met de vorige resultaten waarbij we geen detectiekans in beschouwing namen.
 
-```{r}
+```{r comparison-GLMM-ds}
 GLMM_model <- plot(pred, plot = FALSE)[[1]] + 
                 scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
                   name = ""), limits = c(0, 2.5)) +
@@ -849,9 +850,210 @@ dist_model <- summary_results %>%
 grid.arrange(GLMM_model, dist_model, ncol = 2)
 ```
 
-De schattingen van densiteit liggen duidelijk hoger dan bij de analyse waarbij we geen rekening hielden met detectiekans. De relatieve verschillen tussen de jaren en regio’s blijven min of meer dezelfde. Bij distance sampling hebben we wel verschillende trends over telperiodes tussen regio's. Dit laatste hebben we niet opgenomen in het GLMM (geen interactieterm). Ook was de densiteit lager in de Oostelijke leemstreek dan De Moeren in het GLMM terwijl we dit in het distance model niet meer zien.
+De schattingen van densiteit liggen duidelijk hoger dan bij de analyse waarbij we geen rekening hielden met detectiekans. De relatieve verschillen tussen de jaren en regio’s blijven min of meer dezelfde. Bij distance sampling hebben we wel verschillende trends over telperiodes tussen regio's. Dit laatste hebben we niet opgenomen in het GLMM (geen interactieterm). Ook was de densiteit lager in de Oostelijke leemstreek dan De Moeren in het GLMM terwijl we dit in het distance model niet meer zien. 
 
-Andere covariaten die invloed zouden kunnen hebben op de detectiekans zijn voorlopig niet beschouwd (ervaring teller, visibiliteit, uur na zonsopkomst ...?).
+**Discussie**
+
+Andere covariaten die invloed zouden kunnen hebben op de detectiekans zijn voorlopig niet beschouwd (ervaring teller, visibiliteit, uur na zonsopkomst ...?).  
+
+We zien een vrij stijle detectiefunctie wat er voor zorgt dat waarnemingen op grote afstanden een hoog gewicht krijgen wat mogelijks tot een overschatting leidt. We kunnen de afstanden ook in categorieën opsplitsen. bijvoorbeeld 0-100, 100-200 en 200-300. Dit is mogelijks een meer robuuste methode. Met de optie `cutpoints` in de `ds()` functie is dit eenvoudig toe te passen.
+
+- Fitting uniform key function
+
+```{r uniform-ds-binned}
+# Set max adjustments to 2 otherwise not enough degrees of freedom
+dsmodelunif1_binned <- ds(data = gele_kwik_2022_ds, key = "unif", 
+                 truncation = 300, cutpoints = c(0, 100, 200, 300),
+                 transect = "point", dht_group = FALSE,
+                 convert_units = conversion_factor, max_adjustments = 2)
+```
+
+- Fitting half-normal key function
+
+```{r halfnormal-ds-binned}
+dsmodelhn1_binned <- ds(data = gele_kwik_2022_ds, key = "hn", truncation = 300, 
+                 transect = "point", dht_group = FALSE,
+                 convert_units = conversion_factor, 
+                 cutpoints = c(0, 100, 200, 300))
+
+dsmodelhn2_binned <- ds(data = gele_kwik_2022_ds, key = "hn", formula = ~ regio,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor, 
+                 cutpoints = c(0, 100, 200, 300))
+
+dsmodelhn3_binned <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor, 
+                 cutpoints = c(0, 100, 200, 300))
+
+dsmodelhn4_binned <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ regio + periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor, 
+                 cutpoints = c(0, 100, 200, 300))
+
+dsmodelhn5_binned <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ regio + periode_in_jaar + 
+                   regio:periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor, 
+                 cutpoints = c(0, 100, 200, 300))
+```
+
+- Fitting hazard-rate key function
+
+```{r hazard-rate-ds-binned}
+dsmodelhr1_binned <- ds(data = gele_kwik_2022_ds, key = "hr", truncation = 300, 
+                 transect = "point", dht_group = FALSE,
+                 convert_units = conversion_factor, 
+                 cutpoints = c(0, 100, 200, 300))
+
+dsmodelhr2_binned <- ds(data = gele_kwik_2022_ds, key = "hr", formula = ~ regio,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor, 
+                 cutpoints = c(0, 100, 200, 300))
+
+dsmodelhr3_binned <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor, 
+                 cutpoints = c(0, 100, 200, 300))
+
+dsmodelhr4_binned <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ regio + periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor, 
+                 cutpoints = c(0, 100, 200, 300))
+
+dsmodelhr5_binned <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ regio + periode_in_jaar + 
+                   regio:periode_in_jaar,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor, 
+                 cutpoints = c(0, 100, 200, 300))
+```
+
+We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC’s kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. Modellen met vergelijkbare AIC’s hebben vergelijkbare geschatte detectiekansen, dus in de praktijk is er weinig verschil in de keuze tussen deze modellen.
+
+```{r model-comparisons-ds-binned}
+summarize_ds_models(dsmodelunif1_binned, 
+                    dsmodelhn1_binned, dsmodelhn2_binned, dsmodelhn3_binned, 
+                    dsmodelhn4_binned, dsmodelhn5_binned, 
+                    dsmodelhr1_binned, dsmodelhr2_binned, dsmodelhr3_binned, 
+                    dsmodelhr4_binned, dsmodelhr5_binned) %>% 
+  kable()
+```
+
+We zien dat de eenvoudigste modellen dicht bij elkaar liggen op vlak van AIC. We vergelijken model fit. Er zijn niet genoeg vrijheidsgraden voor de goodness-of-fit test.
+
+```{r model-fit-ds-binned}
+par(mfrow = c(1, 2))
+
+# Uniform model
+plot(dsmodelunif1_binned)
+plot(dsmodelunif1_binned, pdf = TRUE, 
+     main = paste0("dsmodelunif1_binned - ", "AIC: ", 
+                   as.character(round(summary(dsmodelunif1_binned)$ds$aic, digits = 2))
+                   )
+     )
+
+# Half-normal model
+plot(dsmodelhn1_binned)
+plot(dsmodelhn1_binned, pdf = TRUE, 
+     main = paste0("dsmodelhn1_binned - ", "AIC: ", 
+                   as.character(round(summary(dsmodelhn1_binned)$ds$aic, digits = 2))
+                   )
+     )
+
+# Hazard-ratio model
+plot(dsmodelhr1_binned)
+plot(dsmodelhr1_binned, pdf = TRUE, 
+     main = paste0("dsmodelhr1_binned - ", "AIC: ", 
+                   as.character(round(summary(dsmodelhr1_binned)$ds$aic, digits = 2))
+                   )
+     )
+
+par(mfrow = c(1, 1))
+```
+
+Op basis van model fit kiezen we opnieuw voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende detectiekans die gelijkaardig is als voordien:
+
+```{r final-model-summary-ds-binned}
+summary_hr1_binned <- summary(dsmodelhr1_binned)
+summary_hr1_binned$ds$coeff$key.scale %>%
+  kable(digits = 2)
+```
+
+We vergelijken de schattingen tussen het continu model en het laatste model met categorische afstanden.
+
+```{r comparison-continuous-binned}
+# Create summary table
+summary_results_binned <- bind_rows(
+  summary_hr1_binned$dht$clusters$D %>%
+    mutate(variable = "density",
+           type = "clusters"),
+  summary_hr1_binned$dht$clusters$N %>%
+    mutate(variable = "abundance",
+           type = "clusters"),
+  summary_hr1_binned$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "individuals"),
+  summary_hr1_binned$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "individuals")
+  ) %>%
+  as_tibble() %>%
+  separate(Label, c("regio", "periode_in_jaar"), sep = " - ") %>%
+  filter(!is.na(periode_in_jaar))
+
+# Plot continuous model
+dist_model2 <- summary_results %>%
+  filter(type == "individuals", variable == "abundance") %>%
+  full_join(plots_per_regio, by = "regio") %>%
+  mutate(Estimate = Estimate / n_plots,
+         lcl = lcl / n_plots,
+         ucl = ucl / n_plots) %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+  geom_point(aes(colour = periode_in_jaar), size = 4, 
+             position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
+                width = 0.25, position = position_dodge(width = 0.5)) + 
+  scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+       name = "Aantal broedparen Gele kwikstaart per 100 ha"), limits = c(0, 2.5)) +
+  labs(x = "", y = "", title = "Distance sampling continuous") +
+  theme(legend.position = "bottom")
+
+# Plot binned model
+dist_model_binned <- summary_results_binned %>%
+  filter(type == "individuals", variable == "abundance") %>%
+  full_join(plots_per_regio, by = "regio") %>%
+  mutate(Estimate = Estimate / n_plots,
+         lcl = lcl / n_plots,
+         ucl = ucl / n_plots) %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+  geom_point(aes(colour = periode_in_jaar), size = 4, 
+             position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
+                width = 0.25, position = position_dodge(width = 0.5)) + 
+  scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+       name = "Aantal broedparen Gele kwikstaart per 100 ha"), limits = c(0, 2.5)) +
+  labs(x = "", y = "", title = "Distance sampling binned") +
+  theme(legend.position = "bottom")
+
+# Plot next to each other
+grid.arrange(dist_model2, dist_model_binned, ncol = 2)
+```
+
+Er is bijna geen verschil wanneer de afstanden per 100 m worden gegroepeerd.
 
 
 ### unmarked package
@@ -861,7 +1063,9 @@ https://www.rdocumentation.org/packages/unmarked/versions/1.2.5/topics/gdistsamp
 https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e48a92.html
 
 
+
 ### STAN
+
 
 
 ## Opdelen in territoria
@@ -907,7 +1111,7 @@ for (group in broedkoppels$group_id) {
 fun.mode <- function(x){as.numeric(names(sort(-table(x)))[1])}
 
 # Visualiseer in histogram (filter 0 m eruit)
-plot_dist_terr <- dst %>% as.tibble() %>% 
+plot_dist_terr <- dst %>% as_tibble() %>% 
   filter(value != 0) %>%
   ggplot() +
     geom_histogram(aes(x = value, y = ..density..), fill = "yellow", colour = "black", 
@@ -1020,7 +1224,7 @@ territoria_per_plot %>%
 
 We vergelijken met de vorige resultaten. Ook berekenen we het relatief aantal broedparen op basis van het gemiddeld en maximum aantal per plot over de telperiodes. Hierbij is ook met absensies rekening gehouden (maakt voor maximum niet uit).
 
-```{r, fig.height=10}
+```{r comparison-territoria, fig.height=10}
 plot_terr <- gele_kwik_2022 %>%
   st_drop_geometry() %>%
   
@@ -1093,7 +1297,7 @@ df_territoria %>%
 
 Op basis van deze gegevens zouden we een gelijkaardig aantal als bij de maxima verwachten. De analyses zijn wel verlopen zoals verwacht. Zijn er telcirkels die overlappen of die dicht bij elkaar liggen? Met andere woorden, zijn er clusters die in verschillende plots zijn gezien? De twee waarnemingen in cluster 11 bevinden zich in plots DM_222.6 en VL0070 op 488 m van elkaar, maar werden wel door dezelfde waarnemer (JJNN16) gezien op dezelfde dag (2022-06-02). Kunnen we er dan toch van uit gaan dat dit twee verschillende individuen zijn? Nee want niet op zelfde moment (telling) gezien. We zullen dus de cluster surveys niet minder strikt nemen volgens datum en waarnemer in plaats van plot en telperiode. 
 
-```{r}
+```{r overlap-plots}
 # Vind clusters met meerdere plots
 multi_clust <- df_territoria %>%
   inner_join(gele_kwik_2022_territoria, by = "oid") %>%
@@ -1130,9 +1334,9 @@ dens_piek <- ggplot_build(plot_dist_terr)$data[[5]] %>%
   pull(x)
 ```
 
-De top van de densiteitscurve van de koppelafstanden lag op `r dens_piek` m, de top van de histogram op `r hist_piek` m, de mediaan op `r median(dst[dst != 0])` m en het gemiddelde op `r mean(dst[dst != 0])`. Om conservatief te blijven gaan we hier verder met het gemiddelde.
+De top van de densiteitscurve van de koppelafstanden lag op `r round(dens_piek, digits = 2)` m, de top van de histogram op `r hist_piek` m, de mediaan op `r round(median(dst[dst != 0]), digits = 2)` m en het gemiddelde op `r round(mean(dst[dst != 0]), digits = 2)`. Om conservatief te blijven gaan we hier verder met het gemiddelde.
 
-```{r}
+```{r territoria-scenario2}
 # Set-up
 set.seed(20221104)
 fusie_dist <- mean(dst[dst != 0])
@@ -1160,7 +1364,7 @@ df_territoria2$cluster <- result2[[1]]$observations$cluster
 
 Met de grotere fusieafstand van 600m hadden we `r nrow(result[[1]]$cluster)` clusters (= broedparen), nu hebben we `r nrow(result2[[1]]$cluster)` clusters.
 
-```{r, fig.height=10}
+```{r comparison-territoria-scenario2, fig.height=10}
 territoria_per_plot2 <- df_territoria2 %>% 
   
   # Join om regio's te krijgen
@@ -1222,9 +1426,9 @@ grid.arrange(GLMM_model, dist_model, plot_terr2,
 
 Nu zien we dat de territoria hoger zijn dan het maximum. Dat komt omdat nu ook binnen plots clusters worden gevormd indien waarnemingen ver genoeg uit elkaar liggen en niet in dezelfde telperiode zijn gedaan.  
 
-Is er ooknog steeds overlap in plots?
+Is er ook nog steeds overlap in plots?
 
-```{r}
+```{r overlap-plots-scenario2}
 # Vind clusters met meerdere plots
 multi_clust2 <- df_territoria2 %>%
   inner_join(gele_kwik_2022_territoria, by = "oid") %>%
@@ -1238,13 +1442,7 @@ multi_clust2 <- df_territoria2 %>%
   filter(n_plots > 1) %>%
   pull(cluster)
 
-# Tabel
-df_territoria2 %>%
-  inner_join(gele_kwik_2022_territoria, by = "oid") %>%
-  select(oid, cluster, plotnaam, periode_in_jaar, regio) %>%
-  filter(cluster %in% multi_clust2) %>%
-  arrange(regio, cluster, plotnaam, periode_in_jaar) %>%
-  kable()
+length(multi_clust2)
 ```
 
 Geen overlap meer.
