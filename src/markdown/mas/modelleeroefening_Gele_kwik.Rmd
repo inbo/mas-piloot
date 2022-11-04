@@ -864,7 +864,7 @@ https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e4
 ### STAN
 
 
-## Opdelen van territoria
+## Opdelen in territoria
 
 **Op verkenning**
 
@@ -926,7 +926,7 @@ We zullen er echter voor kiezen om diameter van de telcirkel (600 m) als fusieaf
 
 **Data voorbereiden**
 
-We hebben voor elke waarneming hun `x`- en `y`-coördinaten nodig in een geprojecteerd coördinatensysteem. `survey` is een geheel getal id voor elke telling. Een survey is een unieke combinatie van een plot en een telperiode. `status` is een geheel getal dat de broedcode aangeeft. Een hogere waarde veronderstelt meer zekerheid over een broedgeval.
+We hebben voor elke waarneming hun `x`- en `y`-coördinaten nodig in een geprojecteerd coördinatensysteem. `survey` is een geheel getal id voor elke observatie. Een survey is een unieke combinatie van een plot en een telperiode (voor elke telling). `status` is een geheel getal dat de broedcode aangeeft. Een hogere waarde veronderstelt meer zekerheid over een broedgeval.
 
 ```{r data-prep-territoria}
 # Voorbereiden dataframe
@@ -959,7 +959,6 @@ set.seed(20221103)
 
 conn <- connect_db()
 import_observations(observations = df_territoria, conn = conn, max_dist = 600)
-result <- get_cluster(conn = conn)
 ```
 
 Vervolgens moeten we de afstandsmatrix berekenen. Dit is niet de volledige afstandsmatrix. We laten alle irrelevante afstanden weg, b.v. tussen waarnemingen van dezelfde telling of met een afstand groter dan tweemaal de maximale clusterafstand.
@@ -977,40 +976,44 @@ Nu kunnen we beginnen met het clusteren. De clustering houdt rekening met alle w
 broedcodes <- sort(unique(df_territoria$status))
 
 # Cluster van meest zekere broedcode naar minder zeker
+result <- vector(mode = "list", length = length(broedcodes))
 for (broedcode in rev(broedcodes)) {
   print(paste0("Clusteren broedcode ", broedcode))
   cluster_observation(conn = conn, status = broedcode, max_dist = 600)
+  result[[broedcode]] <- get_cluster(conn = conn)
 }
-result <- get_cluster(conn = conn)
 dbDisconnect(conn = conn)
+
+# voeg clusternummer toe aan de dataset
+df_territoria$cluster <- result[[1]]$observations$cluster
 ```
 
 **Resultaten en visualisatie**
 
-In totaal hadden we `r nrow(result$observations)` observaties (waarneming van een bepaald individu in een plot in een bepaalde telperiode). Nu hebben we `r nrow(result$cluster)` clusters (= broedparen).
+In totaal hadden we `r nrow(result[[1]]$observations)` observaties (waarneming van een bepaald individu in een plot in een bepaalde telperiode). Nu hebben we `r nrow(result[[1]]$cluster)` clusters (= broedparen).
 
 ```{r visualisatie-territoria}
-territoria_per_plot <- result$cluster %>% 
+territoria_per_plot <- df_territoria %>% 
   
-  # Join eerst om oid terug te krijgen, daarna om regio's te krijgen
-  inner_join(df_territoria, by = c("cluster" = "id")) %>%
+  # Join om regio's te krijgen %>%
   inner_join(gele_kwik_2022_territoria, by = "oid") %>%
-  select(cluster, n_obs, max_status, centroid_x, centroid_y, regio) %>%
+  select(cluster, regio) %>%
   
-  # Voeg aantal plots per regio toe en bereken aantal per plots
+  # Voeg aantal plots per regio toe en bereken aantal clusters per plots
   full_join(plots_per_regio, by = "regio") %>%
   group_by(regio, n_plots) %>%
-  summarise(broedparen = n(), .groups = "drop") %>%
+  summarise(broedparen = n_distinct(cluster), .groups = "drop") %>%
   mutate(Estimate = broedparen / n_plots,
          categorie = "territoria")
   
-  # Visualiseer
+# Visualiseer
 territoria_per_plot %>% 
   ggplot(aes(x = regio, y = Estimate)) + 
     geom_bar(aes(fill = regio), stat = "identity") + 
     scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
          name = "Aantal broedparen Gele kwikstaart per 100 ha")) +
-    labs(x = "", y = "Aantal broedparen Gele kwikstaart per plot") +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart per plot",
+         title = "Aantal territoria") +
     theme(legend.position = "")
 ```
 
