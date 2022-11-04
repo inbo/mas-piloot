@@ -1058,6 +1058,10 @@ Er is bijna geen verschil wanneer de afstanden per 100 m worden gegroepeerd.
 
 ### unmarked package
 
+**Op verkenning**
+
+In **Distance** deden we aan zgn. Conventional distance sampling (CDS) waarbij de afstanden werden gebundeld voor alle ruimtelijke locaties (i.c. plots) om de parameter(s) van de detectiefunctie te schatten, bijvoorbeeld \sigma voor de half-normaale functie. Dit wordt gebruikt om een schatting van de dichtheid te verkrijgen, en vervolgens wordt de variantie gebaseerd op de variantie van de "encounter rate", die wel enige informatie uit de plots gebruikt. Bij CDS wordt er ook uitgegaan dat dieren uniform worden verdeeld met betrekking tot transecten/telpunten en vereisen dus gerandomiseerde plaatsing van transecten/punten tijdens het steekproefdesign. Hierbij worden factoren die de abundantie tussen plots beïnvloeden verwaarloosd. \textcolour{red}{Dit klopt niet helemaal denk ik want we hebben wel enkele covariaten meegegeven in **Distance**. Het precieze onderscheid moet nog verder bekeken worden in de literatuur, maar het volgende is wel degelijk een andere techniek dan eerder gebruikt.} In de **unmarked** package kunnen we het zgn. Hierarchical distance sampling (HDS) toepassen. Dit zijn parametrisch modellen om variatie in abundantie tussen plots te beschrijven. In plaats van gegevens te bundelen als bij CDS, biedt HDS een expliciet model voor de variatie van de lokale populatiegrootte $N_s$ (de abundantie voor plot $s$). Door een model voor deze latente variabele specificeren, kunnen we dan expliciete modellen bouwen voor distance sampling data die verantwoordelijk zijn voor variatie in abundatie (of lokale dichtheid) tussen steekproefeenheden (plots), waardoor inferentie over factoren die ruimtelijke invloed hebben op variatie in abundatie wordt vergemakkelijkt alsook expliciete spatiale predicties over abundantie.
+
 https://cran.r-project.org/web/packages/unmarked/vignettes/distsamp.html
 https://www.rdocumentation.org/packages/unmarked/versions/1.2.5/topics/gdistsamp
 https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e48a92.html
@@ -1065,6 +1069,9 @@ https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e4
 
 
 ### STAN
+
+**Op verkenning**
+
 
 
 
