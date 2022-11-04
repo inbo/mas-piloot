@@ -876,7 +876,7 @@ Waarnemingen tijdens éénzelfde telling worden met volledige zekerheid als vers
 2. Clustering op basis van fusieafstand  
 Waarnemingen gedurende verschillende tellingen maar binnen een bepaalde geografische afstand van elkaar (= fusieafstand) worden geclusterd. We gaan er dan van uit dat dit hetzelfde dier was.
 
-Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. We zouden de range kunnen vergroten door er van uit te gaan dat een waarnemer op dezelfde dag niet hetzelfde individu 2x heeft gezien. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen.
+Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. Bovendien kunnen plots overlappen of < 600 m van elkaar verwijderd zijn. We zouden de range kunnen vergroten door er van uit te gaan dat een waarnemer op dezelfde dag niet hetzelfde individu 2x heeft gezien. Dit scenario zullen we later bespreken onder **Discussie**. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen voor de volgende exploratieve figuur. 
 
 ```{r broed-afstanden}
 # Selecteer tellingen van Gele kwikstaart in 2022 in de twee regios
@@ -907,26 +907,27 @@ for (group in broedkoppels$group_id) {
 fun.mode <- function(x){as.numeric(names(sort(-table(x)))[1])}
 
 # Visualiseer in histogram (filter 0 m eruit)
-dst %>% as.tibble() %>% 
+plot_dist_terr <- dst %>% as.tibble() %>% 
   filter(value != 0) %>%
   ggplot() +
     geom_histogram(aes(x = value, y = ..density..), fill = "yellow", colour = "black", 
                    binwidth = 5, alpha = 0.5) +
     labs(x = "Kleinste afstand tot een ander koppel in dezelfde telling (m)") +
-    geom_vline(xintercept = mean(dst[dst != 0]), colour = "darkgreen", size = 1.2) + 
+    geom_vline(xintercept = 129.9003, colour = "darkgreen", size = 1.2) + 
     geom_vline(xintercept = quantile(dst[dst != 0], probs = c(0.25, 0.5, 0.75)), 
                colour = "darkblue", size = 1.2) +
     geom_vline(xintercept = fun.mode(dst[dst != 0]), colour = "darkred", size = 1.2) +
     geom_density(aes(x = value, y = ..density..), size = 1)
+plot_dist_terr
 ```
 
 Rood: modus. Blauw: Q1-Q3. Groen: gemiddelde.
 
-We zullen er echter voor kiezen om diameter van de telcirkel (600 m) als fusieafstand te nemen. We vermoeden dat dit een iets lager aantal koppels zal opleveren dan de maxima te nemen over de telperiodes indien de telcirkels overlappen of op minder dan 600 m verwijderd zijn van elkaar. Bovendien lijkt het een elegante manier om de territoriastrategie toe te passen op ons design.
+We zullen er echter initieel voor kiezen om diameter van de telcirkel (600 m) als fusieafstand te nemen. We vermoeden dat dit een iets lager aantal koppels zal opleveren dan de maxima te nemen over de telperiodes indien de telcirkels overlappen of op minder dan 600 m verwijderd zijn van elkaar. Bovendien lijkt het een elegante manier om de territoriastrategie toe te passen op ons design.
 
 **Data voorbereiden**
 
-We hebben voor elke waarneming hun `x`- en `y`-coördinaten nodig in een geprojecteerd coördinatensysteem. `survey` is een geheel getal id voor elke observatie. Een survey is een unieke combinatie van een plot en een telperiode (voor elke telling). `status` is een geheel getal dat de broedcode aangeeft. Een hogere waarde veronderstelt meer zekerheid over een broedgeval.
+We hebben voor elke waarneming hun `x`- en `y`-coördinaten nodig in een geprojecteerd coördinatensysteem. `survey` is een geheel getal id voor elke telling. Een survey is dus een unieke combinatie van een plot en een telperiode. `status` is een geheel getal dat de broedcode aangeeft. Een hogere waarde veronderstelt meer zekerheid over een broedgeval. `id` is een unieke id voor iedere observatie
 
 ```{r data-prep-territoria}
 # Voorbereiden dataframe
@@ -995,7 +996,7 @@ In totaal hadden we `r nrow(result[[1]]$observations)` observaties (waarneming v
 ```{r visualisatie-territoria}
 territoria_per_plot <- df_territoria %>% 
   
-  # Join om regio's te krijgen %>%
+  # Join om regio's te krijgen
   inner_join(gele_kwik_2022_territoria, by = "oid") %>%
   select(cluster, regio) %>%
   
@@ -1067,3 +1068,77 @@ grid.arrange(GLMM_model, dist_model, plot_terr,
              layout_matrix = rbind(c(1, 2), c(3)))
 ```
 
+**Discussie**
+
+Dit is toch een lager aantal dan verwacht. Vanwaar komen de eerste drie clusters? Deze clusters vormen steeds binnen een plot (zoals verwacht want als fusieafstand namen we de diameter van de telcirkel). Telkens werd een individu gezien in verschillende telkperiodes dus deze zijn geclusterd.
+
+```{r table-territoria-clusters}
+df_territoria %>%
+  inner_join(gele_kwik_2022_territoria, by = "oid") %>%
+  select(oid, cluster, plotnaam, periode_in_jaar, regio) %>%
+  filter(cluster %in% sort(unique(df_territoria$cluster))[1:3]) %>%
+  arrange(cluster, plotnaam, periode_in_jaar) %>%
+  kable()
+```
+
+Hoeveel territoria in eerste drie plots? In DM_1037.1 werd telkens 1 individu gezien in elke telperiode. Omdat het binnen de fusieafstand is worden deze waarnemingen geclusterd. In plots DM_1012.6 en DM_1024.10 werden in telperiode R2 twee individuen gezien waardoor er twee clusters zijn. Waarnemingen van andere telperiodes worden geclusterd met het eerste individu.
+
+```{r table-territoria-plots}
+df_territoria %>%
+  inner_join(gele_kwik_2022_territoria, by = "oid") %>%
+  select(oid, cluster, plotnaam, periode_in_jaar, regio) %>%
+  filter(plotnaam %in% sort(unique(gele_kwik_2022_territoria$plotnaam))[1:3]) %>%
+  arrange(cluster, plotnaam, periode_in_jaar) %>%
+  kable()
+```
+
+Op basis van deze gegevens zouden we een gelijkaardig aantal als bij de maxima verwachten. De analyses zijn wel verlopen zoals verwacht. Zijn er telcirkels die overlappen of die dicht bij elkaar liggen? Met andere woorden, zijn er clusters die in verschillende plots zijn gezien?
+
+```{r}
+# Vind clusters met meerdere plots
+multi_clust <- df_territoria %>%
+  inner_join(gele_kwik_2022_territoria, by = "oid") %>%
+  select(oid, cluster, plotnaam, regio, periode_in_jaar) %>%
+  
+  # Aantal plots per cluster
+  group_by(cluster) %>%
+  summarise(n_plots = n_distinct(plotnaam)) %>%
+  
+  # Clusters met meer dan 1 plot
+  filter(n_plots > 1) %>%
+  pull(cluster)
+
+# Tabel
+df_territoria %>%
+  inner_join(gele_kwik_2022_territoria, by = "oid") %>%
+  select(oid, cluster, plotnaam, periode_in_jaar, regio) %>%
+  filter(cluster %in% multi_clust) %>%
+  arrange(regio, cluster, plotnaam, periode_in_jaar) %>%
+  kable()
+```
+
+Er is dus toch vrij veel overlap van plots. De twee waarnemingen in cluster 11 bevinden zich in plots DM_222.6 en VL0070 op 488 m van elkaar, maar werden wel door dezelfde waarnemer (JJNN16) gezien op dezelfde dag (2022-06-02). \textcolour{red}{Kunnen we er dan toch van uit gaan dat dit twee verschillende individuen zijn?} 
+
+Er zijn bijgevolg nog 3 scenario's die kunnen getest worden:
+
+1. Cluster surveys minder strikt volgens datum en waarnemer in plaats van plot en telperiode. Uitsluitende waarnemingen: op dezelfde dag en door dezelfde waarnemer zijn verschillende dieren.
+2. Neem een kleinere fusieafstand. Bijvoorbeeld waar de hoogste densiteit was in de exploratieve plot van de koppelafstanden.
+3. Combinatie van 1. en 2.
+
+
+**1. Cluster surveys minder strikt volgens datum en waarnemer**
+
+
+
+
+**2. Neem een kleinere fusieafstand**
+
+```{r}
+# Extract piek densiteit
+dens_piek <- ggplot_build(plot_dist_terr)$data[[5]] %>% 
+  filter(y == max(y)) %>% 
+  pull(x)
+```
+
+
+**3. Cluster surveys minder strikt en neem een kleinere fusieafstand**
