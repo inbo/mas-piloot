@@ -192,7 +192,6 @@ design_2018_2022 <- bind_rows(
   arrange(plotnaam)
 ```
 
-
 ```{r overzicht-data, eval=FALSE}
 head(mas)
 summary(mas)
@@ -224,7 +223,7 @@ mas_clean <- mas %>%
 
 We starten met een beperkte dataset om het aantal broedparen van de Gele kwikstaart te modelleren. We beginnen met data exploratie en bouwen dan verschillende modellen op van simpel naar meer complexe modellen. 
 
-We selecteren de data voor Gele kwikstaart van 2022 met broedcode > 0. Voorlopig houden we geen rekening met detectiekans. We sommen de aantallen op per plot per telperiode (elke plot is 1x per telperiode bezocht). Opmerking: wat met *Gele kwikstaart (spec)*?
+We selecteren de data voor Gele kwikstaart van 2022 met broedcode > 0. Opmerking: wat met *Gele kwikstaart (spec)*?
 
 ```{r selectie-gelekwik-2022}
 # Selecteer tellingen van Gele kwikstaart in 2022 in de twee regios
@@ -307,7 +306,9 @@ gele_kwik_2022 %>%
 
 ## Generalized linear mixed models
 
-Met deze data fitten we een model waarbij de aantallen broedparen Gele kwikstaart per telcirkel afhangen van regio en een effect van tijdstip van de telling in 2022. Als random effect wordt de plot in het model gestoken om rekening te houden met gepaardheid van de waarnemingen doorheen het jaar. 
+**Op verkenning**
+
+Voorlopig houden we geen rekening met detectiekans. We sommen de aantallen op per plot per telperiode (elke plot is 1x per telperiode bezocht). Met deze data fitten we een model waarbij de aantallen broedparen Gele kwikstaart per telcirkel afhangen van regio en een effect van tijdstip van de telling in 2022. Als random effect wordt de plot in het model gestoken om rekening te houden met gepaardheid van de waarnemingen doorheen het jaar. 
 
 We fitten vier modellen met verschillende verdelingsassumpties:
 
@@ -373,6 +374,8 @@ plot(brmZINB1)
 
 Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
 
+**Model selectie en fit**
+
 We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, \textcolor{red}{waarom?}). Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte. Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. We stratificeren volgens regio. Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
 
 ```{r k-foldCV-GLMMs}
@@ -431,6 +434,8 @@ pp_check(fit_brmpois1, type = "bars_grouped", ndraws = 100,
          group = "periode_in_jaar",
          facet_args = list(ncol = 1, scales = "free_y"))
 ```
+
+**Resultaten en visualisatie**
 
 Overzicht van de gefitte modelparameters, hun onzekerheid en enkele maten die aangeven of het model geconvergeerd is.
 
@@ -557,6 +562,8 @@ grid.arrange(p_pois1, p_pois2, ncol = 2)
 ## Distance samling
 ### Distance package
 
+**Op verkenning**
+
 In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarmate de dieren zich verder bevinden. In voorgaande sectie hadden we de data geaggregeerd per telcirkel per telperiode, in deze sectie werken we met de directe observaties: waarnemingen van $n$ aantal broedparen Gele kwikstaart op een afstand van $x$ meter van het telpunt per telperiode in 2022.
 
 ```{r data-dist}
@@ -600,6 +607,8 @@ gele_kwik_2022_distance %>%
          title = "2022")
 ```
 
+**Data voorbereiden**
+
 De dataframe moet een kolom met de naam `distance` bevatten (met de waargenomen afstanden) en extra benoemde kolommen voor eventuele covariaten die de detecteerbaarheid kunnen beïnvloeden (bijvoorbeeld waarnemer effect of visibiliteit). Om de densiteit te schatten of de abundatntie, is aanvullende informatie vereist. Extra kolommen moeten worden opgenomen de dataframe met vermelding van: `Sample.Label` (ID van het transect/plot), `Effort` (het aantal keren dat dat punt is bezocht); `Region.Label` (het stratum dat het transect bevat); `Area`, de oppervlakte van de strata. Transecten/plots die zijn onderzocht maar geen waarnemingen hebben, moeten worden opgenomen in de dataset met `NA` voor afstand en eventuele andere covariaten. De kolom `size`geeft de cluster groottes aan zodat elke rij een observatie van een cluster/groep is inplaats van een individu.
 
 ```{r dist-dataframe}
@@ -611,6 +620,8 @@ gele_kwik_2022_ds <- gele_kwik_2022_distance %>%
   group_by(Sample.Label) %>%
   mutate(Effort = n_distinct(periode_in_jaar))
 ```
+
+**Model selectie en fit**
 
 We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten regio en telperiode. Voor de uniforme verdeling kunnen geen covariaten worden toegevoegd.
 
@@ -740,6 +751,8 @@ summarize_ds_models(dsmodelunif1,
                     dsmodelhr1, dsmodelhr2, dsmodelhr3, 
                       dsmodelhr4, dsmodelhr5) %>% kable()
 ```
+
+**Resultaten en visualisatie**
 
 Op basis van deze redenering kiezen we voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende detectiekans:
 
@@ -972,6 +985,8 @@ result <- get_cluster(conn = conn)
 dbDisconnect(conn = conn)
 ```
 
+**Resultaten en visualisatie**
+
 In totaal hadden we `r nrow(result$observations)` observaties (waarneming van een bepaald individu in een plot in een bepaalde telperiode). Nu hebben we `r nrow(result$cluster)` clusters (= broedparen).
 
 ```{r visualisatie-territoria}
@@ -1000,16 +1015,9 @@ territoria_per_plot %>%
 ```
 
 
+We vergelijken met de vorige resultaten. Ook berekenen we het relatief aantal broedparen op basis van het gemiddeld en maximum aantal per plot over de telperiodes.
 
-
-
-
-
-
-
-Gemiddeldes en maxima
-
-```{r}
+```{r, fig.height=10}
 plot_terr <- gele_kwik_2022 %>%
   st_drop_geometry() %>%
   
@@ -1051,12 +1059,7 @@ plot_terr <- gele_kwik_2022 %>%
       categorie = c("tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
                     "tot_max_plots" = "Maximum aantal broedparen per plot",
                     "territoria" = "Aantal territoria")))
-plot_terr
-```
 
-
-
-```{r, fig.height=7}
 grid.arrange(GLMM_model, dist_model, plot_terr, 
              layout_matrix = rbind(c(1, 2), c(3)))
 ```
