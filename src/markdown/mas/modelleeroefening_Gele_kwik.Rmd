@@ -876,7 +876,7 @@ Waarnemingen tijdens éénzelfde telling worden met volledige zekerheid als vers
 2. Clustering op basis van fusieafstand  
 Waarnemingen gedurende verschillende tellingen maar binnen een bepaalde geografische afstand van elkaar (= fusieafstand) worden geclusterd. We gaan er dan van uit dat dit hetzelfde dier was.
 
-Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. Bovendien kunnen plots overlappen of < 600 m van elkaar verwijderd zijn. We zouden de range kunnen vergroten door er van uit te gaan dat een waarnemer op dezelfde dag niet hetzelfde individu 2x heeft gezien. Dit scenario zullen we later bespreken onder **Discussie**. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen voor de volgende exploratieve figuur. 
+Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. Bovendien kunnen plots overlappen of < 600 m van elkaar verwijderd zijn. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen voor deze exploratieve figuur. 
 
 ```{r broed-afstanden}
 # Selecteer tellingen van Gele kwikstaart in 2022 in de twee regios
@@ -1018,7 +1018,7 @@ territoria_per_plot %>%
     theme(legend.position = "")
 ```
 
-We vergelijken met de vorige resultaten. Ook berekenen we het relatief aantal broedparen op basis van het gemiddeld en maximum aantal per plot over de telperiodes.
+We vergelijken met de vorige resultaten. Ook berekenen we het relatief aantal broedparen op basis van het gemiddeld en maximum aantal per plot over de telperiodes. Hierbij is ook met absensies rekening gehouden (maakt voor maximum niet uit).
 
 ```{r, fig.height=10}
 plot_terr <- gele_kwik_2022 %>%
@@ -1034,7 +1034,7 @@ plot_terr <- gele_kwik_2022 %>%
   
   # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
   # alle plots (som)
-  inner_join(gele_kwik_2022, by = "plotnaam") %>%
+  inner_join(design2022, by = "plotnaam") %>%
   select(plotnaam, gemiddelde, maximum, regio) %>%
   group_by(regio) %>%
   summarise(tot_gemiddelde = sum(gemiddelde),
@@ -1069,7 +1069,7 @@ grid.arrange(GLMM_model, dist_model, plot_terr,
 
 **Discussie**
 
-Dit is toch een lager aantal dan verwacht. Vanwaar komen de eerste drie clusters? Deze clusters vormen steeds binnen een plot (zoals verwacht want als fusieafstand namen we de diameter van de telcirkel). Telkens werd een individu gezien in verschillende telkperiodes dus deze zijn geclusterd.
+Dit is toch iets lager aantal dan verwacht (vergelijk met maximum). Vanwaar komen de eerste drie clusters? Deze clusters vormen steeds binnen een plot (zoals verwacht want als fusieafstand namen we de diameter van de telcirkel). Telkens werd een individu gezien in verschillende telkperiodes dus deze zijn geclusterd.
 
 ```{r table-territoria-clusters}
 df_territoria %>%
@@ -1091,7 +1091,7 @@ df_territoria %>%
   kable()
 ```
 
-Op basis van deze gegevens zouden we een gelijkaardig aantal als bij de maxima verwachten. De analyses zijn wel verlopen zoals verwacht. Zijn er telcirkels die overlappen of die dicht bij elkaar liggen? Met andere woorden, zijn er clusters die in verschillende plots zijn gezien?
+Op basis van deze gegevens zouden we een gelijkaardig aantal als bij de maxima verwachten. De analyses zijn wel verlopen zoals verwacht. Zijn er telcirkels die overlappen of die dicht bij elkaar liggen? Met andere woorden, zijn er clusters die in verschillende plots zijn gezien? De twee waarnemingen in cluster 11 bevinden zich in plots DM_222.6 en VL0070 op 488 m van elkaar, maar werden wel door dezelfde waarnemer (JJNN16) gezien op dezelfde dag (2022-06-02). Kunnen we er dan toch van uit gaan dat dit twee verschillende individuen zijn? Nee want niet op zelfde moment (telling) gezien. We zullen dus de cluster surveys niet minder strikt nemen volgens datum en waarnemer in plaats van plot en telperiode. 
 
 ```{r}
 # Vind clusters met meerdere plots
@@ -1116,21 +1116,9 @@ df_territoria %>%
   kable()
 ```
 
-Er is dus toch vrij veel overlap van plots. De twee waarnemingen in cluster 11 bevinden zich in plots DM_222.6 en VL0070 op 488 m van elkaar, maar werden wel door dezelfde waarnemer (JJNN16) gezien op dezelfde dag (2022-06-02). \textcolour{red}{Kunnen we er dan toch van uit gaan dat dit twee verschillende individuen zijn?} 
+Er is dus toch vrij veel overlap van plots (binnen 600 m). Dat verklaart waarom het aantal territoria iets lager is dan het aantal op basis van maxima per plot over de telperiodes. We kozen voor 600 m op basis van ons studiedesign, nl. de diameter van de telcirkel. Omdat er overlap is tussen plots op deze afstand krijgt deze arbitraire afstand nu plots een biologische mening (territoriumafstand Gele kwikstaart op 600 m, logisch?). Dat was niet de bedoeling. Wat we wel kunnen doen is een kleinere fusieafstand nemen met biologische betekenis.
 
-Er zijn bijgevolg nog 3 scenario's die kunnen getest worden:
-
-1. Cluster surveys minder strikt volgens datum en waarnemer in plaats van plot en telperiode. Uitsluitende waarnemingen: op dezelfde dag en door dezelfde waarnemer zijn verschillende dieren.
-2. Neem een kleinere fusieafstand. Bijvoorbeeld waar de hoogste densiteit was in de exploratieve plot van de koppelafstanden.
-3. Combinatie van 1. en 2.
-
-
-**1. Cluster surveys minder strikt volgens datum en waarnemer**
-
-
-
-
-**2. Neem een kleinere fusieafstand**
+**Kleinere fusieafstand**
 
 ```{r pieken-scenario2}
 # Extract pieken
@@ -1142,7 +1130,7 @@ dens_piek <- ggplot_build(plot_dist_terr)$data[[5]] %>%
   pull(x)
 ```
 
-De top van de densiteitscurve van de koppelafstanden lag op `r dens_piek` m, de top van de histogram op `r hist_piek` m, de mediaan op `r median(dst[dst != 0])` m en het gemiddelde op `r mean(dst[dst != 0])`. Om conservatief te blijven gaan we hier verder met het gemiddelde. 
+De top van de densiteitscurve van de koppelafstanden lag op `r dens_piek` m, de top van de histogram op `r hist_piek` m, de mediaan op `r median(dst[dst != 0])` m en het gemiddelde op `r mean(dst[dst != 0])`. Om conservatief te blijven gaan we hier verder met het gemiddelde.
 
 ```{r}
 # Set-up
@@ -1199,7 +1187,7 @@ plot_terr2 <- gele_kwik_2022 %>%
   
   # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
   # alle plots (som)
-  inner_join(gele_kwik_2022, by = "plotnaam") %>%
+  inner_join(design2022, by = "plotnaam") %>%
   select(plotnaam, gemiddelde, maximum, regio) %>%
   group_by(regio) %>%
   summarise(tot_gemiddelde = sum(gemiddelde),
@@ -1232,7 +1220,9 @@ grid.arrange(GLMM_model, dist_model, plot_terr2,
              layout_matrix = rbind(c(1, 2), c(3)))
 ```
 
-Is er nog steeds overlap in plots?
+Nu zien we dat de territoria hoger zijn dan het maximum. Dat komt omdat nu ook binnen plots clusters worden gevormd indien waarnemingen ver genoeg uit elkaar liggen en niet in dezelfde telperiode zijn gedaan.  
+
+Is er ooknog steeds overlap in plots?
 
 ```{r}
 # Vind clusters met meerdere plots
@@ -1257,7 +1247,4 @@ df_territoria2 %>%
   kable()
 ```
 
-Geen overlap meer. \textcolour{red}{Waarom dan nog altijd zoveel lager dan maxima?}
-
-
-**3. Cluster surveys minder strikt en neem een kleinere fusieafstand**
+Geen overlap meer.
