@@ -1061,7 +1061,7 @@ Er is bijna geen verschil wanneer de afstanden per 100 m worden gegroepeerd.
 
 **Op verkenning**
 
-In **Distance** deden we aan zgn. Conventional distance sampling (CDS) waarbij de afstanden werden gebundeld voor alle ruimtelijke locaties (i.c. plots) om de parameter(s) van de detectiefunctie te schatten, bijvoorbeeld \sigma voor de half-normaale functie. Dit wordt gebruikt om een schatting van de dichtheid te verkrijgen, en vervolgens wordt de variantie gebaseerd op de variantie van de "encounter rate", die wel enige informatie uit de plots gebruikt. Bij CDS wordt er ook uitgegaan dat dieren uniform worden verdeeld met betrekking tot transecten/telpunten en vereisen dus gerandomiseerde plaatsing van transecten/punten tijdens het steekproefdesign. Hierbij worden factoren die de abundantie tussen plots beïnvloeden verwaarloosd. \textcolour{red}{Dit klopt niet helemaal denk ik want we hebben wel enkele covariaten meegegeven in **Distance**. Het precieze onderscheid moet nog verder bekeken worden in de literatuur, maar het volgende is wel degelijk een andere techniek dan eerder gebruikt.} In de **unmarked** package kunnen we het zgn. Hierarchical distance sampling (HDS) toepassen. Dit zijn parametrisch modellen om variatie in abundantie tussen plots te beschrijven. In plaats van gegevens te bundelen als bij CDS, biedt HDS een expliciet model voor de variatie van de lokale populatiegrootte $N_s$ (de abundantie voor plot $s$). Door een model voor deze latente variabele specificeren, kunnen we dan expliciete modellen bouwen voor distance sampling data die verantwoordelijk zijn voor variatie in abundatie (of lokale dichtheid) tussen steekproefeenheden (plots), waardoor inferentie over factoren die ruimtelijke invloed hebben op variatie in abundatie wordt vergemakkelijkt alsook expliciete spatiale predicties over abundantie.
+In **Distance** deden we aan zgn. Conventional distance sampling (CDS) waarbij de afstanden werden gebundeld voor alle ruimtelijke locaties (i.c. plots) om de parameter(s) van de detectiefunctie te schatten, bijvoorbeeld \sigma voor de half-normaale functie. Dit wordt gebruikt om een schatting van de dichtheid te verkrijgen, en vervolgens wordt de variantie gebaseerd op de variantie van de "encounter rate", die wel enige informatie uit de plots gebruikt. Bij CDS wordt er ook uitgegaan dat dieren uniform worden verdeeld met betrekking tot transecten/telpunten en vereisen dus gerandomiseerde plaatsing van transecten/punten tijdens het steekproefdesign. Hierbij worden factoren die de abundantie tussen plots beïnvloeden verwaarloosd. In de **unmarked** package kunnen we het zgn. Hierarchical distance sampling (HDS) toepassen. Dit zijn parametrisch modellen om variatie in abundantie tussen plots te beschrijven. In plaats van gegevens te bundelen als bij CDS, biedt HDS een expliciet model voor de variatie van de lokale populatiegrootte $N_s$ (de abundantie voor plot $s$). Door een model voor deze latente variabele specificeren, kunnen we dan expliciete modellen bouwen voor distance sampling data die verantwoordelijk zijn voor variatie in abundatie (of lokale dichtheid) tussen steekproefeenheden (plots), waardoor inferentie over factoren die ruimtelijke invloed hebben op variatie in abundatie wordt vergemakkelijkt alsook expliciete spatiale predicties over abundantie.
 
 https://cran.r-project.org/web/packages/unmarked/vignettes/distsamp.html
 https://www.rdocumentation.org/packages/unmarked/versions/1.2.5/topics/gdistsamp
@@ -1118,6 +1118,8 @@ hist(umf, xlab = "Distance (m)", main = "", las = 1)
 **Model selectie en fit**
 
 Op basis van eerdere resultaten en bovenstaande histogram zullen we de uniforme detectiefuctie niet beschouwen. Deze past namelijk goed als het aantal tellingen niet afneemt over de afstand, wat duidelijk wel het geval is. Ook de exponentiele functie wordt niet beschouwd (`Warning message:Hessian is singular. Try providing starting values or using fewer covariates.`).
+
+We testen null modellen en modellen met regio in combinatie met openheid en sbp.
 
 ```{r}
 # Null modellen
@@ -1228,6 +1230,8 @@ um_model_hr13 <- distsamp(formula = ~regio + sbp + openheid~regio + sbp + openhe
          unitsOut = "kmsq")
 ```
 
+Het half-normal model waarbij zowel detectiekans als densiteit verschilt per regio, soortbeschermingszone en openheid landschap scoort het best.
+
 ```{r}
 fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
                    hn4 = um_model_hn4, hn5 = um_model_hn5, hn6 = um_model_hn6,
@@ -1243,6 +1247,8 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
                    hr13 = um_model_hr13)
 modSel(fm_list)
 ```
+
+We testen nu modellen waarbij we elk van de factoren één voor één weglaten.
 
 ```{r}
 # Detectiekans verschilt per regio en soortbeschermingszone
@@ -1291,6 +1297,7 @@ um_model_hr18 <- distsamp(formula = ~regio + sbp~sbp + openheid,
          unitsOut = "kmsq")
 ```
 
+Het half-normal model waarbij detectiekans verschilt per soortbeschermingszone en densiteit verschilt per regio, soortbeschermingszone en openheid landschap scoort het best (eenvoudigst model met verschil in AIC < 2)
 
 ```{r}
 fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
@@ -1314,6 +1321,7 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
 modSel(fm_list)
 ```
 
+Detectiekans verschilt per soortbeschermingszone, maar we testen ook nog enkele combinaties voor densiteit.
 
 ```{r}
 # Detectiekans verschilt per soortbeschermingszone
@@ -1362,6 +1370,8 @@ um_model_hr23 <- distsamp(formula = ~sbp~regio + openheid,
          unitsOut = "kmsq")
 ```
 
+Het model waarbij detectiekans verschilt per soortbeschermingszone en densiteit verschilt per openheid landschap scoort het best.
+
 ```{r}
 fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
                    hn4 = um_model_hn4, hn5 = um_model_hn5, hn6 = um_model_hn6,
@@ -1390,6 +1400,7 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
 modSel(fm_list)
 ```
 
+Als laatste testen we of we het model eenvoudiger kan of als er interacties kunnen toegevoegd worden.
 
 ```{r}
 # Densiteit verschilt per openheid landschap
@@ -1425,7 +1436,27 @@ um_model_hn27 <- distsamp(formula = ~sbp*regio~openheid*regio,
 um_model_hr27 <- distsamp(formula = ~sbp*regio~openheid*regio, 
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
+
+# Detectiekans verschilt per soortbeschermingszone
+# Densiteit verschilt per openheid landschap in interactie met regio
+um_model_hn28 <- distsamp(formula = ~sbp~openheid*regio, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr28 <- distsamp(formula = ~sbp~openheid*regio, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per soortbeschermingszone in interactie met regio
+# Densiteit verschilt per openheid landschap
+um_model_hn29 <- distsamp(formula = ~sbp*regio~openheid, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr29 <- distsamp(formula = ~sbp*regio~openheid, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
 ```
+
+Model 21 blijft het eenvoudigste model binnen een AIC verschil van 2.
 
 ```{r}
 fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
@@ -1442,6 +1473,7 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
                    hn23 = um_model_hn23,
                    hn24 = um_model_hn24, hn25 = um_model_hn25,
                    hn26 = um_model_hn26, hn27 = um_model_hn27,
+                   hn28 = um_model_hn28, hn29 = um_model_hn29,
                    hr1 = um_model_hr1, hr2 = um_model_hr2, hr3 = um_model_hr3,
                    hr4 = um_model_hr4, hr5 = um_model_hr5, hr6 = um_model_hr6,
                    hr7 = um_model_hr7, hr8 = um_model_hr8, hr9 = um_model_hr9, 
@@ -1455,62 +1487,78 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
                    hr21 = um_model_hr21, hr22 = um_model_hr22,
                    hr23 = um_model_hr23,
                    hr24 = um_model_hr24, hr25 = um_model_hr25,
-                   hr26 = um_model_hr26, hr27 = um_model_hr27)
+                   hr26 = um_model_hr26, hr27 = um_model_hr27,
+                   hr28 = um_model_hr28, hr29 = um_model_hr29)
 modSel(fm_list)
 ```
 
-```{r}
-names(um_model_hn2)
-backTransform(um_model_hn2, type = "state")
+**Resultaten en visualisatie**
 
-# De Moeren
-backTransform(linearComb(um_model_hn2["det"], c(1, 0)))
-
-# Oostelijke leemstreek
-backTransform(linearComb(um_model_hn2["det"], c(1, 1)))
-```
-
+Het finaal model geeft:
 
 ```{r}
-df <- data.frame(regio = c("De Moeren", "Oostelijke leemstreek"))
+# Finaal model
+um_model_hn21
 
-Elambda <- predict(um_model_hn2, type = "state", newdata = df,
+# Densiteit
+# Half-open landschap
+backTransform(linearComb(um_model_hn21["state"], c(1, 0)))
+
+# Open landschap
+backTransform(linearComb(um_model_hn21["state"], c(1, 1)))
+
+# Detectiekans
+# Binnen soortbeschermingszone
+backTransform(linearComb(um_model_hn21["det"], c(1, 0)))
+
+# Buiten soortbeschermingszone
+backTransform(linearComb(um_model_hn21["det"], c(1, 1)))
+
+# Predicties
+new_df_dens <- data.frame(openheid = rep(c("OL", "HOL"), by = 2), 
+                          regio = rep(c("De Moeren", "Oostelijke leemstreek"), 
+                                      each = 2))
+new_df_detect <- data.frame(sbp = c("buiten", "binnen"))
+
+Elambda <- predict(um_model_hn21, type = "state", newdata = new_df_dens,
     appendData = TRUE)
-Esigma <- predict(um_model_hn2, type="det", newdata = df,
+Esigma <- predict(um_model_hn21, type = "det", newdata = new_df_detect,
     appendData = TRUE)
 ```
 
-```{r}
-with(Elambda, {
-    x <- barplot(Predicted, names=regio, xlab="Regio",
-        ylab="Density (animals / sqkm)", ylim=c(0, 25), cex.names=0.7,
-        cex.lab=0.7, cex.axis=0.7)
-    arrows(x, Predicted, x, Predicted+SE, code=3, angle=90, length=0.05)
-    box()
-    })
-
-
-with(Esigma, {
-    x <- barplot(Predicted, names=regio, xlab="Regio",
-        ylab=expression(paste("Half-normal scale parameter (", sigma, ")")), ylim=c(0, 150), cex.names=0.7,
-        cex.lab=0.7, cex.axis=0.7)
-    arrows(x, Predicted, x, Predicted+SE, code=3, angle=90, length=0.05)
-    box()
-    })
-```
-
-
+We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten de soortbeschermingszones:
 
 ```{r}
 # Detection function
-plot(function(x) gxhn(x, sigma = 117.28053), 0, 300, xlab = "Distance (m)",
+plot(function(x) gxhn(x, sigma = 107.02456), 0, 300, xlab = "Afstand (m)",
     ylab = "Detection probability", las = 1, col = "blue")
-plot(function(x) gxhn(x, sigma = 99.17182), 0, 300, add = TRUE, col = "green")
-legend('topright', c("De Moeren", "Oostelijke leemstreek"),
+plot(function(x) gxhn(x, sigma = 92.08468), 0, 300, add = TRUE, col = "green")
+legend('topright', c("Binnen sbp", "Buiten sbp"),
     col = c("blue", "green"), lty = 1)
 ```
 
+De schatting van de densiteiten:
 
+```{r}
+Elambda %>%
+ ggplot(aes(x = openheid, y = Predicted)) + 
+  geom_pointrange(aes(ymin = lower, ymax = upper, colour = regio),
+                  position = position_dodge(width = 0.5)) +
+  labs(colour =  "Regio", x = "Openheid landschap", 
+       y = "Aantal broedparen Gele kwikstaart per 100 ha") +
+  scale_y_continuous(limits = c(0, NA))
+```
+
+**Discussie**
+
+Dit geeft echter een vreemd resultaat aangezien er in De Moeren geen plots in HOL zijn.
+
+```{r}
+design2022 %>% count(regio, openheid)
+```
+
+\textcolour{red}{Hoe kunnen we hiermee rekening houden?}
+Ook werd er geen rekening gehouden met de verschillende telperiodes.
 
 
 
@@ -1518,38 +1566,85 @@ met telperiodes? gdistsamp
 
 
 
-
-
-**Model selectie en fit**
-
-Op basis van eerdere resultaten en bovenstaande histogram zullen we de uniforme detectiefuctie niet beschouwen. Deze past namelijk goed als het aantal tellingen niet afneemt over de afstand, wat duidelijk wel het geval is. Ook de exponentiele functie wordt niet beschouwd (`Warning message:Hessian is singular. Try providing starting values or using fewer covariates.`).
-
 ```{r}
-# Null modellen
-um_model_hn1 <- gdistsamp(~1~1, data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr1 <- gdistsamp(formula = ~1~1, data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per regio
-um_model_hn2 <- gdistsamp(~regio, ~1,~1, data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr2 <- distsamp(formula = ~regio~1, data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Densiteit verschilt per regio
-um_model_hn3 <- distsamp(formula = ~1~regio, data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr3 <- distsamp(formula = ~1~regio, data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans en densiteit verschillen per regio
-um_model_hn4 <- distsamp(formula = ~regio~regio, data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr4 <- distsamp(formula = ~regio~regio, data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
+gele_kwik_2022_unmarked2 <- formatDistData(distData = gele_kwik_2022_ds2, 
+                                          distCol = "distance", 
+                                          transectNameCol = "Sample.Label", 
+                                          dist.breaks = c(0, 100, 200, 300),
+                                          occasionCol = "periode_in_jaar")
 ```
 
+```{r}
+umf2 <- unmarkedFrameGDS(y = as.matrix(gele_kwik_2022_unmarked2), 
+                         numPrimary = 4, siteCovs = covs_unmarked, 
+                         survey = "point", dist.breaks = c(0, 100, 200, 300),
+                         unitsIn = "m")
+
+test <- gdistsamp(~1,~1,~1, data = umf2, keyfun = "halfnorm", output = "density",
+                  unitsOut = "kmsq", mixture = "P")
+test2 <- gdistsamp(~1,~1,~1, data = umf2, keyfun = "halfnorm", output = "density",
+                  unitsOut = "kmsq", mixture = "NB")
+test3 <- gdistsamp(~openheid,~1,~sbp, data = umf2, keyfun = "halfnorm", output = "density",
+                  unitsOut = "kmsq", mixture = "P")
+test4 <- gdistsamp(~openheid,~1,~sbp, data = umf2, keyfun = "halfnorm", output = "density",
+                  unitsOut = "kmsq", mixture = "NB")
+```
+
+```{r}
+fm_list <- fitList(test, test2, test3, test4)
+modSel(fm_list)
+```
+
+```{r}
+# Finaal model
+test4
+
+# Densiteit
+# Half-open landschap
+backTransform(linearComb(test4["lambda"], c(1, 0)))
+
+# Open landschap
+backTransform(linearComb(test4["lambda"], c(1, 1)))
+
+# Detectiekans
+# Binnen soortbeschermingszone
+backTransform(linearComb(test4["det"], c(1, 0)))
+
+# Buiten soortbeschermingszone
+backTransform(linearComb(test4["det"], c(1, 1)))
+
+# Predicties
+Elambda2 <- predict(test4, type = "lambda", newdata = new_df_dens,
+    appendData = TRUE)
+Esigma2 <- predict(test4, type = "det", newdata = new_df_detect,
+    appendData = TRUE)
+```
+
+We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten de soortbeschermingszones:
+
+```{r}
+# Detection function
+plot(function(x) gxhn(x, sigma = 107.21133), 0, 300, xlab = "Afstand (m)",
+    ylab = "Detection probability", las = 1, col = "blue")
+plot(function(x) gxhn(x, sigma = 91.76288), 0, 300, add = TRUE, col = "green")
+legend('topright', c("Binnen sbp", "Buiten sbp"),
+    col = c("blue", "green"), lty = 1)
+```
+
+De schatting van de densiteiten:
+
+```{r}
+Elambda2 %>%
+ ggplot(aes(x = openheid, y = Predicted)) + 
+  geom_pointrange(aes(ymin = lower, ymax = upper, colour = regio),
+                  position = position_dodge(width = 0.5)) +
+  labs(colour =  "Regio", x = "Openheid landschap", 
+       y = "Aantal broedparen Gele kwikstaart per 100 ha") +
+  scale_y_continuous(limits = c(0, NA))
+```
+
+
+rare resultaten...
 
 ### STAN
 
