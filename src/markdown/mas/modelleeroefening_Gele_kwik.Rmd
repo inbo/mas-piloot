@@ -17,6 +17,7 @@ renv::restore()
 library(Distance)
 library(territoria)
 library(DBI)
+library(unmarked)
 library(Hmisc)
 library(knitr)
 library(here)
@@ -1066,6 +1067,488 @@ https://cran.r-project.org/web/packages/unmarked/vignettes/distsamp.html
 https://www.rdocumentation.org/packages/unmarked/versions/1.2.5/topics/gdistsamp
 https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e48a92.html
 
+**Data voorbereiden**
+
+We converteren de gegevens naar gegevens op plotniveau met behulp van de functie `formatDistData()`. Dit creëert een object dat tellingen bevat voor elke plot (rij) in elk afstandsinterval (kolommen). Het is belangrijk dat alle onderzochte plots in de analyse worden opgenomen, ook als er geen individuen zijn gedetecteerd.
+
+```{r}
+# Plotnamen en telperiodes als factor
+gele_kwik_2022_ds2 <- gele_kwik_2022_ds %>% 
+  mutate(Sample.Label = as.factor(Sample.Label),
+         periode_in_jaar = as.factor(periode_in_jaar)) %>%
+  arrange(Sample.Label)
+
+# Dupliceer rijen volgens aantal (elke rij is 1 individu)
+# Dataframe noodzakelijk voor volgende stap
+gele_kwik_2022_ds2 <- 
+  data.frame(
+    gele_kwik_2022_ds2[rep(seq_len(dim(gele_kwik_2022_ds2)[1]), 
+                  gele_kwik_2022_ds2$size), , 
+                  drop = FALSE], 
+    row.names = NULL
+  )
+
+# Converteer naar format voor distsamp()/gdistsamp() functies
+# We splitsen de afstanden per 100 m
+gele_kwik_2022_unmarked <- formatDistData(distData = gele_kwik_2022_ds2, 
+                                          distCol = "distance", 
+                                          transectNameCol = "Sample.Label", 
+                                          dist.breaks = c(0, 100, 200, 300))
+```
+
+Als plot-specifieke covariaten beschouwen we regio (De Moeren of Oostelijke leemstreek), openheid (HOL of OL) en sbp (binnen of buiten). De functie `unmarkedFrameDS()` kan daarna worden gebruikt om deze gegevens samen met hun metagegevens (studieontwerp (punt-transect), breekpunten van afstandsklassen en meeteenheden) te ordenen in een object dat als het gegevensargument moet worden gebruikt in `distsamp()`/`gdistsamp()`. Door de gegevens op deze manier te organiseren,moeten we deze argumenten niet herhaaldelijk opgeven tijdens elke aanroep van `distsamp()`/`gdistsamp()`, waardoor de kans op fouten wordt verkleind en de samenvatting en manipulatie van gegevens wordt vergemakkelijkt.
+
+```{r}
+covs_unmarked <- gele_kwik_2022 %>%
+  ungroup() %>%
+  distinct(plotnaam, regio, openheid, sbp) %>%
+  mutate(across(.cols = everything(), as.factor)) %>%
+  arrange(plotnaam)
+
+umf <- unmarkedFrameDS(y = as.matrix(gele_kwik_2022_unmarked), 
+                       siteCovs = covs_unmarked, survey = "point",
+                       dist.breaks = c(0, 100, 200, 300),
+                       unitsIn = "m")
+
+summary(umf)
+
+hist(umf, xlab = "Distance (m)", main = "", las = 1)
+```
+
+**Model selectie en fit**
+
+Op basis van eerdere resultaten en bovenstaande histogram zullen we de uniforme detectiefuctie niet beschouwen. Deze past namelijk goed als het aantal tellingen niet afneemt over de afstand, wat duidelijk wel het geval is. Ook de exponentiele functie wordt niet beschouwd (`Warning message:Hessian is singular. Try providing starting values or using fewer covariates.`).
+
+```{r}
+# Null modellen
+um_model_hn1 <- distsamp(formula = ~1~1, data = umf, keyfun = "halfnorm", 
+                         output = "density",
+         unitsOut = "kmsq")
+um_model_hr1 <- distsamp(formula = ~1~1, data = umf, keyfun = "hazard", 
+                         output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per regio
+um_model_hn2 <- distsamp(formula = ~regio~1, data = umf, keyfun = "halfnorm", 
+                         output = "density",
+         unitsOut = "kmsq")
+um_model_hr2 <- distsamp(formula = ~regio~1, data = umf, keyfun = "hazard", 
+                         output = "density",
+         unitsOut = "kmsq")
+
+# Densiteit verschilt per regio
+um_model_hn3 <- distsamp(formula = ~1~regio, data = umf, keyfun = "halfnorm", 
+                         output = "density",
+         unitsOut = "kmsq")
+um_model_hr3 <- distsamp(formula = ~1~regio, data = umf, keyfun = "hazard", 
+                         output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans en densiteit verschillen per regio
+um_model_hn4 <- distsamp(formula = ~regio~regio, data = umf, keyfun = "halfnorm", 
+                         output = "density",
+         unitsOut = "kmsq")
+um_model_hr4 <- distsamp(formula = ~regio~regio, data = umf, keyfun = "hazard", 
+                         output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per regio en openheid landschap
+um_model_hn5 <- distsamp(formula = ~regio + openheid~1, data = umf, 
+                         keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr5 <- distsamp(formula = ~regio + openheid~1, data = umf, 
+                         keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Densiteit verschilt per regio en openheid landschap
+um_model_hn6 <- distsamp(formula = ~1~regio + openheid, data = umf, 
+                         keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr6 <- distsamp(formula = ~1~regio + openheid, data = umf, 
+                         keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans en densiteit verschillen per regio en openheid landschap
+um_model_hn7 <- distsamp(formula = ~regio + openheid~regio + openheid, 
+                         data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr7 <- distsamp(formula = ~regio + openheid~regio + openheid, 
+                         data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per regio en soortbeschermingszone
+um_model_hn8 <- distsamp(formula = ~regio + sbp~1, data = umf, 
+                         keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr8 <- distsamp(formula = ~regio + sbp~1, data = umf, 
+                         keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Densiteit verschilt per regio en soortbeschermingszone
+um_model_hn9 <- distsamp(formula = ~1~regio + sbp, data = umf, 
+                         keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr9 <- distsamp(formula = ~1~regio + sbp, data = umf, 
+                         keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans en densiteit verschillen per regio en soortbeschermingszone
+um_model_hn10 <- distsamp(formula = ~regio + sbp~regio + sbp, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr10 <- distsamp(formula = ~regio + sbp~regio + sbp, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per regio en soortbeschermingszone
+# en openheid landschap
+um_model_hn11 <- distsamp(formula = ~regio + sbp + openheid~1, data = umf, 
+                         keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr11 <- distsamp(formula = ~regio + sbp + openheid~1, data = umf, 
+                         keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Densiteit verschilt per regio en soortbeschermingszone
+# en openheid landschap
+um_model_hn12 <- distsamp(formula = ~1~regio + sbp + openheid, data = umf, 
+                         keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr12 <- distsamp(formula = ~1~regio + sbp + openheid, data = umf, 
+                         keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans en densiteit verschillen per regio en soortbeschermingszone
+# en openheid landschap
+um_model_hn13 <- distsamp(formula = ~regio + sbp + openheid~regio + sbp + openheid, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr13 <- distsamp(formula = ~regio + sbp + openheid~regio + sbp + openheid, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+```
+
+```{r}
+fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
+                   hn4 = um_model_hn4, hn5 = um_model_hn5, hn6 = um_model_hn6,
+                   hn7 = um_model_hn7, hn8 = um_model_hn8, hn9 = um_model_hn9, 
+                   hn10 = um_model_hn10,
+                   hn11 = um_model_hn11, hn12 = um_model_hn12, 
+                   hn13 = um_model_hn13,
+                   hr1 = um_model_hr1, hr2 = um_model_hr2, hr3 = um_model_hr3,
+                   hr4 = um_model_hr4, hr5 = um_model_hr5, hr6 = um_model_hr6,
+                   hr7 = um_model_hr7, hr8 = um_model_hr8, hr9 = um_model_hr9, 
+                   hr10 = um_model_hr10,
+                   hr11 = um_model_hr11, hr12 = um_model_hr12, 
+                   hr13 = um_model_hr13)
+modSel(fm_list)
+```
+
+```{r}
+# Detectiekans verschilt per regio en soortbeschermingszone
+# Densiteit verschilt per regio, soortbeschermingszone en openheid landschap
+um_model_hn14 <- distsamp(formula = ~regio + sbp~regio + sbp + openheid, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr14 <- distsamp(formula = ~regio + sbp~regio + sbp + openheid, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per regio, soortbeschermingszone en openheid landschap
+# Densiteit verschilt per regio en soortbeschermingszone
+um_model_hn15 <- distsamp(formula = ~regio + sbp + openheid~regio + sbp, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr15 <- distsamp(formula = ~regio + sbp + openheid~regio + sbp, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per regio en openheid landschap
+# Densiteit verschilt per regio en openheid landschap
+um_model_hn16 <- distsamp(formula = ~regio + openheid~regio + openheid, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr16 <- distsamp(formula = ~regio + openheid~regio + openheid, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per soortbeschermingszone
+# Densiteit verschilt per regio, soortbeschermingszone en openheid landschap
+um_model_hn17 <- distsamp(formula = ~sbp~regio + sbp + openheid, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr17 <- distsamp(formula = ~sbp~regio + sbp + openheid, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per regio en soortbeschermingszone
+# Densiteit verschilt per soortbeschermingszone en openheid landschap
+um_model_hn18 <- distsamp(formula = ~regio + sbp~sbp + openheid, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr18 <- distsamp(formula = ~regio + sbp~sbp + openheid, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+```
+
+
+```{r}
+fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
+                   hn4 = um_model_hn4, hn5 = um_model_hn5, hn6 = um_model_hn6,
+                   hn7 = um_model_hn7, hn8 = um_model_hn8, hn9 = um_model_hn9, 
+                   hn10 = um_model_hn10,
+                   hn11 = um_model_hn11, hn12 = um_model_hn12, 
+                   hn13 = um_model_hn13,
+                   hn14 = um_model_hn14, hn15 = um_model_hn15,
+                   hn16 = um_model_hn16, hn17 = um_model_hn17,
+                   hn18 = um_model_hn18,
+                   hr1 = um_model_hr1, hr2 = um_model_hr2, hr3 = um_model_hr3,
+                   hr4 = um_model_hr4, hr5 = um_model_hr5, hr6 = um_model_hr6,
+                   hr7 = um_model_hr7, hr8 = um_model_hr8, hr9 = um_model_hr9, 
+                   hr10 = um_model_hr10,
+                   hr11 = um_model_hr11, hr12 = um_model_hr12, 
+                   hr13 = um_model_hr13,
+                   hr14 = um_model_hr14, hr15 = um_model_hr15,
+                   hr16 = um_model_hr16, hr17 = um_model_hr17,
+                   hr18 = um_model_hr18)
+modSel(fm_list)
+```
+
+
+```{r}
+# Detectiekans verschilt per soortbeschermingszone
+# Densiteit verschilt per regio
+um_model_hn19 <- distsamp(formula = ~sbp~regio, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr19 <- distsamp(formula = ~sbp~regio, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per soortbeschermingszone
+# Densiteit verschilt per soortbeschermingszone
+um_model_hn20 <- distsamp(formula = ~sbp~sbp, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr20 <- distsamp(formula = ~sbp~sbp, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per soortbeschermingszone
+# Densiteit verschilt per openheid landschap
+um_model_hn21 <- distsamp(formula = ~sbp~openheid, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr21 <- distsamp(formula = ~sbp~openheid, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per soortbeschermingszone
+# Densiteit verschilt per regio en soortbeschermingszone
+um_model_hn22 <- distsamp(formula = ~sbp~regio + sbp, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr22 <- distsamp(formula = ~sbp~regio + sbp, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per soortbeschermingszone
+# Densiteit verschilt per regio en openheid landschap
+um_model_hn23 <- distsamp(formula = ~sbp~regio + openheid, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr23 <- distsamp(formula = ~sbp~regio + openheid, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+```
+
+```{r}
+fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
+                   hn4 = um_model_hn4, hn5 = um_model_hn5, hn6 = um_model_hn6,
+                   hn7 = um_model_hn7, hn8 = um_model_hn8, hn9 = um_model_hn9, 
+                   hn10 = um_model_hn10,
+                   hn11 = um_model_hn11, hn12 = um_model_hn12, 
+                   hn13 = um_model_hn13,
+                   hn14 = um_model_hn14, hn15 = um_model_hn15,
+                   hn16 = um_model_hn16, hn17 = um_model_hn17,
+                   hn18 = um_model_hn18,
+                   hn19 = um_model_hn19, hn20 = um_model_hn20,
+                   hn21 = um_model_hn21, hn22 = um_model_hn22,
+                   hn23 = um_model_hn23,
+                   hr1 = um_model_hr1, hr2 = um_model_hr2, hr3 = um_model_hr3,
+                   hr4 = um_model_hr4, hr5 = um_model_hr5, hr6 = um_model_hr6,
+                   hr7 = um_model_hr7, hr8 = um_model_hr8, hr9 = um_model_hr9, 
+                   hr10 = um_model_hr10,
+                   hr11 = um_model_hr11, hr12 = um_model_hr12, 
+                   hr13 = um_model_hr13,
+                   hr14 = um_model_hr14, hr15 = um_model_hr15,
+                   hr16 = um_model_hr16, hr17 = um_model_hr17,
+                   hr18 = um_model_hr18,
+                   hr19 = um_model_hr19, hr20 = um_model_hr20,
+                   hr21 = um_model_hr21, hr22 = um_model_hr22,
+                   hr23 = um_model_hr23)
+modSel(fm_list)
+```
+
+
+```{r}
+# Densiteit verschilt per openheid landschap
+um_model_hn24 <- distsamp(formula = ~1~openheid, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr24 <- distsamp(formula = ~1~openheid, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per soortbeschermingszone
+um_model_hn25 <- distsamp(formula = ~sbp~1, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr25 <- distsamp(formula = ~sbp~1, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per soortbeschermingszone in interactie met openheid landschap
+# Densiteit verschilt per soortbeschermingszone in interactie met openheid landschap
+um_model_hn26 <- distsamp(formula = ~sbp*openheid~sbp*openheid, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr26 <- distsamp(formula = ~sbp*openheid~sbp*openheid, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per soortbeschermingszone in interactie met regio
+# Densiteit verschilt per openheid landschap in interactie met regio
+um_model_hn27 <- distsamp(formula = ~sbp*regio~openheid*regio, 
+                          data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr27 <- distsamp(formula = ~sbp*regio~openheid*regio, 
+                          data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+```
+
+```{r}
+fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
+                   hn4 = um_model_hn4, hn5 = um_model_hn5, hn6 = um_model_hn6,
+                   hn7 = um_model_hn7, hn8 = um_model_hn8, hn9 = um_model_hn9, 
+                   hn10 = um_model_hn10,
+                   hn11 = um_model_hn11, hn12 = um_model_hn12, 
+                   hn13 = um_model_hn13,
+                   hn14 = um_model_hn14, hn15 = um_model_hn15,
+                   hn16 = um_model_hn16, hn17 = um_model_hn17,
+                   hn18 = um_model_hn18,
+                   hn19 = um_model_hn19, hn20 = um_model_hn20,
+                   hn21 = um_model_hn21, hn22 = um_model_hn22,
+                   hn23 = um_model_hn23,
+                   hn24 = um_model_hn24, hn25 = um_model_hn25,
+                   hn26 = um_model_hn26, hn27 = um_model_hn27,
+                   hr1 = um_model_hr1, hr2 = um_model_hr2, hr3 = um_model_hr3,
+                   hr4 = um_model_hr4, hr5 = um_model_hr5, hr6 = um_model_hr6,
+                   hr7 = um_model_hr7, hr8 = um_model_hr8, hr9 = um_model_hr9, 
+                   hr10 = um_model_hr10,
+                   hr11 = um_model_hr11, hr12 = um_model_hr12, 
+                   hr13 = um_model_hr13,
+                   hr14 = um_model_hr14, hr15 = um_model_hr15,
+                   hr16 = um_model_hr16, hr17 = um_model_hr17,
+                   hr18 = um_model_hr18,
+                   hr19 = um_model_hr19, hr20 = um_model_hr20,
+                   hr21 = um_model_hr21, hr22 = um_model_hr22,
+                   hr23 = um_model_hr23,
+                   hr24 = um_model_hr24, hr25 = um_model_hr25,
+                   hr26 = um_model_hr26, hr27 = um_model_hr27)
+modSel(fm_list)
+```
+
+```{r}
+names(um_model_hn2)
+backTransform(um_model_hn2, type = "state")
+
+# De Moeren
+backTransform(linearComb(um_model_hn2["det"], c(1, 0)))
+
+# Oostelijke leemstreek
+backTransform(linearComb(um_model_hn2["det"], c(1, 1)))
+```
+
+
+```{r}
+df <- data.frame(regio = c("De Moeren", "Oostelijke leemstreek"))
+
+Elambda <- predict(um_model_hn2, type = "state", newdata = df,
+    appendData = TRUE)
+Esigma <- predict(um_model_hn2, type="det", newdata = df,
+    appendData = TRUE)
+```
+
+```{r}
+with(Elambda, {
+    x <- barplot(Predicted, names=regio, xlab="Regio",
+        ylab="Density (animals / sqkm)", ylim=c(0, 25), cex.names=0.7,
+        cex.lab=0.7, cex.axis=0.7)
+    arrows(x, Predicted, x, Predicted+SE, code=3, angle=90, length=0.05)
+    box()
+    })
+
+
+with(Esigma, {
+    x <- barplot(Predicted, names=regio, xlab="Regio",
+        ylab=expression(paste("Half-normal scale parameter (", sigma, ")")), ylim=c(0, 150), cex.names=0.7,
+        cex.lab=0.7, cex.axis=0.7)
+    arrows(x, Predicted, x, Predicted+SE, code=3, angle=90, length=0.05)
+    box()
+    })
+```
+
+
+
+```{r}
+# Detection function
+plot(function(x) gxhn(x, sigma = 117.28053), 0, 300, xlab = "Distance (m)",
+    ylab = "Detection probability", las = 1, col = "blue")
+plot(function(x) gxhn(x, sigma = 99.17182), 0, 300, add = TRUE, col = "green")
+legend('topright', c("De Moeren", "Oostelijke leemstreek"),
+    col = c("blue", "green"), lty = 1)
+```
+
+
+
+
+
+met telperiodes? gdistsamp
+
+
+
+
+
+**Model selectie en fit**
+
+Op basis van eerdere resultaten en bovenstaande histogram zullen we de uniforme detectiefuctie niet beschouwen. Deze past namelijk goed als het aantal tellingen niet afneemt over de afstand, wat duidelijk wel het geval is. Ook de exponentiele functie wordt niet beschouwd (`Warning message:Hessian is singular. Try providing starting values or using fewer covariates.`).
+
+```{r}
+# Null modellen
+um_model_hn1 <- gdistsamp(~1~1, data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr1 <- gdistsamp(formula = ~1~1, data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans verschilt per regio
+um_model_hn2 <- gdistsamp(~regio, ~1,~1, data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr2 <- distsamp(formula = ~regio~1, data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Densiteit verschilt per regio
+um_model_hn3 <- distsamp(formula = ~1~regio, data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr3 <- distsamp(formula = ~1~regio, data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+
+# Detectiekans en densiteit verschillen per regio
+um_model_hn4 <- distsamp(formula = ~regio~regio, data = umf, keyfun = "halfnorm", output = "density",
+         unitsOut = "kmsq")
+um_model_hr4 <- distsamp(formula = ~regio~regio, data = umf, keyfun = "hazard", output = "density",
+         unitsOut = "kmsq")
+```
 
 
 ### STAN
