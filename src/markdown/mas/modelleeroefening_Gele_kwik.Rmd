@@ -307,7 +307,7 @@ gele_kwik_2022 %>%
 
 ## Generalized linear mixed models{#GLMM}
 
-# brms package{#brms}
+### brms package{#brms}
 
 **Op verkenning**
 
@@ -320,7 +320,7 @@ We fitten vier modellen met verschillende verdelingsassumpties:
 3. Zero-inflated Poisson
 4. Zero-inflated Negative binomial
 
-\textcolor{red}{opmerking:} Met de optie `sample_prior = "only"` kunnen bijkomend trekkingen worden getrokken van de priors, waarbij de likelihood wordt genegeerd. Daarmee kan er gesampled worden van de prior predictive distribution. Hiermee kunnen de gebruikte priors gecontroleerd worden. Echter deze optie is nu niet mogelijk aangezien sommige parameters improper priors hebben: `Error occurred for parameter 'b'.`.
+<span style="color: red;">opmerking:</span> Met de optie `sample_prior = "only"` kunnen bijkomend trekkingen worden getrokken van de priors, waarbij de likelihood wordt genegeerd. Daarmee kan er gesampled worden van de prior predictive distribution. Hiermee kunnen de gebruikte priors gecontroleerd worden. Echter deze optie is nu niet mogelijk aangezien sommige parameters improper priors hebben: `Error occurred for parameter 'b'.`.
 
 ```{r fit-GLMMs, results=FALSE, fig.show='hide'}
 # Save brms models to this path
@@ -379,7 +379,7 @@ Convergentie voor alle modellen ok (scale reduction factors, trace plots, poster
 
 **Model selectie en fit**
 
-We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, \textcolor{red}{waarom?}). Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte. Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. We stratificeren volgens regio. Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
+We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, <span style="color: red;">waarom?</span>). Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte. Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. We stratificeren volgens regio. Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
 
 ```{r k-foldCV-GLMMs}
 # Perform K-fold cross-validation
@@ -562,15 +562,17 @@ p_pois2 <- plot(pred_interaction, plot = FALSE)[[1]] +
 grid.arrange(p_pois1, p_pois2, ncol = 2)
 ```
 
-# INLA package{#INLA}
+### INLA package{#INLA}
 
 **Op verkenning**
 
-\textcolour{red}{eerder als oefening/voorbereiding op meer complexe analyses verderop... Kunnen we de resultaten van *brms* repliceren met deze package?}
+<span style="color: red;">
+eerder als oefening/voorbereiding op meer complexe analyses verderop... Kunnen we de resultaten van **brms** repliceren met deze package?
+</span>
 
-Handige links:
-https://inbo.github.io/tutorials/tags/inla/
-https://rpubs.com/Jqedwards/841168
+Handige links:  
+https://inbo.github.io/tutorials/tags/inla/  
+https://rpubs.com/Jqedwards/841168  
 
 
 
@@ -579,10 +581,10 @@ https://rpubs.com/Jqedwards/841168
 
 **Op verkenning**
 
-In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarmate de dieren zich verder bevinden. In voorgaande sectie hadden we de data geaggregeerd per telcirkel per telperiode, in deze sectie werken we met de directe observaties: waarnemingen van $n$ aantal broedparen Gele kwikstaart op een afstand van $x$ meter van het telpunt per telperiode in 2022.
+In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarmate de dieren zich verder bevinden. In \@ref(GLMM) hadden we de data geaggregeerd per telcirkel per telperiode, in deze sectie werken we met de directe observaties: waarnemingen van $n$ aantal broedparen Gele kwikstaart op een afstand van $x$ meter van het telpunt per telperiode in 2022.
 
 Handige links:  
-https://www.jstatsoft.org/article/download/v089i01/1288
+https://www.jstatsoft.org/article/download/v089i01/1288  
 
 
 ```{r data-dist}
@@ -1088,9 +1090,9 @@ Er is bijna geen verschil wanneer de afstanden per 100 m worden gegroepeerd.
 In **Distance** deden we aan zgn. Conventional distance sampling (CDS) waarbij de afstanden werden gebundeld voor alle ruimtelijke locaties (i.c. plots) om de parameter(s) van de detectiefunctie te schatten, bijvoorbeeld \sigma voor de half-normaale functie. Dit wordt gebruikt om een schatting van de dichtheid te verkrijgen, en vervolgens wordt de variantie gebaseerd op de variantie van de "encounter rate", die wel enige informatie uit de plots gebruikt. Bij CDS wordt er ook uitgegaan dat dieren uniform worden verdeeld met betrekking tot transecten/telpunten en vereisen dus gerandomiseerde plaatsing van transecten/punten tijdens het steekproefdesign. Hierbij worden factoren die de abundantie tussen plots beïnvloeden verwaarloosd. In de **unmarked** package kunnen we het zgn. Hierarchical distance sampling (HDS) toepassen. Dit zijn parametrisch modellen om variatie in abundantie tussen plots te beschrijven. In plaats van gegevens te bundelen als bij CDS, biedt HDS een expliciet model voor de variatie van de lokale populatiegrootte $N_s$ (de abundantie voor plot $s$). Door een model voor deze latente variabele specificeren, kunnen we dan expliciete modellen bouwen voor distance sampling data die verantwoordelijk zijn voor variatie in abundatie (of lokale dichtheid) tussen steekproefeenheden (plots), waardoor inferentie over factoren die ruimtelijke invloed hebben op variatie in abundatie wordt vergemakkelijkt alsook expliciete spatiale predicties over abundantie.
 
 Handige links:  
-https://cran.r-project.org/web/packages/unmarked/vignettes/distsamp.html
-https://www.rdocumentation.org/packages/unmarked/versions/1.2.5/topics/gdistsamp
-https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e48a92.html
+https://cran.r-project.org/web/packages/unmarked/vignettes/distsamp.html  
+https://www.rdocumentation.org/packages/unmarked/versions/1.2.5/topics/gdistsamp  
+https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e48a92.html  
 
 **Data voorbereiden**
 
@@ -1584,7 +1586,9 @@ Dit geeft echter een vreemd resultaat aangezien er in De Moeren geen plots in HO
 design2022 %>% count(regio, openheid)
 ```
 
-\textcolour{red}{Hoe kunnen we hiermee rekening houden? Interactie werkt niet.}
+<span style="color: red;">
+Hoe kunnen we hiermee rekening houden? Interactie werkt niet.
+</span>
 
 
 We hebben geen rekening gehouden met de telperiodes. De functie `gdistsamp()` fit een meer complex model maar op welke manier hier dan met herhaalde tellingen wordt rekening gehouden is me momenteel niet duidelijk. Bovendien kan de " probability of being available for detection" geschat worden en kan een negatief binomiaal verdeling getest worden.
@@ -1763,11 +1767,13 @@ plot(pred_openheid, plot = FALSE)[[1]] +
 
 **Op verkenning**
 
-\textcolour{red}{als we voor een complex model kiezen (combi GLMM en distance sampling), is het misschien een goed idee om het met STAN te doen, je hebt een beter idee wat er gebeurt/wat je doet}
+<span style="color: red;">
+als we voor een complex model kiezen (combi GLMM en distance sampling), is het misschien een goed idee om het met STAN te doen, je hebt een beter idee wat er gebeurt/wat je doet
+</span>
 
 Handige links:  
-https://discourse.mc-stan.org/t/deriving-abundance-from-a-distance-sampling-model/24565/7
-https://gist.github.com/mbjoseph/960c3b259d007c81bebbaf9e5be1e250
+https://discourse.mc-stan.org/t/deriving-abundance-from-a-distance-sampling-model/24565/7  
+https://gist.github.com/mbjoseph/960c3b259d007c81bebbaf9e5be1e250  
 
 
 
@@ -1775,12 +1781,14 @@ https://gist.github.com/mbjoseph/960c3b259d007c81bebbaf9e5be1e250
 
 **Op verkenning**
 
-\textcolour{red}{met **inlabru** kunnen we rekening houden met spatiale autocorrlatie via een mesh}
+<span style="color: red;">
+met **inlabru** kunnen we rekening houden met spatiale autocorrlatie via een mesh
+</span>
 
 Handige links:  
-https://inlabru-org.github.io/inlabru/articles/web/2d_lgcp_distancesampling.html
-https://rpubs.com/jafet089/886687
-https://inbo.github.io/tutorials/tags/inla/
+https://inlabru-org.github.io/inlabru/articles/web/2d_lgcp_distancesampling.html  
+https://rpubs.com/jafet089/886687  
+https://inbo.github.io/tutorials/tags/inla/  
 
 
 
@@ -1798,8 +1806,8 @@ Waarnemingen tijdens éénzelfde telling worden met volledige zekerheid als vers
 Waarnemingen gedurende verschillende tellingen maar binnen een bepaalde geografische afstand van elkaar (= fusieafstand) worden geclusterd. We gaan er dan van uit dat dit hetzelfde dier was.
 
 Handige links:  
-https://docs.google.com/presentation/d/1ZdNfml7MuQ-zM6OWXjE-w7J-x8uij5-Rzn0WKwHXcfc/edit#slide=id.p
-https://github.com/inbo/territoria
+https://docs.google.com/presentation/d/1ZdNfml7MuQ-zM6OWXjE-w7J-x8uij5-Rzn0WKwHXcfc/edit#slide=id.p  
+https://github.com/inbo/territoria  
 
 Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. Bovendien kunnen plots overlappen of < 600 m van elkaar verwijderd zijn. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen voor deze exploratieve figuur. 
 
@@ -2090,7 +2098,7 @@ df_territoria2 <- df_territoria
 df_territoria2$cluster <- result2[[1]]$observations$cluster
 ```
 
-Met de grotere fusieafstand van 600m hadden we `r nrow(result[[1]]$cluster)` clusters (= broedparen), nu hebben we met fusieafstand `r fusie_dist` m `r nrow(result2[[1]]$cluster)` clusters.
+Met de grotere fusieafstand van 600m hadden we `r nrow(result[[1]]$cluster)` clusters (= broedparen), nu hebben we met fusieafstand `r round(fusie_dist, digits = 2)` m `r nrow(result2[[1]]$cluster)` clusters.
 
 ```{r comparison-territoria-scenario2, fig.height=10}
 territoria_per_plot2 <- df_territoria2 %>% 
