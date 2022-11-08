@@ -14,6 +14,8 @@ editor_options:
 
 ```{r setup, include=FALSE}
 renv::restore()
+library(INLA)
+library(inlatools)
 library(Distance)
 library(territoria)
 library(DBI)
@@ -570,10 +572,113 @@ grid.arrange(p_pois1, p_pois2, ncol = 2)
 eerder als oefening/voorbereiding op meer complexe analyses verderop... Kunnen we de resultaten van **brms** repliceren met deze package?
 </span>
 
-Handige links:  
+Handige links:
+https://www.flutterbys.com.au/stats/tut/tut12.10.html
 https://inbo.github.io/tutorials/tags/inla/  
 https://rpubs.com/Jqedwards/841168  
 
+
+```{r}
+# 1. Poisson
+inlapois1 <- inla(aantal ~ regio + periode_in_jaar + f(plotnaam, model = "iid"), 
+             data = gele_kwik_2022, family = "poisson",
+             control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE, config = TRUE))
+
+# 2. Negative binomial
+inlanb1 <- inla(aantal ~ regio + periode_in_jaar + f(plotnaam, model = "iid"), 
+             data = gele_kwik_2022, family = "nbinomial",
+             control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE))
+
+# 3. Zero-inflated Poisson
+inlaZIP1 <- inla(aantal ~ regio + periode_in_jaar + f(plotnaam, model = "iid"), 
+             data = gele_kwik_2022, family = "zeroinflatedpoisson1",
+             control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE))
+
+# 4. Zero-inflated Negative binomial
+inlaZINB1 <- inla(aantal ~ regio + periode_in_jaar + f(plotnaam, model = "iid"), 
+             data = gele_kwik_2022, family = "zeroinflatednbinomial1",
+             control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE))
+```
+
+**Model selectie en fit**
+
+```{r}
+tibble(model = c("Poisson", "Negative binomial", "Zero-inflated Poisson", 
+                 "Zero-inflated Negative binomial"),
+       WAIC = c(inlapois1$waic$waic, inlanb1$waic$waic, inlaZIP1$waic$waic, 
+                inlaZINB1$waic$waic),
+       DIC = c(inlapois1$dic$dic, inlanb1$dic$dic, inlaZIP1$dic$dic, 
+                inlaZINB1$dic$dic)) %>%
+  arrange(WAIC) %>%
+  kable(digits = 3)
+```
+
+The Poisson model is the simplest model with best fit. We have underdispersion:
+
+```{r}
+plot(dispersion_check(inlapois1))
+```
+
+A little more obserd than expected zeroes:
+
+```{r}
+plot(fast_distribution_check(inlapois1))
+```
+
+**Resultaten en visualisatie**
+
+Samenvatting van coefficienten:
+
+```{r}
+inlapois1$summary.fixed %>%
+  select(1, lcl = 3, ucl = 5) %>%
+  kable(digits = 5)
+```
+
+Visualisatie:
+
+```{r}
+# Create data to predict and add to data
+newdata <- expand.grid(regio = unique(gele_kwik_2022$regio),
+                       periode_in_jaar = unique(gele_kwik_2022$periode_in_jaar))
+
+data_pred <- rbind(gele_kwik_2022, newdata)
+
+# Fit model and add predictions to new dataframe
+inlapois1_pred <- inla(aantal ~ regio + periode_in_jaar + f(plotnaam, model = "iid"), 
+             data = data_pred, family = "poisson",
+             control.family = list(link = "log"),
+             control.predictor = list(link = 1, compute = TRUE),
+             control.compute = list(waic = TRUE, config = TRUE))
+
+newdata <- cbind(newdata,
+  inlapois1_pred2$summary.fitted.values[(nrow(gele_kwik_2022) + 1):nrow(data_pred),])
+
+# Visualise
+test <- newdata %>%
+  rename("lower" = "0.025quant", upper = "0.975quant") %>%
+  ggplot(aes(y = mean, x = regio)) + 
+    geom_point(aes(colour = periode_in_jaar), size = 4, 
+               position = position_dodge(width = 0.5)) +
+    geom_errorbar(aes(ymin = lower, ymax = upper, colour = periode_in_jaar), 
+                width = 0.25, position = position_dodge(width = 0.5)) +
+  scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+                  name = "Aantal broedparen Gele kwikstaart per 100 ha"), 
+                  limits = c(0, 0.4)) +
+  labs(x = "", y = "", title = "INLA package") +
+                theme(legend.position = "bottom")
+
+p_pois1_test <- plot(pred, plot = FALSE)[[1]] + 
+                scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+                  name = ""), limits = c(0, 0.4)) +
+                labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "", 
+                     title = "brms package") +
+                theme(legend.position = "bottom")
+
+grid.arrange(p_pois1_test, test, ncol = 2)
+```
+
+We krijgen quasi dezelfde resultaten als met **brms**.
 
 
 ## Distance sampling{#dist-samp}
@@ -1762,6 +1867,46 @@ plot(pred_openheid, plot = FALSE)[[1]] +
      labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "")
 ```
 
+Met **INLA** lukt het wel om een interactie toe te voegen. Dit levert de gewenste resultaten op.
+
+```{r}
+# Create data to predict and add to data
+newdata_interaction <- expand.grid(regio = unique(gele_kwik_2022$regio),
+                       periode_in_jaar = unique(gele_kwik_2022$periode_in_jaar),
+                       openheid = unique(gele_kwik_2022$openheid))
+
+data_pred_interaction <- rbind(gele_kwik_2022, newdata_interaction)
+
+# Fit model and add predictions to new dataframe
+inlapois2_pred <- inla(aantal ~ regio*openheid + periode_in_jaar + 
+                         f(plotnaam, model = "iid"), 
+             data = data_pred, family = "poisson",
+             control.family = list(link = 'log'),
+             control.predictor = list(link = 1, compute = TRUE),
+             control.compute = list(waic = TRUE, config = TRUE))
+
+newdata_interaction <- cbind(newdata_interaction,
+  inlapois2_pred$summary.fitted.values[(nrow(gele_kwik_2022) + 1):nrow(data_pred_interaction),])
+
+# Plot data
+newdata_interaction %>%
+  rename("lower" = "0.025quant", upper = "0.975quant") %>%
+  ggplot(aes(y = mean, x = openheid)) + 
+    geom_point(aes(colour = periode_in_jaar), size = 4, 
+               position = position_dodge(width = 0.5)) +
+    geom_errorbar(aes(ymin = lower, ymax = upper, colour = periode_in_jaar), 
+                width = 0.25, position = position_dodge(width = 0.5)) +
+    scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+                    name = "Aantal broedparen Gele kwikstaart per 100 ha"), 
+                    limits = c(0, 0.4)) +
+    labs(x = "Openheid landschap", 
+         y = "Aantal broedparen Gele kwikstaart per plot") +
+    facet_wrap(~regio)
+```
+
+<span style="color: red;">
+Waarom werkt een interactie niet in **unmarked**??
+</span>
 
 ### STAN{#STAN}
 
