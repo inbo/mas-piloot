@@ -220,7 +220,7 @@ mas_clean <- mas %>%
 ```
 
 
-# Gele kwikstaart 2022
+# Gele kwikstaart 2022{#gele-kwik}
 
 We starten met een beperkte dataset om het aantal broedparen van de Gele kwikstaart te modelleren. We beginnen met data exploratie en bouwen dan verschillende modellen op van simpel naar meer complexe modellen. 
 
@@ -250,7 +250,7 @@ gele_kwik_2022 <- gele_kwik_2022_presences %>%
 ```
 
 
-## Data exploratie
+## Data exploratie{#exploratie}
 
 Enkele samenvattende statistieken:
 
@@ -305,7 +305,9 @@ gele_kwik_2022 %>%
 ```
 
 
-## Generalized linear mixed models
+## Generalized linear mixed models{#GLMM}
+
+# brms package{#brms}
 
 **Op verkenning**
 
@@ -560,12 +562,28 @@ p_pois2 <- plot(pred_interaction, plot = FALSE)[[1]] +
 grid.arrange(p_pois1, p_pois2, ncol = 2)
 ```
 
-## Distance samling
-### Distance package
+# INLA package{#INLA}
+
+**Op verkenning**
+
+\textcolour{red}{eerder als oefening/voorbereiding op meer complexe analyses verderop... Kunnen we de resultaten van *brms* repliceren met deze package?}
+
+Handige links:
+https://inbo.github.io/tutorials/tags/inla/
+https://rpubs.com/Jqedwards/841168
+
+
+
+## Distance sampling{#dist-samp}
+### Distance package{#Distance}
 
 **Op verkenning**
 
 In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarmate de dieren zich verder bevinden. In voorgaande sectie hadden we de data geaggregeerd per telcirkel per telperiode, in deze sectie werken we met de directe observaties: waarnemingen van $n$ aantal broedparen Gele kwikstaart op een afstand van $x$ meter van het telpunt per telperiode in 2022.
+
+Handige links:  
+https://www.jstatsoft.org/article/download/v089i01/1288
+
 
 ```{r data-dist}
 gele_kwik_2022_distance <- gele_kwik_2022_presences %>%
@@ -844,7 +862,8 @@ dist_model <- summary_results %>%
   geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
                 width = 0.25, position = position_dodge(width = 0.5)) + 
   scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
-       name = "Aantal broedparen Gele kwikstaart per 100 ha"), limits = c(0, 2.5)) +
+       name = "Aantal broedparen Gele kwikstaart per 100 ha"), 
+       limits = c(0, 2.5)) +
   labs(x = "", y = "", title = "Distance sampling (Distance)") +
   theme(legend.position = "bottom")
 
@@ -963,7 +982,8 @@ par(mfrow = c(1, 2))
 plot(dsmodelunif1_binned)
 plot(dsmodelunif1_binned, pdf = TRUE, 
      main = paste0("dsmodelunif1_binned - ", "AIC: ", 
-                   as.character(round(summary(dsmodelunif1_binned)$ds$aic, digits = 2))
+                   as.character(round(summary(dsmodelunif1_binned)$ds$aic, 
+                                      digits = 2))
                    )
      )
 
@@ -971,7 +991,8 @@ plot(dsmodelunif1_binned, pdf = TRUE,
 plot(dsmodelhn1_binned)
 plot(dsmodelhn1_binned, pdf = TRUE, 
      main = paste0("dsmodelhn1_binned - ", "AIC: ", 
-                   as.character(round(summary(dsmodelhn1_binned)$ds$aic, digits = 2))
+                   as.character(round(summary(dsmodelhn1_binned)$ds$aic, 
+                                      digits = 2))
                    )
      )
 
@@ -979,7 +1000,8 @@ plot(dsmodelhn1_binned, pdf = TRUE,
 plot(dsmodelhr1_binned)
 plot(dsmodelhr1_binned, pdf = TRUE, 
      main = paste0("dsmodelhr1_binned - ", "AIC: ", 
-                   as.character(round(summary(dsmodelhr1_binned)$ds$aic, digits = 2))
+                   as.character(round(summary(dsmodelhr1_binned)$ds$aic, 
+                                      digits = 2))
                    )
      )
 
@@ -1029,8 +1051,9 @@ dist_model2 <- summary_results %>%
   geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
                 width = 0.25, position = position_dodge(width = 0.5)) + 
   scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
-       name = "Aantal broedparen Gele kwikstaart per 100 ha"), limits = c(0, 2.5)) +
-  labs(x = "", y = "", title = "Distance sampling continuous") +
+       name = ""), limits = c(0, 2.5)) +
+  labs(x = "", y = "Aantal broedparen gele kwikstaart per plot", 
+       title = "Distance sampling continuous") +
   theme(legend.position = "bottom")
 
 # Plot binned model
@@ -1046,7 +1069,8 @@ dist_model_binned <- summary_results_binned %>%
   geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
                 width = 0.25, position = position_dodge(width = 0.5)) + 
   scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
-       name = "Aantal broedparen Gele kwikstaart per 100 ha"), limits = c(0, 2.5)) +
+       name = "Aantal broedparen Gele kwikstaart per 100 ha"), 
+       limits = c(0, 2.5)) +
   labs(x = "", y = "", title = "Distance sampling binned") +
   theme(legend.position = "bottom")
 
@@ -1057,12 +1081,13 @@ grid.arrange(dist_model2, dist_model_binned, ncol = 2)
 Er is bijna geen verschil wanneer de afstanden per 100 m worden gegroepeerd.
 
 
-### unmarked package
+### unmarked package{#unmarked}
 
 **Op verkenning**
 
 In **Distance** deden we aan zgn. Conventional distance sampling (CDS) waarbij de afstanden werden gebundeld voor alle ruimtelijke locaties (i.c. plots) om de parameter(s) van de detectiefunctie te schatten, bijvoorbeeld \sigma voor de half-normaale functie. Dit wordt gebruikt om een schatting van de dichtheid te verkrijgen, en vervolgens wordt de variantie gebaseerd op de variantie van de "encounter rate", die wel enige informatie uit de plots gebruikt. Bij CDS wordt er ook uitgegaan dat dieren uniform worden verdeeld met betrekking tot transecten/telpunten en vereisen dus gerandomiseerde plaatsing van transecten/punten tijdens het steekproefdesign. Hierbij worden factoren die de abundantie tussen plots beïnvloeden verwaarloosd. In de **unmarked** package kunnen we het zgn. Hierarchical distance sampling (HDS) toepassen. Dit zijn parametrisch modellen om variatie in abundantie tussen plots te beschrijven. In plaats van gegevens te bundelen als bij CDS, biedt HDS een expliciet model voor de variatie van de lokale populatiegrootte $N_s$ (de abundantie voor plot $s$). Door een model voor deze latente variabele specificeren, kunnen we dan expliciete modellen bouwen voor distance sampling data die verantwoordelijk zijn voor variatie in abundatie (of lokale dichtheid) tussen steekproefeenheden (plots), waardoor inferentie over factoren die ruimtelijke invloed hebben op variatie in abundatie wordt vergemakkelijkt alsook expliciete spatiale predicties over abundantie.
 
+Handige links:  
 https://cran.r-project.org/web/packages/unmarked/vignettes/distsamp.html
 https://www.rdocumentation.org/packages/unmarked/versions/1.2.5/topics/gdistsamp
 https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e48a92.html
@@ -1117,7 +1142,7 @@ hist(umf, xlab = "Distance (m)", main = "", las = 1)
 
 **Model selectie en fit**
 
-Op basis van eerdere resultaten en bovenstaande histogram zullen we de uniforme detectiefuctie niet beschouwen. Deze past namelijk goed als het aantal tellingen niet afneemt over de afstand, wat duidelijk wel het geval is. Ook de exponentiele functie wordt niet beschouwd (`Warning message:Hessian is singular. Try providing starting values or using fewer covariates.`).
+Op basis van eerdere resultaten en bovenstaande histogram zullen we de uniforme detectiefuctie niet beschouwen. Deze past namelijk goed als het aantal tellingen niet afneemt over de afstand, wat duidelijk wel het geval is. Ook de exponentiele functie wordt niet beschouwd (zelfs voor meest simpele model: `Warning message:Hessian is singular. Try providing starting values or using fewer covariates.`).
 
 We testen null modellen en modellen met regio in combinatie met openheid en sbp.
 
@@ -1222,12 +1247,12 @@ um_model_hr12 <- distsamp(formula = ~1~regio + sbp + openheid, data = umf,
 
 # Detectiekans en densiteit verschillen per regio en soortbeschermingszone
 # en openheid landschap
-um_model_hn13 <- distsamp(formula = ~regio + sbp + openheid~regio + sbp + openheid, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr13 <- distsamp(formula = ~regio + sbp + openheid~regio + sbp + openheid, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
+um_model_hn13 <- distsamp(
+  formula = ~regio + sbp + openheid~regio + sbp + openheid, 
+  data = umf, keyfun = "halfnorm", output = "density", unitsOut = "kmsq")
+um_model_hr13 <- distsamp(
+  formula = ~regio + sbp + openheid~regio + sbp + openheid, 
+  data = umf, keyfun = "hazard", output = "density", unitsOut = "kmsq")
 ```
 
 Het half-normal model waarbij zowel detectiekans als densiteit verschilt per regio, soortbeschermingszone en openheid landschap scoort het best.
@@ -1419,8 +1444,10 @@ um_model_hr25 <- distsamp(formula = ~sbp~1,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone in interactie met openheid landschap
-# Densiteit verschilt per soortbeschermingszone in interactie met openheid landschap
+# Detectiekans verschilt per soortbeschermingszone in interactie met 
+# openheid landschap
+# Densiteit verschilt per soortbeschermingszone in interactie met 
+# openheid landschap
 um_model_hn26 <- distsamp(formula = ~sbp*openheid~sbp*openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1557,14 +1584,12 @@ Dit geeft echter een vreemd resultaat aangezien er in De Moeren geen plots in HO
 design2022 %>% count(regio, openheid)
 ```
 
-\textcolour{red}{Hoe kunnen we hiermee rekening houden?}
-Ook werd er geen rekening gehouden met de verschillende telperiodes.
+\textcolour{red}{Hoe kunnen we hiermee rekening houden? Interactie werkt niet.}
 
 
+We hebben geen rekening gehouden met de telperiodes. De functie `gdistsamp()` fit een meer complex model maar op welke manier hier dan met herhaalde tellingen wordt rekening gehouden is me momenteel niet duidelijk. Bovendien kan de " probability of being available for detection" geschat worden en kan een negatief binomiaal verdeling getest worden.
 
-met telperiodes? gdistsamp
-
-
+Voor de datapreparatie voegen we nu de optie `occasionCol`toe.
 
 ```{r}
 gele_kwik_2022_unmarked2 <- formatDistData(distData = gele_kwik_2022_ds2, 
@@ -1574,21 +1599,29 @@ gele_kwik_2022_unmarked2 <- formatDistData(distData = gele_kwik_2022_ds2,
                                           occasionCol = "periode_in_jaar")
 ```
 
+Om een unmarked dataframe te maken voor `gdistsamp()` moeten we hier `unmarkedFrameGDS()` in plaats van `unmarkedFrameGDS()` in combinatie met `distsamp()`.
+
 ```{r}
 umf2 <- unmarkedFrameGDS(y = as.matrix(gele_kwik_2022_unmarked2), 
                          numPrimary = 4, siteCovs = covs_unmarked, 
                          survey = "point", dist.breaks = c(0, 100, 200, 300),
                          unitsIn = "m")
-
-test <- gdistsamp(~1,~1,~1, data = umf2, keyfun = "halfnorm", output = "density",
-                  unitsOut = "kmsq", mixture = "P")
-test2 <- gdistsamp(~1,~1,~1, data = umf2, keyfun = "halfnorm", output = "density",
-                  unitsOut = "kmsq", mixture = "NB")
-test3 <- gdistsamp(~openheid,~1,~sbp, data = umf2, keyfun = "halfnorm", output = "density",
-                  unitsOut = "kmsq", mixture = "P")
-test4 <- gdistsamp(~openheid,~1,~sbp, data = umf2, keyfun = "halfnorm", output = "density",
-                  unitsOut = "kmsq", mixture = "NB")
 ```
+
+We fitten een null model en het finaal model als hierboven zowel met een Poisson verdeling (`mixture = "P"`) als een negatief binomiaal verdeling (`mixture = "NB"`).
+
+```{r}
+test <- gdistsamp(~1,~1,~1, data = umf2, keyfun = "halfnorm", 
+                  output = "density", unitsOut = "kmsq", mixture = "P")
+test2 <- gdistsamp(~1,~1,~1, data = umf2, keyfun = "halfnorm", 
+                   output = "density", unitsOut = "kmsq", mixture = "NB")
+test3 <- gdistsamp(~openheid,~1,~sbp, data = umf2, keyfun = "halfnorm", 
+                   output = "density", unitsOut = "kmsq", mixture = "P")
+test4 <- gdistsamp(~openheid,~1,~sbp, data = umf2, keyfun = "halfnorm", 
+                   output = "density", unitsOut = "kmsq", mixture = "NB")
+```
+
+Model selectie toont dat de negatief binomiaal verdeling optimaler is.
 
 ```{r}
 fm_list <- fitList(test, test2, test3, test4)
@@ -1643,17 +1676,116 @@ Elambda2 %>%
   scale_y_continuous(limits = c(0, NA))
 ```
 
+Dit geeft nog steeds vreemde resultaten. We voeren een klassieke GLMM uit zoals in \@ref(brms) waarbij we nu ook de variabele 'openheid landschap' beschouwen. Het model convergeert niet bij het toevoegen van de interactie met regio (ook met 16,000 iteraties i.p.v. 4,000).
 
-rare resultaten...
+```{r}
+# Voeg openheid landschap toe als variabele
+brmpois_openheid1 <- brm(bf(aantal ~ regio + periode_in_jaar + openheid + 
+                              (1 | plotnaam)), 
+                        data = gele_kwik_2022, family = poisson(), 
+                        chains = nchains, warmup = burnin, iter = niter, 
+                        cores = nparallel,
+                        file = paste0(model_path, "brmpois_openheid1"),
+                        file_refit = "on_change")
+summary(brmpois_openheid1)
+plot(brmpois_openheid1)
+```
 
-### STAN
+Convergentie ok (scale reduction factors, trace plots, posterior density). We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV).
+
+```{r}
+# Perform K-fold cross-validation
+if (!file.exists(paste0(model_path, "fit_brmpois_openheid1.rds"))) {
+  fit_brmpois_openheid1 <- add_criterion(brmpois_openheid1, c("kfold"), 
+                                K = 5, cores = 5,
+                                folds = "stratified", group = "regio", 
+                                file = paste0(model_path, 
+                                              "fit_brmpois_openheid1"))
+} else {
+  fit_brmpois_openheid1 <- readRDS(paste0(model_path, 
+                                          "fit_brmpois_openheid1.rds"))
+}
+
+# Comparison among models
+comparisons_openheid <- loo_compare(fit_brmpois_openheid1, fit_brmpois1, 
+                                    fit_brmnegbin1, fit_brmZIP1, 
+                                    fit_brmZINB1, 
+                                    criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                mutate(model = c("Poisson: openheid", "Poisson", 
+                                 "Zero-inflated Negative binomial",
+                                 "Zero-inflated Poisson", "Negative binomial"))
+
+# Tabel
+rbind(fit_brmpois_openheid1$criteria$kfold$estimates[, "Estimate"],
+  fit_brmpois1$criteria$kfold$estimates[, "Estimate"],
+  fit_brmnegbin1$criteria$kfold$estimates[, "Estimate"],
+  fit_brmZIP1$criteria$kfold$estimates[, "Estimate"], 
+  fit_brmZINB1$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = c("Poisson: openheid", models)) %>%
+  full_join(comparisons_openheid, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+Het model scoort beter maar is niet veel beter dan het eenvoudigere model zonder openheid. Model fit is ok.
+
+```{r}
+pp_check(brmpois_openheid1, type = "bars_grouped", ndraws = 100, group = "regio",
+         facet_args = list(ncol = 1, scales = "free_y"))
+pp_check(brmpois_openheid1, type = "bars_grouped", ndraws = 100, 
+         group = "periode_in_jaar",
+         facet_args = list(ncol = 1, scales = "free_y"))
+pp_check(brmpois_openheid1, type = "bars_grouped", ndraws = 100, 
+         group = "openheid",
+         facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Wanneer we de resultaten visualiseren krijgen we dezelfde relatieve resultaten als bij **unmarked** package. Het is duidelijk dat de openheid van het landschap een belangrijke factor is voor het aantal broedparen van de Gele kwikstaart, maar de implementatie in de modellen moet mogelijks aangepast worden.
+
+```{r}
+pred_openheid <- conditional_effects(brmpois_openheid1, 
+                                     effects = c("openheid:regio"))
+
+plot(pred_openheid, plot = FALSE)[[1]] + 
+     scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+       name = "Aantal broedparen Gele kwikstaart per 100 ha")) +
+     labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "")
+```
+
+
+### STAN{#STAN}
 
 **Op verkenning**
 
+\textcolour{red}{als we voor een complex model kiezen (combi GLMM en distance sampling), is het misschien een goed idee om het met STAN te doen, je hebt een beter idee wat er gebeurt/wat je doet}
+
+Handige links:  
+https://discourse.mc-stan.org/t/deriving-abundance-from-a-distance-sampling-model/24565/7
+https://gist.github.com/mbjoseph/960c3b259d007c81bebbaf9e5be1e250
 
 
 
-## Opdelen in territoria
+### inlabru package {#inlabru}
+
+**Op verkenning**
+
+\textcolour{red}{met **inlabru** kunnen we rekening houden met spatiale autocorrlatie via een mesh}
+
+Handige links:  
+https://inlabru-org.github.io/inlabru/articles/web/2d_lgcp_distancesampling.html
+https://rpubs.com/jafet089/886687
+https://inbo.github.io/tutorials/tags/inla/
+
+
+
+
+## Opdelen in territoria{#territoria}
 
 **Op verkenning**
 
@@ -1664,6 +1796,10 @@ Waarnemingen tijdens éénzelfde telling worden met volledige zekerheid als vers
 
 2. Clustering op basis van fusieafstand  
 Waarnemingen gedurende verschillende tellingen maar binnen een bepaalde geografische afstand van elkaar (= fusieafstand) worden geclusterd. We gaan er dan van uit dat dit hetzelfde dier was.
+
+Handige links:  
+https://docs.google.com/presentation/d/1ZdNfml7MuQ-zM6OWXjE-w7J-x8uij5-Rzn0WKwHXcfc/edit#slide=id.p
+https://github.com/inbo/territoria
 
 Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. Bovendien kunnen plots overlappen of < 600 m van elkaar verwijderd zijn. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen voor deze exploratieve figuur. 
 
@@ -1699,13 +1835,15 @@ fun.mode <- function(x){as.numeric(names(sort(-table(x)))[1])}
 plot_dist_terr <- dst %>% as_tibble() %>% 
   filter(value != 0) %>%
   ggplot() +
-    geom_histogram(aes(x = value, y = ..density..), fill = "yellow", colour = "black", 
-                   binwidth = 5, alpha = 0.5) +
+    geom_histogram(aes(x = value, y = ..density..), fill = "yellow", 
+                   colour = "black", binwidth = 5, alpha = 0.5) +
     labs(x = "Kleinste afstand tot een ander koppel in dezelfde telling (m)") +
-    geom_vline(xintercept = mean(dst[dst != 0]), colour = "darkgreen", size = 1.2) + 
+    geom_vline(xintercept = mean(dst[dst != 0]), colour = "darkgreen", 
+               size = 1.2) + 
     geom_vline(xintercept = quantile(dst[dst != 0], probs = c(0.25, 0.5, 0.75)), 
                colour = "darkblue", size = 1.2) +
-    geom_vline(xintercept = fun.mode(dst[dst != 0]), colour = "darkred", size = 1.2) +
+    geom_vline(xintercept = fun.mode(dst[dst != 0]), colour = "darkred", 
+               size = 1.2) +
     geom_density(aes(x = value, y = ..density..), size = 1)
 plot_dist_terr
 ```
@@ -1848,9 +1986,11 @@ plot_terr <- gele_kwik_2022 %>%
     labs(x = "", y = "Aantal broedparen Gele kwikstaart per plot") +
     theme(legend.position = "") +
     facet_wrap(~categorie, labeller = labeller(
-      categorie = c("tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
-                    "tot_max_plots" = "Maximum aantal broedparen per plot",
-                    "territoria" = "Aantal territoria")))
+      categorie = c(
+        "tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
+        "tot_max_plots" = "Maximum aantal broedparen per plot",
+        "territoria" = "Aantal territoria")
+      ))
 
 grid.arrange(GLMM_model, dist_model, plot_terr, 
              layout_matrix = rbind(c(1, 2), c(3)))
@@ -1858,7 +1998,7 @@ grid.arrange(GLMM_model, dist_model, plot_terr,
 
 **Discussie**
 
-Dit is toch iets lager aantal dan verwacht (vergelijk met maximum). Vanwaar komen de eerste drie clusters? Deze clusters vormen steeds binnen een plot (zoals verwacht want als fusieafstand namen we de diameter van de telcirkel). Telkens werd een individu gezien in verschillende telkperiodes dus deze zijn geclusterd.
+Dit is toch iets lager aantal dan verwacht (vergelijk met maximum). We verkennen enkele clusters. Vanwaar komen de eerste drie clusters bijvoorbeeld? Deze clusters vormen steeds binnen een plot (zoals verwacht want als fusieafstand namen we de diameter van de telcirkel). Telkens werd een individu gezien in verschillende telkperiodes, dus deze zijn geclusterd.
 
 ```{r table-territoria-clusters}
 df_territoria %>%
@@ -1875,12 +2015,13 @@ Hoeveel territoria in eerste drie plots? In DM_1037.1 werd telkens 1 individu ge
 df_territoria %>%
   inner_join(gele_kwik_2022_territoria, by = "oid") %>%
   select(oid, cluster, plotnaam, periode_in_jaar, regio) %>%
-  filter(plotnaam %in% sort(unique(gele_kwik_2022_territoria$plotnaam))[1:3]) %>%
+  filter(plotnaam %in% 
+           sort(unique(gele_kwik_2022_territoria$plotnaam))[1:3]) %>%
   arrange(cluster, plotnaam, periode_in_jaar) %>%
   kable()
 ```
 
-Op basis van deze gegevens zouden we een gelijkaardig aantal als bij de maxima verwachten. De analyses zijn wel verlopen zoals verwacht. Zijn er telcirkels die overlappen of die dicht bij elkaar liggen? Met andere woorden, zijn er clusters die in verschillende plots zijn gezien? De twee waarnemingen in cluster 11 bevinden zich in plots DM_222.6 en VL0070 op 488 m van elkaar, maar werden wel door dezelfde waarnemer (JJNN16) gezien op dezelfde dag (2022-06-02). Kunnen we er dan toch van uit gaan dat dit twee verschillende individuen zijn? Nee want niet op zelfde moment (telling) gezien. We zullen dus de cluster surveys niet minder strikt nemen volgens datum en waarnemer in plaats van plot en telperiode. 
+Op basis van deze gegevens zouden we een gelijkaardig aantal als bij de maxima verwachten. De analyses zijn wel verlopen zoals verwacht. Zijn er telcirkels die overlappen of die dicht bij elkaar liggen? Met andere woorden, zijn er clusters die in verschillende plots zijn gezien? De twee waarnemingen in cluster 11 bijvoorbeeld bevinden zich in plots DM_222.6 en VL0070 op 488 m van elkaar, maar werden wel door dezelfde waarnemer (JJNN16) gezien op dezelfde dag (2022-06-02). Kunnen we er dan toch van uit gaan dat dit twee verschillende individuen zijn? Nee want niet op zelfde moment (telling) gezien. We zullen dus de cluster surveys niet minder strikt nemen volgens datum en waarnemer in plaats van plot en telperiode. 
 
 ```{r overlap-plots}
 # Vind clusters met meerdere plots
@@ -1928,7 +2069,8 @@ fusie_dist <- mean(dst[dst != 0])
 
 # Connect SQLite database en importeer observaties
 conn2 <- connect_db()
-import_observations(observations = df_territoria, conn = conn2, max_dist = fusie_dist)
+import_observations(observations = df_territoria, conn = conn2, 
+                    max_dist = fusie_dist)
 
 # Bereken distance matrix
 distance_matrix(conn = conn2, max_dist = fusie_dist)
@@ -1937,7 +2079,8 @@ distance_matrix(conn = conn2, max_dist = fusie_dist)
 result2 <- vector(mode = "list", length = length(broedcodes))
 for (broedcode in rev(broedcodes)) {
   print(paste0("Clusteren broedcode ", broedcode))
-  cluster_observation(conn = conn2, status = broedcode, max_dist = fusie_dist)
+  cluster_observation(conn = conn2, status = broedcode, 
+                      max_dist = fusie_dist)
   result2[[broedcode]] <- get_cluster(conn = conn2)
 }
 dbDisconnect(conn = conn2)
@@ -1947,7 +2090,7 @@ df_territoria2 <- df_territoria
 df_territoria2$cluster <- result2[[1]]$observations$cluster
 ```
 
-Met de grotere fusieafstand van 600m hadden we `r nrow(result[[1]]$cluster)` clusters (= broedparen), nu hebben we `r nrow(result2[[1]]$cluster)` clusters.
+Met de grotere fusieafstand van 600m hadden we `r nrow(result[[1]]$cluster)` clusters (= broedparen), nu hebben we met fusieafstand `r fusie_dist` m `r nrow(result2[[1]]$cluster)` clusters.
 
 ```{r comparison-territoria-scenario2, fig.height=10}
 territoria_per_plot2 <- df_territoria2 %>% 
@@ -2001,15 +2144,17 @@ plot_terr2 <- gele_kwik_2022 %>%
     labs(x = "", y = "Aantal broedparen Gele kwikstaart per plot") +
     theme(legend.position = "") +
     facet_wrap(~categorie, labeller = labeller(
-      categorie = c("tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
-                    "tot_max_plots" = "Maximum aantal broedparen per plot",
-                    "territoria" = "Aantal territoria")))
+      categorie = c(
+        "tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
+        "tot_max_plots" = "Maximum aantal broedparen per plot",
+        "territoria" = "Aantal territoria")
+      ))
 
 grid.arrange(GLMM_model, dist_model, plot_terr2, 
              layout_matrix = rbind(c(1, 2), c(3)))
 ```
 
-Nu zien we dat de territoria hoger zijn dan het maximum. Dat komt omdat nu ook binnen plots clusters worden gevormd indien waarnemingen ver genoeg uit elkaar liggen en niet in dezelfde telperiode zijn gedaan.  
+Nu zien we dat het aantal territoria (broedparen) hoger zijn dan de maxima. Dat komt omdat nu ook binnen plots clusters worden gevormd indien waarnemingen ver genoeg uit elkaar liggen en niet in dezelfde telperiode zijn gedaan.  
 
 Is er ook nog steeds overlap in plots?
 
