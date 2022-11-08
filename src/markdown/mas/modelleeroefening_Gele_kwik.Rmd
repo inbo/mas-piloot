@@ -652,7 +652,7 @@ inlapois1_pred <- inla(aantal ~ regio + periode_in_jaar + f(plotnaam, model = "i
              control.compute = list(waic = TRUE, config = TRUE))
 
 newdata <- cbind(newdata,
-  inlapois1_pred2$summary.fitted.values[(nrow(gele_kwik_2022) + 1):nrow(data_pred),])
+  inlapois1_pred$summary.fitted.values[(nrow(gele_kwik_2022) + 1):nrow(data_pred),])
 
 # Visualise
 test <- newdata %>%
@@ -1649,9 +1649,8 @@ backTransform(linearComb(um_model_hn21["det"], c(1, 0)))
 backTransform(linearComb(um_model_hn21["det"], c(1, 1)))
 
 # Predicties
-new_df_dens <- data.frame(openheid = rep(c("OL", "HOL"), by = 2), 
-                          regio = rep(c("De Moeren", "Oostelijke leemstreek"), 
-                                      each = 2))
+new_df_dens <- expand.grid(regio = unique(covs_unmarked$regio),
+                           openheid = unique(covs_unmarked$openheid))
 new_df_detect <- data.frame(sbp = c("buiten", "binnen"))
 
 Elambda <- predict(um_model_hn21, type = "state", newdata = new_df_dens,
@@ -1683,6 +1682,7 @@ Elambda %>%
   scale_y_continuous(limits = c(0, NA))
 ```
 
+
 **Discussie**
 
 Dit geeft echter een vreemd resultaat aangezien er in De Moeren geen plots in HOL zijn.
@@ -1692,9 +1692,22 @@ design2022 %>% count(regio, openheid)
 ```
 
 <span style="color: red;">
-Hoe kunnen we hiermee rekening houden? Interactie werkt niet.
+Hoe kunnen we hiermee rekening houden? Interactie met regio werkt niet.
 </span>
 
+```{r}
+Elambda_interaction <- predict(um_model_hn28, type = "state", 
+                               newdata = new_df_dens, appendData = TRUE)
+
+Elambda_interaction %>%
+ ggplot(aes(x = openheid, y = Predicted)) + 
+  geom_pointrange(aes(ymin = lower, ymax = upper, colour = regio),
+                  position = position_dodge(width = 0.5)) +
+  labs(colour =  "Regio", x = "Openheid landschap", 
+       y = "Aantal broedparen Gele kwikstaart per 100 ha",
+       title = "Densiteit afhankelijk van interactie regio en openheid") +
+  scale_y_continuous(limits = c(0, NA))
+```
 
 We hebben geen rekening gehouden met de telperiodes. De functie `gdistsamp()` fit een meer complex model maar op welke manier hier dan met herhaalde tellingen wordt rekening gehouden is me momenteel niet duidelijk. Bovendien kan de " probability of being available for detection" geschat worden en kan een negatief binomiaal verdeling getest worden.
 
@@ -1880,7 +1893,7 @@ data_pred_interaction <- rbind(gele_kwik_2022, newdata_interaction)
 # Fit model and add predictions to new dataframe
 inlapois2_pred <- inla(aantal ~ regio*openheid + periode_in_jaar + 
                          f(plotnaam, model = "iid"), 
-             data = data_pred, family = "poisson",
+             data = data_pred_interaction, family = "poisson",
              control.family = list(link = 'log'),
              control.predictor = list(link = 1, compute = TRUE),
              control.compute = list(waic = TRUE, config = TRUE))
