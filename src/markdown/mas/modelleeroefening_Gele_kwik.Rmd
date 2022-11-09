@@ -1253,7 +1253,7 @@ Op basis van eerdere resultaten en bovenstaande histogram zullen we de uniforme 
 
 We testen null modellen en modellen met regio in combinatie met openheid en sbp.
 
-```{r}
+```{r, cache=TRUE}
 # Null modellen
 um_model_hn1 <- distsamp(formula = ~1~1, data = umf, keyfun = "halfnorm", 
                          output = "density",
@@ -1382,7 +1382,7 @@ modSel(fm_list)
 
 We testen nu modellen waarbij we elk van de factoren één voor één weglaten.
 
-```{r}
+```{r, cache=TRUE}
 # Detectiekans verschilt per regio en soortbeschermingszone
 # Densiteit verschilt per regio, soortbeschermingszone en openheid landschap
 um_model_hn14 <- distsamp(formula = ~regio + sbp~regio + sbp + openheid, 
@@ -1455,7 +1455,7 @@ modSel(fm_list)
 
 Detectiekans verschilt per soortbeschermingszone, maar we testen ook nog enkele combinaties voor densiteit.
 
-```{r}
+```{r, cache=TRUE}
 # Detectiekans verschilt per soortbeschermingszone
 # Densiteit verschilt per regio
 um_model_hn19 <- distsamp(formula = ~sbp~regio, 
@@ -1534,7 +1534,7 @@ modSel(fm_list)
 
 Als laatste testen we of we het model eenvoudiger kan of als er interacties kunnen toegevoegd worden.
 
-```{r}
+```{r, cache=TRUE}
 # Densiteit verschilt per openheid landschap
 um_model_hn24 <- distsamp(formula = ~1~openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
@@ -1688,7 +1688,9 @@ Elambda %>%
 Dit geeft echter een vreemd resultaat aangezien er in De Moeren geen plots in HOL zijn.
 
 ```{r}
-design2022 %>% count(regio, openheid)
+design2022 %>% count(regio, openheid) %>%
+  rename("aantal plots" = n) %>%
+  kable()
 ```
 
 <span style="color: red;">
@@ -1696,9 +1698,11 @@ Hoe kunnen we hiermee rekening houden? Interactie met regio werkt niet.
 </span>
 
 ```{r}
+# Maak predicties o.b.v. interactiemodel
 Elambda_interaction <- predict(um_model_hn28, type = "state", 
                                newdata = new_df_dens, appendData = TRUE)
 
+# Visualiseer
 Elambda_interaction %>%
  ggplot(aes(x = openheid, y = Predicted)) + 
   geom_pointrange(aes(ymin = lower, ymax = upper, colour = regio),
@@ -1926,7 +1930,7 @@ Waarom werkt een interactie niet in **unmarked**??
 **Op verkenning**
 
 <span style="color: red;">
-als we voor een complex model kiezen (combi GLMM en distance sampling), is het misschien een goed idee om het met STAN te doen, je hebt een beter idee wat er gebeurt/wat je doet
+als we voor een complex model kiezen (combi GLMM en distance sampling), is het misschien een goed idee om het met STAN te gebruiken, je hebt een beter idee wat er gebeurt/wat je doet
 </span>
 
 Handige links:  
@@ -2226,7 +2230,7 @@ dens_piek <- ggplot_build(plot_dist_terr)$data[[5]] %>%
   pull(x)
 ```
 
-De top van de densiteitscurve van de koppelafstanden lag op `r round(dens_piek, digits = 2)` m, de top van de histogram op `r hist_piek` m, de mediaan op `r round(median(dst[dst != 0]), digits = 2)` m en het gemiddelde op `r round(mean(dst[dst != 0]), digits = 2)`. Om conservatief te blijven gaan we hier verder met het gemiddelde.
+De top van de densiteitscurve van de koppelafstanden lag op `r round(dens_piek, digits = 2)` m, de top van de histogram op `r hist_piek` m, de mediaan op `r round(median(dst[dst != 0]), digits = 2)` m en het gemiddelde op `r round(mean(dst[dst != 0]), digits = 2)` m. Om conservatief te blijven gaan we hier verder met het gemiddelde.
 
 ```{r territoria-scenario2}
 # Set-up
