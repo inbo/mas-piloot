@@ -2018,7 +2018,8 @@ df_territoria <-
                   df_territoria$aantal), , 
                   drop = FALSE], 
     row.names = NULL
-  )
+  ) %>%
+  mutate(aantal = 1)
 
 # Gedupliceerde rijen hebben zelfde oid --> nieuw id maken voor elke waarneming
 df_territoria <- df_territoria %>% mutate(id = row_number())
@@ -2325,3 +2326,56 @@ length(multi_clust2)
 ```
 
 Geen overlap meer.
+
+**Kunnen we distance sampling toepassen op de clusters?**
+
+- Afstand telpunt tot cluster (centroid) is niet hetzelfde als het gemiddelde van de afstanden van de afzonderlijke waarnemingen tot het telpunt (simulatie in script). Nieuwe afstand berekenen van cluster tot telpunt. Als er overlap van plots is binnen fusieafstand (cluster over verschillende plots) is de vraag wel tot welk telpunt (welke plot) we de afstand nemen (of gewogen gemiddelde, bv 2 waarnemingen uit plot x komen en 1 uit plot y).
+- Covariaten moeten herberekend worden indien er overlap van plots is binnen fusieafstand.
+- Opgelet bij omzetten data. In **territoria** is elke rij een waarneming van een enkel individu, in **Distance** gaven me in de kolom `size` het aantal aan per waarneming. Nu zal `size` overal 1 zijn. `Region.Label` zal nu ook niet meer de telperiode bevatten ...
+
+```{r, include=FALSE}
+# If blue buffer goes through centroid the average distance is the same as mean 
+# of distances from points
+set.seed(123)
+
+replicate(6, {
+  # Simulate points
+  points <- data.frame(id = c("X", "Y", "Z", "ref"), x = runif(4), y = runif(4))
+  point_sf <- st_as_sf(points, coords = 2:3)
+  
+  # Add centroid
+  point_sf <- point_sf %>% 
+    summarise(geometry = st_union(geometry[1:3])) %>%
+    st_centroid %>%
+    mutate(id = "centroid") %>%
+    select(id, geometry) %>%
+    rbind(point_sf) %>%
+    mutate(var = c("centroid", rep("point", 3), "ref"))
+    
+  # Buffer around centroid equal to distance to reference
+  # Buffer around reference equal to mean distances from other points
+  buffer <- c(st_distance(point_sf[point_sf$id == "centroid", ], 
+                   point_sf[point_sf$id == "ref", ]),
+                rep(0, 3), 
+                mean(c(st_distance(point_sf[point_sf$id == "X", ], 
+                       point_sf[point_sf$id == "ref", ]),
+                     st_distance(point_sf[point_sf$id == "Y", ], 
+                       point_sf[point_sf$id == "ref", ]),
+                     st_distance(point_sf[point_sf$id == "Z", ], 
+                       point_sf[point_sf$id == "ref", ]))))
+  
+  point_sf_buffer <- point_sf %>% st_buffer(buffer)
+  
+  # Plot
+  print(ggplot(point_sf_buffer) +
+    geom_sf(aes(colour = var), fill = alpha("white", 0)) +
+    geom_sf(data = point_sf, aes(colour = var)))
+})
+
+# The buffer around the reference point is the mean distance
+# It never goes through the centroid
+```
+
+
+
+
