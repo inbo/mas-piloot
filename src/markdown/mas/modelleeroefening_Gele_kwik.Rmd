@@ -965,7 +965,7 @@ De schattingen van densiteit liggen duidelijk hoger dan bij de analyse waarbij w
 
 Andere covariaten die invloed zouden kunnen hebben op de detectiekans zijn voorlopig niet beschouwd (ervaring teller, visibiliteit, uur na zonsopkomst ...?).  
 
-We zien een vrij stijle detectiefunctie wat er voor zorgt dat waarnemingen op grote afstanden een hoog gewicht krijgen wat mogelijks tot een overschatting leidt. We kunnen de afstanden ook in categorieën opsplitsen. bijvoorbeeld 0-100, 100-200 en 200-300. Dit is mogelijks een meer robuuste methode. Met de optie `cutpoints` in de `ds()` functie is dit eenvoudig toe te passen.
+We kunnen de afstanden ook in categorieën opsplitsen. bijvoorbeeld 0-100, 100-200 en 200-300. Dit is mogelijks een meer robuuste methode. Met de optie `cutpoints` in de `ds()` functie is dit eenvoudig toe te passen.
 
 - Fitting uniform key function
 
@@ -1157,7 +1157,7 @@ dist_model_binned <- summary_results_binned %>%
 grid.arrange(dist_model2, dist_model_binned, ncol = 2)
 ```
 
-Er is bijna geen verschil wanneer de afstanden per 100 m worden gegroepeerd.
+Er is bijna geen verschil wanneer de afstanden per 100 m worden gegroepeerd. We moeten opmerken dat het opdelen in cutpoints voorzichtig moet gebeuren. Hier zagen we in de continue distance functie dat de detectiekans tot 100 meter 1 is en daarna sterk daalt. Een cut-off niet rond 100 m had mogelijk een slechte keuze geweest voor de cutpoints.
 
 
 ### unmarked package{#unmarked}
