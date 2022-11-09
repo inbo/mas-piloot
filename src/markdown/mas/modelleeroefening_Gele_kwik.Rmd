@@ -1902,7 +1902,9 @@ Waarom werkt een interactie niet in **unmarked**??
 **Op verkenning**
 
 <span style="color: red;">
-als we voor een complex model kiezen (combi GLMM en distance sampling), is het misschien een goed idee om het met STAN te gebruiken, je hebt een beter idee wat er gebeurt/wat je doet
+als we voor een complex model kiezen (combi GLMM en distance sampling), is het misschien een goed idee om het met STAN te gebruiken, je hebt een beter idee wat er gebeurt/wat je doet  
+  
+je kan van brms naar STAN gaan (make stan...)
 </span>
 
 Handige links:  
@@ -1916,7 +1918,7 @@ https://gist.github.com/mbjoseph/960c3b259d007c81bebbaf9e5be1e250
 **Op verkenning**
 
 <span style="color: red;">
-met **inlabru** kunnen we rekening houden met spatiale autocorrlatie via een mesh
+...
 </span>
 
 Handige links:  
