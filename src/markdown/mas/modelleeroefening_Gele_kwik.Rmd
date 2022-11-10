@@ -2178,9 +2178,6 @@ for (group in broedkoppels$group_id) {
   dst <- c(dst, st_distance(df))
 }
 
-# Functie om de modus te berekenen
-fun.mode <- function(x){as.numeric(names(sort(-table(x)))[1])}
-
 # Visualiseer in histogram (filter 0 m eruit)
 plot_dist_terr <- dst %>% as_tibble() %>% 
   filter(value != 0) %>%
@@ -2192,13 +2189,11 @@ plot_dist_terr <- dst %>% as_tibble() %>%
                size = 1.2) + 
     geom_vline(xintercept = quantile(dst[dst != 0], probs = c(0.25, 0.5, 0.75)), 
                colour = "darkblue", size = 1.2) +
-    geom_vline(xintercept = fun.mode(dst[dst != 0]), colour = "darkred", 
-               size = 1.2) +
     geom_density(aes(x = value, y = ..density..), size = 1)
 plot_dist_terr
 ```
 
-Rood: modus. Blauw: Q1-Q3. Groen: gemiddelde.
+Blauw: Q1-Q3. Groen: gemiddelde.
 
 We zullen er echter initieel voor kiezen om diameter van de telcirkel (600 m) als fusieafstand te nemen. We vermoeden dat dit een iets lager aantal koppels zal opleveren dan de maxima te nemen over de telperiodes indien de telcirkels overlappen of op minder dan 600 m verwijderd zijn van elkaar. Bovendien lijkt het een elegante manier om de territoriastrategie toe te passen op ons design.
 
@@ -2552,7 +2547,7 @@ replicate(6, {
   # Add centroid
   point_sf <- point_sf %>% 
     summarise(geometry = st_union(geometry[1:3])) %>%
-    st_centroid %>%
+    st_centroid() %>%
     mutate(id = "centroid") %>%
     select(id, geometry) %>%
     rbind(point_sf) %>%
@@ -2583,5 +2578,62 @@ replicate(6, {
 ```
 
 
+## Scenario 1: Distance met territoria{#dist-terr}
+
+In dit scenario 
+
+
+### Data voorbereiden
+
+In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten, `Effort` is het aantal keer dat een plot is bezocht (overal 4). `Region.Label` is een label voor elke regio.
+
+```{r}
+# Calculate Effort for each plot
+effort_df <- bezoekenlijst_2022 %>%
+  group_by(plotnaam) %>%
+  mutate(Effort = n_distinct(periode_in_jaar)) %>%
+  select(plotnaam, Effort) %>%
+  distinct()
+
+
+# Voeg clusters en area toe aan presence data
+df_dist_terr_presence <- sp::merge(gele_kwik_2022_territoria, df_territoria2, 
+                                   by = intersect("oid", "oid")) %>%
+                          full_join(reg_tab, by = "regio") %>%
+                          select(plotnaam, cluster, aantal.y, Area, regio, sbp, 
+                                 openheid) %>%
+  
+# Voeg sampling effort toe
+                          inner_join(effort_df, by = "plotnaam") %>%
+                          rename("Sample.Label" = plotnaam, 
+                                 "size" = aantal.y) %>%
+                          mutate(Region.Label = regio) %>%
+  
+# Bereken centroide per cluster 
+                          group_by(cluster) %>%
+                          mutate(geometry = st_union(geometry)) %>%
+                          st_centroid() %>%
+                          ungroup() %>%
+                          arrange(cluster) %>%
+                          distinct()
+
+# Bereken afstanden van centroide tot telpunt
+
+
+# Voeg afwezigheden toe
+
+```
+
+
+### Data exploratie
+
+
+### Model fit en selectie
+
+
+### Resultaten en visualisatie
+
+
+### Discussie
 
 
