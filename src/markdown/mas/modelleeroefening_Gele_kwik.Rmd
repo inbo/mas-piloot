@@ -2617,6 +2617,12 @@ df_dist_terr_presence <- sp::merge(gele_kwik_2022_territoria, df_territoria2,
                           arrange(cluster) %>%
                           distinct()
 
+# Inlezen coordinaten telpunt
+telpunt_coord <- read_sf(
+  here("data/processed/steekproef_piloot_avimap.geojson")
+  )
+telpunt_coord <- st_transform(telpunt_coord, crs = 28992)
+
 # Bereken afstanden van centroide tot telpunt
 
 
