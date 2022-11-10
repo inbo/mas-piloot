@@ -734,13 +734,34 @@ gele_kwik_2022_distance %>%
          title = "2022")
 ```
 
+```{r histogram-dist-sbp}
+gele_kwik_2022_distance %>%
+  filter(!is.na(distance2plot)) %>%
+  ggplot() +
+    geom_histogram(aes(x = distance2plot, fill = sbp),
+                   bins = 30) +
+    facet_wrap(~regio) +
+    labs(y = "Aantal tellingen van Gele kwikstaart", x = "Afstand (m)")
+```
+
+```{r histogram-dist-openheid}
+gele_kwik_2022_distance %>%
+  filter(!is.na(distance2plot)) %>%
+  ggplot() +
+    geom_histogram(aes(x = distance2plot, fill = openheid),
+                   bins = 30) +
+    facet_wrap(~regio) +
+    labs(y = "Aantal tellingen van Gele kwikstaart", x = "Afstand (m)")
+```
+
 **Data voorbereiden**
 
 De dataframe moet een kolom met de naam `distance` bevatten (met de waargenomen afstanden) en extra benoemde kolommen voor eventuele covariaten die de detecteerbaarheid kunnen beïnvloeden (bijvoorbeeld waarnemer effect of visibiliteit). Om de densiteit te schatten of de abundantie, is aanvullende informatie vereist. Extra kolommen moeten worden opgenomen de dataframe met vermelding van: `Sample.Label` (ID van het transect/plot), `Effort` (het aantal keren dat dat punt is bezocht); `Region.Label` (het stratum dat het transect bevat) en `Area` (de oppervlakte van de strata). Transecten/plots die zijn onderzocht maar geen waarnemingen hebben, moeten worden opgenomen in de dataset met `NA` voor afstand en eventuele andere covariaten. De kolom `size`geeft de cluster groottes aan zodat elke rij een observatie van een cluster/groep is in plaats van een individu.
 
 ```{r dist-dataframe}
 gele_kwik_2022_ds <- gele_kwik_2022_distance %>%
-  select(plotnaam, regio, periode_in_jaar, aantal, distance2plot) %>%
+  select(plotnaam, regio, periode_in_jaar, aantal, distance2plot, 
+         openheid, sbp) %>%
   full_join(reg_tab, by = "regio") %>% 
   rename(Sample.Label = plotnaam, size = aantal, distance = distance2plot) %>%
   mutate(Region.Label = paste(regio, periode_in_jaar, sep = " - ")) %>%
@@ -1162,8 +1183,192 @@ Er is bijna geen verschil wanneer de afstanden per 100 m worden gegroepeerd. We 
 
 **Toevoegen relevante covariaten**
 
-Er zijn nog andere variabelen die ook een invloed op de detectiekans kunnen hebben. Deze zijn in ons geval de openheid van het landschap en buiten of binnen soortbeschermingszone.
+Er zijn nog andere variabelen die ook een invloed op de detectiekans kunnen hebben. Deze zijn in ons geval de openheid van het landschap en buiten of binnen soortbeschermingsplan. We fitten verschillende cominaties. De interactie tussen regio en openheid kan niet gefit worden (geen HOL in De Moeren).  
 
+- Fitting half-normal key function
+
+```{r}
+dsmodelhn6 <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ sbp,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+dsmodelhn7 <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+dsmodelhn8 <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ regio + sbp + regio:sbp,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+dsmodelhn9 <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ sbp + openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+dsmodelhn10 <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ sbp + openheid + sbp:openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+dsmodelhn11 <- ds(data = gele_kwik_2022_ds, key = "hn", 
+                 formula = ~ sbp + regio + openheid + regio:sbp,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+```
+
+- Fitting hazard-rate key function
+
+```{r}
+dsmodelhr6 <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ sbp,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+dsmodelhr7 <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+dsmodelhr8 <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ regio + sbp + regio:sbp,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+dsmodelhr9 <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ sbp + openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+dsmodelhr10 <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ sbp + openheid + sbp:openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+dsmodelhr11 <- ds(data = gele_kwik_2022_ds, key = "hr", 
+                 formula = ~ sbp + regio + openheid + regio:sbp,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+```
+
+We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC’s kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. We kiezen we voor model 20 met de Hazard-rate functie waarbij de detectiekans afhankelijk is van soortbeschermingsplan per regio. 
+
+```{r}
+summarize_ds_models(dsmodelunif1, 
+                    dsmodelhn1, dsmodelhn2, dsmodelhn3, 
+                    dsmodelhn4, dsmodelhn5, dsmodelhn6, dsmodelhn7, 
+                    dsmodelhn8, dsmodelhn9, dsmodelhn10, dsmodelhn11,
+                    dsmodelhr1, dsmodelhr2, dsmodelhr3, 
+                    dsmodelhr4, dsmodelhr5, dsmodelhr6, dsmodelhr7, 
+                    dsmodelhr8, dsmodelhr9, dsmodelhr10, dsmodelhr11) %>%
+  kable()
+```
+
+Model fit:
+
+```{r}
+par(mfrow = c(1, 2))
+gof_ds(dsmodelhr8, main = "dsmodelhr8")
+  
+  plot(dsmodelhr8, pdf = TRUE, 
+       main = paste0("dsmodelhr8", " - ", "AIC: ",
+                     as.character(round(summary(mod)$ds$aic, digits = 2))
+                     )
+       )
+par(mfrow = c(1, 1))
+```
+
+Resultaten:
+
+```{r}
+summary_hr8 <- summary(dsmodelhr8)
+summary_hr8$ds$coeff$key.scale %>%
+  kable(digits = 2)
+
+plot(dsmodelhr8)
+```
+
+Visualisatie:
+
+```{r}
+summary_results_hr8 <- bind_rows(
+  summary_hr8$dht$clusters$D %>%
+    mutate(variable = "density",
+           type = "clusters"),
+  summary_hr8$dht$clusters$N %>%
+    mutate(variable = "abundance",
+           type = "clusters"),
+  summary_hr8$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "individuals"),
+  summary_hr8$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "individuals")
+  ) %>%
+  as_tibble() %>%
+  separate(Label, c("regio", "periode_in_jaar"), sep = " - ") %>%
+  filter(!is.na(periode_in_jaar))
+
+summary_results_hr8 %>%
+  filter(type == "individuals") %>%
+  mutate(variable = recode_factor(variable, 
+            abundance = "Totaal aantal broedparen Gele kwikstaart",
+            density = "Aantal broedparen Gele kwikstaart per 100 ha")) %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+  geom_pointrange(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar),
+                  position = position_dodge(width = 0.5)) + 
+  facet_wrap(~variable, scales = "free_y") +
+  labs(x = "", y = "")
+```
+
+Vergelijken met vorig model:
+
+```{r}
+# Detectiekans null model
+dist_model_hr1 <- summary_results %>%
+  filter(type == "individuals", variable == "density") %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+    geom_point(aes(colour = periode_in_jaar), size = 4, 
+               position = position_dodge(width = 0.5)) +
+    geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
+                  width = 0.25, position = position_dodge(width = 0.5)) + 
+    scale_y_continuous(breaks = seq(0, 3, 0.5), limits = c(0, 3)) +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart per 100 ha", 
+         title = "P(detectie) ~ 1") +
+    theme(legend.position = "bottom")
+
+# Detectiekans afhankelijk van sbp per regio
+dist_model_hr8 <- summary_results_hr8 %>%
+  filter(type == "individuals", variable == "density") %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+    geom_point(aes(colour = periode_in_jaar), size = 4, 
+               position = position_dodge(width = 0.5)) +
+    geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
+                  width = 0.25, position = position_dodge(width = 0.5)) + 
+    scale_y_continuous(breaks = seq(0, 3, 0.5), limits = c(0, 3)) +
+    labs(x = "", y = "", 
+         title = "P(detectie) ~ sbp + regio + sbp:regio") +
+    theme(legend.position = "bottom")
+
+
+grid.arrange(dist_model_hr1, dist_model_hr8, ncol = 2)
+```
+
+We zien kleine verschillen.
 
 
 ### unmarked package{#unmarked}
@@ -1288,7 +1493,7 @@ um_model_hr7 <- distsamp(formula = ~regio + openheid~regio + openheid,
                          data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per regio en soortbeschermingszone
+# Detectiekans verschilt per regio en soortbeschermingsplan
 um_model_hn8 <- distsamp(formula = ~regio + sbp~1, data = umf, 
                          keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1296,7 +1501,7 @@ um_model_hr8 <- distsamp(formula = ~regio + sbp~1, data = umf,
                          keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Densiteit verschilt per regio en soortbeschermingszone
+# Densiteit verschilt per regio en soortbeschermingsplan
 um_model_hn9 <- distsamp(formula = ~1~regio + sbp, data = umf, 
                          keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1304,7 +1509,7 @@ um_model_hr9 <- distsamp(formula = ~1~regio + sbp, data = umf,
                          keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans en densiteit verschillen per regio en soortbeschermingszone
+# Detectiekans en densiteit verschillen per regio en soortbeschermingsplan
 um_model_hn10 <- distsamp(formula = ~regio + sbp~regio + sbp, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1312,7 +1517,7 @@ um_model_hr10 <- distsamp(formula = ~regio + sbp~regio + sbp,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per regio en soortbeschermingszone
+# Detectiekans verschilt per regio en soortbeschermingsplan
 # en openheid landschap
 um_model_hn11 <- distsamp(formula = ~regio + sbp + openheid~1, data = umf, 
                          keyfun = "halfnorm", output = "density",
@@ -1321,7 +1526,7 @@ um_model_hr11 <- distsamp(formula = ~regio + sbp + openheid~1, data = umf,
                          keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Densiteit verschilt per regio en soortbeschermingszone
+# Densiteit verschilt per regio en soortbeschermingsplan
 # en openheid landschap
 um_model_hn12 <- distsamp(formula = ~1~regio + sbp + openheid, data = umf, 
                          keyfun = "halfnorm", output = "density",
@@ -1330,7 +1535,7 @@ um_model_hr12 <- distsamp(formula = ~1~regio + sbp + openheid, data = umf,
                          keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans en densiteit verschillen per regio en soortbeschermingszone
+# Detectiekans en densiteit verschillen per regio en soortbeschermingsplan
 # en openheid landschap
 um_model_hn13 <- distsamp(
   formula = ~regio + sbp + openheid~regio + sbp + openheid, 
@@ -1340,7 +1545,7 @@ um_model_hr13 <- distsamp(
   data = umf, keyfun = "hazard", output = "density", unitsOut = "kmsq")
 ```
 
-Het half-normal model waarbij zowel detectiekans als densiteit verschilt per regio, soortbeschermingszone en openheid landschap scoort het best.
+Het half-normal model waarbij zowel detectiekans als densiteit verschilt per regio, soortbeschermingsplan en openheid landschap scoort het best.
 
 ```{r}
 fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
@@ -1361,8 +1566,8 @@ modSel(fm_list)
 We testen nu modellen waarbij we elk van de factoren één voor één weglaten.
 
 ```{r, cache=TRUE}
-# Detectiekans verschilt per regio en soortbeschermingszone
-# Densiteit verschilt per regio, soortbeschermingszone en openheid landschap
+# Detectiekans verschilt per regio en soortbeschermingsplan
+# Densiteit verschilt per regio, soortbeschermingsplan en openheid landschap
 um_model_hn14 <- distsamp(formula = ~regio + sbp~regio + sbp + openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1370,8 +1575,8 @@ um_model_hr14 <- distsamp(formula = ~regio + sbp~regio + sbp + openheid,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per regio, soortbeschermingszone en openheid landschap
-# Densiteit verschilt per regio en soortbeschermingszone
+# Detectiekans verschilt per regio, soortbeschermingsplan en openheid landschap
+# Densiteit verschilt per regio en soortbeschermingsplan
 um_model_hn15 <- distsamp(formula = ~regio + sbp + openheid~regio + sbp, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1388,8 +1593,8 @@ um_model_hr16 <- distsamp(formula = ~regio + openheid~regio + openheid,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone
-# Densiteit verschilt per regio, soortbeschermingszone en openheid landschap
+# Detectiekans verschilt per soortbeschermingsplan
+# Densiteit verschilt per regio, soortbeschermingsplan en openheid landschap
 um_model_hn17 <- distsamp(formula = ~sbp~regio + sbp + openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1397,8 +1602,8 @@ um_model_hr17 <- distsamp(formula = ~sbp~regio + sbp + openheid,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per regio en soortbeschermingszone
-# Densiteit verschilt per soortbeschermingszone en openheid landschap
+# Detectiekans verschilt per regio en soortbeschermingsplan
+# Densiteit verschilt per soortbeschermingsplan en openheid landschap
 um_model_hn18 <- distsamp(formula = ~regio + sbp~sbp + openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1407,7 +1612,7 @@ um_model_hr18 <- distsamp(formula = ~regio + sbp~sbp + openheid,
          unitsOut = "kmsq")
 ```
 
-Het half-normal model waarbij detectiekans verschilt per soortbeschermingszone en densiteit verschilt per regio, soortbeschermingszone en openheid landschap scoort het best (eenvoudigst model met verschil in AIC < 2)
+Het half-normal model waarbij detectiekans verschilt per soortbeschermingsplan en densiteit verschilt per regio, soortbeschermingsplan en openheid landschap scoort het best (eenvoudigst model met verschil in AIC < 2)
 
 ```{r}
 fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
@@ -1431,10 +1636,10 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
 modSel(fm_list)
 ```
 
-Detectiekans verschilt per soortbeschermingszone, maar we testen ook nog enkele combinaties voor densiteit.
+Detectiekans verschilt per soortbeschermingsplan, maar we testen ook nog enkele combinaties voor densiteit.
 
 ```{r, cache=TRUE}
-# Detectiekans verschilt per soortbeschermingszone
+# Detectiekans verschilt per soortbeschermingsplan
 # Densiteit verschilt per regio
 um_model_hn19 <- distsamp(formula = ~sbp~regio, 
                           data = umf, keyfun = "halfnorm", output = "density",
@@ -1443,8 +1648,8 @@ um_model_hr19 <- distsamp(formula = ~sbp~regio,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone
-# Densiteit verschilt per soortbeschermingszone
+# Detectiekans verschilt per soortbeschermingsplan
+# Densiteit verschilt per soortbeschermingsplan
 um_model_hn20 <- distsamp(formula = ~sbp~sbp, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1452,7 +1657,7 @@ um_model_hr20 <- distsamp(formula = ~sbp~sbp,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone
+# Detectiekans verschilt per soortbeschermingsplan
 # Densiteit verschilt per openheid landschap
 um_model_hn21 <- distsamp(formula = ~sbp~openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
@@ -1461,8 +1666,8 @@ um_model_hr21 <- distsamp(formula = ~sbp~openheid,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone
-# Densiteit verschilt per regio en soortbeschermingszone
+# Detectiekans verschilt per soortbeschermingsplan
+# Densiteit verschilt per regio en soortbeschermingsplan
 um_model_hn22 <- distsamp(formula = ~sbp~regio + sbp, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1470,7 +1675,7 @@ um_model_hr22 <- distsamp(formula = ~sbp~regio + sbp,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone
+# Detectiekans verschilt per soortbeschermingsplan
 # Densiteit verschilt per regio en openheid landschap
 um_model_hn23 <- distsamp(formula = ~sbp~regio + openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
@@ -1480,7 +1685,7 @@ um_model_hr23 <- distsamp(formula = ~sbp~regio + openheid,
          unitsOut = "kmsq")
 ```
 
-Het model waarbij detectiekans verschilt per soortbeschermingszone en densiteit verschilt per openheid landschap scoort het best.
+Het model waarbij detectiekans verschilt per soortbeschermingsplan en densiteit verschilt per openheid landschap scoort het best.
 
 ```{r}
 fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
@@ -1521,7 +1726,7 @@ um_model_hr24 <- distsamp(formula = ~1~openheid,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone
+# Detectiekans verschilt per soortbeschermingsplan
 um_model_hn25 <- distsamp(formula = ~sbp~1, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
@@ -1529,9 +1734,9 @@ um_model_hr25 <- distsamp(formula = ~sbp~1,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone in interactie met 
+# Detectiekans verschilt per soortbeschermingsplan in interactie met 
 # openheid landschap
-# Densiteit verschilt per soortbeschermingszone in interactie met 
+# Densiteit verschilt per soortbeschermingsplan in interactie met 
 # openheid landschap
 um_model_hn26 <- distsamp(formula = ~sbp*openheid~sbp*openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
@@ -1540,7 +1745,7 @@ um_model_hr26 <- distsamp(formula = ~sbp*openheid~sbp*openheid,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone in interactie met regio
+# Detectiekans verschilt per soortbeschermingsplan in interactie met regio
 # Densiteit verschilt per openheid landschap in interactie met regio
 um_model_hn27 <- distsamp(formula = ~sbp*regio~openheid*regio, 
                           data = umf, keyfun = "halfnorm", output = "density",
@@ -1549,7 +1754,7 @@ um_model_hr27 <- distsamp(formula = ~sbp*regio~openheid*regio,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone
+# Detectiekans verschilt per soortbeschermingsplan
 # Densiteit verschilt per openheid landschap in interactie met regio
 um_model_hn28 <- distsamp(formula = ~sbp~openheid*regio, 
                           data = umf, keyfun = "halfnorm", output = "density",
@@ -1558,7 +1763,7 @@ um_model_hr28 <- distsamp(formula = ~sbp~openheid*regio,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingszone in interactie met regio
+# Detectiekans verschilt per soortbeschermingsplan in interactie met regio
 # Densiteit verschilt per openheid landschap
 um_model_hn29 <- distsamp(formula = ~sbp*regio~openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
@@ -1620,10 +1825,10 @@ backTransform(linearComb(um_model_hn21["state"], c(1, 0)))
 backTransform(linearComb(um_model_hn21["state"], c(1, 1)))
 
 # Detectiekans
-# Binnen soortbeschermingszone
+# Binnen soortbeschermingsplan
 backTransform(linearComb(um_model_hn21["det"], c(1, 0)))
 
-# Buiten soortbeschermingszone
+# Buiten soortbeschermingsplan
 backTransform(linearComb(um_model_hn21["det"], c(1, 1)))
 
 # Predicties
@@ -1637,7 +1842,7 @@ Esigma <- predict(um_model_hn21, type = "det", newdata = new_df_detect,
     appendData = TRUE)
 ```
 
-We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten de soortbeschermingszones:
+We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten de soortbeschermingsplans:
 
 ```{r}
 # Detection function
@@ -1744,10 +1949,10 @@ backTransform(linearComb(test4["lambda"], c(1, 0)))
 backTransform(linearComb(test4["lambda"], c(1, 1)))
 
 # Detectiekans
-# Binnen soortbeschermingszone
+# Binnen soortbeschermingsplan
 backTransform(linearComb(test4["det"], c(1, 0)))
 
-# Buiten soortbeschermingszone
+# Buiten soortbeschermingsplan
 backTransform(linearComb(test4["det"], c(1, 1)))
 
 # Predicties
@@ -1757,7 +1962,7 @@ Esigma2 <- predict(test4, type = "det", newdata = new_df_detect,
     appendData = TRUE)
 ```
 
-We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten de soortbeschermingszones:
+We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten de soortbeschermingsplans:
 
 ```{r}
 # Detection function
@@ -2143,7 +2348,7 @@ plot_terr <- gele_kwik_2022 %>%
         "territoria" = "Aantal territoria")
       ))
 
-grid.arrange(GLMM_model, dist_model, plot_terr, 
+grid.arrange(GLMM_model, dist_model_hr8, plot_terr, 
              layout_matrix = rbind(c(1, 2), c(3)))
 ```
 
@@ -2301,7 +2506,7 @@ plot_terr2 <- gele_kwik_2022 %>%
         "territoria" = "Aantal territoria")
       ))
 
-grid.arrange(GLMM_model, dist_model, plot_terr2, 
+grid.arrange(GLMM_model, dist_model_hr8, plot_terr2, 
              layout_matrix = rbind(c(1, 2), c(3)))
 ```
 
