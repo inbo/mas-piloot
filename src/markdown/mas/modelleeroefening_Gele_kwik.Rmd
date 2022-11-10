@@ -2580,12 +2580,12 @@ replicate(6, {
 
 ## Scenario 1: Distance met territoria{#dist-terr}
 
-In dit scenario 
+In dit scenario clusteren we waarnemingen tot broedparen met **territoria**. Daarna doen we met deze data distance sampling met **Distance**. We beschouwen de eerste stap als data preparatie en de tweede stap de statistische analyse om het aantal broedparen per 100 ha te schatten waarbij we corrigeren voor detectiekans.
 
 
 ### Data voorbereiden
 
-In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten, `Effort` is het aantal keer dat een plot is bezocht (overal 4). `Region.Label` is een label voor elke regio.
+In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten van waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten, `Effort` is het aantal keer dat een plot is bezocht (overal 4). `Region.Label` is een label voor elke regio (zelfde als `regio`-kolom).
 
 ```{r}
 # Calculate Effort for each plot
@@ -2621,6 +2621,7 @@ df_dist_terr_presence <- sp::merge(gele_kwik_2022_territoria, df_territoria2,
 
 
 # Voeg afwezigheden toe
+
 
 ```
 
