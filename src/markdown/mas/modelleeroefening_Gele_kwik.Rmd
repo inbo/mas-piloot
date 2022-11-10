@@ -267,6 +267,8 @@ gele_kwik_2022 %>%
   kable()
 ```
 
+We zien dat de gemiddeldes en de variantie ongeveer gelijk zijn zodat we mogelijks geen overdispersie hebben.  
+  
 Aantal tellingen per categorie:
 
 ```{r tellingen-aantallen-nodist}
@@ -541,7 +543,7 @@ rbind(fit_brmpois1$criteria$kfold$estimates[, "Estimate"],
   kable(digits = 3)
 ```
 
-- Visueel slechts klein verschil in predicties (R2 vs R3 De Moeren)
+- Visueel slechts klein verschil in predicties: R2 vs R3 De Moeren. Dat verschil zagen we ook al in de verkennende plot met bootstrap
 
 ```{r GLMM-visual-comparison-interaction}
 pred_interaction <- conditional_effects(brmpois2, 
@@ -568,15 +570,14 @@ grid.arrange(p_pois1, p_pois2, ncol = 2)
 
 **Op verkenning**
 
-<span style="color: red;">
-eerder als oefening/voorbereiding op meer complexe analyses verderop... Kunnen we de resultaten van **brms** repliceren met deze package?
-</span>
+Dit is als oefening/voorbereiding op meer complexe analyses verderop. Kunnen we de resultaten van **brms** repliceren met deze package?
 
 Handige links:
 https://www.flutterbys.com.au/stats/tut/tut12.10.html
 https://inbo.github.io/tutorials/tags/inla/  
 https://rpubs.com/Jqedwards/841168  
 
+We fitten opnieuw vier modellen met verschillende verdelingsassumpties.
 
 ```{r}
 # 1. Poisson
@@ -613,13 +614,13 @@ tibble(model = c("Poisson", "Negative binomial", "Zero-inflated Poisson",
   kable(digits = 3)
 ```
 
-The Poisson model is the simplest model with best fit. We have underdispersion:
+Het Poisson model is opnieuw het simpelste model met de beste fit. We controleren voor overdispersie (waarom hier onderdispersie?):
 
 ```{r}
 plot(dispersion_check(inlapois1))
 ```
 
-A little more obserd than expected zeroes:
+Er zijn iets meer waargenomen nullen dan verwacht onder het model:
 
 ```{r}
 plot(fast_distribution_check(inlapois1))
@@ -735,7 +736,7 @@ gele_kwik_2022_distance %>%
 
 **Data voorbereiden**
 
-De dataframe moet een kolom met de naam `distance` bevatten (met de waargenomen afstanden) en extra benoemde kolommen voor eventuele covariaten die de detecteerbaarheid kunnen beïnvloeden (bijvoorbeeld waarnemer effect of visibiliteit). Om de densiteit te schatten of de abundatntie, is aanvullende informatie vereist. Extra kolommen moeten worden opgenomen de dataframe met vermelding van: `Sample.Label` (ID van het transect/plot), `Effort` (het aantal keren dat dat punt is bezocht); `Region.Label` (het stratum dat het transect bevat); `Area`, de oppervlakte van de strata. Transecten/plots die zijn onderzocht maar geen waarnemingen hebben, moeten worden opgenomen in de dataset met `NA` voor afstand en eventuele andere covariaten. De kolom `size`geeft de cluster groottes aan zodat elke rij een observatie van een cluster/groep is inplaats van een individu.
+De dataframe moet een kolom met de naam `distance` bevatten (met de waargenomen afstanden) en extra benoemde kolommen voor eventuele covariaten die de detecteerbaarheid kunnen beïnvloeden (bijvoorbeeld waarnemer effect of visibiliteit). Om de densiteit te schatten of de abundantie, is aanvullende informatie vereist. Extra kolommen moeten worden opgenomen de dataframe met vermelding van: `Sample.Label` (ID van het transect/plot), `Effort` (het aantal keren dat dat punt is bezocht); `Region.Label` (het stratum dat het transect bevat) en `Area` (de oppervlakte van de strata). Transecten/plots die zijn onderzocht maar geen waarnemingen hebben, moeten worden opgenomen in de dataset met `NA` voor afstand en eventuele andere covariaten. De kolom `size`geeft de cluster groottes aan zodat elke rij een observatie van een cluster/groep is in plaats van een individu.
 
 ```{r dist-dataframe}
 gele_kwik_2022_ds <- gele_kwik_2022_distance %>%
@@ -1158,6 +1159,11 @@ grid.arrange(dist_model2, dist_model_binned, ncol = 2)
 ```
 
 Er is bijna geen verschil wanneer de afstanden per 100 m worden gegroepeerd. We moeten opmerken dat het opdelen in cutpoints voorzichtig moet gebeuren. Hier zagen we in de continue distance functie dat de detectiekans tot 100 meter 1 is en daarna sterk daalt. Een cut-off niet rond 100 m had mogelijk een slechte keuze geweest voor de cutpoints.
+
+**Toevoegen relevante covariaten**
+
+Er zijn nog andere variabelen die ook een invloed op de detectiekans kunnen hebben. Deze zijn in ons geval de openheid van het landschap en buiten of binnen soortbeschermingszone.
+
 
 
 ### unmarked package{#unmarked}
@@ -1785,8 +1791,6 @@ brmpois_openheid1 <- brm(bf(aantal ~ regio + periode_in_jaar + openheid +
                         cores = nparallel,
                         file = paste0(model_path, "brmpois_openheid1"),
                         file_refit = "on_change")
-summary(brmpois_openheid1)
-plot(brmpois_openheid1)
 ```
 
 Convergentie ok (scale reduction factors, trace plots, posterior density). We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV).
@@ -1834,11 +1838,6 @@ rbind(fit_brmpois_openheid1$criteria$kfold$estimates[, "Estimate"],
 Het model scoort beter maar is niet veel beter dan het eenvoudigere model zonder openheid. Model fit is ok.
 
 ```{r}
-pp_check(brmpois_openheid1, type = "bars_grouped", ndraws = 100, group = "regio",
-         facet_args = list(ncol = 1, scales = "free_y"))
-pp_check(brmpois_openheid1, type = "bars_grouped", ndraws = 100, 
-         group = "periode_in_jaar",
-         facet_args = list(ncol = 1, scales = "free_y"))
 pp_check(brmpois_openheid1, type = "bars_grouped", ndraws = 100, 
          group = "openheid",
          facet_args = list(ncol = 1, scales = "free_y"))
@@ -1945,7 +1944,9 @@ Handige links:
 https://docs.google.com/presentation/d/1ZdNfml7MuQ-zM6OWXjE-w7J-x8uij5-Rzn0WKwHXcfc/edit#slide=id.p  
 https://github.com/inbo/territoria  
 
-Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. Bovendien kunnen plots overlappen of < 600 m van elkaar verwijderd zijn. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen voor deze exploratieve figuur. 
+Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. Bovendien kunnen plots overlappen of < 600 m van elkaar verwijderd zijn. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen voor deze exploratieve figuur.
+
+(geen goede code, package gebruiken?: https://cran.r-project.org/web/packages/nngeo/index.html)
 
 ```{r broed-afstanden}
 # Selecteer tellingen van Gele kwikstaart in 2022 in de twee regios
