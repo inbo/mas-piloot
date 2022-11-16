@@ -72,8 +72,26 @@ mas <- read_sf(
       datum %within% interval(
         ymd(paste(jaar, r4_start, sep = "-")),
         ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
-    )) %>%
-  st_transform(crs = 31370)
+    ))
+```
+
+CRS moet aangepast worden naar Lambert 72.
+
+```{r, project-crs}
+# Belgian Lambert 72
+proj_crs <- 31370
+
+# Herbereken x en y-coördinaten in Lambert 72
+coordinates <- mas %>% 
+  st_transform(crs = proj_crs) %>%
+  st_coordinates() %>%
+  as_tibble() %>%
+  rename(x_coord = X, y_coord = Y)
+
+mas <- mas %>% 
+  st_transform(crs = proj_crs) %>%
+  select(-c(x_coord, y_coord)) %>%
+  cbind(coordinates)
 ```
 
 ```{r design2022}
@@ -171,7 +189,7 @@ read_csv(here(
     "processed",
     "steekproef_piloot_avimap.csv")) %>%
   filter(definitief_punt == "VL0003") %>%
-  st_as_sf(coords = c("X", "Y"), crs = 31370) %>%
+  st_as_sf(coords = c("X", "Y"), crs = proj_crs) %>%
   mapview::mapview()  +
   mapview::mapview(sbp_akkervogels, col.regions = "yellow") +
   mapview::mapview(avimap)
@@ -181,7 +199,7 @@ read_csv(here(
     "processed",
     "steekproef_piloot_avimap.csv")) %>%
   inner_join(duplo_plotnaam, by = c("definitief_punt" = "plotnaam")) %>%
-  st_as_sf(coords = c("X", "Y"), crs = 31370) %>%
+  st_as_sf(coords = c("X", "Y"), crs = proj_crs) %>%
   mapview::mapview()  +
   mapview::mapview(sbp_akkervogels, col.regions = "yellow")
 ```
