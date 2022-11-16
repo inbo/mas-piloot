@@ -728,31 +728,18 @@ gele_kwik_2022_distance %>%
 gele_kwik_2022_distance %>%
   filter(!is.na(distance2plot)) %>%
   ggplot() +
-    geom_histogram(aes(x = distance2plot, fill = periode_in_jaar),
-                   bins = 30) +
+    geom_histogram(aes(x = distance2plot, fill = periode_in_jaar), bins = 30) +
     facet_wrap(~regio) +
-    labs(y = "Aantal tellingen van Gele kwikstaart", x = "Afstand (m)",
-         title = "2022")
+    labs(y = "Aantal", x = "Afstand (m)")
 ```
 
-```{r histogram-dist-sbp}
+```{r histogram-dist-stratum}
 gele_kwik_2022_distance %>%
   filter(!is.na(distance2plot)) %>%
   ggplot() +
-    geom_histogram(aes(x = distance2plot, fill = sbp),
-                   bins = 30) +
+    geom_histogram(aes(x = distance2plot, fill = stratum), bins = 30) +
     facet_wrap(~regio) +
-    labs(y = "Aantal tellingen van Gele kwikstaart", x = "Afstand (m)")
-```
-
-```{r histogram-dist-openheid}
-gele_kwik_2022_distance %>%
-  filter(!is.na(distance2plot)) %>%
-  ggplot() +
-    geom_histogram(aes(x = distance2plot, fill = openheid),
-                   bins = 30) +
-    facet_wrap(~regio) +
-    labs(y = "Aantal tellingen van Gele kwikstaart", x = "Afstand (m)")
+    labs(y = "Aantal", x = "Afstand (m)")
 ```
 
 **Data voorbereiden**
@@ -2646,9 +2633,11 @@ df_dist_terr <- df_dist_terr_presence2 %>%
 
 ### Data exploratie
 
+Samenvattende tabel aantal broedparen per stratum:
+
 ```{r}
-# Samenvattende tabel broedparen per stratum
-df_dist_terr %>% group_by(regio, sbp, openheid, Area) %>%
+df_dist_terr %>% 
+  group_by(regio, sbp, openheid, Area) %>%
   st_drop_geometry() %>%
   summarise(aantal_broedparen = sum(size)) %>%
   group_by(regio) %>%
@@ -2656,18 +2645,30 @@ df_dist_terr %>% group_by(regio, sbp, openheid, Area) %>%
   select(-Area, everything(), Area) %>%
   rename(area_per_regio = Area) %>%
   kable()
+```
 
+Verdeling van de geregistreerde afstanden:
+  
+```{r} 
+# Tabel
+df_dist_terr %>% 
+  group_by(regio, sbp, openheid) %>%
+  summarise(min = min(distance, na.rm = TRUE), 
+            mediaan = median(distance, na.rm = TRUE),
+            gemiddelde = mean(distance, na.rm = TRUE),
+            max = max(distance, na.rm = TRUE),
+            varantie = var(distance, na.rm = TRUE)) %>%
+  kable(digits = 1)
 
-# Verdeling afstanden
+# Histogram
 df_dist_terr %>%
   filter(!is.na(distance)) %>%
-  mutate(Legende = paste0(openheid, "\n", sbp, " plan")) %>%
+  mutate(stratum = paste0(openheid, "\n", sbp, " plan")) %>%
   ggplot() +
-    geom_histogram(aes(x = distance, fill = Legende), bins = 30) +
+    geom_histogram(aes(x = distance, fill = stratum), bins = 30) +
     facet_wrap(~regio) +
     labs(y = "Aantal", x = "Afstand (m)")
 ```
-
 
 ### Model fit en selectie
 
