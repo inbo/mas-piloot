@@ -2688,6 +2688,114 @@ df_dist_terr %>%
     labs(y = "Aantal", x = "Afstand (m)")
 ```
 
+
+bugfix: waarom zijn originele distances niet gelijk aan herberekende?
+kijk naar clusters die bestaan uit 1 individu 
+
+```{r}
+original_dist <- sp::merge(gele_kwik_2022_territoria, df_territoria2, 
+                           by = intersect("oid", "oid")) %>%
+  group_by(cluster) %>%
+  mutate(n = n()) %>%
+  filter(n == 1) %>%
+  select(oid, plotnaam, cluster, distance2plot) %>%
+  rename(origi_distance = distance2plot) %>%
+  arrange(cluster)
+
+single_clusts <- original_dist$cluster
+
+new_dist <- df_dist_terr %>%
+  filter(cluster %in% single_clusts) %>%
+  select(Sample.Label, cluster, distance) %>%
+  rename(new_distance = distance) %>%
+  arrange(cluster)
+
+full_df <- original_dist %>% 
+  st_join(new_dist)
+
+all.equal(full_df$plotnaam, full_df$Sample.Label)
+all.equal(full_df$cluster.x, full_df$cluster.y)
+
+full_df %>%
+  ggplot(aes(x = origi_distance, y = new_distance)) +
+    geom_abline(intercept = 0, slope = 1, colour = "red") + 
+    geom_point()
+  
+
+
+intersect <- full_df %>%
+  filter(!(origi_distance %in% c(floor(new_distance), ceiling(new_distance))))
+
+full_df %>%
+  ggplot(aes(x = origi_distance, y = new_distance)) +
+    geom_abline(intercept = 0, slope = 1, colour = "red") + 
+    geom_point() +
+    geom_point(data = intersect, aes(x = origi_distance, y = new_distance), colour = "blue")
+```
+
+
+```{r}
+gele_kwik_2022_territoria %>% 
+  filter(oid == "30185764") %>% 
+  select(plotnaam, distance2plot)
+
+df_dist_terr %>% 
+  filter(cluster == 11) %>% 
+  select(Sample.Label, cluster, distance)
+```
+
+waarom verschil?
+
+
+```{r}
+plot <- "DM_222.6"
+
+ggplot() +
+  geom_sf(data = original_dist %>% 
+            filter(plotnaam == plot),
+          colour = "red", size = 5) +
+  geom_sf(data = original_dist %>% 
+            filter(plotnaam == plot) %>% 
+            st_buffer(original_dist$origi_distance),
+          colour = "red", fill = alpha("white", 0)) +
+  geom_sf_text(data = original_dist %>% 
+            filter(plotnaam == plot),
+            label = "original distance", colour = "red", 
+            nudge_x = c(0, 0),
+            nudge_y = c(50, 50)) +
+  
+  geom_sf(data = new_dist %>% 
+            filter(Sample.Label == plot),
+          colour = "blue", size = 3) +
+  geom_sf(data = new_dist %>% 
+            filter(Sample.Label == plot) %>% 
+            st_buffer(new_dist$new_distance),
+          colour = "blue", fill = alpha("white", 0)) +
+  geom_sf_text(data = new_dist %>% 
+            filter(Sample.Label == plot),
+          label = "new distance", colour = "blue", 
+          nudge_x = c(0, 0),
+          nudge_y = c(75, 75)) +
+  
+  geom_sf(data = telpunt_coord %>% 
+            filter(definitief_punt == plot),
+          colour = "darkgreen", size = 5) +
+  geom_sf(data = telpunt_coord %>% 
+            filter(definitief_punt == plot) %>% 
+            st_buffer(300),
+        colour = "darkgreen", fill = alpha("white", 0)) +
+  geom_sf_text(data = telpunt_coord %>% 
+            filter(definitief_punt == plot),
+          label = "telpunt (300 m buffer)", colour = "darkgreen", 
+          nudge_x = 100,
+          nudge_y = -10) +
+  
+  coord_sf(datum = proj_crs) +
+  labs(title = paste0("plot: ", plot))
+```
+
+mis in origineel?
+
 ### Model fit en selectie
 
 
