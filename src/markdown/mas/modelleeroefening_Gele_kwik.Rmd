@@ -2592,10 +2592,8 @@ In de output van **territoria** krijgen we de centroide van de clusters (gemidde
 # Voeg clusters toe aan presence data
 df_dist_terr_presence <- sp::merge(gele_kwik_2022_territoria, df_territoria2, 
                                    by = intersect("oid", "oid")) %>%
-  select(plotnaam, cluster, aantal.y, regio, sbp, 
-         openheid) %>%
-  rename("Sample.Label" = plotnaam, 
-         "size" = aantal.y) %>%
+  select(plotnaam, cluster, aantal.y, regio, sbp, openheid) %>%
+  rename("Sample.Label" = plotnaam, "size" = aantal.y) %>%
   
 # Bereken centroide per cluster 
   group_by(cluster) %>%
@@ -2606,8 +2604,10 @@ df_dist_terr_presence <- sp::merge(gele_kwik_2022_territoria, df_territoria2,
   distinct()
 
 # Inlezen coördinaten telpunt
-telpunt_coord <- read_sf(here("data/processed/steekproef_piloot_avimap.geojson")) %>%
-                   select(definitief_punt)
+telpunt_coord <- read_sf(
+  here("data/processed/steekproef_piloot_avimap.geojson")
+  ) %>%
+  select(definitief_punt)
 
 # Bereken afstanden van centroide tot telpunt
 df_dist_terr_presence2 <- left_join(df_dist_terr_presence %>% as.data.frame(), 
@@ -2617,8 +2617,8 @@ df_dist_terr_presence2 <- left_join(df_dist_terr_presence %>% as.data.frame(),
     st_distance(
       .data[["geometry.x"]] %>% st_sf(), 
       .data[["geometry.y"]] %>% st_sf(), 
-      by_element = TRUE))
-    ) %>%
+      by_element = TRUE)
+    )) %>%
   select(-"geometry.y") %>% 
   rename(geometry = geometry.x) %>%
   st_sf(sf_column_name = "geometry")
