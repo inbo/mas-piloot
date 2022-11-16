@@ -1921,45 +1921,47 @@ umf2 <- unmarkedFrameGDS(y = as.matrix(gele_kwik_2022_unmarked2),
 We fitten een null model en het finaal model als hierboven zowel met een Poisson verdeling (`mixture = "P"`) als een negatief binomiaal verdeling (`mixture = "NB"`).
 
 ```{r}
-test <- gdistsamp(~1,~1,~1, data = umf2, keyfun = "halfnorm", 
+um_model_GDS <- gdistsamp(~1, ~1, ~1, data = umf2, keyfun = "halfnorm", 
                   output = "density", unitsOut = "kmsq", mixture = "P")
-test2 <- gdistsamp(~1,~1,~1, data = umf2, keyfun = "halfnorm", 
+um_model_GDS2 <- gdistsamp(~1, ~1, ~1, data = umf2, keyfun = "halfnorm", 
                    output = "density", unitsOut = "kmsq", mixture = "NB")
-test3 <- gdistsamp(~openheid,~1,~sbp, data = umf2, keyfun = "halfnorm", 
-                   output = "density", unitsOut = "kmsq", mixture = "P")
-test4 <- gdistsamp(~openheid,~1,~sbp, data = umf2, keyfun = "halfnorm", 
-                   output = "density", unitsOut = "kmsq", mixture = "NB")
+um_model_GDS3 <- gdistsamp(~openheid, ~1, ~sbp, data = umf2, 
+                           keyfun = "halfnorm", output = "density", 
+                           unitsOut = "kmsq", mixture = "P")
+um_model_GDS4 <- gdistsamp(~openheid, ~1, ~sbp, data = umf2, 
+                           keyfun = "halfnorm", output = "density", 
+                           unitsOut = "kmsq", mixture = "NB")
 ```
 
 Model selectie toont dat de negatief binomiaal verdeling optimaler is.
 
 ```{r}
-fm_list <- fitList(test, test2, test3, test4)
-modSel(fm_list)
+fm_list2 <- fitList(um_model_GDS, um_model_GDS2, um_model_GDS3, um_model_GDS4)
+modSel(fm_list2)
 ```
 
 ```{r}
 # Finaal model
-test4
+um_model_GDS4
 
 # Densiteit
 # Half-open landschap
-backTransform(linearComb(test4["lambda"], c(1, 0)))
+backTransform(linearComb(um_model_GDS4["lambda"], c(1, 0)))
 
 # Open landschap
-backTransform(linearComb(test4["lambda"], c(1, 1)))
+backTransform(linearComb(um_model_GDS4["lambda"], c(1, 1)))
 
 # Detectiekans
 # Binnen soortbeschermingsplan
-backTransform(linearComb(test4["det"], c(1, 0)))
+backTransform(linearComb(um_model_GDS4["det"], c(1, 0)))
 
 # Buiten soortbeschermingsplan
-backTransform(linearComb(test4["det"], c(1, 1)))
+backTransform(linearComb(um_model_GDS4["det"], c(1, 1)))
 
 # Predicties
-Elambda2 <- predict(test4, type = "lambda", newdata = new_df_dens,
+Elambda2 <- predict(um_model_GDS4, type = "lambda", newdata = new_df_dens,
     appendData = TRUE)
-Esigma2 <- predict(test4, type = "det", newdata = new_df_detect,
+Esigma2 <- predict(um_model_GDS4, type = "det", newdata = new_df_detect,
     appendData = TRUE)
 ```
 
