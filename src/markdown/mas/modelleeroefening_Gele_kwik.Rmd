@@ -72,7 +72,8 @@ mas <- read_sf(
       datum %within% interval(
         ymd(paste(jaar, r4_start, sep = "-")),
         ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
-    ))
+    )) %>%
+  st_transform(crs = 31370)
 ```
 
 ```{r design2022}
