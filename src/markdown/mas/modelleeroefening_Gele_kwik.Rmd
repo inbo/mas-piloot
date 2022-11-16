@@ -2406,7 +2406,7 @@ Er is dus toch vrij veel overlap van plots (binnen 600 m). Dat verklaart waarom 
 hist_piek <- ggplot_build(plot_dist_terr)$data[[1]] %>% 
   filter(y == max(y)) %>% 
   pull(x)
-dens_piek <- ggplot_build(plot_dist_terr)$data[[5]] %>% 
+dens_piek <- ggplot_build(plot_dist_terr)$data[[4]] %>% 
   filter(y == max(y)) %>% 
   pull(x)
 ```
