@@ -657,7 +657,7 @@ newdata <- cbind(newdata,
   inlapois1_pred$summary.fitted.values[(nrow(gele_kwik_2022) + 1):nrow(data_pred),])
 
 # Visualise
-test <- newdata %>%
+p_inlapois1 <- newdata %>%
   rename("lower" = "0.025quant", upper = "0.975quant") %>%
   ggplot(aes(y = mean, x = regio)) + 
     geom_point(aes(colour = periode_in_jaar), size = 4, 
@@ -670,14 +670,14 @@ test <- newdata %>%
   labs(x = "", y = "", title = "INLA package") +
                 theme(legend.position = "bottom")
 
-p_pois1_test <- plot(pred, plot = FALSE)[[1]] + 
-                scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
-                  name = ""), limits = c(0, 0.4)) +
-                labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "", 
-                     title = "brms package") +
-                theme(legend.position = "bottom")
+p_pois1_new <- plot(pred, plot = FALSE)[[1]] + 
+                  scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+                    name = ""), limits = c(0, 0.4)) +
+                  labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "", 
+                       title = "brms package") +
+                  theme(legend.position = "bottom")
 
-grid.arrange(p_pois1_test, test, ncol = 2)
+grid.arrange(p_pois1_new, p_inlapois1, ncol = 2)
 ```
 
 We krijgen quasi dezelfde resultaten als met **brms**.
