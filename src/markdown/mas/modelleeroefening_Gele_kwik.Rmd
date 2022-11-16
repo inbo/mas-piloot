@@ -2589,36 +2589,23 @@ In dit scenario clusteren we waarnemingen tot broedparen met **territoria**. Daa
 In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten van waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten, `Effort` is het aantal keer dat een plot is bezocht (overal 4). `Region.Label` is een label voor elke regio (zelfde als `regio`-kolom).
 
 ```{r}
-# Calculate Effort for each plot
-effort_df <- bezoekenlijst_2022 %>%
-  group_by(plotnaam) %>%
-  mutate(Effort = n_distinct(periode_in_jaar)) %>%
-  select(plotnaam, Effort) %>%
-  distinct()
-
-
-# Voeg clusters en area toe aan presence data
+# Voeg clusters toe aan presence data
 df_dist_terr_presence <- sp::merge(gele_kwik_2022_territoria, df_territoria2, 
                                    by = intersect("oid", "oid")) %>%
-                          full_join(reg_tab, by = "regio") %>%
-                          select(plotnaam, cluster, aantal.y, Area, regio, sbp, 
-                                 openheid) %>%
-  
-# Voeg sampling effort toe
-                          inner_join(effort_df, by = "plotnaam") %>%
-                          rename("Sample.Label" = plotnaam, 
-                                 "size" = aantal.y) %>%
-                          mutate(Region.Label = regio) %>%
+  select(plotnaam, cluster, aantal.y, regio, sbp, 
+         openheid) %>%
+  rename("Sample.Label" = plotnaam, 
+         "size" = aantal.y) %>%
   
 # Bereken centroide per cluster 
-                          group_by(cluster) %>%
-                          mutate(geometry = st_union(geometry)) %>%
-                          st_centroid() %>%
-                          ungroup() %>%
-                          arrange(cluster) %>%
-                          distinct()
+  group_by(cluster) %>%
+  mutate(geometry = st_union(geometry)) %>%
+  st_centroid() %>%
+  ungroup() %>%
+  arrange(cluster) %>%
+  distinct()
 
-# Inlezen coordinaten telpunt
+# Inlezen coördinaten telpunt
 telpunt_coord <- read_sf(here("data/processed/steekproef_piloot_avimap.geojson")) %>%
                    select(definitief_punt)
 
@@ -2626,21 +2613,32 @@ telpunt_coord <- read_sf(here("data/processed/steekproef_piloot_avimap.geojson")
 df_dist_terr_presence2 <- left_join(df_dist_terr_presence %>% as.data.frame(), 
                             telpunt_coord %>% as.data.frame(), 
                             by = c("Sample.Label" = "definitief_punt")) %>%
-                          mutate(distance = st_distance(
-                            .data[["geometry.x"]] %>% st_sf(), 
-                            .data[["geometry.y"]] %>% st_sf(), 
-                            by_element = TRUE)) %>%
-                          select(-"geometry.y") %>% 
-                          rename(geometry = geometry.x) %>%
-                          st_sf(sf_column_name = "geometry")
+  mutate(distance = as.numeric(
+    st_distance(
+      .data[["geometry.x"]] %>% st_sf(), 
+      .data[["geometry.y"]] %>% st_sf(), 
+      by_element = TRUE))
+    ) %>%
+  select(-"geometry.y") %>% 
+  rename(geometry = geometry.x) %>%
+  st_sf(sf_column_name = "geometry")
 
+# Voeg afwezigheden en sampling effort toe
+effort_df <- bezoekenlijst_2022 %>%
+  group_by(plotnaam) %>%
+  mutate(Effort = n_distinct(periode_in_jaar)) %>%
+  select(-c(periode_in_jaar, stratum)) %>%
+  distinct() %>%
+  ungroup()
 
+df_dist_terr <- df_dist_terr_presence2 %>%
+  full_join(effort_df, by = c("Sample.Label" = "plotnaam",
+                              "regio", "sbp", "openheid")) %>%
+  mutate(size = ifelse(is.na(size), 0, size)) %>%
 
-
-# Voeg afwezigheden toe
-
-
-
+# Voeg Area en Region.Label toe
+  full_join(reg_tab, by = "regio") %>%
+  mutate(Region.Label = regio)
 ```
 
 
