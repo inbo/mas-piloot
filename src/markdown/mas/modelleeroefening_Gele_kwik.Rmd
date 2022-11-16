@@ -2646,6 +2646,18 @@ df_dist_terr <- df_dist_terr_presence2 %>%
 
 ### Data exploratie
 
+```{r}
+# Samenvattende tabel broedparen per stratum
+df_dist_terr %>% group_by(regio, sbp, openheid, Area) %>%
+  st_drop_geometry() %>%
+  summarise(aantal_broedparen = sum(size)) %>%
+  group_by(regio) %>%
+  mutate(aantal_broedparen_per_regio = sum(aantal_broedparen)) %>%
+  select(-Area, everything(), Area) %>%
+  rename(area_per_regio = Area) %>%
+  kable()
+```
+
 
 ### Model fit en selectie
 
