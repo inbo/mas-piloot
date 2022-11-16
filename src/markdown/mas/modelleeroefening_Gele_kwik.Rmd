@@ -2656,6 +2656,16 @@ df_dist_terr %>% group_by(regio, sbp, openheid, Area) %>%
   select(-Area, everything(), Area) %>%
   rename(area_per_regio = Area) %>%
   kable()
+
+
+# Verdeling afstanden
+df_dist_terr %>%
+  filter(!is.na(distance)) %>%
+  mutate(Legende = paste0(openheid, "\n", sbp, " plan")) %>%
+  ggplot() +
+    geom_histogram(aes(x = distance, fill = Legende), bins = 30) +
+    facet_wrap(~regio) +
+    labs(y = "Aantal", x = "Afstand (m)")
 ```
 
 
