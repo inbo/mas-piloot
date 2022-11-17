@@ -14,6 +14,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 renv::restore()
+library(mapview)
 library(INLA)
 library(inlatools)
 library(Distance)
@@ -2654,9 +2655,9 @@ df_dist_terr <- df_dist_terr_presence2 %>%
 Samenvattende tabel aantal broedparen per stratum:
 
 ```{r}
-df_dist_terr %>% 
-  group_by(regio, sbp, openheid, Area) %>%
+df_dist_terr %>%
   st_drop_geometry() %>%
+  group_by(regio, sbp, openheid, Area) %>%
   summarise(aantal_broedparen = sum(size)) %>%
   group_by(regio) %>%
   mutate(aantal_broedparen_per_regio = sum(aantal_broedparen)) %>%
@@ -2670,6 +2671,7 @@ Verdeling van de geregistreerde afstanden:
 ```{r} 
 # Tabel
 df_dist_terr %>% 
+  st_drop_geometry() %>%
   group_by(regio, sbp, openheid) %>%
   summarise(min = min(distance, na.rm = TRUE), 
             mediaan = median(distance, na.rm = TRUE),
@@ -2687,6 +2689,129 @@ df_dist_terr %>%
     facet_wrap(~regio) +
     labs(y = "Aantal", x = "Afstand (m)")
 ```
+
+We zien plots enkele afstanden > 300 m. Dit zou niet mogen kunnen. We kijken even naar clusters die bestaan uit 1 waarneming. Hierbij zijn de coördinaten van de centroide gelijk aan de coördinaten van de originele waarneming.
+
+```{r}
+# Dataset met oorspronkelijke afstanden
+original_dist <- sp::merge(gele_kwik_2022_territoria, df_territoria2, 
+                           by = intersect("oid", "oid")) %>%
+  group_by(cluster) %>%
+  mutate(n = n()) %>%
+  filter(n == 1) %>%
+  rename(origi_distance = distance2plot) %>%
+  arrange(cluster)
+
+# Welke clusters bestaan uit 1 waarneming?
+single_clusts <- original_dist$cluster
+
+# Dataset met herberekende afstanden (centroid tot telpunt)
+new_dist <- df_dist_terr %>%
+  filter(cluster %in% single_clusts) %>%
+  rename(new_distance = distance) %>%
+  arrange(cluster)
+
+# Join oorspronkelijke en nieuwe datasets
+full_df <- original_dist %>% 
+  st_join(new_dist)
+
+# Zoek punten waarbij oorspronkelijke en nieuwe afstanden niet overeenkomen
+intersect <- full_df %>%
+  filter(!(origi_distance %in% c(floor(new_distance), ceiling(new_distance))))
+
+# Vergelijk oorspronkelijke en nieuwe afstanden (mismatches in blauw)
+full_df %>%
+  ggplot(aes(x = origi_distance, y = new_distance)) +
+    geom_abline(intercept = 0, slope = 1, colour = "red") + 
+    geom_point() +
+    geom_point(data = intersect, aes(x = origi_distance, y = new_distance), 
+               colour = "blue")
+```
+
+We zien dat voor sommige clusters de herberekende afstanden niet gelijk zijn aan de afstanden in de originele dataset (kolom `distance2plot`). Waarom?
+
+```{r}
+intersect %>% 
+  group_by(regio.x, sbp.x, openheid.x) %>%
+  st_drop_geometry() %>%
+  summarise(aantal_broedparen = sum(aantal.x)) %>%
+  group_by(regio.x) %>%
+  mutate(aantal_broedparen_per_regio = sum(aantal_broedparen)) %>%
+  kable()
+```
+
+We zien geen verband met regio, sbp of openheid. We plotten enkele clusters die mismatchen. In blauw zien we dat de herberekende afstanden voor elke cluster mooi door het telpunt gaan. Dit is niet voor de originele afstanden (rood):
+
+```{r}
+plot_circles <- function(plot) {
+  
+  data_origi <- original_dist %>% 
+    filter(plotnaam == plot) 
+  buffer_origi <- data_origi %>% 
+    st_buffer(data_origi$origi_distance)
+  
+  data_new <- new_dist %>% 
+   filter(Sample.Label == plot)
+  buffer_new <- data_new %>% 
+    st_buffer(data_new$new_distance)
+  
+  ggplot() +
+    geom_sf(data = data_origi,
+            colour = "red", size = 5) +
+    geom_sf(data = buffer_origi,
+            colour = "red", fill = alpha("white", 0)) +
+    geom_sf_text(data = data_origi,
+                 label = "original distance", colour = "red", 
+                 nudge_x = c(0, 0),
+                 nudge_y = c(50, 50)) +
+    
+    geom_sf(data = data_new,
+            colour = "blue", size = 3) +
+    geom_sf(data = buffer_new,
+            colour = "blue", fill = alpha("white", 0)) +
+    geom_sf_text(data = data_new,
+            label = "new distance", colour = "blue", 
+            nudge_x = c(0, 0),
+            nudge_y = c(75, 75)) +
+    
+    geom_sf(data = telpunt_coord %>% 
+              filter(definitief_punt == plot),
+            colour = "darkgreen", size = 5) +
+    geom_sf(data = telpunt_coord %>% 
+              filter(definitief_punt == plot) %>% 
+              st_buffer(300),
+          colour = "darkgreen", fill = alpha("white", 0)) +
+    geom_sf_text(data = telpunt_coord %>% 
+              filter(definitief_punt == plot),
+            label = "telpunt (300 m buffer)", colour = "darkgreen", 
+            nudge_x = 100,
+            nudge_y = -10) +
+    
+    coord_sf(datum = proj_crs) +
+    labs(title = paste0("plot: ", plot))
+}
+
+
+plot_circles("DM_222.6")
+plot_circles("DM_137.2")
+plot_circles("Ol_4680")
+```
+
+We zien ook geen spatiale trend in de waarnemingen waarvoor we een mismatch hebben:
+
+```{r}
+intersect_ids <- intersect$cluster.x
+full_df <- full_df %>% 
+  mutate(correct = ifelse(cluster.x %in% intersect_ids, "fout", "correct"))
+
+mapview(telpunt_coord, legend = FALSE, col.regions = "green") +
+mapview(telpunt_coord %>% st_buffer(300), 
+        legend = FALSE, col.regions = "green", alpha.region = 0.1) +
+mapview(full_df, zcol = "correct")
+```
+
+**Conclusie:** We hebben de exacte coördinaten van de clusters en de telpunten dus we gaan er van uit dat de herberekende afstanden correct zijn. Voorlopig hebben we geen verklaring. Bij SOVON terugkoppelen hoe die afstanden worden berekend (automatisch in app?). Een mogelijkheid is wel dat de teller niet exact op het telpunt staat wanneer hij waarnemingen ingeeft waardoor de berekende afstanden in de app nu niet overeenkomen met de afstand tussen het theoretische telpunt en de waarnemingen. Soms zijn de mismatches wel groot (> 100 m), en vele gevallen is er geen mismatch. De mismatches zijn ook aanwezig bij verschillende tellers. Het blijft dus onduidelijk wat er aan de hand is.
+
 
 ### Model fit en selectie
 
