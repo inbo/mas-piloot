@@ -14,6 +14,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 renv::restore()
+library(mapview)
 library(INLA)
 library(inlatools)
 library(Distance)
@@ -2758,29 +2759,32 @@ voorbeeld per plot
 
 ```{r}
 plot_circles <- function(plot) {
+  
+  data_origi <- original_dist %>% 
+    filter(plotnaam == plot) 
+  buffer_origi <- data_origi %>% 
+    st_buffer(data_origi$origi_distance)
+  
+  data_new <- new_dist %>% 
+   filter(Sample.Label == plot)
+  buffer_new <- data_new %>% 
+    st_buffer(data_new$new_distance)
+  
   ggplot() +
-    geom_sf(data = original_dist %>% 
-              filter(plotnaam == plot),
+    geom_sf(data = data_origi,
             colour = "red", size = 5) +
-    geom_sf(data = original_dist %>% 
-              filter(plotnaam == plot) %>% 
-              st_buffer(original_dist$origi_distance),
+    geom_sf(data = buffer_origi,
             colour = "red", fill = alpha("white", 0)) +
-    geom_sf_text(data = original_dist %>% 
-              filter(plotnaam == plot),
-              label = "original distance", colour = "red", 
-              nudge_x = c(0, 0),
-              nudge_y = c(50, 50)) +
+    geom_sf_text(data = data_origi,
+                 label = "original distance", colour = "red", 
+                 nudge_x = c(0, 0),
+                 nudge_y = c(50, 50)) +
     
-    geom_sf(data = new_dist %>% 
-              filter(Sample.Label == plot),
+    geom_sf(data = data_new,
             colour = "blue", size = 3) +
-    geom_sf(data = new_dist %>% 
-              filter(Sample.Label == plot) %>% 
-              st_buffer(new_dist$new_distance),
+    geom_sf(data = buffer_new,
             colour = "blue", fill = alpha("white", 0)) +
-    geom_sf_text(data = new_dist %>% 
-              filter(Sample.Label == plot),
+    geom_sf_text(data = data_new,
             label = "new distance", colour = "blue", 
             nudge_x = c(0, 0),
             nudge_y = c(75, 75)) +
@@ -2812,6 +2816,18 @@ plot_circles("Ol_7868")
 dist is mis buffer
 
 mis in origineel?
+
+```{r}
+intersect_ids <- intersect$cluster.x
+full_df <- full_df %>% 
+  mutate(correct = ifelse(cluster.x %in% intersect_ids, "fout", "correct"))
+
+mapview(telpunt_coord, legend = FALSE, col.regions = "green") +
+mapview(telpunt_coord %>% st_buffer(300), 
+        legend = FALSE, col.regions = "green", alpha.region = 0.1) +
+mapview(full_df, zcol = "correct")
+```
+
 
 ### Model fit en selectie
 
