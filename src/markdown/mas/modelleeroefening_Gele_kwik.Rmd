@@ -3012,7 +3012,7 @@ summary_scen1_hn5$ds$coeff$key.scale %>%
   kable(digits = 3, caption = "Half-normal model")
 ```
 
-Ook zien we dat de estimates verschillen. 
+Ook zien we dat de estimates licht verschillen. Het geschatte aantal broedparen en de standard errors van het Hazard-rate model zijn telkens lager dan deze van het half-normal model: 
 
 ```{r}
 # Vat resultaten Hazard-rate model samen
@@ -3076,18 +3076,93 @@ rbind(df_results_hr5, df_results_hn5) %>%
 
 Plot:
 
-```{r}
+```{r, fig.height = 7}
 rbind(df_results_hr5, df_results_hn5) %>%
   ggplot(aes(x = regio, y = Estimate, colour = model)) + 
     geom_point(position = position_dodge(width = 0.5), size = 4) + 
     geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25,
                   position = position_dodge(width = 0.5)) +
     scale_y_continuous(limits = c(0, NA)) +
+    scale_colour_manual(values = c("orange", "purple")) +
     facet_wrap(~variable, scales = "free_y") +
     labs(x = "", y = "", title = "P(detectie) ~ regio + sbp")
 ```
 
 
 ### Discussie
+
+```{r, fig.height = 8}
+p1 <- territoria_per_plot2 %>%
+  mutate(Estimate = Estimate / cirkelopp * 1e6) %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+    geom_bar(aes(fill = regio), stat = "identity") +
+    geom_text(aes(label = round(Estimate, digits = 2)), vjust = -0.5,
+              colour = "black") +
+    scale_y_continuous(limits = c(0, 4)) +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart per 100 ha", 
+         title = "Aantal territoria") +
+  theme(legend.position = "")
+
+p2 <- rbind(df_results_hr5, df_results_hn5) %>%
+  filter(variable == "Aantal broedparen Gele kwikstaart per 100 ha",
+         regio != "totaal") %>%
+  ggplot(aes(x = regio, y = Estimate, colour = model)) + 
+    geom_point(position = position_dodge(width = 0.5), size = 4) + 
+    geom_text(aes(label = round(Estimate, digits = 2)), 
+            position = position_dodge(width = 1.2), vjust = -0.25) +
+    geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25,
+                  position = position_dodge(width = 0.5)) +
+    scale_y_continuous(limits = c(0, 4)) +
+    scale_colour_manual(values = c("orange", "purple")) +
+    labs(x = "", y = "", title = "P(detectie) ~ regio + sbp")
+
+p3 <- gele_kwik_2022 %>%
+  st_drop_geometry() %>%
+  
+  # Bepaal voor elke plot het gemiddeld aantal individuen en maximum over
+  # de telperiodes
+  group_by(plotnaam, periode_in_jaar) %>%
+  summarise(totaal = sum(aantal), .groups = "drop_last") %>%
+  summarise(gemiddelde = mean(totaal),
+            maximum = max(totaal),
+            .groups = "drop") %>%
+  
+  # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
+  # alle plots (som)
+  inner_join(design2022, by = "plotnaam") %>%
+  select(plotnaam, gemiddelde, maximum, regio) %>%
+  group_by(regio) %>%
+  summarise(tot_gemiddelde = sum(gemiddelde),
+            tot_max = sum(maximum)) %>% 
+  
+  # Deel door aantal plots om aantal broedkoppels per plot te krijgen
+  full_join(plots_per_regio, by = "regio") %>%
+  mutate(tot_gemiddelde_plots = tot_gemiddelde / n_plots,
+         tot_max_plots = tot_max / n_plots) %>%
+  pivot_longer(cols = c("tot_gemiddelde_plots", "tot_max_plots"), 
+               names_to = "categorie", values_to = "Estimate") %>%
+  
+  # Reken om naar 100 ha
+  mutate(Estimate = Estimate / cirkelopp * 1e6) %>%
+  
+  # Visualiseer
+  ggplot(aes(x = regio, y = Estimate)) + 
+    geom_bar(aes(fill = regio), stat = "identity") +
+    geom_text(aes(label = round(Estimate, digits = 2)), vjust = -0.5,
+            colour = "black") +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart per 100 ha") +
+    scale_y_continuous(limits = c(0, 4)) +
+    theme(legend.position = "") +
+    facet_wrap(~categorie, labeller = labeller(
+      categorie = c(
+        "tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
+        "tot_max_plots" = "Maximum aantal broedparen per plot")
+      ))
+
+suppressWarnings({
+grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
+})
+```
+
 
 
