@@ -2656,15 +2656,15 @@ df_dist_terr
 
 ### Data exploratie
 
-Samenvattende tabel aantal broedparen per stratum:
+Samenvattende tabel aantal broedparen per stratum. Area is in km².
 
 ```{r}
 df_dist_terr %>%
   st_drop_geometry() %>%
   group_by(regio, sbp, openheid, Area) %>%
-  summarise(aantal_broedparen = sum(size)) %>%
+  summarise(aantal_broedparen_per_stratum = sum(size)) %>%
   group_by(regio) %>%
-  mutate(aantal_broedparen_per_regio = sum(aantal_broedparen)) %>%
+  mutate(aantal_broedparen_per_regio = sum(aantal_broedparen_per_stratum)) %>%
   select(-Area, everything(), Area) %>%
   rename(area_per_regio = Area) %>%
   kable()
