@@ -1293,7 +1293,7 @@ gof_ds(dsmodelhr8, main = "dsmodelhr8")
   
   plot(dsmodelhr8, pdf = TRUE, 
        main = paste0("dsmodelhr8", " - ", "AIC: ",
-                     as.character(round(summary(mod)$ds$aic, digits = 2))
+                     as.character(round(summary(dsmodelhr8)$ds$aic, digits = 2))
                      )
        )
 par(mfrow = c(1, 1))
@@ -2963,6 +2963,37 @@ summarize_ds_models(ds_scen1_unif1,
   kable()
 ```
 
+De modellen waarbij de detectiekans afhankelijk is van regio en soortbeschermingsplan scoren het best. We bekijken model fit van modellen 6 (half-normal) 18 (hazard-rate) m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
+
+```{r}
+# Hazard-rate in functie van regio en sbp
+par(mfrow = c(1, 2))
+
+gof_ds(ds_scen1_hr5, main = "ds_scen1_hr5")
+
+plot(ds_scen1_hr5, pdf = FALSE, main = "P(detectie) ~ regio +sbp")
+
+par(mfrow = c(1, 1))
+plot(ds_scen1_hr5, pdf = TRUE, 
+     main = paste0("ds_scen1_hr5", " - ", "AIC: ",
+                   as.character(round(summary(ds_scen1_hr5)$ds$aic, digits = 2))
+                   )
+     )
+
+# Half-normal in functie van regio en sbp
+par(mfrow = c(1, 2))
+
+gof_ds(ds_scen1_hn5, main = "ds_scen1_hn5")
+
+plot(ds_scen1_hn5, pdf = FALSE, main = "P(detectie) ~ regio +sbp")
+
+par(mfrow = c(1, 1))
+plot(ds_scen1_hn5, pdf = TRUE, 
+     main = paste0("ds_scen1_hn5", " - ", "AIC: ",
+                   as.character(round(summary(ds_scen1_hn5)$ds$aic, digits = 2))
+                   )
+     )
+```
 
 
 ### Resultaten en visualisatie
