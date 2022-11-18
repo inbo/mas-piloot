@@ -2818,9 +2818,25 @@ mapview(full_df, zcol = "correct")
 
 ### Model fit en selectie
 
-We gaan opnieuw tewerk zoals in subsectie \@ref(Distance). We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten regio, sbp en openheid. We beschouwen ook interacties. De interactie tussen regio en openheid kan niet gefit worden (geen HOL in De Moeren). Voor de uniforme verdeling kunnen geen covariaten worden toegevoegd.
+We maken een model voor de probabiliteit dat een Gele kwikstaart wordt gedetecteerd gegeven we de afstand tot het individu weten. Dit model is de detectiefunctie en wordt genoteerd als $g(r;\boldsymbol \theta)$ met $r$ de radiale afstand van waarneming tot teller/telpunt en $\boldsymbol \theta$ een vector van parameters die geschat moeten worden. Het doel is de gemiddelde kans op detectie ($p$) te bepalen (gemiddelde in de zin van een gemiddelde over afstand van 0 tot afknotafstand $w$).
+
+$$
+p = \int_0^w\frac{2r}{w^2}g(r;\boldsymbol \theta)\,dr
+$$
+
+We gaan opnieuw tewerk zoals in subsectie \@ref(Distance). We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten regio, sbp en openheid. De detectiekans word dan berekend conditioneel aan de waargenomen waarden van de covariaten.
+
+$$
+p(\mathbf{z_i}) = \int_0^w\frac{2r}{w^2}g(r, \mathbf{z_i};\boldsymbol \theta)\,dr
+$$
+
+Met $\mathbf{z_i}$ een vector van $J$ (hier $J=3$) covariaten geassocieerd met observatie $i$. We beschouwen ook interacties. De interactie tussen regio en openheid kan niet gefit worden (geen HOL in De Moeren). Voor de uniforme verdeling kunnen geen covariaten worden toegevoegd.
 
 - Fitting uniform key function
+
+$$
+g(r;\boldsymbol \theta) = 1 / w
+$$
 
 ```{r}
 ds_scen1_unif1 <- ds(data = df_dist_terr, key = "unif", truncation = 300, 
@@ -2829,6 +2845,15 @@ ds_scen1_unif1 <- ds(data = df_dist_terr, key = "unif", truncation = 300,
 ```
 
 - Fitting half-normal key function
+
+$$
+g(r, \mathbf{z};\boldsymbol \theta) = \exp{\left( -\frac{r^2}{2\sigma(\mathbf{z})^2} \right)}
+$$
+met scale parameter
+
+$$
+\sigma(\mathbf{z}) = \exp{\left( \beta_0 + \sum_{j = 1}^{J} \beta_j z_j \right)}
+$$
 
 ```{r}
 # Null model
@@ -2889,6 +2914,15 @@ ds_scen1_hn12 <- ds(data = df_dist_terr, key = "hn",
 ```
 
 - Fitting hazard-rate key function
+
+$$
+g(r, \mathbf{z};\boldsymbol \theta) = 1 - \exp{\left( \left( -\frac-r}{\sigma(\mathbf{z})}\right)^{-b} \right)}
+$$
+met scale parameter
+
+$$
+\sigma(\mathbf{z}) = \exp{\left( \beta_0 + \sum_{j = 1}^{J} \beta_j z_j \right)}
+$$
 
 ```{r}
 # Null model
@@ -2963,7 +2997,13 @@ summarize_ds_models(ds_scen1_unif1,
   kable()
 ```
 
-De modellen waarbij de detectiekans afhankelijk is van regio en soortbeschermingsplan scoren het best. We bekijken model fit van modellen 6 (half-normal) 18 (hazard-rate) m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
+De modellen waarbij de detectiekans afhankelijk is van regio en soortbeschermingsplan scoren het best. 
+
+$$
+\sigma(\mathbf{z}) = \exp{\left( \beta_0 + \beta_1 z_{regio} + \beta_2 z_{sbp} \right)}
+$$
+
+De gemiddelde detectiekans verschilt tussen hazard-ratio en half-normal functies. We bekijken model fit van modellen 6 (half-normal) 18 (hazard-rate) m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
 
 ```{r}
 # Hazard-rate in functie van regio en sbp
@@ -3000,7 +3040,7 @@ plot(ds_scen1_hn5, pdf = TRUE,
 
 We vergelijken de resultaten van beide modellen.  
   
-De coëfficiënten verschillend lichtjes tussen beide modellen:
+De coëfficiënten voor de scale coefficient verschillen lichtjes tussen beide modellen:
 
 ```{r}
 summary_scen1_hr5 <- summary(ds_scen1_hr5)
@@ -3012,7 +3052,25 @@ summary_scen1_hn5$ds$coeff$key.scale %>%
   kable(digits = 3, caption = "Half-normal model")
 ```
 
-Ook zien we dat de estimates licht verschillen. Het geschatte aantal broedparen en de standard errors van het Hazard-rate model zijn telkens lager dan deze van het half-normal model: 
+We hebben de studieregio in 2 strata opgesplits: De Moeren en de Oostelijke leemstreek. Beschouw $A(s)$ de totale oppervlakte van stratum $s$ tot waar we de abundantieschatting willen extrapoleren en $a(s)$ het gesampled gebied.
+
+$$
+a(s) = \pi w^2 T
+$$
+Met $T$ het aantal plots ($n_p$) vermenigvuldigd met het aantal bezoeken (effort). In ons geval hebben we dus $a(s) = \pi 300^2 n_p 4$. Dan is de geschatte abundantie in het gesampled gebied voor elk stratum $s$:
+
+$$
+\hat{N}_C(s) = \sum_{i=1}^n \frac{c_i(s)}{\hat{p}(\mathbf{z_i})}
+$$
+Met $c_i(s)$ de clustergrootte in stratum $s$ voor waarneming $i$. In ons geval 1 als de waarneming in stratum $i$ voorkomt en 0 indien niet. De geschatte abundantie in het gesampled gebied kan dan worden opgeschaald naar de totale oppervlakte van het stratum via:
+
+$$
+\hat{N}(s) = \frac{A(s)}{a(s)}\hat{N}_C(s)
+$$
+
+De geschatte densiteit is dan $\hat{N}(s) / A(s)$. De abundanties kunnen ook opgeteld worden voor een totale schatting en een totale densiteit door de totale schatting te delen door de totale oppervlakte (som van oppervlaktes per stratum). Voor berekening van de confidence limits zie `?dht`.  
+
+Wie zien dat deze estimates ook licht verschillen tussen de modellen. Het geschatte aantal broedparen en de standard errors van het Hazard-rate model zijn telkens lager dan deze van het half-normal model: 
 
 ```{r}
 # Vat resultaten Hazard-rate model samen
@@ -3076,7 +3134,7 @@ rbind(df_results_hr5, df_results_hn5) %>%
 
 Plot:
 
-```{r, fig.height = 7}
+```{r, fig.width = 8}
 rbind(df_results_hr5, df_results_hn5) %>%
   ggplot(aes(x = regio, y = Estimate, colour = model)) + 
     geom_point(position = position_dodge(width = 0.5), size = 4) + 
@@ -3091,7 +3149,9 @@ rbind(df_results_hr5, df_results_hn5) %>%
 
 ### Discussie
 
-```{r, fig.height = 8}
+De volgende figuren tonen het aantal broedparen per 100 ha. Puntschattingen zijn steeds aangegeven; enkel in het geval van distance sampling hebben we confidence limits. Aantal territoria is berekend als het aantal clusters (via **territoria** packages) per circeloppervlakte en dan omgezet naar hectare. Bij distance sampling hebben we ook de clusters gebruikt, maar hebben we rekening gehouden met de afname van de detectiekans op grotere afstand. De schattingen worden dan omgezet naar 100 ha o.b.v. de oppervlakte van de regio's en niet o.b.v. de cirkeloppervlakte. Bij het gemiddelde aantal per plot nemen we het gemiddeld aantal broedparen per plot over de telperiodes en bij het maximum het maximum aantal over de telperiodes per plot. Daarna wordt dit aantal berekend per circeloppervlakte en dan omgezet naar hectare.
+
+```{r, fig.height=7, fig.width=9}
 p1 <- territoria_per_plot2 %>%
   mutate(Estimate = Estimate / cirkelopp * 1e6) %>%
   ggplot(aes(x = regio, y = Estimate)) + 
@@ -3099,7 +3159,7 @@ p1 <- territoria_per_plot2 %>%
     geom_text(aes(label = round(Estimate, digits = 2)), vjust = -0.5,
               colour = "black") +
     scale_y_continuous(limits = c(0, 4)) +
-    labs(x = "", y = "Aantal broedparen Gele kwikstaart per 100 ha", 
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart\nper 100 ha", 
          title = "Aantal territoria") +
   theme(legend.position = "")
 
@@ -3109,7 +3169,7 @@ p2 <- rbind(df_results_hr5, df_results_hn5) %>%
   ggplot(aes(x = regio, y = Estimate, colour = model)) + 
     geom_point(position = position_dodge(width = 0.5), size = 4) + 
     geom_text(aes(label = round(Estimate, digits = 2)), 
-            position = position_dodge(width = 1.2), vjust = -0.25) +
+            position = position_dodge(width = 1.75), vjust = -0.25) +
     geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25,
                   position = position_dodge(width = 0.5)) +
     scale_y_continuous(limits = c(0, 4)) +
@@ -3150,7 +3210,7 @@ p3 <- gele_kwik_2022 %>%
     geom_bar(aes(fill = regio), stat = "identity") +
     geom_text(aes(label = round(Estimate, digits = 2)), vjust = -0.5,
             colour = "black") +
-    labs(x = "", y = "Aantal broedparen Gele kwikstaart per 100 ha") +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart\nper 100 ha") +
     scale_y_continuous(limits = c(0, 4)) +
     theme(legend.position = "") +
     facet_wrap(~categorie, labeller = labeller(
