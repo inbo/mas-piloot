@@ -3012,7 +3012,7 @@ summary_scen1_hn5$ds$coeff$key.scale %>%
   kable(digits = 3, caption = "Half-normal model")
 ```
 
-Visualisatie resultaten:
+Ook zien we dat de estimates verschillen. 
 
 ```{r}
 # Vat resultaten Hazard-rate model samen
@@ -3047,7 +3047,7 @@ summary_results_scen1_hn5 <- bind_rows(
            type = "individuals")
   )
 
-# Voorbereiding dataframes voor visualisatie
+# Voorbereiding dataframes
 df_results_hr5 <- summary_results_scen1_hr5 %>%
   filter(type == "individuals") %>%
   mutate(variable = recode_factor(variable, 
@@ -3063,8 +3063,20 @@ df_results_hn5 <- summary_results_scen1_hn5 %>%
             density = "Aantal broedparen Gele kwikstaart per 100 ha"),
          regio = ifelse(Label == "Total", "totaal", Label),
          model = "Half-normal")
+```
 
-# Breng dataframes samen en plot
+Tabel:
+
+```{r}
+rbind(df_results_hr5, df_results_hn5) %>%
+  select(model, regio, variable, Estimate, se, lcl, ucl) %>%
+  arrange(model, regio, variable) %>%
+  kable(digits = 3)
+```
+
+Plot:
+
+```{r}
 rbind(df_results_hr5, df_results_hn5) %>%
   ggplot(aes(x = regio, y = Estimate, colour = model)) + 
     geom_point(position = position_dodge(width = 0.5), size = 4) + 
@@ -3074,7 +3086,6 @@ rbind(df_results_hr5, df_results_hn5) %>%
     facet_wrap(~variable, scales = "free_y") +
     labs(x = "", y = "", title = "P(detectie) ~ regio + sbp")
 ```
-
 
 
 ### Discussie
