@@ -2818,7 +2818,7 @@ mapview(full_df, zcol = "correct")
 
 ### Model fit en selectie
 
-We gaan opnieuw tewerk zoals in subsectie \@ref(Distance). We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten regio, sbp en openheid. We beschouwen ook interacties. Voor de uniforme verdeling kunnen geen covariaten worden toegevoegd.
+We gaan opnieuw tewerk zoals in subsectie \@ref(Distance). We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten regio, sbp en openheid. We beschouwen ook interacties. De interactie tussen regio en openheid kan niet gefit worden (geen HOL in De Moeren). Voor de uniforme verdeling kunnen geen covariaten worden toegevoegd.
 
 - Fitting uniform key function
 
@@ -2873,34 +2873,19 @@ ds_scen1_hn9 <- ds(data = df_dist_terr, key = "hn", formula = ~ regio * sbp,
                    adjustment = NULL, truncation = 300, transect = "point", 
                    dht_group = FALSE, convert_units = conversion_factor)
 
-ds_scen1_hn10 <- ds(data = df_dist_terr, key = "hn", 
-                   formula = ~ regio * openheid,
-                 adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, convert_units = conversion_factor)
+ds_scen1_hn10 <- ds(data = df_dist_terr, key = "hn", formula = ~ sbp * openheid,
+                    adjustment = NULL, truncation = 300, transect = "point", 
+                    dht_group = FALSE, convert_units = conversion_factor)
 
-ds_scen1_hn11 <- ds(data = df_dist_terr, key = "hn", formula = ~ sbp * openheid,
-                 adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, convert_units = conversion_factor)
+ds_scen1_hn11 <- ds(data = df_dist_terr, key = "hn", 
+                    formula = ~ regio + sbp * openheid,
+                    adjustment = NULL, truncation = 300, transect = "point", 
+                    dht_group = FALSE, convert_units = conversion_factor)
 
 ds_scen1_hn12 <- ds(data = df_dist_terr, key = "hn", 
-                   formula = ~ regio * sbp * openheid,
-                   adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
-
-ds_scen1_hn13 <- ds(data = df_dist_terr, key = "hn", 
-                   formula = ~ regio + sbp * openheid,
-                   adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
-
-ds_scen1_hn14 <- ds(data = df_dist_terr, key = "hn", 
-                   formula = ~ regio * sbp + openheid,
-                   adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
-
-ds_scen1_hn15 <- ds(data = df_dist_terr, key = "hn", 
-                   formula = ~ regio * openheid + sbp,
-                   adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                    formula = ~ regio * sbp + openheid,
+                    adjustment = NULL, truncation = 300, transect = "point", 
+                    dht_group = FALSE, convert_units = conversion_factor)
 ```
 
 - Fitting hazard-rate key function
@@ -2948,35 +2933,36 @@ ds_scen1_hr9 <- ds(data = df_dist_terr, key = "hr", formula = ~ regio * sbp,
                    adjustment = NULL, truncation = 300, transect = "point", 
                    dht_group = FALSE, convert_units = conversion_factor)
 
-ds_scen1_hr10 <- ds(data = df_dist_terr, key = "hr", 
-                   formula = ~ regio * openheid,
-                 adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, convert_units = conversion_factor)
+ds_scen1_hr10 <- ds(data = df_dist_terr, key = "hr", formula = ~ sbp * openheid,
+                    adjustment = NULL, truncation = 300, transect = "point", 
+                    dht_group = FALSE, convert_units = conversion_factor)
 
-ds_scen1_hr11 <- ds(data = df_dist_terr, key = "hr", formula = ~ sbp * openheid,
-                 adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, convert_units = conversion_factor)
+ds_scen1_hr11 <- ds(data = df_dist_terr, key = "hr", 
+                    formula = ~ regio + sbp * openheid,
+                    adjustment = NULL, truncation = 300, transect = "point", 
+                    dht_group = FALSE, convert_units = conversion_factor)
 
 ds_scen1_hr12 <- ds(data = df_dist_terr, key = "hr", 
-                   formula = ~ regio * sbp * openheid,
-                   adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
-
-ds_scen1_hr13 <- ds(data = df_dist_terr, key = "hr", 
-                   formula = ~ regio + sbp * openheid,
-                   adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
-
-ds_scen1_hr14 <- ds(data = df_dist_terr, key = "hr", 
-                   formula = ~ regio * sbp + openheid,
-                   adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
-
-ds_scen1_hr15 <- ds(data = df_dist_terr, key = "hr", 
-                   formula = ~ regio * openheid + sbp,
-                   adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                    formula = ~ regio * sbp + openheid,
+                    adjustment = NULL, truncation = 300, transect = "point", 
+                    dht_group = FALSE, convert_units = conversion_factor)
 ```
+
+We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC’s kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. Modellen met vergelijkbare AIC’s hebben vergelijkbare geschatte detectiekansen, dus in de praktijk is er weinig verschil in de keuze tussen deze modellen.
+
+```{r}
+summarize_ds_models(ds_scen1_unif1, 
+                    ds_scen1_hn1, ds_scen1_hn2, ds_scen1_hn3, 
+                    ds_scen1_hn4, ds_scen1_hn5, ds_scen1_hn6, ds_scen1_hn7, 
+                    ds_scen1_hn8, ds_scen1_hn9, ds_scen1_hn10, ds_scen1_hn11, 
+                    ds_scen1_hn12,
+                    ds_scen1_hr1, ds_scen1_hr2, ds_scen1_hr3, 
+                    ds_scen1_hr4, ds_scen1_hr5, ds_scen1_hr6, ds_scen1_hr7, 
+                    ds_scen1_hr8, ds_scen1_hr9, ds_scen1_hr10, ds_scen1_hr11, 
+                    ds_scen1_hr12) %>%
+  kable()
+```
+
 
 
 ### Resultaten en visualisatie
