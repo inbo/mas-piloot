@@ -2971,7 +2971,7 @@ par(mfrow = c(1, 2))
 
 gof_ds(ds_scen1_hr5, main = "ds_scen1_hr5")
 
-plot(ds_scen1_hr5, pdf = FALSE, main = "P(detectie) ~ regio +sbp")
+plot(ds_scen1_hr5, pdf = FALSE, main = "P(detectie) ~ regio + sbp")
 
 par(mfrow = c(1, 1))
 plot(ds_scen1_hr5, pdf = TRUE, 
@@ -2985,7 +2985,7 @@ par(mfrow = c(1, 2))
 
 gof_ds(ds_scen1_hn5, main = "ds_scen1_hn5")
 
-plot(ds_scen1_hn5, pdf = FALSE, main = "P(detectie) ~ regio +sbp")
+plot(ds_scen1_hn5, pdf = FALSE, main = "P(detectie) ~ regio + sbp")
 
 par(mfrow = c(1, 1))
 plot(ds_scen1_hn5, pdf = TRUE, 
@@ -3011,6 +3011,70 @@ summary_scen1_hn5 <- summary(ds_scen1_hn5)
 summary_scen1_hn5$ds$coeff$key.scale %>%
   kable(digits = 3, caption = "Half-normal model")
 ```
+
+Visualisatie resultaten:
+
+```{r}
+# Vat resultaten Hazard-rate model samen
+summary_results_scen1_hr5 <- bind_rows(
+  summary_scen1_hr5$dht$clusters$D %>%
+    mutate(variable = "density",
+           type = "clusters"),
+  summary_scen1_hr5$dht$clusters$N %>%
+    mutate(variable = "abundance",
+           type = "clusters"),
+  summary_scen1_hr5$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "individuals"),
+  summary_scen1_hr5$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "individuals")
+  )
+
+# Vat resultaten Half-normal model samen
+summary_results_scen1_hn5 <- bind_rows(
+  summary_scen1_hn5$dht$clusters$D %>%
+    mutate(variable = "density",
+           type = "clusters"),
+  summary_scen1_hn5$dht$clusters$N %>%
+    mutate(variable = "abundance",
+           type = "clusters"),
+  summary_scen1_hn5$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "individuals"),
+  summary_scen1_hn5$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "individuals")
+  )
+
+# Voorbereiding dataframes voor visualisatie
+df_results_hr5 <- summary_results_scen1_hr5 %>%
+  filter(type == "individuals") %>%
+  mutate(variable = recode_factor(variable, 
+            abundance = "Totaal aantal broedparen Gele kwikstaart",
+            density = "Aantal broedparen Gele kwikstaart per 100 ha"),
+         regio = ifelse(Label == "Total", "totaal", Label),
+         model = "Hazard-rate")
+
+df_results_hn5 <- summary_results_scen1_hn5 %>%
+  filter(type == "individuals") %>%
+  mutate(variable = recode_factor(variable, 
+            abundance = "Totaal aantal broedparen Gele kwikstaart",
+            density = "Aantal broedparen Gele kwikstaart per 100 ha"),
+         regio = ifelse(Label == "Total", "totaal", Label),
+         model = "Half-normal")
+
+# Breng dataframes samen en plot
+rbind(df_results_hr5, df_results_hn5) %>%
+  ggplot(aes(x = regio, y = Estimate, colour = model)) + 
+    geom_point(position = position_dodge(width = 0.5), size = 4) + 
+    geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25,
+                  position = position_dodge(width = 0.5)) +
+    scale_y_continuous(limits = c(0, NA)) +
+    facet_wrap(~variable, scales = "free_y") +
+    labs(x = "", y = "", title = "P(detectie) ~ regio + sbp")
+```
+
 
 
 ### Discussie
