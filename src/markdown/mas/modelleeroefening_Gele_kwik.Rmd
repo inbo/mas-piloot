@@ -2998,6 +2998,20 @@ plot(ds_scen1_hn5, pdf = TRUE,
 
 ### Resultaten en visualisatie
 
+We vergelijken de resultaten van beide modellen.  
+  
+De coëfficiënten verschillend lichtjes tussen beide modellen:
+
+```{r}
+summary_scen1_hr5 <- summary(ds_scen1_hr5)
+summary_scen1_hr5$ds$coeff$key.scale %>%
+  kable(digits = 3, caption = "Hazard-rate model")
+
+summary_scen1_hn5 <- summary(ds_scen1_hn5)
+summary_scen1_hn5$ds$coeff$key.scale %>%
+  kable(digits = 3, caption = "Half-normal model")
+```
+
 
 ### Discussie
 
