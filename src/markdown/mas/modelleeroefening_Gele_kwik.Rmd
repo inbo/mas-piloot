@@ -2653,7 +2653,6 @@ df_dist_terr
 ```
 
 
-
 ### Data exploratie
 
 Samenvattende tabel aantal broedparen per stratum. Area is in km².
@@ -2662,9 +2661,9 @@ Samenvattende tabel aantal broedparen per stratum. Area is in km².
 df_dist_terr %>%
   st_drop_geometry() %>%
   group_by(regio, sbp, openheid, Area) %>%
-  summarise(aantal_broedparen_per_stratum = sum(size)) %>%
+  summarise(aantal_broedparen = sum(size)) %>%
   group_by(regio) %>%
-  mutate(aantal_broedparen_per_regio = sum(aantal_broedparen_per_stratum)) %>%
+  mutate(aantal_broedparen_per_regio = sum(aantal_broedparen)) %>%
   select(-Area, everything(), Area) %>%
   rename(area_per_regio = Area) %>%
   kable()
@@ -2818,6 +2817,166 @@ mapview(full_df, zcol = "correct")
 
 
 ### Model fit en selectie
+
+We gaan opnieuw tewerk zoals in subsectie \@ref(Distance). We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten regio, sbp en openheid. We beschouwen ook interacties. Voor de uniforme verdeling kunnen geen covariaten worden toegevoegd.
+
+- Fitting uniform key function
+
+```{r}
+ds_scen1_unif1 <- ds(data = df_dist_terr, key = "unif", truncation = 300, 
+                     transect = "point", dht_group = FALSE,
+                     convert_units = conversion_factor)
+```
+
+- Fitting half-normal key function
+
+```{r}
+# Null model
+ds_scen1_hn1 <- ds(data = df_dist_terr, key = "hn", truncation = 300, 
+                   transect = "point", dht_group = FALSE,
+                   convert_units = conversion_factor)
+
+# Single covariate
+ds_scen1_hn2 <- ds(data = df_dist_terr, key = "hn", formula = ~ regio,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn3 <- ds(data = df_dist_terr, key = "hn", formula = ~ sbp,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn4 <- ds(data = df_dist_terr, key = "hn", formula = ~ openheid,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+# Combination of covariates
+ds_scen1_hn5 <- ds(data = df_dist_terr, key = "hn", formula = ~ regio + sbp,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn6 <- ds(data = df_dist_terr, key = "hn", 
+                   formula = ~ regio + openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn7 <- ds(data = df_dist_terr, key = "hn", formula = ~ sbp + openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn8 <- ds(data = df_dist_terr, key = "hn", 
+                   formula = ~ regio + sbp + openheid,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+# Interactions between covariates
+ds_scen1_hn9 <- ds(data = df_dist_terr, key = "hn", formula = ~ regio * sbp,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn10 <- ds(data = df_dist_terr, key = "hn", 
+                   formula = ~ regio * openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn11 <- ds(data = df_dist_terr, key = "hn", formula = ~ sbp * openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn12 <- ds(data = df_dist_terr, key = "hn", 
+                   formula = ~ regio * sbp * openheid,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn13 <- ds(data = df_dist_terr, key = "hn", 
+                   formula = ~ regio + sbp * openheid,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn14 <- ds(data = df_dist_terr, key = "hn", 
+                   formula = ~ regio * sbp + openheid,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hn15 <- ds(data = df_dist_terr, key = "hn", 
+                   formula = ~ regio * openheid + sbp,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+```
+
+- Fitting hazard-rate key function
+
+```{r}
+# Null model
+ds_scen1_hr1 <- ds(data = df_dist_terr, key = "hr", truncation = 300, 
+                   transect = "point", dht_group = FALSE,
+                   convert_units = conversion_factor)
+
+# Single covariate
+ds_scen1_hr2 <- ds(data = df_dist_terr, key = "hr", formula = ~ regio,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr3 <- ds(data = df_dist_terr, key = "hr", formula = ~ sbp,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr4 <- ds(data = df_dist_terr, key = "hr", formula = ~ openheid,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+# Combination of covariates
+ds_scen1_hr5 <- ds(data = df_dist_terr, key = "hr", formula = ~ regio + sbp,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr6 <- ds(data = df_dist_terr, key = "hr", 
+                   formula = ~ regio + openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr7 <- ds(data = df_dist_terr, key = "hr", formula = ~ sbp + openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr8 <- ds(data = df_dist_terr, key = "hr", 
+                   formula = ~ regio + sbp + openheid,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+# Interactions between covariates
+ds_scen1_hr9 <- ds(data = df_dist_terr, key = "hr", formula = ~ regio * sbp,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr10 <- ds(data = df_dist_terr, key = "hr", 
+                   formula = ~ regio * openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr11 <- ds(data = df_dist_terr, key = "hr", formula = ~ sbp * openheid,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr12 <- ds(data = df_dist_terr, key = "hr", 
+                   formula = ~ regio * sbp * openheid,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr13 <- ds(data = df_dist_terr, key = "hr", 
+                   formula = ~ regio + sbp * openheid,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr14 <- ds(data = df_dist_terr, key = "hr", 
+                   formula = ~ regio * sbp + openheid,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+
+ds_scen1_hr15 <- ds(data = df_dist_terr, key = "hr", 
+                   formula = ~ regio * openheid + sbp,
+                   adjustment = NULL, truncation = 300, transect = "point", 
+                   dht_group = FALSE, convert_units = conversion_factor)
+```
 
 
 ### Resultaten en visualisatie
