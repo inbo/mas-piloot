@@ -2647,7 +2647,11 @@ df_dist_terr <- df_dist_terr_presence2 %>%
 # Voeg Area en Region.Label toe
   full_join(reg_tab, by = "regio") %>%
   mutate(Region.Label = regio)
+
+# Eerste tien rijen van dataset
+df_dist_terr
 ```
+
 
 
 ### Data exploratie
