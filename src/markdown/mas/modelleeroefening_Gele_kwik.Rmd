@@ -2916,7 +2916,7 @@ ds_scen1_hn12 <- ds(data = df_dist_terr, key = "hn",
 - Fitting hazard-rate key function
 
 $$
-g(r, \mathbf{z};\boldsymbol \theta) = 1 - \exp{\left( \left( -\frac-r}{\sigma(\mathbf{z})}\right)^{-b} \right)}
+g(r, \mathbf{z};\boldsymbol \theta) = 1 - \exp{\left( \left( -\frac{r}{\sigma(\mathbf{z})}\right)^{-b} \right)}
 $$
 met scale parameter
 
