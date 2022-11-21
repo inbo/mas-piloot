@@ -2824,25 +2824,25 @@ $$
 p = \int_0^w\frac{2r}{w^2}g(r;\boldsymbol \theta)\,dr
 $$
 
-$p$ is dus de oppervlakte onder de detectiecurve. De volgende figuur toont een fictief voorbeeld van een histogram met afstanden van 0 tot 300 meter ($w = 300$). Het is duidelijk dat de er op grotere afstand minder waarnemingen zijn. Moest dit niet het geval zijn, zouden de afstanden uniform verdeeld zijn zoals de blauwe box. Alles zou gezien zijn en $p = 1$. Dit is hier dus niet het geval. De rode curve is een half-normale detectiecurve gefit op de data. De oppervlakte onder de curve is de gemiddelde detectiekans (de geschatte fractie dieren die gezien zijn). De oppervlakte boven de curve de geschatte fractie dieren die gemist zijn. Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over de telcirkel. We controleren er dus voor dat het moeilijker is om dieren te detecteren op grotere afstand, terwijl we er van uitgaan dat er evenveel zitten op grotere als op kleinere afstanden.
+$p$ is dus de oppervlakte onder de detectiecurve. De volgende figuur toont een fictief voorbeeld van een histogram met afstanden van 0 tot 300 meter ($w = 300$). Het is duidelijk dat de er op grotere afstand minder waarnemingen zijn. Moest dit niet het geval zijn, zouden de afstanden uniform verdeeld zijn zoals de blauwe box. Alles zou gezien zijn en $p = 1$. Dit is hier dus niet het geval. De rode curve is een half-normale detectiecurve gefit op de data. De oppervlakte onder de curve binnen de box is de gemiddelde detectiekans (de geschatte fractie dieren die gezien zijn). De oppervlakte boven de curve binnen de box de geschatte fractie dieren die gemist zijn. Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over de telcirkel. We controleren er dus voor dat het moeilijker is om dieren te detecteren op grotere afstand, terwijl we er van uitgaan dat er evenveel zitten op grotere als op kleinere afstanden.
 
 ```{r}
 set.seed(20221121)
-tibble(distances = rnorm(500, sd = 100)) %>%
+tibble(distances = rnorm(500, sd = 120)) %>%
   mutate(distances = abs(distances)) %>%
-  filter(distances <= 300) %>%
+  #filter(distances <= 300) %>%
   ggplot(aes(x = distances)) +
-    geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = dnorm(0, sd = 100)), 
+    geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = dnorm(0, sd = 120)), 
                   colour = "blue", size = 1, fill = "aliceblue", alpha = 0.05) +
     geom_histogram(aes(y = ..density.. / 2), breaks = seq(0, 300, by = 25), 
                    fill = "white", colour = "black") +
-    stat_function(data = tibble(distances = rnorm(500, sd = 100)) %>%
+    stat_function(data = tibble(distances = rnorm(500, sd = 120)) %>%
                     mutate(distances = abs(distances)),
                   aes(x =  distances), fun = dnorm, n = 1000, 
-                  args = list(sd = 100), colour = "red", size = 1) +
-    geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = dnorm(0, sd = 100)), 
+                  args = list(sd = 120), colour = "red", size = 1) +
+    geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = dnorm(0, sd = 120)), 
               colour = "blue", size = 1, fill = alpha("white", 0)) +
-    labs(x = "Afstand (m)", ylab = "")
+    labs(x = "Afstand (m)", y = "")
 ```
 
 We gaan opnieuw tewerk zoals in subsectie \@ref(Distance). We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten regio, sbp en openheid. De detectiekans word dan berekend conditioneel aan de waargenomen waarden van de covariaten.
