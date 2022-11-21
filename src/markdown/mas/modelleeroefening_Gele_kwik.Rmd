@@ -14,7 +14,6 @@ editor_options:
 
 ```{r setup, include=FALSE}
 renv::restore()
-library(fdrtool) # to sample from halfnormal function
 library(mapview)
 library(INLA)
 library(inlatools)
@@ -2829,22 +2828,21 @@ $p$ is dus de oppervlakte onder de detectiecurve. De volgende figuur toont een f
 
 ```{r}
 set.seed(20221121)
-tibble(distances = rhalfnorm(500, theta = sqrt(pi/2) / 100)) %>%
+tibble(distances = rnorm(500, sd = 100)) %>%
+  mutate(distances = abs(distances)) %>%
   filter(distances <= 300) %>%
   ggplot(aes(x = distances)) +
-    geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, 
-                  ymax = dhalfnorm(0, theta = sqrt(pi/2) / 100)), 
+    geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = dnorm(0, sd = 100)), 
                   colour = "blue", size = 1, fill = "aliceblue", alpha = 0.05) +
-    geom_histogram(aes(y = ..density..), breaks = seq(0, 300, by = 25), 
+    geom_histogram(aes(y = ..density.. / 2), breaks = seq(0, 300, by = 25), 
                    fill = "white", colour = "black") +
-    stat_function(data = tibble(distances = 
-                                rhalfnorm(500, theta = sqrt(pi/2) / 100)),
-                  aes(x =  distances), fun = dhalfnorm, n = 1000, 
-                  args = list(theta = sqrt(pi/2) / 100), colour = "red", 
-                  size = 1) +
-    geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = 0.007978846), 
+    stat_function(data = tibble(distances = rnorm(500, sd = 100)) %>%
+                    mutate(distances = abs(distances)),
+                  aes(x =  distances), fun = dnorm, n = 1000, 
+                  args = list(sd = 100), colour = "red", size = 1) +
+    geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = dnorm(0, sd = 100)), 
               colour = "blue", size = 1, fill = alpha("white", 0)) +
-    labs(x = "Afstand (m)")
+    labs(x = "Afstand (m)", ylab = "")
 ```
 
 We gaan opnieuw tewerk zoals in subsectie \@ref(Distance). We fitten 3 verschillende detectiefuncties die we laten afhangen van covariaten regio, sbp en openheid. De detectiekans word dan berekend conditioneel aan de waargenomen waarden van de covariaten.
