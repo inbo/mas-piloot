@@ -2824,7 +2824,7 @@ $$
 p = \int_0^w\frac{2r}{w^2}g(r;\boldsymbol \theta)\,dr
 $$
 
-$p$ is dus de oppervlakte onder de detectiecurve. De volgende figuur toont een fictief voorbeeld van een histogram met afstanden van 0 tot 300 meter ($w = 300$). Het is duidelijk dat de er op grotere afstand minder waarnemingen zijn. Moest dit niet het geval zijn zouden de afstanden uniform verdeeld zijn als de blauwe box. Alles zou gezien zijn en $p = 1$. Dit is hier dus niet het geval. De rode curve is een half-normale detectiecurve gefit op de data. De oppervlakte onder de curve is de gemiddelde detectiekans (de geschatte fractie dieren die gezien zijn). De oppervlakte boven de curve de geschatte fractie dieren die gemist zijn. Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over het telpunt. We controleren er dus voor dat het moeilijker is om dieren te detecteren op grote afstand terwijl we er van uitgaan dat er even veel zittenop grote als op kleine afstand.
+$p$ is dus de oppervlakte onder de detectiecurve. De volgende figuur toont een fictief voorbeeld van een histogram met afstanden van 0 tot 300 meter ($w = 300$). Het is duidelijk dat de er op grotere afstand minder waarnemingen zijn. Moest dit niet het geval zijn, zouden de afstanden uniform verdeeld zijn zoals de blauwe box. Alles zou gezien zijn en $p = 1$. Dit is hier dus niet het geval. De rode curve is een half-normale detectiecurve gefit op de data. De oppervlakte onder de curve is de gemiddelde detectiekans (de geschatte fractie dieren die gezien zijn). De oppervlakte boven de curve de geschatte fractie dieren die gemist zijn. Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over de telcirkel. We controleren er dus voor dat het moeilijker is om dieren te detecteren op grotere afstand, terwijl we er van uitgaan dat er evenveel zitten op grotere als op kleinere afstanden.
 
 ```{r}
 set.seed(20221121)
@@ -3024,7 +3024,7 @@ $$
 \sigma(\mathbf{z}) = \exp{\left( \beta_0 + \beta_1 z_{regio} + \beta_2 z_{sbp} \right)}
 $$
 
-De gemiddelde detectiekans verschilt tussen hazard-ratio en half-normal functies. We bekijken model fit van modellen 6 (half-normal) 18 (hazard-rate) m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
+De gemiddelde detectiekans $\hat{P}_a$ verschilt tussen hazard-ratio en half-normal functies waarbij deze steeds lager is voor half-normal modellen. $\hat{P}_a$ is een samenvattende statistiek die ons een idee geeft van hoe detecteerbaar onze $n$ waargenomen dieren zouden zijn om dezelfde abundantie te schatten als er geen waargenomen covariabelen waren. We bekijken model fit van modellen 6 (half-normal) 18 (hazard-rate) m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
 
 ```{r}
 # Hazard-rate in functie van regio en sbp
@@ -3073,25 +3073,25 @@ summary_scen1_hn5$ds$coeff$key.scale %>%
   kable(digits = 3, caption = "Half-normal model")
 ```
 
-We hebben de studieregio in 2 strata opgesplits: De Moeren en de Oostelijke leemstreek. Beschouw $A(s)$ de totale oppervlakte van stratum $s$ tot waar we de abundantieschatting willen extrapoleren en $a(s)$ het gesampled gebied.
+We hebben de studieregio in 2 strata opgesplits: De Moeren en de Oostelijke leemstreek. Beschouw $A(s)$ de totale oppervlakte van stratum $s$ tot waar we de abundantieschatting willen extrapoleren en $a(s)$ het gesampelde gebied.
 
 $$
 a(s) = \pi w^2 T
 $$
-Met $T$ het aantal plots ($n_p$) vermenigvuldigd met het aantal bezoeken (effort). In ons geval hebben we dus $a(s) = \pi 300^2 n_p 4$. Dan is de geschatte abundantie in het gesampled gebied voor elk stratum $s$:
+Met $T$ het aantal plots ($n_p$) vermenigvuldigd met het aantal bezoeken (effort). In ons geval hebben we dus $a(s) = \pi 300^2 n_p 4$. Dan is de geschatte abundantie in het gesampelde gebied voor elk stratum $s$:
 
 $$
 \hat{N}_C(s) = \sum_{i=1}^n \frac{c_i(s)}{\hat{p}(\mathbf{z_i})}
 $$
-Met $c_i(s)$ de clustergrootte in stratum $s$ voor waarneming $i$. In ons geval 1 als de waarneming in stratum $i$ voorkomt en 0 indien niet. De geschatte abundantie in het gesampled gebied kan dan worden opgeschaald naar de totale oppervlakte van het stratum via:
+Met $c_i(s)$ de clustergrootte in stratum $s$ voor waarneming $i$. In ons geval 1 als de waarneming in het stratum voorkomt en 0 indien niet. De geschatte abundantie in het gesampelde gebied kan dan worden opgeschaald naar de totale oppervlakte van het stratum via:
 
 $$
 \hat{N}(s) = \frac{A(s)}{a(s)}\hat{N}_C(s)
 $$
 
-De geschatte densiteit is dan $\hat{N}(s) / A(s)$. De abundanties kunnen ook opgeteld worden voor een totale schatting en een totale densiteit door de totale schatting te delen door de totale oppervlakte (som van oppervlaktes per stratum). Voor berekening van de confidence limits zie `?dht`.  
+De geschatte densiteit is dan $\hat{N}(s) / A(s)$. De abundanties kunnen ook opgeteld worden voor een totale schatting en een totale densiteit door de totale schatting te delen door de totale oppervlakte (som van oppervlaktes per stratum). Voor berekening van de confidence limits zie `?dht`. De confidence limits in de volgende resultaten zijn 95 % confidence intervallen.
 
-Wie zien dat deze estimates ook licht verschillen tussen de modellen. Het geschatte aantal broedparen en de standard errors van het Hazard-rate model zijn telkens lager dan deze van het half-normal model: 
+Wie zien dat de abundantie- en densiteitsestimates ook licht verschillen tussen de modellen. Het geschatte aantal broedparen en de standard errors van het hazard-rate model zijn telkens lager dan deze van het half-normal model. We zagen inderdaad al dat de detectiekans lager was bij Half-normal modellen. Daardoor zal bij het half-normal model er sterker gecorrigeerd worden voor gemiste individuen en bekomen we een hoger geschatte aantal op het einde.
 
 ```{r}
 # Vat resultaten Hazard-rate model samen
@@ -3148,8 +3148,11 @@ Tabel:
 
 ```{r}
 rbind(df_results_hr5, df_results_hn5) %>%
-  select(model, regio, variable, Estimate, se, lcl, ucl) %>%
-  arrange(model, regio, variable) %>%
+  mutate(betekenis = recode_factor(variable, 
+            "Totaal aantal broedparen Gele kwikstaart" = "Totaal aantal broedparen",
+            "Aantal broedparen Gele kwikstaart per 100 ha" = "Aantal per 100 ha")) %>%
+  select(model, regio, betekenis, Estimate, se, lcl, ucl) %>%
+  arrange(model, regio, betekenis) %>%
   kable(digits = 3)
 ```
 
@@ -3170,7 +3173,7 @@ rbind(df_results_hr5, df_results_hn5) %>%
 
 ### Discussie
 
-De volgende figuren tonen het aantal broedparen per 100 ha. Puntschattingen zijn steeds aangegeven; enkel in het geval van distance sampling hebben we confidence limits (95%). Aantal territoria is berekend als het aantal clusters (via **territoria** package) per circeloppervlakte en dan omgezet naar hectare. Bij distance sampling hebben we ook de clusters gebruikt, maar hebben we rekening gehouden met detectiekans. De schattingen worden dan omgezet naar 100 ha o.b.v. de oppervlakte van de regio's en niet o.b.v. de cirkeloppervlakte. Bij het gemiddelde aantal per plot nemen we som van alle gemiddelde aantallen broedparen per plot waarbij we het gemiddelde nemen over de telperiodes en bij het maximum het maximum aantal over de telperiodes per plot. Daarna wordt dit aantal berekend per circeloppervlakte en dan omgezet naar 100 hectare.
+De volgende figuren tonen het aantal broedparen per 100 ha. Puntschattingen zijn steeds aangegeven; enkel in het geval van distance sampling hebben we confidence limits (95 %). Aantal territoria is berekend als het aantal clusters (via **territoria** package) per circeloppervlakte en dan omgezet naar hectare. Bij distance sampling hebben we ook de clusters gebruikt, maar hebben we rekening gehouden met detectiekans. De schattingen worden dan omgezet naar 100 ha o.b.v. de oppervlakte van de regio's en niet o.b.v. de cirkeloppervlakte. Bij het gemiddelde aantal per plot nemen we som van alle gemiddelde aantallen broedparen per plot waarbij we het gemiddelde nemen over de telperiodes en bij het maximum het maximum aantal over de telperiodes per plot. Daarna wordt dit aantal berekend per circeloppervlakte en dan omgezet naar 100 hectare.
 
 ```{r, fig.height=7, fig.width=9}
 p1 <- territoria_per_plot2 %>%
