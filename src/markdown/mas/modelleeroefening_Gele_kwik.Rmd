@@ -702,6 +702,58 @@ grid.arrange(p_pois1_new, p_inlapois1, ncol = 2)
 We krijgen quasi dezelfde resultaten als met **brms**.
 
 
+### STAN{#STAN}
+
+**Op verkenning**
+
+Dit is als oefening/voorbereiding op meer complexe analyses verderop. Kunnen we de resultaten van **brms** repliceren met deze STAN?
+
+Handige links:
+https://gist.github.com/mbjoseph/2eb323610ea10e848a5b1d41377b141b  
+
+Je kan van **brms** naar STAN gaan  met functies `make_stancode()` en `make_standata()`.
+
+```{r}
+stan_models <- here("src", "markdown", "mas", "stan_models")
+
+stan_data <- make_standata(
+  bf(aantal ~ regio + periode_in_jaar + (1 | plotnaam)), 
+  data = gele_kwik_2022, family = poisson()
+  )
+```
+
+We fitten het model aan de data en controleren convergentie.
+
+```{r}
+# Retrieve stan model
+path_stan_pois <- paste(stan_models, "glmm_pois.stan", sep = "/")
+
+# Fit model
+stan_pois <- stan(path_stan_pois, data = stan_data, iter = niter, 
+                  warmup = burnin, hains = nchains, cores = nparallel, 
+                  seed = 1235)
+
+# Check convergence first 10 parameters
+traceplot(stan_pois)
+```
+
+We zien dat de parameters inderdaad gelijkaardig zijn als voordien:
+
+```{r}
+summary(stan_pois, pars = c("b", "Intercept"), 
+        probs = c(0.025, 0.50, 0.975))$summary %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "param") %>%
+  mutate(param = recode(param, 
+                        "b[1]" = "regioOostelijkeleemstreek",
+                        "b[2]" = "periode_in_jaarR2",
+                        "b[3]" = "periode_in_jaarR3",
+                        "b[4]" = "periode_in_jaarR4")) %>%
+  kable(digits = 4)
+```
+
+
+
 ## Distance sampling{#dist-samp}
 ### Distance package{#Distance}
 
@@ -2110,19 +2162,23 @@ newdata_interaction %>%
 Waarom werkt een interactie niet in **unmarked**??
 </span>
 
-### STAN{#STAN}
+### Conventional distance sampling in STAN{#CDS_STAN}
 
 **Op verkenning**
 
 <span style="color: red;">
 als we voor een complex model kiezen (combi GLMM en distance sampling), is het misschien een goed idee om het met STAN te gebruiken, je hebt een beter idee wat er gebeurt/wat je doet  
-  
-je kan van brms naar STAN gaan (make stan...)
 </span>
 
 Handige links:  
 https://discourse.mc-stan.org/t/deriving-abundance-from-a-distance-sampling-model/24565/7  
 https://gist.github.com/mbjoseph/960c3b259d007c81bebbaf9e5be1e250  
+
+
+
+
+
+
 
 
 
@@ -2138,8 +2194,6 @@ Handige links:
 https://inlabru-org.github.io/inlabru/articles/web/2d_lgcp_distancesampling.html  
 https://rpubs.com/jafet089/886687  
 https://inbo.github.io/tutorials/tags/inla/  
-
-
 
 
 ## Opdelen in territoria{#territoria}
