@@ -2830,7 +2830,6 @@ $p$ is dus de oppervlakte onder de detectiecurve. De volgende figuur toont een f
 set.seed(20221121)
 tibble(distances = rnorm(500, sd = 120)) %>%
   mutate(distances = abs(distances)) %>%
-  #filter(distances <= 300) %>%
   ggplot(aes(x = distances)) +
     geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = dnorm(0, sd = 120)), 
                   colour = "blue", size = 1, fill = "aliceblue", alpha = 0.05) +
