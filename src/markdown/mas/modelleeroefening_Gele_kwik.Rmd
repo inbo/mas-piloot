@@ -593,7 +593,7 @@ grid.arrange(p_pois1, p_pois2, ncol = 2)
 Dit is als oefening/voorbereiding op meer complexe analyses verderop. Kunnen we de resultaten van **brms** repliceren met deze package?
 
 Handige links:
-https://www.flutterbys.com.au/stats/tut/tut12.10.html
+https://www.flutterbys.com.au/stats/tut/tut12.10.html  
 https://inbo.github.io/tutorials/tags/inla/  
 https://rpubs.com/Jqedwards/841168  
 
@@ -602,23 +602,23 @@ We fitten opnieuw vier modellen met verschillende verdelingsassumpties.
 ```{r}
 # 1. Poisson
 inlapois1 <- inla(aantal ~ regio + periode_in_jaar + f(plotnaam, model = "iid"), 
-             data = gele_kwik_2022, family = "poisson",
-             control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE, config = TRUE))
+                  data = gele_kwik_2022, family = "poisson",
+                  control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE))
 
 # 2. Negative binomial
 inlanb1 <- inla(aantal ~ regio + periode_in_jaar + f(plotnaam, model = "iid"), 
-             data = gele_kwik_2022, family = "nbinomial",
-             control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE))
+                data = gele_kwik_2022, family = "nbinomial",
+                control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE))
 
 # 3. Zero-inflated Poisson
 inlaZIP1 <- inla(aantal ~ regio + periode_in_jaar + f(plotnaam, model = "iid"), 
-             data = gele_kwik_2022, family = "zeroinflatedpoisson1",
-             control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE))
+                 data = gele_kwik_2022, family = "zeroinflatedpoisson1",
+                 control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE))
 
 # 4. Zero-inflated Negative binomial
 inlaZINB1 <- inla(aantal ~ regio + periode_in_jaar + f(plotnaam, model = "iid"), 
-             data = gele_kwik_2022, family = "zeroinflatednbinomial1",
-             control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE))
+                  data = gele_kwik_2022, family = "zeroinflatednbinomial1",
+                  control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE))
 ```
 
 **Model selectie en fit**
