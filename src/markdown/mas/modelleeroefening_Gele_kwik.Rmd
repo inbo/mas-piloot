@@ -2830,7 +2830,7 @@ $$
 p(\mathbf{z_i}) = \int_0^w\frac{2r}{w^2}g(r, \mathbf{z_i};\boldsymbol \theta)\,dr
 $$
 
-Met $\mathbf{z_i}$ een vector van $J$ (hier $J=3$) covariaten geassocieerd met observatie $i$. We beschouwen ook interacties. De interactie tussen regio en openheid kan niet gefit worden (geen HOL in De Moeren). Voor de uniforme verdeling kunnen geen covariaten worden toegevoegd.
+Met $\mathbf{z_i}$ een vector van $J$ (hier $J=3$) covariaten geassocieerd met observatie $i$. We beschouwen ook interacties. De interactie tussen regio en openheid kan niet gefit worden (geen HOL in De Moeren). Voor de uniforme verdeling kunnen geen covariaten worden toegevoegd. Bij deze verdeling neemt detectiekans niet af en heb je alle individuen gezien.
 
 - Fitting uniform key function
 
