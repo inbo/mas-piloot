@@ -2162,24 +2162,116 @@ newdata_interaction %>%
 Waarom werkt een interactie niet in **unmarked**??
 </span>
 
-### Conventional distance sampling in STAN{#CDS_STAN}
+### Hierarchical distance sampling in STAN{#HDS_STAN}
 
 **Op verkenning**
 
-<span style="color: red;">
-als we voor een complex model kiezen (combi GLMM en distance sampling), is het misschien een goed idee om het met STAN te gebruiken, je hebt een beter idee wat er gebeurt/wat je doet  
-</span>
+Kunnen we de vorige resultaten repliceren in STAN?
 
 Handige links:  
 https://discourse.mc-stan.org/t/deriving-abundance-from-a-distance-sampling-model/24565/7  
-https://gist.github.com/mbjoseph/960c3b259d007c81bebbaf9e5be1e250  
+https://gist.github.com/mbjoseph/960c3b259d007c81bebbaf9e5be1e250 
+https://gist.github.com/mbjoseph/2eb323610ea10e848a5b1d41377b141b
+
+**Data voorbereiden en model fitten**
+
+We fitten een distance sampling model met gecategoriseerde afstandsdata in drie categoriën: 0-100, 100-200, 200-300. We gaan uit van een half-normale detectiefunctie. We berekenen voor elke afstandscategorie $k = 1, ..., n_{cat}$ de waarschijnlijkheid dat een dier aanwezig is en is gedetecteerd:
+
+$$
+p_{k} = \int_{w_k}^{w_{k+1}}\frac{2r}{w^2} \exp{\left( -\frac{r^2}{2\sigma^2} \right)}\,dr
+$$
+
+$$
+p_{k} = \log{(2)} + 2\log{(\sigma)} - 2\log{(w)} + \log{( \exp{(-\frac{r_k^2}{2\exp{(2\log{(\sigma)})}})} - \exp{(-\frac{r_{k+1}^2}{2\exp{(2\log{(\sigma)})}})} )}
+$$
+
+Zodat 
+
+$$
+\log{(p_{k})} = \log{(2)} + 2\log{(\sigma)} - 2\log{(w)} + \log{( \exp{(-\frac{r_k^2}{2\exp{(2\log{(\sigma)})}})} - \exp{(-\frac{r_{k+1}^2}{2\exp{(2\log{(\sigma)})}})} )}
+$$
+
+Met $w$ de maximale afstand. $r_k$ de $k$-de cut-off afstand.
+
+```{r}
+# Hoeveel plots
+n_site <- length(unique(gele_kwik_2022_ds$Sample.Label))
+
+# Aantal afstandscategoriën en cut-offs
+n_distance_bins <- 3
+max_distance <- 300
+bin_breakpoints <- seq(0, max_distance, length.out = n_distance_bins + 1)
+
+# Matrix met aantal observaties per afstandscategorie
+y <- gele_kwik_2022_ds %>% mutate(dist_bin = case_when(
+  between(distance, 0, 100) ~ 1,
+  between(distance, 100, 200) ~ 2,
+  between(distance, 200, 300) ~ 3
+  )) %>%
+  group_by(dist_bin, Sample.Label) %>%
+  summarise(aantal = sum(size)) %>%
+  pivot_wider(names_from = dist_bin, values_from = aantal) %>%
+  select(-c(Sample.Label, `NA`)) %>%
+  mutate(`1` = replace_na(`1`, 0),
+         `2` = replace_na(`2`, 0),
+         `3` = replace_na(`3`, 0)) %>%
+  as.matrix()
+
+# Aantal observaties per plot
+n_obs <- rowSums(y)
+
+# Sla data op voor model te fitten met STAN
+stan_d <- list(
+  n_site = n_site,
+  n_distance_bins = n_distance_bins,
+  bin_breakpoints = bin_breakpoints,
+  y = y,
+  n_obs = n_obs
+)
+
+# Retrieve stan model
+path_stan_distance <- paste(stan_models, "distance_sampling.stan", sep = "/")
+
+# Fit model
+stan_dist <- stan(path_stan_distance, data = stan_d, iter = niter, 
+                  warmup = burnin, chains = nchains, cores = nparallel, 
+                  seed = 1235)
+
+# Check convergence first 10 parameters
+traceplot(stan_dist)
+```
 
 
+**Resultaten**
 
+```{r}
+summary(stan_dist, pars = stan_dist@model_pars[1:4], 
+        probs = c(0.025, 0.50, 0.975))$summary %>%
+  kable(digits = 4)
+```
 
+```{r}
+gele_kwik_2022_ds %>% mutate(dist_bin = case_when(
+  between(distance, 0, 100) ~ 1,
+  between(distance, 100, 200) ~ 2,
+  between(distance, 200, 300) ~ 3
+  )) %>%
+  group_by(dist_bin, Sample.Label) %>%
+  summarise(aantal = sum(size)) %>%
+  pivot_wider(names_from = dist_bin, values_from = aantal) %>%
+  select(-c(`1`, `2`, `3`, `NA`)) %>%
+  cbind(predicted = summary(stan_dist, pars = c("n"))$summary[, "mean"]) %>%
+  as_tibble() %>%
+  full_join(design2022, by = c("Sample.Label" = "plotnaam")) %>%
+  group_by(regio ) %>%
+  summarise(aantal = sum(predicted))
+```
 
+Dit model voorspelt gemiddeld gezien in totaal `r sum(summary(stan_dist, pars = c("n"))$summary[, "mean"])` individuen in de totale regio en een gemiddelde detectiekans van `r exp(sum(summary(stan_dist, pars = c("log_p"))$summary[, "mean"]))`. Wanneer we dit vergelijken met het **Distance** model waarbij we dezelfde breakpoints gebruikten, ook een half-normal functie gebruikten en zonder covariaten, dan zien we gelijkaardige estimates:
 
-
+```{r}
+summary(dsmodelhn2_binned$ddf)
+```
 
 
 ### inlabru package {#inlabru}
