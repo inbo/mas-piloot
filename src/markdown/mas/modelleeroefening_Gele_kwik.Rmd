@@ -2300,8 +2300,20 @@ Dit model voorspelt gemiddeld gezien in totaal `r sum(summary(stan_dist, pars = 
 summary(dsmodelhn2_binned$ddf)
 ```
 
+**Discussie**
 
+Uitbreidingen:
 
+- Model met Hazard-rate functie 
+- Model die ineens schattingen voor de regio's en het totale studiegebied geeft zodat we ook onzekerheid hebben
+- Covariaten toevoegen distance functie
+    - model $\sigma$ in functie van covariaten
+- Covariaten toevoegen abundantieschatting
+    - model $\lambda$ in functie van covariaten
+
+Opmerkingen:
+Kéry and Royle (2015, p. 816): *When you write a paper that uses distance sampling with binned data, one criticism raised by a referee undoubtedly will be that it would be better to use a continuous data model instead of an “approximation.” However, both the continuous distance model and the model for binned data are mere approximations to the actual data-generating process, which we don't know.*  
+We zagen voordien al dat gecategoriseerde afstanden een gelijkaardige oplossing gaven als een continu model. Wel is het allicht veiliger om meer categoriën te nemen.
 
 
 ### inlabru package {#inlabru}
