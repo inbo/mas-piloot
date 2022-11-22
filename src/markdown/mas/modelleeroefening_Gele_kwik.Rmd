@@ -1441,6 +1441,8 @@ https://cran.r-project.org/web/packages/unmarked/vignettes/distsamp.html
 https://www.rdocumentation.org/packages/unmarked/versions/1.2.5/topics/gdistsamp  
 https://rstudio-pubs-static.s3.amazonaws.com/221408_23c61679859e48e6bae0b9c5c2e48a92.html  
 
+Zie ook hoofdstuk 8.4.2. in het boek van Kéry en Royle (2015).
+
 **Data voorbereiden**
 
 We converteren de gegevens naar gegevens op plotniveau met behulp van de functie `formatDistData()`. Dit creëert een object dat tellingen bevat voor elke plot (rij) in elk afstandsinterval (kolommen). Het is belangrijk dat alle onderzochte plots in de analyse worden opgenomen, ook als er geen individuen zijn gedetecteerd.
