@@ -2174,9 +2174,9 @@ https://discourse.mc-stan.org/t/deriving-abundance-from-a-distance-sampling-mode
 https://gist.github.com/mbjoseph/960c3b259d007c81bebbaf9e5be1e250 
 https://gist.github.com/mbjoseph/2eb323610ea10e848a5b1d41377b141b
 
-**Data voorbereiden en model fitten**
+***Bayesian HDS using three-part conditional multinomial model:***
 
-We fitten een distance sampling model met gecategoriseerde afstandsdata in drie categoriën: 0-100, 100-200, 200-300. We gaan uit van een half-normale detectiefunctie. We berekenen de detectiekans $p_h$ voor elke afstandscategorie $h = 1, ...,H$. Beschouw de radius van de telcirkel $B$, $b_h$ de radius tot afstandscategorie $h$ en $\psi_h$ de waarschijnlijkheid dat $r$ in afstandscategorie $h$ zit, met $\psi_h = \frac{A_{h+1} - A_h}{\pi B^2} = \frac{\pi b_{h+1}^2 - \pi b_{h}^2 }{\pi B^2} = \frac{b_{h+1}^2 - b_{h}^2 }{B^2}$ (zie boek Kéry & Royle (2015, p. 807)).
+We fitten een distance sampling model met gecategoriseerde afstandsdata. We gaan uit van een half-normale detectiefunctie. We berekenen de detectiekans $p_h$ voor elke afstandscategorie $h = 1, ...,H$. Beschouw de radius van de telcirkel $B$, $b_h$ de radius tot afstandscategorie $h$ en $\psi_h$ de waarschijnlijkheid dat $r$ in afstandscategorie $h$ zit, met $\psi_h = \frac{A_{h+1} - A_h}{\pi B^2} = \frac{\pi b_{h+1}^2 - \pi b_{h}^2 }{\pi B^2} = \frac{b_{h+1}^2 - b_{h}^2 }{B^2}$ (zie boek Kéry & Royle (2015, p. 807)). De logica achter distance sampling is uitgebreider uitgelegd in \@ref(dist-terr).
 
 $$
 \begin{aligned}
@@ -2198,7 +2198,23 @@ $$
 \end{aligned}
 $$
 
+en dan is $\log{(p)} = \log{\left( \sum_{h = 1}^H \exp{(p_h)} \right)}$
 
+Nu volgt het aantal waargenomen individuen $y_{i,.}$ in plot $i$ voor plots $i = 1, ..., n_{plot}$ de Poisson verdeling, het aantal waargenomen individuen $y_{i,h}$ in afstandscategorie $h$ een multinomiale verdeling en het aantal niet-gedetecteerde dieren $m_{i}$ plot $i$ de Poisson verdeling volgens:
+
+$$
+\begin{aligned}
+y_{i,.} &\sim \text{Poisson}\left(\lambda_i\sum_{h = 1}^H p_h \right)\\
+y_{i,1:H} &\sim \text{Multinomial}(p_{1:H})\\
+m_{i} &\sim \text{Poisson}\left(\lambda_i \left(1 - \sum_{h = 1}^H p_h \right) \right)
+\end{aligned}
+$$
+
+Zodat we de abundantie $N_i$ in plot $i$ kunnen bereken als $N_i = y_{i,.} + m_i$
+
+**Data voorbereiden en model fitten**
+
+Deze werkwijze wordt in een .stan-file geplaatst. 
 
 ```{r}
 # Hoeveel plots
@@ -2251,11 +2267,15 @@ traceplot(stan_dist)
 
 **Resultaten**
 
+De resultaten van de algemene parameters:
+
 ```{r}
 summary(stan_dist, pars = stan_dist@model_pars[1:4], 
         probs = c(0.025, 0.50, 0.975))$summary %>%
   kable(digits = 4)
 ```
+
+We sommeren het gemiddeld aantal voorspelde dieren per regio om tot een totaal te komen per regio. 
 
 ```{r}
 gele_kwik_2022_ds %>% mutate(dist_bin = case_when(
@@ -2274,11 +2294,14 @@ gele_kwik_2022_ds %>% mutate(dist_bin = case_when(
   summarise(aantal = sum(predicted))
 ```
 
-Dit model voorspelt gemiddeld gezien in totaal `r sum(summary(stan_dist, pars = c("n"))$summary[, "mean"])` individuen in de totale regio en een gemiddelde detectiekans van `r exp(sum(summary(stan_dist, pars = c("log_p"))$summary[, "mean"]))`. Wanneer we dit vergelijken met het **Distance** model waarbij we dezelfde breakpoints gebruikten, ook een half-normal functie gebruikten en zonder covariaten, dan zien we gelijkaardige estimates:
+Dit model voorspelt gemiddeld gezien in totaal `r sum(summary(stan_dist, pars = c("n"))$summary[, "mean"])` individuen in het totale studiegebied en een gemiddelde detectiekans van `r exp(sum(summary(stan_dist, pars = c("log_p"))$summary[, "mean"]))`. Wanneer we dit vergelijken met het **Distance** model waarbij we dezelfde breakpoints gebruikten, ook een half-normal functie gebruikten en zonder covariaten, dan zien we gelijkaardige estimates:
 
 ```{r}
 summary(dsmodelhn2_binned$ddf)
 ```
+
+
+
 
 
 ### inlabru package {#inlabru}
