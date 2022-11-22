@@ -754,7 +754,6 @@ summary(stan_pois, pars = c("b", "Intercept"),
 ```
 
 
-
 ## Distance sampling{#dist-samp}
 ### Distance package{#Distance}
 
