@@ -14,6 +14,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 renv::restore()
+library(rstan)
 library(mapview)
 library(INLA)
 library(inlatools)
@@ -730,7 +731,7 @@ path_stan_pois <- paste(stan_models, "glmm_pois.stan", sep = "/")
 
 # Fit model
 stan_pois <- stan(path_stan_pois, data = stan_data, iter = niter, 
-                  warmup = burnin, hains = nchains, cores = nparallel, 
+                  warmup = burnin, chains = nchains, cores = nparallel, 
                   seed = 1235)
 
 # Check convergence first 10 parameters
@@ -2175,23 +2176,29 @@ https://gist.github.com/mbjoseph/2eb323610ea10e848a5b1d41377b141b
 
 **Data voorbereiden en model fitten**
 
-We fitten een distance sampling model met gecategoriseerde afstandsdata in drie categoriën: 0-100, 100-200, 200-300. We gaan uit van een half-normale detectiefunctie. We berekenen voor elke afstandscategorie $k = 1, ..., n_{cat}$ de waarschijnlijkheid dat een dier aanwezig is en is gedetecteerd:
+We fitten een distance sampling model met gecategoriseerde afstandsdata in drie categoriën: 0-100, 100-200, 200-300. We gaan uit van een half-normale detectiefunctie. We berekenen de detectiekans $p_h$ voor elke afstandscategorie $h = 1, ...,H$. Beschouw de radius van de telcirkel $B$, $b_h$ de radius tot afstandscategorie $h$ en $\psi_h$ de waarschijnlijkheid dat $r$ in afstandscategorie $h$ zit, met $\psi_h = \frac{A_{h+1} - A_h}{\pi B^2} = \frac{\pi b_{h+1}^2 - \pi b_{h}^2 }{\pi B^2} = \frac{b_{h+1}^2 - b_{h}^2 }{B^2}$ (zie boek Kéry & Royle (2015, p. 807)).
 
 $$
-p_{k} = \int_{w_k}^{w_{k+1}}\frac{2r}{w^2} \exp{\left( -\frac{r^2}{2\sigma^2} \right)}\,dr
-$$
-
-$$
-p_{k} = \log{(2)} + 2\log{(\sigma)} - 2\log{(w)} + \log{( \exp{(-\frac{r_k^2}{2\exp{(2\log{(\sigma)})}})} - \exp{(-\frac{r_{k+1}^2}{2\exp{(2\log{(\sigma)})}})} )}
+\begin{aligned}
+p_{h} &= \psi_h\int_{b_h}^{b_{h+1}}\text{Pr}(y = 1|r, r \in h)\frac{2r}{b_{h+1}^2 - b_{h}^2}\,dr\\
+&= \frac{b_{h+1}^2 - b_{h}^2}{B^2} \int_{b_h}^{b_{h+1}}\frac{2r}{b_{h+1}^2 - b_{h}^2} \exp{\left( -\frac{r^2}{2\sigma^2} \right)}\,dr\\
+&= \frac{b_{h+1}^2 - b_{h}^2}{B^2} \frac{2}{b_{h+1}^2 - b_{h}^2}\int_{b_h}^{b_{h+1}}r\exp{\left( -\frac{r^2}{2\sigma^2} \right)}\,dr\\
+&= \frac{2}{B^2} (-\sigma^2)\exp{\left( -\frac{r^2}{2\sigma^2} \right)}\Bigg|_{b_h}^{b_{h+1}}\\
+&= \frac{-2\sigma^2}{B^2} \left(\exp{\left( -\frac{b_{h+1}^2}{2\sigma^2}\right)} - \exp{\left( -\frac{b_h^2}{2\sigma^2}\right)}\right)\\
+&= \frac{2\sigma^2}{B^2} \left(\exp{\left( -\frac{b_{h}^2}{2\sigma^2}\right)} - \exp{\left( -\frac{b_{h+1}^2}{2\sigma^2}\right)}\right)
+\end{aligned}
 $$
 
 Zodat 
 
 $$
-\log{(p_{k})} = \log{(2)} + 2\log{(\sigma)} - 2\log{(w)} + \log{( \exp{(-\frac{r_k^2}{2\exp{(2\log{(\sigma)})}})} - \exp{(-\frac{r_{k+1}^2}{2\exp{(2\log{(\sigma)})}})} )}
+\begin{aligned}
+\log{(p_{h})} &= \log{(2)} + 2\log{(\sigma)} - 2\log{(B)} + \log{\left(\exp{\left( -\frac{b_{h}^2}{2\sigma^2}\right)} - \exp{\left( -\frac{b_{h+1}^2}{2\sigma^2}\right)}\right)}\\
+&= \log{(2)} + 2\log{(\sigma)} - 2\log{(B)} + \log{\left(\exp{\left( -\frac{b_{h}^2}{2\exp{(2\log{(\sigma)})}}\right)} - \exp{\left( -\frac{b_{h+1}^2}{2\exp{(2\log{(\sigma)})}}\right)}\right)}
+\end{aligned}
 $$
 
-Met $w$ de maximale afstand. $r_k$ de $k$-de cut-off afstand.
+
 
 ```{r}
 # Hoeveel plots
