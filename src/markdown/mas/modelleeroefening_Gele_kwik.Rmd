@@ -2310,6 +2310,7 @@ Uitbreidingen:
 - Covariaten toevoegen abundantieschatting
     - model $\lambda$ in functie van covariaten
 - Vergelijk verschillende modellen o.b.v. DIC, WAIC ...
+- Priors bekijken
 
 Opmerkingen:
 Kéry and Royle (2015, p. 816): *When you write a paper that uses distance sampling with binned data, one criticism raised by a referee undoubtedly will be that it would be better to use a continuous data model instead of an “approximation.” However, both the continuous distance model and the model for binned data are mere approximations to the actual data-generating process, which we don't know.*  
