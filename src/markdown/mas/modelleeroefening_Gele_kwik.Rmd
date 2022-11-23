@@ -1216,7 +1216,7 @@ dist_model2 <- summary_results %>%
                position = position_dodge(width = 0.5)) +
     geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
                   width = 0.25, position = position_dodge(width = 0.5)) + 
-    scale_y_continuous(breaks = seq(0, 3, 0.5), limits = c(0, 3)) +
+    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
     labs(x = "", y = "Aantal broedparen gele kwikstaart per 100 ha", 
          title = "Distance sampling continuous") +
     theme(legend.position = "bottom")
@@ -1229,7 +1229,7 @@ dist_model_binned <- summary_results_binned %>%
                position = position_dodge(width = 0.5)) +
     geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
                   width = 0.25, position = position_dodge(width = 0.5)) + 
-    scale_y_continuous(breaks = seq(0, 3, 0.5), limits = c(0, 3)) +
+    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
     labs(x = "", y = "", 
          title = "Distance sampling binned") +
     theme(legend.position = "bottom")
@@ -1405,7 +1405,7 @@ dist_model_hr1 <- summary_results %>%
                position = position_dodge(width = 0.5)) +
     geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
                   width = 0.25, position = position_dodge(width = 0.5)) + 
-    scale_y_continuous(breaks = seq(0, 3, 0.5), limits = c(0, 3)) +
+    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
     labs(x = "", y = "Aantal broedparen Gele kwikstaart per 100 ha", 
          title = "P(detectie) ~ 1") +
     theme(legend.position = "bottom")
@@ -1418,7 +1418,7 @@ dist_model_hr8 <- summary_results_hr8 %>%
                position = position_dodge(width = 0.5)) +
     geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
                   width = 0.25, position = position_dodge(width = 0.5)) + 
-    scale_y_continuous(breaks = seq(0, 3, 0.5), limits = c(0, 3)) +
+    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
     labs(x = "", y = "", 
          title = "P(detectie) ~ sbp + regio + sbp:regio") +
     theme(legend.position = "bottom")
@@ -1427,7 +1427,7 @@ dist_model_hr8 <- summary_results_hr8 %>%
 grid.arrange(dist_model_hr1, dist_model_hr8, ncol = 2)
 ```
 
-We zien kleine verschillen.
+We zien kleine verschillen. Vooral in De Moeren wel iets lager met covariaten.
 
 
 ### unmarked package{#unmarked}
@@ -2783,7 +2783,7 @@ In dit scenario clusteren we waarnemingen tot broedparen met **territoria**. Daa
 
 ### Data voorbereiden
 
-In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten van waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten, `Effort` is het aantal keer dat een plot is bezocht (overal 4). `Region.Label` is een label voor elke regio (zelfde als `regio`-kolom).
+In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten van waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten, `Effort` is het aantal keer dat een plot is bezocht (overal 1). `Region.Label` is een label voor elke regio (zelfde als `regio`-kolom).
 
 ```{r}
 # Voeg clusters toe aan presence data
@@ -2823,7 +2823,7 @@ df_dist_terr_presence2 <- left_join(df_dist_terr_presence %>% as.data.frame(),
 # Voeg afwezigheden en sampling effort toe
 effort_df <- bezoekenlijst_2022 %>%
   group_by(plotnaam) %>%
-  mutate(Effort = n_distinct(periode_in_jaar)) %>%
+  mutate(Effort = 1) %>%
   select(-c(periode_in_jaar, stratum)) %>%
   distinct() %>%
   ungroup()
@@ -3370,7 +3370,7 @@ p1 <- territoria_per_plot2 %>%
     geom_bar(aes(fill = regio), stat = "identity") +
     geom_text(aes(label = round(Estimate, digits = 2)), vjust = -0.5,
               colour = "black") +
-    scale_y_continuous(limits = c(0, 4)) +
+    scale_y_continuous(limits = c(0, 14)) +
     labs(x = "", y = "Aantal broedparen Gele kwikstaart\nper 100 ha", 
          title = "Aantal territoria") +
   theme(legend.position = "")
@@ -3384,7 +3384,7 @@ p2 <- rbind(df_results_hr5, df_results_hn5) %>%
             position = position_dodge(width = 1.75), vjust = -0.25) +
     geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25,
                   position = position_dodge(width = 0.5)) +
-    scale_y_continuous(limits = c(0, 4)) +
+    scale_y_continuous(limits = c(0, 14)) +
     scale_colour_manual(values = c("orange", "purple")) +
     labs(x = "", y = "", title = "P(detectie) ~ regio + sbp")
 
