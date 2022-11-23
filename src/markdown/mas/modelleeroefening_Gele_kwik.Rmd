@@ -3501,5 +3501,3 @@ grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
 })
 ```
 
-
-
