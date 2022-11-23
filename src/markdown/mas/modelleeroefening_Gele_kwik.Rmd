@@ -763,6 +763,7 @@ In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarm
 
 Handige links:  
 https://www.jstatsoft.org/article/download/v089i01/1288  
+http://distancesampling.org/downloads/dist_encyc_env.pdf
 
 
 ```{r data-dist}
