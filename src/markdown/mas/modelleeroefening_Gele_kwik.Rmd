@@ -825,7 +825,7 @@ gele_kwik_2022_ds <- gele_kwik_2022_distance %>%
   rename(Sample.Label = plotnaam, size = aantal, distance = distance2plot) %>%
   mutate(Region.Label = paste(regio, periode_in_jaar, sep = " - ")) %>%
   group_by(Sample.Label) %>%
-  mutate(Effort = n_distinct(periode_in_jaar))
+  mutate(Effort = 1)
 ```
 
 **Model selectie en fit**
