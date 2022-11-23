@@ -25,3 +25,10 @@ library(tidyverse)
 library(sf)
 ```
 
+
+# Inlezen data
+
+```{r}
+data_path <- here("data", "mas")
+```
+
