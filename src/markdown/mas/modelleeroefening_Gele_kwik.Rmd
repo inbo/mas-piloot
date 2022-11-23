@@ -3501,3 +3501,7 @@ grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
 })
 ```
 
+
+- Hoe kunnen we hypotheses testen? Effect class package Thierry?
+- Oppervalkte $A$ moet enkel HOL en OL zijn om abundanties te schatten. Nu zit daar ook nog stedelijk gebied in enzo.
+
