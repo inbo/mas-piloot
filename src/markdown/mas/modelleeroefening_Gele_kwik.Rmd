@@ -587,6 +587,7 @@ p_pois2 <- plot(pred_interaction, plot = FALSE)[[1]] +
 grid.arrange(p_pois1, p_pois2, ncol = 2)
 ```
 
+
 ### INLA package{#INLA}
 
 **Op verkenning**
@@ -1429,6 +1430,69 @@ grid.arrange(dist_model_hr1, dist_model_hr8, ncol = 2)
 ```
 
 We zien kleine verschillen. Vooral in De Moeren wel iets lager met covariaten.
+  
+  
+Krijgen we dezelfde resultaten als we geen rekening houden met telperiode en effort = 4 zetten?
+
+```{r}
+gele_kwik_2022_ds_new <- gele_kwik_2022_ds %>%
+  mutate(Effort = 4,
+         Region.Label = regio)
+  
+dsmodelhr8_new <- ds(data = gele_kwik_2022_ds_new, key = "hr", 
+                 formula = ~ regio + sbp + regio:sbp,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE,
+                 convert_units = conversion_factor)
+
+summary_hr8_new <- summary(dsmodelhr8_new)
+
+summary_results_hr8_new <- bind_rows(
+  summary_hr8_new$dht$clusters$D %>%
+    mutate(variable = "density",
+           type = "clusters"),
+  summary_hr8_new$dht$clusters$N %>%
+    mutate(variable = "abundance",
+           type = "clusters"),
+  summary_hr8_new$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "individuals"),
+  summary_hr8_new$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "individuals")
+  )
+
+# Effort = 1 model
+dist_model_hr8 <- summary_results_hr8 %>%
+  filter(type == "individuals", variable == "density") %>%
+  ggplot(aes(x = regio, y = Estimate)) + 
+    geom_point(aes(colour = periode_in_jaar), size = 4, 
+               position = position_dodge(width = 0.5)) +
+    geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
+                  width = 0.25, position = position_dodge(width = 0.5)) + 
+    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart per 100 ha", 
+         title = "Per periode en effort = 1") +
+    theme(legend.position = "bottom")
+
+# Effort = 4 model
+dist_model_hr8_new <- summary_results_hr8_new %>%
+  filter(type == "individuals", 
+         variable == "density",
+         Label != "Total") %>%
+  ggplot(aes(x = Label, y = Estimate)) + 
+    geom_point(aes(colour = Label), size = 4, 
+               position = position_dodge(width = 0.5)) +
+    geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = Label), 
+                  width = 0.25, position = position_dodge(width = 0.5)) + 
+    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
+    labs(x = "", y = "", 
+         title = "Per regio en effort = 4") +
+    theme(legend.position = "bottom")
+
+
+grid.arrange(dist_model_hr8, dist_model_hr8_new, ncol = 2)
+```
 
 
 ### unmarked package{#unmarked}
