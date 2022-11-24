@@ -66,3 +66,20 @@ issue_list <- issue_list_raw %>%
 ```
 
 
+# Hoe zien de data eruit?
+
+```{r}
+glimpse(issue_list)
+```
+
+- name: tellerscode van de waarnemer
+- beschrijving:
+    - OK = punt kan geteld worden
+    - andere tekstuele opmerking beschrijft waarom (beter) niet
+- beslissing: omzetting van beschrijving naar concrete beslissingsboom
+    - behouden: dit punt wordt geteld
+    - vervangen door bestaand: een oud MAS punt  (uit vorige programma) kan verdergezet worden omdat het centrum van het nieuw punt in de telcirkel van het oude MAS punt valt
+    - vervangen door reserve: dit punt wordt vervangen door een resevepunt omdat het niet voldoet aan onze voorwaarden
+- vervanging_id: id van het punt waardoor het vervangen wordt. Dat reserve punt kan dan op zijn beurt ook nog vervangen worden (indien afgekeurd) door een ander reserve punt.
+- rest van de kolommen zijn eigenschappen/klassen van dat punt
+
