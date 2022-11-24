@@ -29,6 +29,31 @@ library(sf)
 # Inlezen data
 
 ```{r}
+# Create data path
 data_path <- here("data", "mas")
+
+# Read data
+issue_list_raw <- st_read(paste(data_path, "MAS punten 2022 per teller.kml", sep = "/"))
+
+# Parse to table
+issue_list <- issue_list_raw %>%
+  st_drop_geometry() %>%
+  mutate(Description = gsub("description: ", "", Description),
+         beschrijving = str_match(Description, "<br>beschrijving:\\s*(.*?)\\s*<br>")[, 2],
+         beslissing = str_match(Description, "<br>beslissing:\\s*(.*?)\\s*<br>")[, 2],
+         vervanging_id = str_match(Description, "<br>vervanging_id:\\s*(.*?)\\s*<br>")[, 2],
+         pointid = str_match(Description, "<br>pointid:\\s*(.*?)\\s*<br>")[, 2],
+         Naam = str_match(Description, "<br>Naam:\\s*(.*?)\\s*<br>")[, 2],
+         openheid_sbp = str_match(Description, "<br>openheid_sbp:\\s*(.*?)\\s*<br>")[, 2],
+         batch = str_match(Description, "<br>batch:\\s*(.*?)\\s*<br>")[, 2],
+         sample_order = str_match(Description, "<br>Naam:\\s*(.*?)\\s*<br>")[, 2],
+         plotid = str_match(Description, "<br>plotid:\\s*(.*?)\\s*<br>")[, 2],
+         plotnummer = str_match(Description, "<br>plotnummer:\\s*(.*?)\\s*<br>")[, 2],
+         teller_2021 = str_match(Description, "<br>teller_2021:\\s*(.*?)\\s*<br>")[, 2],
+         wie = gsub(".*wie: ", "", Description))
 ```
+
+
+
+
 
