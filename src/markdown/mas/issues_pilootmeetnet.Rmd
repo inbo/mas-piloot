@@ -50,7 +50,8 @@ issue_list <- issue_list_raw %>%
          plotid = str_match(Description, "<br>plotid:\\s*(.*?)\\s*<br>")[, 2],
          plotnummer = str_match(Description, "<br>plotnummer:\\s*(.*?)\\s*<br>")[, 2],
          teller_2021 = str_match(Description, "<br>teller_2021:\\s*(.*?)\\s*<br>")[, 2],
-         wie = gsub(".*wie: ", "", Description))
+         wie = gsub(".*wie: ", "", Description)) %>%
+  select(-c("Description"))
 ```
 
 
