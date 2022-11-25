@@ -46,7 +46,8 @@ kml_file <- paste(data_path, "MAS punten 2022 per teller.kml", sep = "/")
 #         if no layer is given, the first layer is loaded
 
 read_KML <- function(dsn, layer = NULL) {
-  require(c(sf, stringr, dplyr))
+  require(sf)
+  require(tidyverse)
   
   # Error handling
   ## File needs to exist
