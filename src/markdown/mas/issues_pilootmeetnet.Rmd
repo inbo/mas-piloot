@@ -76,7 +76,16 @@ issue_list_raw %>%
   kable()
 ```
 
-De categorie vervanging, behouden is nogal tegenstrijdig en onduidelijk. Dit moet nagevraagd worden. Voorlopig zetten we alles om door het 'vervanging,' te verwijderen uit de categoriën. Ook veranderen we 'verplaatsen door bestaand' in 'vervangen door bestaand'.
+De categorie 'vervanging, behouden' is nogal tegenstrijdig en onduidelijk.
+
+```{r}
+issue_list_raw %>%
+  filter(beslissing == "vervanging, behouden") %>%
+  select(c(Name, beschrijving, beslissing, vervanging_id, pointid)) %>%
+  kable()
+```
+
+De beschrijvingen wijzen niet op belangrijke problemen. We zetten alles om door 'vervanging,' te verwijderen uit de categoriën. Ook veranderen we 'verplaatsen door bestaand' in 'vervangen door bestaand'.
 
 ```{r}
 issue_list <- issue_list_raw %>%
