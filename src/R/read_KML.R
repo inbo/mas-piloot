@@ -57,7 +57,7 @@ read_KML <- function(dsn, layer = NULL) {
       Name = trimws(Name),
       Description = str_remove_all(Description, "^description:\\s.*?<br>")) %>%
     separate(col = Description, into = col_names, sep = "(<br>)+") %>%
-    mutate(across(beschrijving:wie, ~str_extract(., "(?<=:\\s).+")))
+    mutate(across(all_of(col_names), ~str_extract(., "(?<=:\\s).+")))
 
   # Return
   return(kml_file)
