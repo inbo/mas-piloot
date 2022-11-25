@@ -56,6 +56,11 @@ read_KML <- function(dsn, layer = NULL) {
                 "; The file doesn't seem to exist."), 
          call. = FALSE)
   }
+  ## File needs to be a KML file
+  extension <- substr(dsn, nchar(dsn) - 2, nchar(dsn))
+  if (!grepl("kml$", extension, ignore.case = TRUE)) {
+    stop("File needs to be a KML file", call. = FALSE)
+  }
   ## If layer name is given, it needs to be to be present in the file
   if (is.character(layer)) {
     if (!(layer %in% st_layers(dsn)$name)) {
