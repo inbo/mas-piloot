@@ -33,7 +33,7 @@ https://github.com/r-spatial/sf/issues/499
 https://gis.stackexchange.com/questions/301336/extracting-non-spatial-data-from-imported-kml-file-using-r  
 
 ```{r}
-# Create data and path
+# Create data path
 data_path <- here("data", "mas")
 
 # Source R function to read KML
