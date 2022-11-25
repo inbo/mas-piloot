@@ -128,3 +128,78 @@ issues <- issue_list %>%
 
 
 # Analyse issues telpunten
+
+In totaal zijn er `r nrow(issues)` problematische telpunten.
+
+van specifieke termen naar algemene termen (eerst veel info en later weinig)
+
+```{r}
+# Patroon ontoegankelijke plots
+pattern1 <- "E40 en sporen|E40|snelweg|(fiets)?pad|priv(e|é)|verboden|grote baan"
+pattern2 <- "beek|langs water|serres|((O|o)n)?toegankelijk|[[:alpha:]]*bereikbaar"
+# Patroon obstructies zichtbaarheid
+pattern3 <- "holle weg|Holleweg|talud|haag|boomgaard|bos|put|ingesloten"
+# Patroon overlap
+pattern4 <- "overlap|bufferstrook"
+# Restpatronen
+pattern5 <- "zicht[[:alpha:]]*|visibiliteit"
+pattern6 <- "niet super"
+
+issue_cat <- issues %>%
+  select(beschrijving) %>%
+  mutate(
+    match = case_when(
+      str_detect(beschrijving, paste(pattern1, pattern2, sep = "|")) ~ 
+        str_extract(beschrijving, paste(pattern1, pattern2, sep = "|")),
+      str_detect(beschrijving, pattern3) ~ 
+        str_extract(beschrijving, pattern3),
+      str_detect(beschrijving, pattern4) ~ 
+        str_extract(beschrijving, pattern4),
+      str_detect(beschrijving, pattern5) ~ 
+        str_extract(beschrijving, pattern5),
+      str_detect(beschrijving, pattern6) ~ 
+        str_extract(beschrijving, pattern6)
+      ),
+    match = recode(match, "Holleweg" = "holle weg"),
+    reden = case_when(
+      match %in% c("E40", "E40 en sporen", "prive", "privé", "ontoegankelijk", 
+                   "verboden", "grote baan", "onbereikbaar", "bereikbaar", 
+                   "Ontoegankelijk", "toegankelijk", "snelweg", "fietspad", 
+                   "pad", "beek", "langs water", "serres") ~ 
+        "ontoegankelijk",
+      match %in% c("holle weg", "talud", "haag", "ingesloten", 
+                   "boomgaard", "bos", "put") ~ 
+        "obstructie zichtbaarheid",
+      match %in% c("overlap", "bufferstrook") ~ 
+        "overlap",
+      match %in% c("zicht", "zichtbaar", "zichtbaarheid", "visibiliteit") ~ 
+        "zichtbaarheid",
+      match == "niet super" ~ 
+        "niet super")
+    )
+```
+
+
+```{r}
+for (cat in unique(issue_cat$reden)) {
+  print(
+  if (!is.na(cat)) {
+  issue_cat %>%
+    filter(reden == cat) %>%
+    pivot_wider(id_cols = "match",
+                names_from = "reden",
+                values_from = "reden",
+                values_fn = list(reden = length)) %>%
+    arrange(match) %>%
+    kable()
+  } else {
+    issue_cat %>%
+      filter(is.na(reden)) %>%
+      group_by(reden) %>%
+      mutate(aantal_NA = n()) %>%
+      kable()
+  })
+}
+```
+
+
