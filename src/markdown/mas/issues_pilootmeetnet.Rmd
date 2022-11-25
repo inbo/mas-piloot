@@ -74,16 +74,6 @@ Hoe zijn de beslissingen verdeeld?
 issue_list_raw %>%
   count(beslissing) %>%
   kable()
-
-issue_list_raw %>%
-  filter(startsWith(beslissing, "vervanging")) %>%
-  View()
-
-
-issue_list_raw %>%
-  filter(is.na(beslissing)) %>%
-  View()
-
 ```
 
 De categorie vervanging, behouden is nogal tegenstrijdig en onduidelijk. Dit moet nagevraagd worden. Voorlopig zetten we alles om door het 'vervanging,' te verwijderen uit de categoriën. Ook veranderen we 'verplaatsen door bestaand' in 'vervangen door bestaand'.
@@ -101,4 +91,25 @@ issue_list %>%
 
 Waar komen de ```NA``'s vandaan?
 
+```{r}
+issue_list %>%
+  filter(is.na(beslissing)) %>%
+  select(c(Name, beschrijving, beslissing, vervanging_id, pointid)) %>%
+  kable()
+```
 
+Dit zijn allemaal problematische punten dus we zetten beslissing op 'vervangen door reserve'.
+
+```{r}
+issue_list <- issue_list %>%
+  mutate(beslissing = ifelse(is.na(beslissing), "vervangen door reserve", 
+                             beslissing))
+
+issue_list %>%
+  count(beslissing) %>%
+  kable()
+```
+
+We zijn geïnteresseerd in de redenen voor 'vervangen door reserve'.
+
+# Analyse issues telpunten
