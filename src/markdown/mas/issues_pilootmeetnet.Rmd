@@ -76,7 +76,7 @@ read_KML <- function(dsn, layer = NULL) {
   }
   
   # Read in file
-  ## First layer if layer = NULL
+  ## First layer if layer == NULL
   if (is.null(layer)) {
     layer_name <- st_layers(dsn)$name[1]
   ## If layer number is given
