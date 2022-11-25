@@ -112,4 +112,10 @@ issue_list %>%
 
 We zijn geïnteresseerd in de redenen voor 'vervangen door reserve'.
 
+```{r}
+issues <- issue_list %>%
+  filter(beslissing == "vervangen door reserve")
+```
+
+
 # Analyse issues telpunten
