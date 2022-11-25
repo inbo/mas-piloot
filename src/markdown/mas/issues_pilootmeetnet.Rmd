@@ -42,14 +42,15 @@ source(paste(source_path, "read_KML.R", sep = "/"))
 
 # Read data
 kml_file <- paste(data_path, "MAS punten 2022 per teller.kml", sep = "/")
-issue_list <- read_KML(kml_file)
+issue_list_raw <- read_KML(kml_file) %>%
+  st_drop_geometry()
 ```
 
 
 # Hoe zien de data eruit?
 
 ```{r}
-glimpse(issue_list)
+glimpse(issue_list_raw)
 ```
 
 - name: tellerscode van de waarnemer
@@ -58,8 +59,46 @@ glimpse(issue_list)
     - andere tekstuele opmerking beschrijft waarom (beter) niet
 - beslissing: omzetting van beschrijving naar concrete beslissingsboom
     - behouden: dit punt wordt geteld
-    - vervangen door bestaand: een oud MAS punt  (uit vorige programma) kan verdergezet worden omdat het centrum van het nieuw punt in de telcirkel van het oude MAS punt valt
+    - vervangen door bestaand: een oud MAS punt (uit vorige programma) kan verdergezet worden omdat het centrum van het nieuw punt in de telcirkel van het oude MAS punt valt
     - vervangen door reserve: dit punt wordt vervangen door een resevepunt omdat het niet voldoet aan onze voorwaarden
+    - dubbel: punt staat dubbel in de lijst
 - vervanging_id: id van het punt waardoor het vervangen wordt. Dat reserve punt kan dan op zijn beurt ook nog vervangen worden (indien afgekeurd) door een ander reserve punt.
 - rest van de kolommen zijn eigenschappen/klassen van dat punt
+
+
+# Data voorbereiden
+
+Hoe zijn de beslissingen verdeeld?
+
+```{r}
+issue_list_raw %>%
+  count(beslissing) %>%
+  kable()
+
+issue_list_raw %>%
+  filter(startsWith(beslissing, "vervanging")) %>%
+  View()
+
+
+issue_list_raw %>%
+  filter(is.na(beslissing)) %>%
+  View()
+
+```
+
+De categorie vervanging, behouden is nogal tegenstrijdig en onduidelijk. Dit moet nagevraagd worden. Voorlopig zetten we alles om door het 'vervanging,' te verwijderen uit de categoriën. Ook veranderen we 'verplaatsen door bestaand' in 'vervangen door bestaand'.
+
+```{r}
+issue_list <- issue_list_raw %>%
+  mutate(beslissing = gsub("vervanging, ", "", beslissing),
+         beslissing = ifelse(beslissing == "verplaatsen door bestaand", 
+                             "vervangen door bestaand", beslissing))
+
+issue_list %>%
+  count(beslissing) %>%
+  kable()
+```
+
+Waar komen de ```NA``'s vandaan?
+
 
