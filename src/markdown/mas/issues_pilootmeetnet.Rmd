@@ -1,0 +1,246 @@
+---
+title: "Lijst issues met steekproef pilootmeetnet"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here::here())
+library(tidyverse)
+library(sf)
+library(janitor) # to compute totals
+```
+
+
+# Inlezen data
+
+We lezen de KML-file in. In de attributentabel staan issues waarmee we moeten rekening houden in volgende steekproeftrekkingen. Het inlezen van deze data is niet triviaal. Zie:  
+https://github.com/r-spatial/sf/issues/499  
+https://gis.stackexchange.com/questions/301336/extracting-non-spatial-data-from-imported-kml-file-using-r  
+
+```{r}
+# Create data path
+data_path <- here("data", "mas")
+
+# Source R function to read KML
+source_path <- here("src", "R")
+source(paste(source_path, "read_KML.R", sep = "/"))
+
+# Read data
+kml_file <- paste(data_path, "MAS punten 2022 per teller.kml", sep = "/")
+issue_list_raw <- read_KML(kml_file) %>%
+  st_drop_geometry()
+```
+
+
+# Hoe zien de data eruit?
+
+```{r}
+glimpse(issue_list_raw)
+```
+
+- name: tellerscode van de waarnemer
+- beschrijving:
+    - OK = punt kan geteld worden
+    - andere tekstuele opmerking beschrijft waarom (beter) niet
+- beslissing: omzetting van beschrijving naar concrete beslissingsboom
+    - behouden: dit punt wordt geteld
+    - vervangen door bestaand: een oud MAS punt (uit vorige programma) kan verdergezet worden omdat het centrum van het nieuw punt in de telcirkel van het oude MAS punt valt
+    - vervangen door reserve: dit punt wordt vervangen door een resevepunt omdat het niet voldoet aan onze voorwaarden
+    - dubbel: punt staat dubbel in de lijst
+- vervanging_id: id van het punt waardoor het vervangen wordt. Dat reserve punt kan dan op zijn beurt ook nog vervangen worden (indien afgekeurd) door een ander reserve punt.
+- rest van de kolommen zijn eigenschappen/klassen van dat punt
+
+
+# Data voorbereiden
+
+Hoe zijn de beslissingen verdeeld?
+
+```{r}
+issue_list_raw %>%
+  count(beslissing) %>%
+  kable()
+```
+
+De categorie 'vervanging, behouden' is nogal tegenstrijdig en onduidelijk.
+
+```{r}
+issue_list_raw %>%
+  filter(beslissing == "vervanging, behouden") %>%
+  select(c(Name, beschrijving, beslissing, vervanging_id, pointid)) %>%
+  kable()
+```
+
+De beschrijvingen wijzen niet op belangrijke problemen. We zetten alles om door 'vervanging,' te verwijderen uit de categoriën. Ook veranderen we 'verplaatsen door bestaand' in 'vervangen door bestaand'.
+
+```{r}
+issue_list <- issue_list_raw %>%
+  mutate(beslissing = gsub("vervanging, ", "", beslissing),
+         beslissing = ifelse(beslissing == "verplaatsen door bestaand", 
+                             "vervangen door bestaand", beslissing))
+
+issue_list %>%
+  count(beslissing) %>%
+  kable()
+```
+
+Waar komen de `NA`'s vandaan?
+
+```{r}
+issue_list %>%
+  filter(is.na(beslissing)) %>%
+  select(c(Name, beschrijving, beslissing, vervanging_id, pointid)) %>%
+  kable()
+```
+
+Dit zijn allemaal problematische punten dus we zetten beslissing op 'vervangen door reserve'.
+
+```{r}
+issue_list <- issue_list %>%
+  mutate(beslissing = ifelse(is.na(beslissing), "vervangen door reserve", 
+                             beslissing))
+
+issue_list %>%
+  count(beslissing) %>%
+  kable()
+```
+
+We zijn geïnteresseerd in de redenen voor 'vervangen door reserve'.
+
+```{r}
+issues <- issue_list %>%
+  filter(beslissing == "vervangen door reserve")
+```
+
+
+# Analyse issues telpunten
+
+In totaal zijn er `r nrow(issues)` problematische telpunten. In de kolom 'beslising' zoeken we naar matches die te maken hebben met:
+
+- **overlap**: overlap, bufferstrook
+- **zichtbaarheid**: visibiliteit, zicht((baar)heid)
+- **ontoegankelijkheid**: beek, (on)bereikbaar, (on)toegankelijk, E40, spoor, TGV, fietspad, grote baan, langs water, pad, privé, serres, snelweg, vliegbasis
+- **specifieke obstructies voor zichtbaarheid**: boomgaard, bos, haag, holle weg, in put, ingesloten, talud, bomen, houtkant
+- rest: `NA`'s, niet super
+
+We zoeken eerst naar specifieke termen (bv. E40) en daarna naar algemene termen (bv. zicht) zodat we maximale info gebruiken uit de beschrijvingskolom.
+
+```{r}
+# Patroon ontoegankelijke plots
+pattern1 <- "brug|E40|spoor|snelweg|priv(e|é)|vliegbasis|TGV|serres"
+pattern2 <- "(grote|drukke) baan|beek|langs water|(fiets)?pad"
+# Patroon obstructies zichtbaarheid
+pattern3 <- "holle weg|Holleweg|talud|haag|boomgaard|bos|in put|bomen|houtkant"
+# Patroon overlap
+pattern4 <- "overlap|bufferstrook"
+# Algemene patronen
+pattern5 <- "((O|o)n)?toegankelijk|[[:alpha:]]*bereikbaar|ingesloten"
+pattern6 <- "zicht[[:alpha:]]*|visibiliteit"
+pattern7 <- "niet super"
+
+issue_cat <- issues %>%
+  select(beschrijving) %>%
+  mutate(
+    match = case_when(
+      str_detect(beschrijving, pattern1) ~ 
+        str_extract(beschrijving, pattern1),
+      str_detect(beschrijving, pattern2) ~ 
+        str_extract(beschrijving, pattern2),
+      str_detect(beschrijving, pattern3) ~ 
+        str_extract(beschrijving, pattern3),
+      str_detect(beschrijving, pattern4) ~ 
+        str_extract(beschrijving, pattern4),
+      str_detect(beschrijving, pattern5) ~ 
+        str_extract(beschrijving, pattern5),
+      str_detect(beschrijving, pattern6) ~ 
+        str_extract(beschrijving, pattern6),
+      str_detect(beschrijving, pattern7) ~ 
+        str_extract(beschrijving, pattern7)
+      ),
+    match = recode(match, 
+                   "Holleweg" = "holle weg", 
+                   "prive" = "privé", 
+                   "Ontoegankelijk" = "(on)toegankelijk",
+                   "ontoegankelijk" = "(on)toegankelijk",
+                   "toegankelijk" = "(on)toegankelijk",
+                   "bereikbaar" = "(on)bereikbaar",
+                   "onbereikbaar" = "(on)bereikbaar"),
+    reden = case_when(
+      match %in% c("E40", "privé", "(on)toegankelijk", "vliegbasis", "TGV",
+                   "(on)bereikbaar", "snelweg", "fietspad", "pad", "beek", 
+                   "langs water", "serres", "spoor", "grote baan", "brug",
+                   "drukke baan") ~ 
+        "ontoegankelijk",
+      match %in% c("holle weg", "talud", "haag", "ingesloten", "houtkant",
+                   "boomgaard", "bos", "in put", "bomen") ~ 
+        "obstructie zichtbaarheid",
+      match %in% c("overlap", "bufferstrook") ~ 
+        "overlap",
+      match %in% c("zicht", "zichtbaar", "zichtbaarheid", "visibiliteit") ~ 
+        "zichtbaarheid",
+      match == "niet super" ~ 
+        "niet super")
+    )
+```
+
+Zo krijgen we een algemeen overzicht waar de belangrijkste problemen zitten. Bij een deel van punten is er te veel overlap met andere telcirkels. We zien vooral problemen met zichtbaarheid omdat punten nog vallen in bossen, boomgaarden, holle wegen etc., hoewel er niet altijd info is waarom zichtbaarheid slecht is. Een belangrijk aandeel plots is ook ontoegankelijk omdat het te dicht bij een grote baan ligt, op privéterrein, langs water etc. Er zijn 7 punten waarbij geen info aanwezig is waarom het geschrapt moet worden.
+
+```{r}
+for (cat in unique(issue_cat$reden)) {
+  print(
+  if (!is.na(cat)) {
+  issue_cat %>%
+    filter(reden == cat) %>%
+    pivot_wider(id_cols = "match",
+                names_from = "reden",
+                values_from = "reden",
+                values_fn = list(reden = length)) %>%
+    arrange(desc(.data[[cat]])) %>%
+    adorn_totals("row", name = "TOTAAL") %>%
+    kable()
+  } else {
+    issue_cat %>%
+      filter(is.na(reden)) %>%
+      group_by(reden) %>%
+      mutate(aantal_NA = 1) %>%
+      adorn_totals("row", name = "TOTAAL") %>%
+      kable()
+  })
+}
+```
+
+
+# Conclusie
+
+Input Hans aanpassingen om steekproeftrekking te verbeteren:
+
+- niet meer langs beken punten leggen
+- betere manier vinden om zichtbaarheid te berekenen (niet vanaf 1 punt, maar vanaf/in cirkel van r = 25 m rond het punt); zie ook https://github.com/STBrinkmann/GVI/issues/2
+- checken of er nog extra landgebruiken zijn die we best uitsluiten, bv owv toegankelijkheid (vlieghaven)
+- uitsluiten van bufferzone van 50 m (?) rond snelwegen (ook TGV, treinsporen?)
+
+
+# Appendix: Volledige lijst met beschrijvingen
+
+```{r}
+issue_cat %>%
+  select(reden, match, beschrijving) %>%
+  arrange(reden, match, beschrijving) %>%
+  kable()
+```
+
