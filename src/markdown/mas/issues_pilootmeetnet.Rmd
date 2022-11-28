@@ -134,30 +134,33 @@ In totaal zijn er `r nrow(issues)` problematische telpunten. In de kolom 'beslis
 
 - **overlap**: overlap, bufferstrook
 - **zichtbaarheid**: visibiliteit, zicht((baar)heid)
-- **ontoegankelijkheid**: beek, (on)bereikbaar, (on)toegankelijk, E40, sporen, fietspad, grote baan, langs water, pad, privé, serres, snelweg, verboden
-- **specifieke obstructies voor zichtbaarheid**: boomgaard, bos, haag holle weg, in put, ingesloten, talud
+- **ontoegankelijkheid**: beek, (on)bereikbaar, (on)toegankelijk, E40, spoor, TGV, fietspad, grote baan, langs water, pad, privé, serres, snelweg, vliegbasis
+- **specifieke obstructies voor zichtbaarheid**: boomgaard, bos, haag, holle weg, in put, ingesloten, talud, bomen, houtkant
 - rest: `NA`'s, niet super
 
 We zoeken eerst naar specifieke termen (bv. E40) en daarna naar algemene termen (bv. zicht) zodat we maximale info gebruiken uit de beschrijvingskolom.
 
 ```{r}
 # Patroon ontoegankelijke plots
-pattern1 <- "E40 en sporen|E40|snelweg|(fiets)?pad|priv(e|é)|verboden|grote baan"
-pattern2 <- "beek|langs water|serres|((O|o)n)?toegankelijk|[[:alpha:]]*bereikbaar"
+pattern1 <- "brug|E40|spoor|snelweg|priv(e|é)|vliegbasis|TGV|serres"
+pattern2 <- "(grote|drukke) baan|beek|langs water|(fiets)?pad"
 # Patroon obstructies zichtbaarheid
-pattern3 <- "holle weg|Holleweg|talud|haag|boomgaard|bos|in put|ingesloten"
+pattern3 <- "holle weg|Holleweg|talud|haag|boomgaard|bos|in put|bomen|houtkant"
 # Patroon overlap
 pattern4 <- "overlap|bufferstrook"
-# Restpatronen
-pattern5 <- "zicht[[:alpha:]]*|visibiliteit"
-pattern6 <- "niet super"
+# Algemene patronen
+pattern5 <- "((O|o)n)?toegankelijk|[[:alpha:]]*bereikbaar|ingesloten"
+pattern6 <- "zicht[[:alpha:]]*|visibiliteit"
+pattern7 <- "niet super"
 
 issue_cat <- issues %>%
   select(beschrijving) %>%
   mutate(
     match = case_when(
-      str_detect(beschrijving, paste(pattern1, pattern2, sep = "|")) ~ 
-        str_extract(beschrijving, paste(pattern1, pattern2, sep = "|")),
+      str_detect(beschrijving, pattern1) ~ 
+        str_extract(beschrijving, pattern1),
+      str_detect(beschrijving, pattern2) ~ 
+        str_extract(beschrijving, pattern2),
       str_detect(beschrijving, pattern3) ~ 
         str_extract(beschrijving, pattern3),
       str_detect(beschrijving, pattern4) ~ 
@@ -165,7 +168,9 @@ issue_cat <- issues %>%
       str_detect(beschrijving, pattern5) ~ 
         str_extract(beschrijving, pattern5),
       str_detect(beschrijving, pattern6) ~ 
-        str_extract(beschrijving, pattern6)
+        str_extract(beschrijving, pattern6),
+      str_detect(beschrijving, pattern7) ~ 
+        str_extract(beschrijving, pattern7)
       ),
     match = recode(match, 
                    "Holleweg" = "holle weg", 
@@ -176,12 +181,13 @@ issue_cat <- issues %>%
                    "bereikbaar" = "(on)bereikbaar",
                    "onbereikbaar" = "(on)bereikbaar"),
     reden = case_when(
-      match %in% c("E40", "E40 en sporen", "privé", "(on)toegankelijk", 
-                   "verboden", "grote baan", "(on)bereikbaar", "snelweg", 
-                   "fietspad", "pad", "beek", "langs water", "serres") ~ 
+      match %in% c("E40", "privé", "(on)toegankelijk", "vliegbasis", "TGV",
+                   "(on)bereikbaar", "snelweg", "fietspad", "pad", "beek", 
+                   "langs water", "serres", "spoor", "grote baan", "brug",
+                   "drukke baan") ~ 
         "ontoegankelijk",
-      match %in% c("holle weg", "talud", "haag", "ingesloten", 
-                   "boomgaard", "bos", "in put") ~ 
+      match %in% c("holle weg", "talud", "haag", "ingesloten", "houtkant",
+                   "boomgaard", "bos", "in put", "bomen") ~ 
         "obstructie zichtbaarheid",
       match %in% c("overlap", "bufferstrook") ~ 
         "overlap",
@@ -192,7 +198,7 @@ issue_cat <- issues %>%
     )
 ```
 
-Zo krijgen we een algemeen overzicht waar de belangrijkste problemen zitten:
+Zo krijgen we een algemeen overzicht waar de belangrijkste problemen zitten. Bij een deel van punten is er te veel overlap met andere telcirkels. We zien vooral problemen met zichtbaarheid omdat punten nog vallen in bossen, boomgaarden, holle wegen etc., hoewel er niet altijd info is waarom zichtbaarheid slecht is. Een belangrijk aandeel plots is ook ontoegankelijk omdat het te dicht bij een grote baan ligt, op privéterrein, langs water etc. Er zijn 7 punten waarbij geen info aanwezig is waarom het geschrapt moet worden.
 
 ```{r}
 for (cat in unique(issue_cat$reden)) {
