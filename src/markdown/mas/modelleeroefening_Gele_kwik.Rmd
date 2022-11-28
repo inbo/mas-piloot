@@ -3414,6 +3414,16 @@ par(mfrow = c(1, 1))
 ```
 
 
+```{r}
+dhazard <- function(scale, shape) {
+  
+}
+ggplot(df_dist_terr) +
+  geom_histogram(aes(x = distance)) +
+  geom_function(fun = keyfct.hz, args = list(distance, 5.2612818, 1.311954))
+```
+
+
 ### Resultaten en visualisatie
 
 We vergelijken de resultaten van beide modellen.  
