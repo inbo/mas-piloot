@@ -224,7 +224,18 @@ for (cat in unique(issue_cat$reden)) {
 }
 ```
 
-Volledige lijst met beschrijvingen:
+
+# Conclusie
+
+Input Hans aanpassingen om steekproeftrekking te verbeteren:
+
+- niet meer langs beken punten leggen
+- betere manier vinden om zichtbaarheid te berekenen (niet vanaf 1 punt, maar vanaf/in cirkel van r = 25 m rond het punt); zie ook https://github.com/STBrinkmann/GVI/issues/2
+- checken of er nog extra landgebruiken zijn die we best uitsluiten, bv owv toegankelijkheid (vlieghaven)
+- uitsluiten van bufferzone van 50 m (?) rond snelwegen (ook TGV, treinsporen?)
+
+
+# Appendix: Volledige lijst met beschrijvingen
 
 ```{r}
 issue_cat %>%
