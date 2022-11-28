@@ -192,6 +192,8 @@ issue_cat <- issues %>%
     )
 ```
 
+Zo krijgen we een algemeen overzicht waar de belangrijkste problemen zitten:
+
 ```{r}
 for (cat in unique(issue_cat$reden)) {
   print(
@@ -216,4 +218,12 @@ for (cat in unique(issue_cat$reden)) {
 }
 ```
 
+Volledige lijst met beschrijvingen:
+
+```{r}
+issue_cat %>%
+  select(reden, match, beschrijving) %>%
+  arrange(reden, match, beschrijving) %>%
+  kable()
+```
 
