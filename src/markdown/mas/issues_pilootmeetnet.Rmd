@@ -130,15 +130,15 @@ issues <- issue_list %>%
 
 # Analyse issues telpunten
 
-In totaal zijn er `r nrow(issues)` problematische telpunten. In de kolom `beslising` zoeken we naar matches die te maken hebben met:
+In totaal zijn er `r nrow(issues)` problematische telpunten. In de kolom 'beslising' zoeken we naar matches die te maken hebben met:
 
 - **overlap**: overlap, bufferstrook
 - **zichtbaarheid**: visibiliteit, zicht((baar)heid)
 - **ontoegankelijkheid**: beek, (on)bereikbaar, (on)toegankelijk, E40, sporen, fietspad, grote baan, langs water, pad, privé, serres, snelweg, verboden
 - **specifieke obstructies voor zichtbaarheid**: boomgaard, bos, haag holle weg, in put, ingesloten, talud
-- rest: `NA`s, niet super
+- rest: `NA`'s, niet super
 
-van specifieke termen naar algemene termen (eerst veel info en later weinig)
+We zoeken eerst naar specifieke termen (bv. E40) en daarna naar algemene termen (bv. zicht) zodat we maximale info gebruiken uit de beschrijvingskolom.
 
 ```{r}
 # Patroon ontoegankelijke plots
@@ -191,7 +191,6 @@ issue_cat <- issues %>%
         "niet super")
     )
 ```
-
 
 ```{r}
 for (cat in unique(issue_cat$reden)) {
