@@ -3282,31 +3282,135 @@ De gemiddelde detectiekans $\hat{P}_a$ verschilt tussen hazard-ratio en half-nor
 ```{r}
 # Hazard-rate in functie van regio en sbp
 par(mfrow = c(1, 2))
-
 gof_ds(ds_scen1_hr5, main = "ds_scen1_hr5")
 
-plot(ds_scen1_hr5, pdf = FALSE, main = "P(detectie) ~ regio + sbp")
+plot(ds_scen1_hr5, pdf = FALSE, showpoints = FALSE, 
+     main = "P(detectie) ~ regio + sbp")
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "blue",
+  data = data.frame(regio = "De Moeren", sbp = "binnen"))
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "darkgreen", 
+  data = data.frame(regio = "De Moeren", sbp = "buiten"))
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "brown", 
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"))
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "salmon", 
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "buiten"))
+legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten", 
+       "Oostelijke leemstreek - binnen", "Oostelijke leemstreek - buiten"),
+       lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(1, 1))
-plot(ds_scen1_hr5, pdf = TRUE, 
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE,
      main = paste0("ds_scen1_hr5", " - ", "AIC: ",
                    as.character(round(summary(ds_scen1_hr5)$ds$aic, digits = 2))
                    )
      )
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "blue",
+  data = data.frame(regio = "De Moeren", sbp = "binnen"), pdf = TRUE)
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "darkgreen", 
+  data = data.frame(regio = "De Moeren", sbp = "buiten"), pdf = TRUE)
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "brown", pdf = TRUE, 
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"))
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "salmon", pdf = TRUE, 
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "buiten"))
+legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten", 
+       "Oostelijke leemstreek - binnen", "Oostelijke leemstreek - buiten"),
+       lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
+
+par(mfrow = c(2, 2))
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+     subset = regio == "De Moeren" & sbp == "binnen",
+     main = "De Moeren - binnen", pl.col = alpha("blue", 0.5))
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "blue",
+  data = data.frame(regio = "De Moeren", sbp = "binnen"), pdf = TRUE)
+
+
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+     subset = regio == "De Moeren" & sbp == "buiten",
+     main = "De Moeren - buiten", pl.col = alpha("darkgreen", 0.5))
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "darkgreen",
+  data = data.frame(regio = "De Moeren", sbp = "buiten"), pdf = TRUE)
+
+
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+     subset = regio == "Oostelijke leemstreek" & sbp == "binnen",
+     main = "Oostelijke leemstreek - binnen", pl.col = alpha("brown", 0.5))
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "brown",
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"), 
+  pdf = TRUE)
+
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+     subset = regio == "Oostelijke leemstreek" & sbp == "buiten",
+     main = "Oostelijke leemstreek - buiten", pl.col = alpha("salmon", 0.5))
+add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "salmon",
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "buiten"), 
+  pdf = TRUE)
 
 # Half-normal in functie van regio en sbp
 par(mfrow = c(1, 2))
 
 gof_ds(ds_scen1_hn5, main = "ds_scen1_hn5")
 
-plot(ds_scen1_hn5, pdf = FALSE, main = "P(detectie) ~ regio + sbp")
+plot(ds_scen1_hn5, pdf = FALSE, showpoints = FALSE, 
+     main = "P(detectie) ~ regio + sbp")
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "blue",
+  data = data.frame(regio = "De Moeren", sbp = "binnen"))
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "darkgreen", 
+  data = data.frame(regio = "De Moeren", sbp = "buiten"))
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "brown", 
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"))
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon", 
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "buiten"))
+legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten", 
+       "Oostelijke leemstreek - binnen", "Oostelijke leemstreek - buiten"),
+       lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(1, 1))
-plot(ds_scen1_hn5, pdf = TRUE, 
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE,
      main = paste0("ds_scen1_hn5", " - ", "AIC: ",
                    as.character(round(summary(ds_scen1_hn5)$ds$aic, digits = 2))
                    )
      )
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "blue",
+  data = data.frame(regio = "De Moeren", sbp = "binnen"), pdf = TRUE)
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "darkgreen", 
+  data = data.frame(regio = "De Moeren", sbp = "buiten"), pdf = TRUE)
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "brown", pdf = TRUE, 
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"))
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon", pdf = TRUE, 
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "buiten"))
+legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten", 
+       "Oostelijke leemstreek - binnen", "Oostelijke leemstreek - buiten"),
+       lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
+
+par(mfrow = c(2, 2))
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+     subset = regio == "De Moeren" & sbp == "binnen",
+     main = "De Moeren - binnen", pl.col = alpha("blue", 0.5))
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "blue",
+  data = data.frame(regio = "De Moeren", sbp = "binnen"), pdf = TRUE)
+
+
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+     subset = regio == "De Moeren" & sbp == "buiten",
+     main = "De Moeren - buiten", pl.col = alpha("darkgreen", 0.5))
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "darkgreen",
+  data = data.frame(regio = "De Moeren", sbp = "buiten"), pdf = TRUE)
+
+
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+     subset = regio == "Oostelijke leemstreek" & sbp == "binnen",
+     main = "Oostelijke leemstreek - binnen", pl.col = alpha("brown", 0.5))
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "brown",
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"), 
+  pdf = TRUE)
+
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+     subset = regio == "Oostelijke leemstreek" & sbp == "buiten",
+     main = "Oostelijke leemstreek - buiten", pl.col = alpha("salmon", 0.5))
+add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon",
+  data = data.frame(regio = "Oostelijke leemstreek", sbp = "buiten"), 
+  pdf = TRUE)
+par(mfrow = c(1, 1))
 ```
 
 
