@@ -23,6 +23,7 @@ opts_chunk$set(
 opts_knit$set(root.dir = here::here())
 library(tidyverse)
 library(sf)
+library(janitor) # to compute totals
 ```
 
 
@@ -98,7 +99,7 @@ issue_list %>%
   kable()
 ```
 
-Waar komen de ```NA``'s vandaan?
+Waar komen de `NA`'s vandaan?
 
 ```{r}
 issue_list %>%
@@ -129,7 +130,13 @@ issues <- issue_list %>%
 
 # Analyse issues telpunten
 
-In totaal zijn er `r nrow(issues)` problematische telpunten.
+In totaal zijn er `r nrow(issues)` problematische telpunten. In de kolom `beslising` zoeken we naar matches die te maken hebben met:
+
+- **overlap**: overlap, bufferstrook
+- **zichtbaarheid**: visibiliteit, zicht((baar)heid)
+- **ontoegankelijkheid**: beek, (on)bereikbaar, (on)toegankelijk, E40, sporen, fietspad, grote baan, langs water, pad, privé, serres, snelweg, verboden
+- **specifieke obstructies voor zichtbaarheid**: boomgaard, bos, haag holle weg, in put, ingesloten, talud
+- rest: `NA`s, niet super
 
 van specifieke termen naar algemene termen (eerst veel info en later weinig)
 
@@ -138,7 +145,7 @@ van specifieke termen naar algemene termen (eerst veel info en later weinig)
 pattern1 <- "E40 en sporen|E40|snelweg|(fiets)?pad|priv(e|é)|verboden|grote baan"
 pattern2 <- "beek|langs water|serres|((O|o)n)?toegankelijk|[[:alpha:]]*bereikbaar"
 # Patroon obstructies zichtbaarheid
-pattern3 <- "holle weg|Holleweg|talud|haag|boomgaard|bos|put|ingesloten"
+pattern3 <- "holle weg|Holleweg|talud|haag|boomgaard|bos|in put|ingesloten"
 # Patroon overlap
 pattern4 <- "overlap|bufferstrook"
 # Restpatronen
@@ -160,15 +167,21 @@ issue_cat <- issues %>%
       str_detect(beschrijving, pattern6) ~ 
         str_extract(beschrijving, pattern6)
       ),
-    match = recode(match, "Holleweg" = "holle weg"),
+    match = recode(match, 
+                   "Holleweg" = "holle weg", 
+                   "prive" = "privé", 
+                   "Ontoegankelijk" = "(on)toegankelijk",
+                   "ontoegankelijk" = "(on)toegankelijk",
+                   "toegankelijk" = "(on)toegankelijk",
+                   "bereikbaar" = "(on)bereikbaar",
+                   "onbereikbaar" = "(on)bereikbaar"),
     reden = case_when(
-      match %in% c("E40", "E40 en sporen", "prive", "privé", "ontoegankelijk", 
-                   "verboden", "grote baan", "onbereikbaar", "bereikbaar", 
-                   "Ontoegankelijk", "toegankelijk", "snelweg", "fietspad", 
-                   "pad", "beek", "langs water", "serres") ~ 
+      match %in% c("E40", "E40 en sporen", "privé", "(on)toegankelijk", 
+                   "verboden", "grote baan", "(on)bereikbaar", "snelweg", 
+                   "fietspad", "pad", "beek", "langs water", "serres") ~ 
         "ontoegankelijk",
       match %in% c("holle weg", "talud", "haag", "ingesloten", 
-                   "boomgaard", "bos", "put") ~ 
+                   "boomgaard", "bos", "in put") ~ 
         "obstructie zichtbaarheid",
       match %in% c("overlap", "bufferstrook") ~ 
         "overlap",
@@ -190,13 +203,15 @@ for (cat in unique(issue_cat$reden)) {
                 names_from = "reden",
                 values_from = "reden",
                 values_fn = list(reden = length)) %>%
-    arrange(match) %>%
+    arrange(desc(.data[[cat]])) %>%
+    adorn_totals("row", name = "TOTAAL") %>%
     kable()
   } else {
     issue_cat %>%
       filter(is.na(reden)) %>%
       group_by(reden) %>%
-      mutate(aantal_NA = n()) %>%
+      mutate(aantal_NA = 1) %>%
+      adorn_totals("row", name = "TOTAAL") %>%
       kable()
   })
 }
