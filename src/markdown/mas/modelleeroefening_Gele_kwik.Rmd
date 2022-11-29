@@ -2994,12 +2994,10 @@ Samenvattende tabel aantal broedparen per stratum. Area is in km².
 ```{r}
 df_dist_terr %>%
   st_drop_geometry() %>%
-  group_by(regio, sbp, openheid, Area) %>%
+  group_by(regio, sbp, openheid) %>%
   summarise(aantal_broedparen = sum(size)) %>%
   group_by(regio) %>%
   mutate(aantal_broedparen_per_regio = sum(aantal_broedparen)) %>%
-  select(-Area, everything(), Area) %>%
-  rename(area_per_regio = Area) %>%
   kable()
 ```
 
