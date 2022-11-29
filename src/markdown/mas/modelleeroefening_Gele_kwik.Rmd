@@ -2976,22 +2976,10 @@ df_dist_terr_presence2 <- left_join(df_dist_terr_presence %>% as.data.frame(),
   rename(geometry = geometry.x) %>%
   st_sf(sf_column_name = "geometry")
 
-# Voeg afwezigheden en sampling effort toe
-effort_df <- bezoekenlijst_2022 %>%
-  group_by(plotnaam) %>%
-  mutate(Effort = 1) %>%
-  select(-c(periode_in_jaar, stratum)) %>%
-  distinct() %>%
-  ungroup()
-
+# Voeg regio label en sampling effort toe
 df_dist_terr <- df_dist_terr_presence2 %>%
-  full_join(effort_df, by = c("Sample.Label" = "plotnaam",
-                              "regio", "sbp", "openheid")) %>%
-  mutate(size = ifelse(is.na(size), 0, size)) %>%
-
-# Voeg Area en Region.Label toe
-  full_join(reg_tab, by = "regio") %>%
-  mutate(Region.Label = regio)
+  mutate(Region.Label = regio,
+         Effort = 1)
 
 # Eerste tien rijen van dataset
 df_dist_terr
