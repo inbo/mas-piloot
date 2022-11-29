@@ -1432,7 +1432,8 @@ grid.arrange(dist_model_hr1, dist_model_hr8, ncol = 2)
 
 We zien kleine verschillen. Vooral in De Moeren wel iets lager met covariaten.
   
-  
+ 
+**Spelen met sampling effort**   
 Krijgen we dezelfde resultaten als we geen rekening houden met telperiode en effort = 4 zetten?
 
 ```{r}
@@ -1494,6 +1495,20 @@ dist_model_hr8_new <- summary_results_hr8_new %>%
 
 grid.arrange(dist_model_hr8, dist_model_hr8_new, ncol = 2)
 ```
+
+Ja dit lijkt goed overeen te komen.
+
+**Beschouwing absences**
+
+Moeten we absences toevoegen? Krijgen we zelfde resultaten met enkel presences en als we de opties `region_table` en `sample_table` gebruiken?
+
+
+**Conclusies**
+
+- Zowel binned als continuous distances kunnen gebruikt worden, maar het lijkt onnodig om het moeilijker te maken door zelf cut points te bepalen voor de bins. Daarom raden we continuous aan
+- Het is belangrijk covariaten toe te voegen die de detectiekans kunnen beïnvloeden
+- Interpretatie sampling effort is van belang
+- We kunnen perfect met presence data werken en apart een tabel ingeven waarbij rekening wordt gehouden met afwezigheden. Dit zal eenvoudigere code geven en kans op fouten tijdens data preparatie (joinen van dataframes) reduceren
 
 
 ### unmarked package{#unmarked}
