@@ -763,6 +763,7 @@ summary(stan_pois, pars = c("b", "Intercept"),
 In de GLMM's houden we echter geen rekening met een afnemende detectiekans naarmate de dieren zich verder bevinden. De logica achter distance sampling is uitgebreider uitgelegd in \@ref(dist-terr). In \@ref(GLMM) hadden we de data geaggregeerd per telcirkel per telperiode, in deze sectie werken we met de directe observaties: waarnemingen van $n$ aantal broedparen Gele kwikstaart op een afstand van $x$ meter van het telpunt per telperiode in 2022.
 
 Handige links:  
+https://examples.distancesampling.org/  
 https://www.jstatsoft.org/article/download/v089i01/1288  
 http://distancesampling.org/downloads/dist_encyc_env.pdf
 
