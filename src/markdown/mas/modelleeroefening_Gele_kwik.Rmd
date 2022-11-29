@@ -3414,7 +3414,8 @@ add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon",
 par(mfrow = c(1, 1))
 ```
 
-Lukt niet om te repliceren in met `ggplot()`. Herschaling onduidelijk.
+Lukt niet om te repliceren in met `ggplot()`. Herschaling onduidelijk. Deze link geeft mogelijks een relatief eenvoudige oplossing:  
+https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ
 
 
 ### Resultaten en visualisatie
