@@ -3163,7 +3163,7 @@ mapview(full_df, zcol = "correct")
 
 ### Model fit en selectie
 
-We maken een model voor de probabiliteit dat een Gele kwikstaart wordt gedetecteerd gegeven we de afstand tot het individu weten. Dit model is de detectiefunctie en wordt genoteerd als $g(r;\boldsymbol \theta)$ met $r$ de radiale afstand van waarneming tot teller/telpunt en $\boldsymbol \theta$ een vector van parameters die geschat moeten worden. Het doel is de gemiddelde kans op detectie ($p$) te bepalen (gemiddelde in de zin van een gemiddelde over afstand van 0 tot afknotafstand $w$).
+We maken een model voor de probabiliteit dat een Gele kwikstaart wordt gedetecteerd gegeven we de afstand tot het individu weten. Dit model is de detectiefunctie en wordt genoteerd als $g(r;\boldsymbol \theta)$ met $r$ de radiale afstand van waarneming tot teller/telpunt en $\boldsymbol \theta$ een vector van parameters die geschat moeten worden. Het doel is de gemiddelde kans op detectie ($p$) te bepalen (gemiddelde in de zin van een gemiddelde over afstand van 0 tot afknotafstand $w$). De term $\frac{2r}{w^2}$ is nodig om rekening te houden met de geometrie van de plot (cirkel): http://distancesampling.org/downloads/dist_encyc_env.pdf
 
 $$
 p = \int_0^w\frac{2r}{w^2}g(r;\boldsymbol \theta)\,dr
