@@ -2939,7 +2939,7 @@ In dit scenario clusteren we waarnemingen tot broedparen met **territoria**. Daa
 
 ### Data voorbereiden
 
-In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten van waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten, `Effort` is het aantal keer dat een plot is bezocht (overal 1). `Region.Label` is een label voor elke regio (zelfde als `regio`-kolom).
+In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten van waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten en `Region.Label` is een label voor elke regio (zelfde als `regio`-kolom). We hebben ook een dataframe die we als optie `region_table` meegeven met `Region.Label` en `Area` en een dataframe die we als optie `sample_table` meegeven met `Sample.Label`, `Region.Label` en `Effort`. `Effort` is het aantal keer dat een plot is bezocht (overal 1). Deze laatste tabel bevat alle plotnamen, ook deze waar geen Gele kwikstaart werd gezien.
 
 ```{r}
 # Voeg clusters toe aan presence data
@@ -2976,25 +2976,14 @@ df_dist_terr_presence2 <- left_join(df_dist_terr_presence %>% as.data.frame(),
   rename(geometry = geometry.x) %>%
   st_sf(sf_column_name = "geometry")
 
-# Voeg afwezigheden en sampling effort toe
-effort_df <- bezoekenlijst_2022 %>%
-  group_by(plotnaam) %>%
-  mutate(Effort = 1) %>%
-  select(-c(periode_in_jaar, stratum)) %>%
-  distinct() %>%
-  ungroup()
-
+# Voeg regio label toe
 df_dist_terr <- df_dist_terr_presence2 %>%
-  full_join(effort_df, by = c("Sample.Label" = "plotnaam",
-                              "regio", "sbp", "openheid")) %>%
-  mutate(size = ifelse(is.na(size), 0, size)) %>%
-
-# Voeg Area en Region.Label toe
-  full_join(reg_tab, by = "regio") %>%
   mutate(Region.Label = regio)
 
-# Eerste tien rijen van dataset
-df_dist_terr
+
+# Sample table
+samp_table2 <- samp_table %>%
+  mutate(Effort  = 1)
 ```
 
 
@@ -3005,12 +2994,10 @@ Samenvattende tabel aantal broedparen per stratum. Area is in km².
 ```{r}
 df_dist_terr %>%
   st_drop_geometry() %>%
-  group_by(regio, sbp, openheid, Area) %>%
+  group_by(regio, sbp, openheid) %>%
   summarise(aantal_broedparen = sum(size)) %>%
   group_by(regio) %>%
   mutate(aantal_broedparen_per_regio = sum(aantal_broedparen)) %>%
-  select(-Area, everything(), Area) %>%
-  rename(area_per_regio = Area) %>%
   kable()
 ```
 
@@ -3206,7 +3193,8 @@ $$
 ```{r}
 ds_scen1_unif1 <- ds(data = df_dist_terr, key = "unif", truncation = 300, 
                      transect = "point", dht_group = FALSE,
-                     convert_units = conversion_factor)
+                     convert_units = conversion_factor,
+                     region_table = reg_table, sample_table = samp_table2)
 ```
 
 - Fitting half-normal key function
@@ -3224,58 +3212,70 @@ $$
 # Null model
 ds_scen1_hn1 <- ds(data = df_dist_terr, key = "hn", truncation = 300, 
                    transect = "point", dht_group = FALSE,
-                   convert_units = conversion_factor)
+                   convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 # Single covariate
 ds_scen1_hn2 <- ds(data = df_dist_terr, key = "hn", formula = ~ regio,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hn3 <- ds(data = df_dist_terr, key = "hn", formula = ~ sbp,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hn4 <- ds(data = df_dist_terr, key = "hn", formula = ~ openheid,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 # Combination of covariates
 ds_scen1_hn5 <- ds(data = df_dist_terr, key = "hn", formula = ~ regio + sbp,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hn6 <- ds(data = df_dist_terr, key = "hn", 
                    formula = ~ regio + openheid,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, convert_units = conversion_factor)
+                 dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hn7 <- ds(data = df_dist_terr, key = "hn", formula = ~ sbp + openheid,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, convert_units = conversion_factor)
+                 dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hn8 <- ds(data = df_dist_terr, key = "hn", 
                    formula = ~ regio + sbp + openheid,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 # Interactions between covariates
 ds_scen1_hn9 <- ds(data = df_dist_terr, key = "hn", formula = ~ regio * sbp,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hn10 <- ds(data = df_dist_terr, key = "hn", formula = ~ sbp * openheid,
                     adjustment = NULL, truncation = 300, transect = "point", 
-                    dht_group = FALSE, convert_units = conversion_factor)
+                    dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hn11 <- ds(data = df_dist_terr, key = "hn", 
                     formula = ~ regio + sbp * openheid,
                     adjustment = NULL, truncation = 300, transect = "point", 
-                    dht_group = FALSE, convert_units = conversion_factor)
+                    dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hn12 <- ds(data = df_dist_terr, key = "hn", 
                     formula = ~ regio * sbp + openheid,
                     adjustment = NULL, truncation = 300, transect = "point", 
-                    dht_group = FALSE, convert_units = conversion_factor)
+                    dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 ```
 
 - Fitting hazard-rate key function
@@ -3293,58 +3293,70 @@ $$
 # Null model
 ds_scen1_hr1 <- ds(data = df_dist_terr, key = "hr", truncation = 300, 
                    transect = "point", dht_group = FALSE,
-                   convert_units = conversion_factor)
+                   convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 # Single covariate
 ds_scen1_hr2 <- ds(data = df_dist_terr, key = "hr", formula = ~ regio,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hr3 <- ds(data = df_dist_terr, key = "hr", formula = ~ sbp,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hr4 <- ds(data = df_dist_terr, key = "hr", formula = ~ openheid,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 # Combination of covariates
 ds_scen1_hr5 <- ds(data = df_dist_terr, key = "hr", formula = ~ regio + sbp,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hr6 <- ds(data = df_dist_terr, key = "hr", 
                    formula = ~ regio + openheid,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, convert_units = conversion_factor)
+                 dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hr7 <- ds(data = df_dist_terr, key = "hr", formula = ~ sbp + openheid,
                  adjustment = NULL, truncation = 300, transect = "point", 
-                 dht_group = FALSE, convert_units = conversion_factor)
+                 dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hr8 <- ds(data = df_dist_terr, key = "hr", 
                    formula = ~ regio + sbp + openheid,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 # Interactions between covariates
 ds_scen1_hr9 <- ds(data = df_dist_terr, key = "hr", formula = ~ regio * sbp,
                    adjustment = NULL, truncation = 300, transect = "point", 
-                   dht_group = FALSE, convert_units = conversion_factor)
+                   dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hr10 <- ds(data = df_dist_terr, key = "hr", formula = ~ sbp * openheid,
                     adjustment = NULL, truncation = 300, transect = "point", 
-                    dht_group = FALSE, convert_units = conversion_factor)
+                    dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hr11 <- ds(data = df_dist_terr, key = "hr", 
                     formula = ~ regio + sbp * openheid,
                     adjustment = NULL, truncation = 300, transect = "point", 
-                    dht_group = FALSE, convert_units = conversion_factor)
+                    dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 
 ds_scen1_hr12 <- ds(data = df_dist_terr, key = "hr", 
                     formula = ~ regio * sbp + openheid,
                     adjustment = NULL, truncation = 300, transect = "point", 
-                    dht_group = FALSE, convert_units = conversion_factor)
+                    dht_group = FALSE, convert_units = conversion_factor,
+                   region_table = reg_table, sample_table = samp_table2)
 ```
 
 We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC’s kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. Modellen met vergelijkbare AIC’s hebben vergelijkbare geschatte detectiekansen, dus in de praktijk is er weinig verschil in de keuze tussen deze modellen.
@@ -3699,6 +3711,7 @@ grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
 })
 ```
 
+**Opmerkingen**
 
 - Hoe kunnen we hypotheses testen? Effect class package Thierry?
 - Oppervalkte $A$ moet enkel HOL en OL zijn om abundanties te schatten. Nu zit daar ook nog stedelijk gebied in enzo.
