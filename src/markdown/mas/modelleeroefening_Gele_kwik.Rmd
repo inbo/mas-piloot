@@ -1437,16 +1437,19 @@ We zien kleine verschillen. Vooral in De Moeren wel iets lager met covariaten.
 Krijgen we dezelfde resultaten als we geen rekening houden met telperiode en effort = 4 zetten?
 
 ```{r}
+# Data per regio met effort = 4
 gele_kwik_2022_ds_new <- gele_kwik_2022_ds %>%
   mutate(Effort = 4,
          Region.Label = regio)
   
+# Fit model
 dsmodelhr8_new <- ds(data = gele_kwik_2022_ds_new, key = "hr", 
                  formula = ~ regio + sbp + regio:sbp,
                  adjustment = NULL, truncation = 300, transect = "point", 
                  dht_group = FALSE,
                  convert_units = conversion_factor)
 
+# Samenvatting model
 summary_hr8_new <- summary(dsmodelhr8_new)
 
 summary_results_hr8_new <- bind_rows(
@@ -1502,13 +1505,85 @@ Ja dit lijkt goed overeen te komen.
 
 Moeten we absences toevoegen? Krijgen we zelfde resultaten met enkel presences en als we de opties `region_table` en `sample_table` gebruiken?
 
+```{r}
+# Select presence data
+gele_kwik_2022_ds_presence <- gele_kwik_2022_ds_new %>%
+  filter(!is.na(distance))
+
+# Maak dataframes met regio (stratum) info en plot info
+reg_table <- reg_tab %>%
+  rename(Region.Label = regio)
+samp_table <- design2022 %>%
+  select(-c(stratum, openheid, sbp)) %>%
+  rename(Sample.Label = plotnaam, 
+         Region.Label = regio) %>%
+  mutate(Effort = 4)
+
+# Fit model  
+dsmodelhr8_presence <- ds(data = gele_kwik_2022_ds_presence, key = "hr", 
+                 formula = ~ regio + sbp + regio:sbp,
+                 adjustment = NULL, truncation = 300, transect = "point", 
+                 dht_group = FALSE, convert_units = conversion_factor,
+                 region_table = reg_table, sample_table = samp_table)
+
+# Samenvatting model
+summary_results_hr8_presence <- summary(dsmodelhr8_presence)
+
+summary_results_hr8_presence <- bind_rows(
+  summary_results_hr8_presence$dht$clusters$D %>%
+    mutate(variable = "density",
+           type = "clusters"),
+  summary_results_hr8_presence$dht$clusters$N %>%
+    mutate(variable = "abundance",
+           type = "clusters"),
+  summary_results_hr8_presence$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "individuals"),
+  summary_results_hr8_presence$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "individuals")
+  )
+
+# Model vanuit presence data
+dist_model_hr8_presence <- summary_results_hr8_presence %>%
+  filter(type == "individuals", variable == "density", Label != "Total") %>%
+  ggplot(aes(x = Label, y = Estimate)) + 
+    geom_point(aes(colour = Label), size = 4, 
+               position = position_dodge(width = 0.5)) +
+    geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = Label), 
+                  width = 0.25, position = position_dodge(width = 0.5)) + 
+    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart per 100 ha", 
+         title = "Model vanuit presence data") +
+    theme(legend.position = "bottom")
+
+# Model vanuit presence-absence data
+dist_model_hr8_new <- summary_results_hr8_new %>%
+  filter(type == "individuals", 
+         variable == "density",
+         Label != "Total") %>%
+  ggplot(aes(x = Label, y = Estimate)) + 
+    geom_point(aes(colour = Label), size = 4, 
+               position = position_dodge(width = 0.5)) +
+    geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = Label), 
+                  width = 0.25, position = position_dodge(width = 0.5)) + 
+    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
+    labs(x = "", y = "", 
+         title = "Model vanuit presence-absence data") +
+    theme(legend.position = "bottom")
+
+
+grid.arrange(dist_model_hr8_presence, dist_model_hr8_new, ncol = 2)
+```
+
+We hebben exact dezelfde resultaten.
 
 **Conclusies**
 
 - Zowel binned als continuous distances kunnen gebruikt worden, maar het lijkt onnodig om het moeilijker te maken door zelf cut points te bepalen voor de bins. Daarom raden we continuous aan
 - Het is belangrijk covariaten toe te voegen die de detectiekans kunnen beïnvloeden
 - Interpretatie sampling effort is van belang
-- We kunnen perfect met presence data werken en apart een tabel ingeven waarbij rekening wordt gehouden met afwezigheden. Dit zal eenvoudigere code geven en kans op fouten tijdens data preparatie (joinen van dataframes) reduceren
+- We kunnen perfect met presence data werken en apart een tabel van het studiedesign meegeven waarbij rekening wordt gehouden met afwezigheden. Dit zal eenvoudigere code geven en kans op fouten tijdens data preparatie (joinen van dataframes) reduceren
 
 
 ### unmarked package{#unmarked}
