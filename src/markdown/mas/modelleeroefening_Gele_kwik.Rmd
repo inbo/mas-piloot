@@ -3413,15 +3413,7 @@ add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon",
 par(mfrow = c(1, 1))
 ```
 
-
-```{r}
-dhazard <- function(scale, shape) {
-  
-}
-ggplot(df_dist_terr) +
-  geom_histogram(aes(x = distance)) +
-  geom_function(fun = keyfct.hz, args = list(distance, 5.2612818, 1.311954))
-```
+Lukt niet om te repliceren in met `ggplot()`. Herschaling onduidelijk.
 
 
 ### Resultaten en visualisatie
