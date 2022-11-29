@@ -3517,7 +3517,8 @@ par(mfrow = c(1, 1))
 ```
 
 Lukt niet om te repliceren in met `ggplot()`. Herschaling onduidelijk. Deze link geeft mogelijks een relatief eenvoudige oplossing:  
-https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ
+https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ  
+https://rdrr.io/cran/mrds/src/R/plot.ds.R
 
 ```{r}
 dist.data <- df_dist_terr
@@ -3605,7 +3606,42 @@ h1 <- hist(dist.data[dist.data$distance <= 300,]$distance,
 # Calculate expected counts for each distance value
 expected.counts <- apply(t(as.matrix(c(0,300))), 1, bindata, 
                          r = (0:1000) * 300 / 1001,
-                         breaks = seq(0, 300, 300/ 15))
+                         breaks = seq(0, 300, 300 / 15))
+expected.counts <- apply(expected.counts, 1, sumit, n = 1001, wt = pdot)
+
+# Re-scale the counts
+#h1$counts <- h1$counts / expected.counts
+
+# Use the ggplot2 package to plot the histogram (as rectangles) and overlay the detection function
+x <- h1$breaks
+
+ggplot() + 
+  geom_rect(aes(xmin = x[1:length(x) - 1], xmax = x[2:length(x)], 
+                ymin = rep(0,length(x) - 1), ymax = h1$counts), 
+            fill = "white", color = "black") + 
+  geom_line(data = data.frame(x = distances, y = y.val0), 
+            aes(x = x, y = y), colour = "blue") + # Factor level 0
+  geom_line(data = data.frame(x = distances, y = y.val1), 
+            aes(x = x, y = y), colour = "darkgreen") + # Factor level 1
+  geom_line(data = data.frame(x = distances, y = y.val2), 
+            aes(x = x, y = y), colour = "brown") + # Factor level 2
+  geom_line(data = data.frame(x = distances, y = y.val3), 
+            aes(x = x, y = y), , colour = "salmon") + # Factor level 3
+  xlab("Afstand (m)") +
+  ylab("Detectiekans")
+```
+
+```{r}
+test <- dist.data %>%
+  filter(distance <= 300, 
+         regio == "Oostelijke leemstreek",
+         sbp == "buiten")
+h1 <- hist(test$distance, breaks = seq(0, 300, 300 / 15))
+
+# Calculate expected counts for each distance value
+expected.counts <- apply(t(as.matrix(c(0,300))), 1, bindata, 
+                         r = (0:1000) * 300 / 1001,
+                         breaks = seq(0, 300, 300 / 15))
 expected.counts <- apply(expected.counts, 1, sumit, n = 1001, wt = pdot)
 
 # Re-scale the counts
@@ -3615,19 +3651,13 @@ h1$counts <- h1$counts / expected.counts
 x <- h1$breaks
 
 ggplot() + 
-  geom_rect(aes(xmin = x[1:length(x)-1], xmax = x[2:length(x)], 
-                ymin = rep(0,length(x)-1), ymax = h1$counts), 
-            fill="white", color="black") + 
-  geom_line(data = data.frame(x = distances, y = y.val0), 
-            aes(x = x, y = y), colour = "blue") + # Factor level 0
-  geom_line(data = data.frame(x = distances, y = y.val1), 
-            aes(x = x, y = y), colour = "darkgreen") + # Factor level 1
-  geom_line(data = data.frame(x = distances, y = y.val2), 
-            aes(x = x, y = y), colour = "brown")+ # Factor level 2
+  geom_rect(aes(xmin = x[1:length(x) - 1], xmax = x[2:length(x)], 
+                ymin = rep(0,length(x) - 1), ymax = h1$counts), 
+            fill = "white", color = "black") + 
   geom_line(data = data.frame(x = distances, y = y.val3), 
             aes(x = x, y = y), , colour = "salmon") + # Factor level 3
-  xlab("Distance (m)") +
-  ylab("Detection probability")
+  labs(title = "Oostelijke leemstreek - buiten", x = "Afstand (m)", 
+       y = "Detectiekans")
 ```
 
 
