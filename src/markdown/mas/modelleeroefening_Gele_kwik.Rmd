@@ -3399,9 +3399,6 @@ add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "brown",
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"))
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "salmon", 
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "buiten"))
-legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten", 
-       "Oostelijke leemstreek - binnen", "Oostelijke leemstreek - buiten"),
-       lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(1, 1))
 plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
@@ -3465,9 +3462,6 @@ add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "brown",
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"))
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon", 
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "buiten"))
-legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten", 
-       "Oostelijke leemstreek - binnen", "Oostelijke leemstreek - buiten"),
-       lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(1, 1))
 plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
@@ -3518,7 +3512,7 @@ add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon",
 par(mfrow = c(1, 1))
 ```
 
-Kunnen we deze plots repliceren in `ggplot()`? Herschaling onduidelijk. Combinatie van volgende links geeft een oplossing:  
+Kunnen we deze plots repliceren in `ggplot()`? Herschaling onduidelijk. Combinatie van volgende links geeft de oplossing:  
 https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ  
 https://rdrr.io/cran/mrds/src/R/plot.ds.R  
   
@@ -3533,8 +3527,8 @@ scalevalue <- function(key.scale, z) {
 
 # This function calculates the detection probability according to a hazard rate 
 # model from mrds:::keyfct.hz
-keyfct.hz <- function(distance, key.scale, key_shape_hr) {
-  return(1 - exp(-(distance/key.scale)^(-key_shape_hr)))
+keyfct.hz <- function(distance, key.scale, key_shape) {
+  return(1 - exp(-(distance/key.scale)^(-key_shape)))
   }
 
 # This function calculates the detection probability according to a hazard rate 
