@@ -3516,7 +3516,7 @@ add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon",
 par(mfrow = c(1, 1))
 ```
 
-Lukt niet om te repliceren in met `ggplot()`. Herschaling onduidelijk. Deze link geeft mogelijks een relatief eenvoudige oplossing:  
+Kunnen we deze plots repliceren in `ggplot()`? Herschaling onduidelijk. Combinatie van volgende links geeft een oplossing:  
 https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ  
 https://rdrr.io/cran/mrds/src/R/plot.ds.R
 
@@ -3526,19 +3526,19 @@ model <- ds_scen1_hr5
 
 # Scaling factor needed for correct plotting
 # From mrds:::scalevalue
-scale.value <- function(key.scale, z) {
+scalevalue <- function(key.scale, z) {
   return(exp(as.matrix(z) %*% key.scale))
   }
 
 # This function calculates the detection probability according to a hazard rate model
 # from mrds:::keyfct.hz
-key.fct.hz <- function(distance, key.scale, key.shape) {
+keyfct.hz <- function(distance, key.scale, key.shape) {
   return(1 - exp(-(distance/key.scale)^(-key.shape)))
   }
 
 # This function calculates the detection probability according to a hazard rate model
 # from mrds:::keyfct.hn
-key.fct.hn <- function(distance, key.scale) {
+keyfct.hn <- function(distance, key.scale) {
   return(exp( -(( distance / (sqrt(2) * key.scale) )^2) ))
 }
 
@@ -3549,28 +3549,28 @@ distances <- seq(0 ,300, length.out = 100)
 # (not the shape) of the detection function:
 
 # Shape parameter
-key.shape <- scale.value(model$ddf$ds$aux$ddfobj$shape$parameters, 
+key.shape <- scalevalue(model$ddf$ds$aux$ddfobj$shape$parameters, 
                          matrix(1, nrow = 100, 1))
 
 # Scale parameter
 # Factor = 0: De Moeren - binnen
 mat0 <- matrix(1, nrow = 100, ncol = 3)
 mat0[, 2:3] <- 0
-key.scale0 <- scale.value(model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
+key.scale0 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
 
 # Factor = 1: De Moeren - buiten
 mat1 <- matrix(1, nrow = 100, ncol = 3)
 mat1[, 2] <- 0
-key.scale1 <- scale.value(model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
+key.scale1 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
 
 # Factor = 2: Oostelijke leemstreek - binnen
 mat2 <- matrix(1, nrow = 100, ncol = 3)
 mat2[, 3] <- 0
-key.scale2 <- scale.value(model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
+key.scale2 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
 
 # Factor = 3: Oostelijke leemstreek - buiten
 mat3 <- matrix(1, nrow = 100, ncol = 3)
-key.scale3 <- scale.value(model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
+key.scale3 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
 
 # Calculate detection probability values
 y.val0 <- key.fct.hz(distances, key.scale0, key.shape)
@@ -3603,14 +3603,15 @@ if (length(model$ddf$fitted) == 1) {
 h1 <- hist(dist.data[dist.data$distance <= 300,]$distance, 
            breaks = seq(0, 300, 300 / 15))
 
-# Calculate expected counts for each distance value
-expected.counts <- apply(t(as.matrix(c(0,300))), 1, bindata, 
-                         r = (0:1000) * 300 / 1001,
-                         breaks = seq(0, 300, 300 / 15))
-expected.counts <- apply(expected.counts, 1, sumit, n = 1001, wt = pdot)
+# Calculate expected counts for each distance value for point transects
+breaks <- seq(0, 300, 300 / 15)
+nc <- length(breaks)-1
+expected.counts <- -apply(matrix(c(breaks[2:(nc+1)]^2, breaks[1:nc]^2),
+                                         ncol=2, nrow=nc),
+                                  1, diff)*(Nhat/breaks[nc+1]^2)
 
 # Re-scale the counts
-#h1$counts <- h1$counts / expected.counts
+h1$counts <- h1$counts / expected.counts
 
 # Use the ggplot2 package to plot the histogram (as rectangles) and overlay the detection function
 x <- h1$breaks
@@ -3639,11 +3640,11 @@ test <- dist.data %>%
 h1 <- hist(test$distance, breaks = seq(0, 300, 300 / 15))
 
 # Calculate expected counts for each distance value
-expected.counts <- apply(t(as.matrix(c(0,300))), 1, bindata, 
-                         r = (0:1000) * 300 / 1001,
-                         breaks = seq(0, 300, 300 / 15))
-expected.counts <- apply(expected.counts, 1, sumit, n = 1001, wt = pdot)
-
+breaks <- seq(0, 300, 300 / 15)
+nc <- length(breaks)-1
+expected.counts <- -apply(matrix(c(breaks[2:(nc+1)]^2, breaks[1:nc]^2),
+                                         ncol=2, nrow=nc),
+                                  1, diff)*(Nhat/breaks[nc+1]^2)
 # Re-scale the counts
 h1$counts <- h1$counts / expected.counts
 
