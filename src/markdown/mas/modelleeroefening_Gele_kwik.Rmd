@@ -3530,23 +3530,24 @@ scalevalue <- function(key.scale, z) {
   return(exp(as.matrix(z) %*% key.scale))
   }
 
-# This function calculates the detection probability according to a hazard rate model
-# from mrds:::keyfct.hz
+# This function calculates the detection probability according to a hazard rate 
+# model from mrds:::keyfct.hz
 keyfct.hz <- function(distance, key.scale, key.shape) {
   return(1 - exp(-(distance/key.scale)^(-key.shape)))
   }
 
-# This function calculates the detection probability according to a hazard rate model
-# from mrds:::keyfct.hn
+# This function calculates the detection probability according to a hazard rate 
+# model from mrds:::keyfct.hn
 keyfct.hn <- function(distance, key.scale) {
   return(exp( -(( distance / (sqrt(2) * key.scale) )^2) ))
 }
 
-# Vector of distances used to re-create the detection function (from 0 out to truncation distance of 300 m)
+# Vector of distances used to re-create the detection function (from 0 out to 
+# truncation distance of 300 m)
 distances <- seq(0 ,300, length.out = 100)
 
-# Using a hazard-rate model with two (dichotomous, 1/0) factor variables that only affects the scale
-# (not the shape) of the detection function:
+# Using a hazard-rate model with two (dichotomous, 1/0) factor variables that 
+# only affect the scale (not the shape) of the detection function:
 
 # Shape parameter
 key.shape <- scalevalue(model$ddf$ds$aux$ddfobj$shape$parameters, 
@@ -3573,19 +3574,21 @@ mat3 <- matrix(1, nrow = 100, ncol = 3)
 key.scale3 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
 
 # Calculate detection probability values
-y.val0 <- key.fct.hz(distances, key.scale0, key.shape)
-y.val1 <- key.fct.hz(distances, key.scale1, key.shape)
-y.val2 <- key.fct.hz(distances, key.scale2, key.shape)
-y.val3 <- key.fct.hz(distances, key.scale3, key.shape)
+y.val0 <- keyfct.hz(distances, key.scale0, key.shape)
+y.val1 <- keyfct.hz(distances, key.scale1, key.shape)
+y.val2 <- keyfct.hz(distances, key.scale2, key.shape)
+y.val3 <- keyfct.hz(distances, key.scale3, key.shape)
 
 # Now let's re-create the histogram
 # from mrds:::detfct
 bindata <- function(x, r, breaks) {
   return(hist(r[r >= x[1] & r <= x[2]], breaks = breaks, plot = FALSE)$counts)
-  }
+}
+
 sumit <- function(x, n, wt) {
   return(sum(x/(wt * n)))
-  }
+}
+
 selected <- rep(TRUE, nrow(model$ddf$ds$aux$ddfobj$xmat))
 
 # Detection probability for each fitted value & Nhat estimate
@@ -3599,22 +3602,22 @@ if (length(model$ddf$fitted) == 1) {
 # Create a dummy histogram (h1)
 # dist.data is the data.frame object of the distance data
 # Right-truncating here at 300 m
-# If you inspect the internal functions of the mrds package, you will find how the number of histogram breaks is calculated. In my case, the value is 15
-h1 <- hist(dist.data[dist.data$distance <= 300,]$distance, 
-           breaks = seq(0, 300, 300 / 15))
+# If you inspect the internal functions of the mrds package, you will find how 
+# the number of histogram breaks is calculated. In our case, the value is 15
+breaks <- seq(0, 300, 300 / 15)
+h1 <- hist(dist.data[dist.data$distance <= 300,]$distance, breaks = breaks)
 
 # Calculate expected counts for each distance value for point transects
-breaks <- seq(0, 300, 300 / 15)
-nc <- length(breaks)-1
-expected.counts <- -apply(matrix(c(breaks[2:(nc+1)]^2, breaks[1:nc]^2),
-                                         ncol=2, nrow=nc),
-                                  1, diff)*(Nhat/breaks[nc+1]^2)
+nc <- length(breaks) - 1
+expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2), 
+  ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
 
 # Re-scale the counts
 h1$counts <- h1$counts / expected.counts
 
-# Use the ggplot2 package to plot the histogram (as rectangles) and overlay the detection function
-x <- h1$breaks
+# Use the ggplot2 package to plot the histogram (as rectangles) and overlay the 
+# detection functions
+x <- breaks
 
 ggplot() + 
   geom_rect(aes(xmin = x[1:length(x) - 1], xmax = x[2:length(x)], 
