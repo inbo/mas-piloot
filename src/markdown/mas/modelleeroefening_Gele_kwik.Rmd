@@ -4021,3 +4021,32 @@ gele_kwik <- gele_kwik_presences %>%
 
 
 ## Data exploratie{#exploratie-lang}
+
+- plots per jaar
+- waarnemingen per telperiode per jaar
+- zie haas verkenning (Hans)
+- distances verdeling per jaar en regio
+- ...
+
+## Afbakenen territoria
+
+blablabla
+
+### Data preparatie
+
+### Clusteren
+
+### Resultaten
+
+
+## Distance sampling
+
+blablabla
+
+### Data preparatie
+
+### Model fit en selectie
+
+### Resultaten
+
+## Discussie
