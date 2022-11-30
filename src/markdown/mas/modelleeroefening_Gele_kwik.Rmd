@@ -4022,6 +4022,100 @@ gele_kwik <- gele_kwik_presences %>%
 
 ## Data exploratie{#exploratie-lang}
 
+**Aantallen**
+
+Enkele samenvattende statistieken:
+
+```{r stats-aantallen-nodist}
+gele_kwik %>%
+  group_by(regio, jaar, periode_in_jaar) %>%
+  summarise(min = min(aantal), 
+            mediaan = median(aantal),
+            gemiddelde = mean(aantal),
+            max = max(aantal),
+            varantie = var(aantal)) %>%
+  kable()
+```
+
+Aantal tellingen per categorie:
+
+```{r tellingen-aantallen-nodist}
+gele_kwik %>%
+  group_by(regio, jaar, periode_in_jaar, aantal) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  arrange(aantal) %>%
+  pivot_wider(names_from = aantal, values_from = n) %>%
+  replace(is.na(.), 0) %>%
+  kable()
+```
+
+Visueel:
+
+```{r}
+gele_kwik %>%
+  group_by(regio, jaar, periode_in_jaar, aantal) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  ggplot(aes(x = aantal, y = n, fill = periode_in_jaar)) +
+    geom_bar(stat = "identity", col = "black") +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank()) + 
+    facet_wrap(regio~jaar, scales = "free_y") +
+    labs(y = "", x = "Aantal broedparen Gele kwikstaart per plot") +
+  theme(legend.position = "bottom")
+```
+
+Totaal aantal getelde broedparen Gele kwikstaart per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval.
+
+```{r}
+gele_kwik %>%
+  ggplot(aes(x = jaar, y = aantal, colour = periode_in_jaar)) +
+  stat_sum(position = position_dodge(width = 0.5), alpha = 0.5) +
+  stat_summary(fun.data = mean_cl_boot,
+               position = position_dodge(width = 0.5),
+               fatten = 4, shape = "square") +
+  facet_wrap(~regio) +
+  labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "Telperiode") +
+  theme(legend.position = "bottom")
+```
+
+**Waarnemingen**
+
+Een waarneming is een telling van een aantal individuen op een bepaalde afstand in een bepaalde telcirkel in een bepaalde telperiode in een bepaald jaar.
+
+```{r}
+plots_per_jaar <- gele_kwik %>%
+  group_by(jaar) %>%
+  summarise(aantal_plots = n_distinct(plotnaam))
+
+gele_kwik_presences %>%
+  group_by(jaar) %>%
+  summarise(aantal_waarnemingen = n()) %>%
+  full_join(plots_per_jaar, by = "jaar") %>%
+  select(jaar, aantal_plots, aantal_waarnemingen) %>%
+  kable()
+```
+
+```{r}
+gele_kwik_presences %>%
+  ggplot() + 
+  geom_bar(aes(x = periode_in_jaar, fill = factor(jaar))) +
+  labs(y = "Aantal waarnemingen van Gele kwikstaart", x = "Telperiode") +
+  facet_wrap(~regio) +
+  theme(legend.position = "bottom")
+```
+
+
+```{r}
+gele_kwik_presences %>%
+  st_drop_geometry() %>%
+  distinct(plotid, regio, periode_in_jaar, doy, jaar) %>%
+  ggplot(aes(x = periode_in_jaar, y = doy, colour  = factor(jaar))) + 
+  geom_point() +
+  geom_line(aes(group = interaction(plotid, factor(jaar)))) +
+  labs(y = "Dag in het jaar", x = "Telperiode") +
+  facet_wrap(~regio)
+```
+
 - plots per jaar
 - waarnemingen per telperiode per jaar
 - zie haas verkenning (Hans)
