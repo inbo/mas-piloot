@@ -3691,8 +3691,11 @@ if (length(hr_model$ddf$fitted) == 1) {
 # Right-truncating here at 300 m
 # If you inspect the internal functions of the mrds package, you will find how 
 # the number of histogram breaks is calculated. In our case, the value is 15
-breaks <- seq(0, 300, 300 / 15)
-hist_hr <- hist(dist_data[dist_data$distance <= 300,]$distance, breaks = breaks)
+n_breaks <- 15
+trunc <- 300
+breaks <- seq(0, trunc, trunc / n_breaks)
+hist_hr <- hist(dist_data[dist_data$distance <= trunc,]$distance, 
+                breaks = breaks)
 
 # Calculate expected counts for each distance value for point transects
 nc <- length(breaks) - 1
@@ -3702,14 +3705,13 @@ expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2),
 # Re-scale the counts
 hist_hr$counts <- hist_hr$counts / expected.counts
 
-# Use the ggplot2 package to plot the histogram (as rectangles) and overlay the 
+# Use the ggplot2 package to plot the histogram as a barplot and overlay the 
 # detection functions
-ggplot() + 
-  geom_rect(aes(xmin = breaks[1:length(breaks) - 1], 
-                xmax = breaks[2:length(breaks)], 
-                ymin = rep(0,length(breaks) - 1), 
-                ymax = hist_hr$counts), 
-            fill = "white", color = "black") + 
+hist_df <- data.frame(mids = hist_hr$mids, counts = hist_hr$counts)
+
+ggplot(hist_df) + 
+  geom_bar(aes(x = mids, y = counts), stat = "identity",
+           width = trunc / n_breaks, fill = "white", color = "black") + 
   geom_line(data = df_hazard %>% filter(!grepl("gemiddelde", df$Legende)), 
             aes(x = dist, y = y_val, colour = Legende), size = 1) +
   labs(title = "Hazard-rate model", x = "Afstand (m)", y = "Detectiekans") +
