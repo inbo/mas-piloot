@@ -3648,9 +3648,12 @@ ggplot() +
                 ymin = rep(0,length(x) - 1), ymax = h1$counts), 
             fill = "white", color = "black") + 
   geom_line(data = df %>% filter(!grepl("gemiddelde", df$Legende)), 
-            aes(x = dist, y = y.val, colour = Legende)) +
+            aes(x = dist, y = y.val, colour = Legende), size = 1) +
   xlab("Afstand (m)") +
-  ylab("Detectiekans")
+  ylab("Detectiekans") +
+  theme(legend.position = c(1, 1),
+        legend.justification = c(1, 1),
+        legend.background = element_rect(fill = "white", color = "black"))
 ```
 
 ```{r}
