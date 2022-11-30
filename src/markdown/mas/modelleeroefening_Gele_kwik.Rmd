@@ -3383,11 +3383,13 @@ $$
 De gemiddelde detectiekans $\hat{P}_a$ verschilt tussen hazard-ratio en half-normal functies waarbij deze steeds lager is voor half-normal modellen. $\hat{P}_a$ is een samenvattende statistiek die ons een idee geeft van hoe detecteerbaar onze $n$ waargenomen dieren zouden zijn om dezelfde abundantie te schatten als er geen waargenomen covariabelen waren. We bekijken model fit van modellen 6 (half-normal) en 18 (hazard-rate) m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
 
 ```{r}
+breaks <- seq(0, 300, 300 / 15)
+
 # Hazard-rate in functie van regio en sbp
 par(mfrow = c(1, 2))
 gof_ds(ds_scen1_hr5, main = "ds_scen1_hr5")
 
-plot(ds_scen1_hr5, pdf = FALSE, showpoints = FALSE, 
+plot(ds_scen1_hr5, pdf = FALSE, showpoints = FALSE, breaks = breaks,
      main = "P(detectie) ~ regio + sbp")
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "blue",
   data = data.frame(regio = "De Moeren", sbp = "binnen"))
@@ -3402,7 +3404,7 @@ legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten",
        lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(1, 1))
-plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE,
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      main = paste0("ds_scen1_hr5", " - ", "AIC: ",
                    as.character(round(summary(ds_scen1_hr5)$ds$aic, digits = 2))
                    )
@@ -3420,28 +3422,28 @@ legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten",
        lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(2, 2))
-plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "De Moeren" & sbp == "binnen",
      main = "De Moeren - binnen", pl.col = alpha("blue", 0.5))
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "blue",
   data = data.frame(regio = "De Moeren", sbp = "binnen"), pdf = TRUE)
 
 
-plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "De Moeren" & sbp == "buiten",
      main = "De Moeren - buiten", pl.col = alpha("darkgreen", 0.5))
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "darkgreen",
   data = data.frame(regio = "De Moeren", sbp = "buiten"), pdf = TRUE)
 
 
-plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "Oostelijke leemstreek" & sbp == "binnen",
      main = "Oostelijke leemstreek - binnen", pl.col = alpha("brown", 0.5))
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "brown",
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"), 
   pdf = TRUE)
 
-plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "Oostelijke leemstreek" & sbp == "buiten",
      main = "Oostelijke leemstreek - buiten", pl.col = alpha("salmon", 0.5))
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "salmon",
@@ -3453,7 +3455,7 @@ par(mfrow = c(1, 2))
 
 gof_ds(ds_scen1_hn5, main = "ds_scen1_hn5")
 
-plot(ds_scen1_hn5, pdf = FALSE, showpoints = FALSE, 
+plot(ds_scen1_hn5, pdf = FALSE, showpoints = FALSE, breaks = breaks, 
      main = "P(detectie) ~ regio + sbp")
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "blue",
   data = data.frame(regio = "De Moeren", sbp = "binnen"))
@@ -3468,7 +3470,7 @@ legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten",
        lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(1, 1))
-plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE,
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      main = paste0("ds_scen1_hn5", " - ", "AIC: ",
                    as.character(round(summary(ds_scen1_hn5)$ds$aic, digits = 2))
                    )
@@ -3486,28 +3488,28 @@ legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten",
        lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(2, 2))
-plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "De Moeren" & sbp == "binnen",
      main = "De Moeren - binnen", pl.col = alpha("blue", 0.5))
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "blue",
   data = data.frame(regio = "De Moeren", sbp = "binnen"), pdf = TRUE)
 
 
-plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "De Moeren" & sbp == "buiten",
      main = "De Moeren - buiten", pl.col = alpha("darkgreen", 0.5))
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "darkgreen",
   data = data.frame(regio = "De Moeren", sbp = "buiten"), pdf = TRUE)
 
 
-plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "Oostelijke leemstreek" & sbp == "binnen",
      main = "Oostelijke leemstreek - binnen", pl.col = alpha("brown", 0.5))
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "brown",
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"), 
   pdf = TRUE)
 
-plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "Oostelijke leemstreek" & sbp == "buiten",
      main = "Oostelijke leemstreek - buiten", pl.col = alpha("salmon", 0.5))
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon",
@@ -3590,17 +3592,17 @@ y.val3 <- keyfct.hz(distances, key.scale3, key.shape)
 y.val4 <- keyfct.hz(distances, key.scale4, key.shape)
 y.val5 <- keyfct.hz(distances, key.scale5, key.shape)
 
-df <- rbind(data.frame(dist = distances, y.val = y.val0, 
+df_hazard <- rbind(data.frame(dist = distances, y_val = y.val0, 
                        Legende = "De Moeren - binnen"),
-            data.frame(dist = distances, y.val = y.val1, 
+            data.frame(dist = distances, y_val = y.val1, 
                        Legende = "De Moeren - buiten"),
-            data.frame(dist = distances, y.val = y.val2, 
+            data.frame(dist = distances, y_val = y.val2, 
                        Legende = "Oostelijke leemstreek - binnen"),
-            data.frame(dist = distances, y.val = y.val3, 
+            data.frame(dist = distances, y_val = y.val3, 
                        Legende = "Oostelijke leemstreek - buiten"),
-            data.frame(dist = distances, y.val = y.val4, 
+            data.frame(dist = distances, y_val = y.val4, 
                        Legende = "ongewogen gemiddelde"),
-            data.frame(dist = distances, y.val = y.val5, 
+            data.frame(dist = distances, y_val = y.val5, 
                        Legende = "gewogen gemiddelde"))
 
 # Now let's re-create the histogram
@@ -3647,10 +3649,9 @@ ggplot() +
   geom_rect(aes(xmin = x[1:length(x) - 1], xmax = x[2:length(x)], 
                 ymin = rep(0,length(x) - 1), ymax = h1$counts), 
             fill = "white", color = "black") + 
-  geom_line(data = df %>% filter(!grepl("gemiddelde", df$Legende)), 
-            aes(x = dist, y = y.val, colour = Legende), size = 1) +
-  xlab("Afstand (m)") +
-  ylab("Detectiekans") +
+  geom_line(data = df_hazard %>% filter(!grepl("gemiddelde", df$Legende)), 
+            aes(x = dist, y = y_val, colour = Legende), size = 1) +
+  labs(title = "Hazard-rate model", x = "Afstand (m)", y = "Detectiekans") +
   theme(legend.position = c(1, 1),
         legend.justification = c(1, 1),
         legend.background = element_rect(fill = "white", color = "black"))
