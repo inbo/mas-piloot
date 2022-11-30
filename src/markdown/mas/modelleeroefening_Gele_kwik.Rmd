@@ -43,7 +43,7 @@ source(here("src", "R", "wfs_wcs.R"))
 ```
 
 
-# Inlezen data
+# Inlezen data{#inlezen-data}
 
 ```{r ronde-intervallen}
 r1_start <- "04-01"
@@ -260,7 +260,7 @@ mas_clean <- mas %>%
 ```
 
 
-# Gele kwikstaart 2022{#gele-kwik}
+# Gele kwikstaart 2022{#gele-kwik-2022}
 
 We starten met een beperkte dataset om het aantal broedparen van de Gele kwikstaart te modelleren. We beginnen met data exploratie en bouwen dan verschillende modellen op van simpel naar meer complexe modellen. 
 
@@ -3985,9 +3985,11 @@ grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
 - Oppervalkte $A$ moet enkel HOL en OL zijn om abundanties te schatten. Nu zit daar ook nog stedelijk gebied in enzo.
 
 
-# Gele kwikstaart 2018-2022{#gele-kwik-longterm}
+# Gele kwikstaart 2018-2022{#gele-kwik}
 
-Nu kunnen we overgaan naar een dataset van Gele kwikstaart over de jaren heen (2018-2022). We selecteren de data voor Gele kwikstaart van 2018-2022 met broedcode > 0. Opmerking: wat met *Gele kwikstaart (spec)*?
+Nu kunnen we overgaan naar een dataset van Gele kwikstaart over de jaren heen (2018-2022). We selecteren de data voor Gele kwikstaart van 2018-2022 met broedcode > 0. Opmerking: wat met *Gele kwikstaart (spec)*?  
+  
+Er is een discrepantie in de variabelen van de plots tussen 2018-2021 en 2022 (zie \@ref(inlezen-data)). Daardoor zijn er in de volgende data geen plots die zowel in 2018-2021 en 2022 zijn bezocht. Bovendien zullen de resultaten voor 2022 nu dan ook verschillen van deze in \@ref(gele-kwik-2022).
 
 ```{r}
 # design 2018-2022 Oostelijke leemstreek en De Moeren
@@ -4017,3 +4019,5 @@ gele_kwik <- gele_kwik_presences %>%
   arrange(plotnaam, jaar, periode_in_jaar)
 ```
 
+
+## Data exploratie{#exploratie-lang}
