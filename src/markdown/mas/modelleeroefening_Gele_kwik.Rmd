@@ -3695,7 +3695,7 @@ n_breaks <- 15
 trunc <- 300
 breaks <- seq(0, trunc, trunc / n_breaks)
 hist_hr <- hist(dist_data[dist_data$distance <= trunc,]$distance, 
-                breaks = breaks)
+                breaks = breaks, plot = FALSE)
 
 # Calculate expected counts for each distance value for point transects
 nc <- length(breaks) - 1
@@ -3741,7 +3741,7 @@ n_breaks <- 15
 trunc <- 300
 breaks <- seq(0, trunc, trunc / n_breaks)
 hist_hn <- hist(dist_data[dist_data$distance <= trunc,]$distance, 
-                breaks = breaks)
+                breaks = breaks, plot = FALSE)
 
 # Calculate expected counts for each distance value for point transects
 nc <- length(breaks) - 1
@@ -3765,6 +3765,8 @@ ggplot(hist_df_hn) +
         legend.justification = c(1, 1),
         legend.background = element_rect(fill = "white", color = "black"))
 ```
+
+the line representing the fitted average detection probability.
 
 
 ### Resultaten en visualisatie
