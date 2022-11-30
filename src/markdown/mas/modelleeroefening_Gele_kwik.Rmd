@@ -3675,10 +3675,10 @@ df_halfnorm <- rbind(data.frame(dist = distances, y_val = y.val0,
 Now we can start plotting:
 
 ```{r}
-# Now let's re-create the histogram
-selected <- rep(TRUE, nrow(hr_model$ddf$ds$aux$ddfobj$xmat))
+# Re-create the histogram: Hazard-rate
 
 # Detection probability for each fitted value & Nhat estimate
+selected <- rep(TRUE, nrow(hr_model$ddf$ds$aux$ddfobj$xmat))
 if (length(hr_model$ddf$fitted) == 1) {
   pdot <- rep(hr_model$ddf$fitted, sum(as.numeric(selected)))
 } else {
@@ -3707,14 +3707,60 @@ hist_hr$counts <- hist_hr$counts / expected.counts
 
 # Use the ggplot2 package to plot the histogram as a barplot and overlay the 
 # detection functions
-hist_df <- data.frame(mids = hist_hr$mids, counts = hist_hr$counts)
+hist_df_hr <- data.frame(mids = hist_hr$mids, counts = hist_hr$counts)
 
-ggplot(hist_df) + 
+ggplot(hist_df_hr) + 
   geom_bar(aes(x = mids, y = counts), stat = "identity",
            width = trunc / n_breaks, fill = "white", color = "black") + 
   geom_line(data = df_hazard %>% filter(!grepl("gemiddelde", df$Legende)), 
             aes(x = dist, y = y_val, colour = Legende), size = 1) +
   labs(title = "Hazard-rate model", x = "Afstand (m)", y = "Detectiekans") +
+  theme(legend.position = c(1, 1),
+        legend.justification = c(1, 1),
+        legend.background = element_rect(fill = "white", color = "black"))
+```
+
+```{r}
+# Re-create the histogram: Half-normal
+
+# Detection probability for each fitted value & Nhat estimate
+selected <- rep(TRUE, nrow(hn_model$ddf$ds$aux$ddfobj$xmat))
+if (length(hn_model$ddf$fitted) == 1) {
+  pdot <- rep(hn_model$ddf$fitted, sum(as.numeric(selected)))
+} else {
+  pdot <- hn_model$ddf$fitted[selected]
+  Nhat <- sum(1 / pdot)
+}
+
+# Create a dummy histogram
+# dist_data is the data.frame object of the distance data
+# Right-truncating here at 300 m
+# If you inspect the internal functions of the mrds package, you will find how 
+# the number of histogram breaks is calculated. In our case, the value is 15
+n_breaks <- 15
+trunc <- 300
+breaks <- seq(0, trunc, trunc / n_breaks)
+hist_hn <- hist(dist_data[dist_data$distance <= trunc,]$distance, 
+                breaks = breaks)
+
+# Calculate expected counts for each distance value for point transects
+nc <- length(breaks) - 1
+expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2), 
+  ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
+
+# Re-scale the counts
+hist_hn$counts <- hist_hn$counts / expected.counts
+
+# Use the ggplot2 package to plot the histogram as a barplot and overlay the 
+# detection functions
+hist_df_hn <- data.frame(mids = hist_hn$mids, counts = hist_hn$counts)
+
+ggplot(hist_df_hn) + 
+  geom_bar(aes(x = mids, y = counts), stat = "identity",
+           width = trunc / n_breaks, fill = "white", color = "black") + 
+  geom_line(data = df_halfnorm %>% filter(!grepl("gemiddelde", df$Legende)), 
+            aes(x = dist, y = y_val, colour = Legende), size = 1) +
+  labs(title = "Half-normal model", x = "Afstand (m)", y = "Detectiekans") +
   theme(legend.position = c(1, 1),
         legend.justification = c(1, 1),
         legend.background = element_rect(fill = "white", color = "black"))
