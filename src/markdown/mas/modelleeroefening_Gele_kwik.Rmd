@@ -3522,10 +3522,9 @@ Kunnen we deze plots repliceren in `ggplot()`? Herschaling onduidelijk. Combinat
 https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ  
 https://rdrr.io/cran/mrds/src/R/plot.ds.R
 
-```{r}
-dist.data <- df_dist_terr
-model <- ds_scen1_hr5
+We need some functions from the **mrds** package:
 
+```{r}
 # Scaling factor needed for correct plotting
 # From mrds:::scalevalue
 scalevalue <- function(key.scale, z) {
@@ -3534,8 +3533,8 @@ scalevalue <- function(key.scale, z) {
 
 # This function calculates the detection probability according to a hazard rate 
 # model from mrds:::keyfct.hz
-keyfct.hz <- function(distance, key.scale, key.shape) {
-  return(1 - exp(-(distance/key.scale)^(-key.shape)))
+keyfct.hz <- function(distance, key.scale, key_shape_hr) {
+  return(1 - exp(-(distance/key.scale)^(-key_shape_hr)))
   }
 
 # This function calculates the detection probability according to a hazard rate 
@@ -3543,68 +3542,130 @@ keyfct.hz <- function(distance, key.scale, key.shape) {
 keyfct.hn <- function(distance, key.scale) {
   return(exp( -(( distance / (sqrt(2) * key.scale) )^2) ))
 }
+```
+
+We calculate detection probability values:
+
+```{r}
+dist_data <- df_dist_terr
+hr_model <- ds_scen1_hr5
+hn_model <- ds_scen1_hn5
 
 # Vector of distances used to re-create the detection function (from 0 out to 
 # truncation distance of 300 m)
 distances <- seq(0 ,300, length.out = 100)
 
-# Using a hazard-rate model with two (dichotomous, 1/0) factor variables that 
-# only affect the scale (not the shape) of the detection function:
+# The models have two dichotomous factor variables that only affect the scale 
+# (not the shape) of the detection function:
 
 # Shape parameter
-key.shape <- scalevalue(model$ddf$ds$aux$ddfobj$shape$parameters, 
-                         matrix(1, nrow = 100, 1))
+key_shape_hr <- scalevalue(hr_model$ddf$ds$aux$ddfobj$shape$parameters, 
+                           matrix(1, nrow = 100, 1))
 
-# Scale parameter
+# Scale parameter - Hazard-rate
 # Factor = 0: De Moeren - binnen
 mat0 <- matrix(1, nrow = 100, ncol = 3)
 mat0[, 2:3] <- 0
-key.scale0 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
+key.scale0 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
 
 # Factor = 1: De Moeren - buiten
 mat1 <- matrix(1, nrow = 100, ncol = 3)
 mat1[, 2] <- 0
-key.scale1 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
+key.scale1 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
 
 # Factor = 2: Oostelijke leemstreek - binnen
 mat2 <- matrix(1, nrow = 100, ncol = 3)
 mat2[, 3] <- 0
-key.scale2 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
+key.scale2 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
 
 # Factor = 3: Oostelijke leemstreek - buiten
 mat3 <- matrix(1, nrow = 100, ncol = 3)
-key.scale3 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
+key.scale3 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
 
 # Gemiddelde
 mat4 <- matrix(1 / 2, nrow = 100, ncol = 3)
 mat4[, 1] <- 1
-key.scale4 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat4)
+key.scale4 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat4)
 
 # Gewogen gemiddelde
 mat5 <- matrix(c(1, 308 / 387, 119 / 387), nrow = 100, ncol = 3, byrow = TRUE)
-key.scale5 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat5)
+key.scale5 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat5)
 
 # Calculate detection probability values
-y.val0 <- keyfct.hz(distances, key.scale0, key.shape)
-y.val1 <- keyfct.hz(distances, key.scale1, key.shape)
-y.val2 <- keyfct.hz(distances, key.scale2, key.shape)
-y.val3 <- keyfct.hz(distances, key.scale3, key.shape)
-y.val4 <- keyfct.hz(distances, key.scale4, key.shape)
-y.val5 <- keyfct.hz(distances, key.scale5, key.shape)
+y.val0 <- keyfct.hz(distances, key.scale0, key_shape_hr)
+y.val1 <- keyfct.hz(distances, key.scale1, key_shape_hr)
+y.val2 <- keyfct.hz(distances, key.scale2, key_shape_hr)
+y.val3 <- keyfct.hz(distances, key.scale3, key_shape_hr)
+y.val4 <- keyfct.hz(distances, key.scale4, key_shape_hr)
+y.val5 <- keyfct.hz(distances, key.scale5, key_shape_hr)
 
 df_hazard <- rbind(data.frame(dist = distances, y_val = y.val0, 
-                       Legende = "De Moeren - binnen"),
-            data.frame(dist = distances, y_val = y.val1, 
-                       Legende = "De Moeren - buiten"),
-            data.frame(dist = distances, y_val = y.val2, 
-                       Legende = "Oostelijke leemstreek - binnen"),
-            data.frame(dist = distances, y_val = y.val3, 
-                       Legende = "Oostelijke leemstreek - buiten"),
-            data.frame(dist = distances, y_val = y.val4, 
-                       Legende = "ongewogen gemiddelde"),
-            data.frame(dist = distances, y_val = y.val5, 
-                       Legende = "gewogen gemiddelde"))
+                   Legende = "De Moeren - binnen"),
+               data.frame(dist = distances, y_val = y.val1, 
+                   Legende = "De Moeren - buiten"),
+               data.frame(dist = distances, y_val = y.val2, 
+                   Legende = "Oostelijke leemstreek - binnen"),
+               data.frame(dist = distances, y_val = y.val3, 
+                   Legende = "Oostelijke leemstreek - buiten"),
+               data.frame(dist = distances, y_val = y.val4, 
+                   Legende = "ongewogen gemiddelde"),
+               data.frame(dist = distances, y_val = y.val5, 
+                   Legende = "gewogen gemiddelde"))
 
+# Scale parameter - Half-normal
+# Factor = 0: De Moeren - binnen
+mat0 <- matrix(1, nrow = 100, ncol = 3)
+mat0[, 2:3] <- 0
+key.scale0 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
+
+# Factor = 1: De Moeren - buiten
+mat1 <- matrix(1, nrow = 100, ncol = 3)
+mat1[, 2] <- 0
+key.scale1 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
+
+# Factor = 2: Oostelijke leemstreek - binnen
+mat2 <- matrix(1, nrow = 100, ncol = 3)
+mat2[, 3] <- 0
+key.scale2 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
+
+# Factor = 3: Oostelijke leemstreek - buiten
+mat3 <- matrix(1, nrow = 100, ncol = 3)
+key.scale3 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
+
+# Gemiddelde
+mat4 <- matrix(1 / 2, nrow = 100, ncol = 3)
+mat4[, 1] <- 1
+key.scale4 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat4)
+
+# Gewogen gemiddelde
+mat5 <- matrix(c(1, 308 / 387, 119 / 387), nrow = 100, ncol = 3, byrow = TRUE)
+key.scale5 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat5)
+
+# Calculate detection probability values
+y.val0 <- keyfct.hn(distances, key.scale0)
+y.val1 <- keyfct.hn(distances, key.scale1)
+y.val2 <- keyfct.hn(distances, key.scale2)
+y.val3 <- keyfct.hn(distances, key.scale3)
+y.val4 <- keyfct.hn(distances, key.scale4)
+y.val5 <- keyfct.hn(distances, key.scale5)
+
+df_halfnorm <- rbind(data.frame(dist = distances, y_val = y.val0, 
+                     Legende = "De Moeren - binnen"),
+                 data.frame(dist = distances, y_val = y.val1, 
+                     Legende = "De Moeren - buiten"),
+                 data.frame(dist = distances, y_val = y.val2, 
+                     Legende = "Oostelijke leemstreek - binnen"),
+                 data.frame(dist = distances, y_val = y.val3, 
+                     Legende = "Oostelijke leemstreek - buiten"),
+                 data.frame(dist = distances, y_val = y.val4, 
+                     Legende = "ongewogen gemiddelde"),
+                 data.frame(dist = distances, y_val = y.val5, 
+                     Legende = "gewogen gemiddelde"))
+```
+
+Now we can start plotting:
+
+```{r}
 # Now let's re-create the histogram
 # from mrds:::detfct
 bindata <- function(x, r, breaks) {
@@ -3615,23 +3676,23 @@ sumit <- function(x, n, wt) {
   return(sum(x/(wt * n)))
 }
 
-selected <- rep(TRUE, nrow(model$ddf$ds$aux$ddfobj$xmat))
+selected <- rep(TRUE, nrow(hr_model$ddf$ds$aux$ddfobj$xmat))
 
 # Detection probability for each fitted value & Nhat estimate
-if (length(model$ddf$fitted) == 1) {
-  pdot <- rep(model$ddf$fitted, sum(as.numeric(selected)))
+if (length(hr_model$ddf$fitted) == 1) {
+  pdot <- rep(hr_model$ddf$fitted, sum(as.numeric(selected)))
 } else {
-  pdot <- model$ddf$fitted[selected]
+  pdot <- hr_model$ddf$fitted[selected]
   Nhat <- sum(1 / pdot)
 }
 
-# Create a dummy histogram (h1)
-# dist.data is the data.frame object of the distance data
+# Create a dummy histogram
+# dist_data is the data.frame object of the distance data
 # Right-truncating here at 300 m
 # If you inspect the internal functions of the mrds package, you will find how 
 # the number of histogram breaks is calculated. In our case, the value is 15
 breaks <- seq(0, 300, 300 / 15)
-h1 <- hist(dist.data[dist.data$distance <= 300,]$distance, breaks = breaks)
+hist_hr <- hist(dist_data[dist_data$distance <= 300,]$distance, breaks = breaks)
 
 # Calculate expected counts for each distance value for point transects
 nc <- length(breaks) - 1
@@ -3639,15 +3700,15 @@ expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2),
   ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
 
 # Re-scale the counts
-h1$counts <- h1$counts / expected.counts
+hist_hr$counts <- hist_hr$counts / expected.counts
 
 # Use the ggplot2 package to plot the histogram (as rectangles) and overlay the 
 # detection functions
-x <- breaks
-
 ggplot() + 
-  geom_rect(aes(xmin = x[1:length(x) - 1], xmax = x[2:length(x)], 
-                ymin = rep(0,length(x) - 1), ymax = h1$counts), 
+  geom_rect(aes(xmin = breaks[1:length(breaks) - 1], 
+                xmax = breaks[2:length(breaks)], 
+                ymin = rep(0,length(breaks) - 1), 
+                ymax = hist_hr$counts), 
             fill = "white", color = "black") + 
   geom_line(data = df_hazard %>% filter(!grepl("gemiddelde", df$Legende)), 
             aes(x = dist, y = y_val, colour = Legende), size = 1) +
