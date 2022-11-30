@@ -3573,11 +3573,17 @@ key.scale2 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
 mat3 <- matrix(1, nrow = 100, ncol = 3)
 key.scale3 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
 
+# Gemiddelde
+mat4 <- matrix(1 / 2, nrow = 100, ncol = 3)
+mat4[, 1] <- 1
+key.scale4 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat4)
+
 # Calculate detection probability values
 y.val0 <- keyfct.hz(distances, key.scale0, key.shape)
 y.val1 <- keyfct.hz(distances, key.scale1, key.shape)
 y.val2 <- keyfct.hz(distances, key.scale2, key.shape)
 y.val3 <- keyfct.hz(distances, key.scale3, key.shape)
+y.val4 <- keyfct.hz(distances, key.scale4, key.shape)
 
 # Now let's re-create the histogram
 # from mrds:::detfct
@@ -3630,7 +3636,9 @@ ggplot() +
   geom_line(data = data.frame(x = distances, y = y.val2), 
             aes(x = x, y = y), colour = "brown") + # Factor level 2
   geom_line(data = data.frame(x = distances, y = y.val3), 
-            aes(x = x, y = y), , colour = "salmon") + # Factor level 3
+            aes(x = x, y = y), colour = "salmon") + # Factor level 3
+  geom_line(data = data.frame(x = distances, y = y.val4), 
+            aes(x = x, y = y), colour = "black", size = 1) + # Gemiddelde
   xlab("Afstand (m)") +
   ylab("Detectiekans")
 ```
