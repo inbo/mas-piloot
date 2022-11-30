@@ -3542,6 +3542,15 @@ keyfct.hz <- function(distance, key.scale, key_shape_hr) {
 keyfct.hn <- function(distance, key.scale) {
   return(exp( -(( distance / (sqrt(2) * key.scale) )^2) ))
 }
+
+# from mrds:::detfct
+bindata <- function(x, r, breaks) {
+  return(hist(r[r >= x[1] & r <= x[2]], breaks = breaks, plot = FALSE)$counts)
+}
+
+sumit <- function(x, n, wt) {
+  return(sum(x/(wt * n)))
+}
 ```
 
 We calculate detection probability values:
@@ -3667,15 +3676,6 @@ Now we can start plotting:
 
 ```{r}
 # Now let's re-create the histogram
-# from mrds:::detfct
-bindata <- function(x, r, breaks) {
-  return(hist(r[r >= x[1] & r <= x[2]], breaks = breaks, plot = FALSE)$counts)
-}
-
-sumit <- function(x, n, wt) {
-  return(sum(x/(wt * n)))
-}
-
 selected <- rep(TRUE, nrow(hr_model$ddf$ds$aux$ddfobj$xmat))
 
 # Detection probability for each fitted value & Nhat estimate
