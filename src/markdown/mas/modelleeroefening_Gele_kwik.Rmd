@@ -3656,35 +3656,6 @@ ggplot() +
         legend.background = element_rect(fill = "white", color = "black"))
 ```
 
-```{r}
-test <- dist.data %>%
-  filter(distance <= 300, 
-         regio == "Oostelijke leemstreek",
-         sbp == "buiten")
-h1 <- hist(test$distance, breaks = seq(0, 300, 300 / 15))
-
-# Calculate expected counts for each distance value
-breaks <- seq(0, 300, 300 / 15)
-nc <- length(breaks)-1
-expected.counts <- -apply(matrix(c(breaks[2:(nc+1)]^2, breaks[1:nc]^2),
-                                         ncol=2, nrow=nc),
-                                  1, diff)*(Nhat/breaks[nc+1]^2)
-# Re-scale the counts
-h1$counts <- h1$counts / expected.counts
-
-# Use the ggplot2 package to plot the histogram (as rectangles) and overlay the detection function
-x <- h1$breaks
-
-ggplot() + 
-  geom_rect(aes(xmin = x[1:length(x) - 1], xmax = x[2:length(x)], 
-                ymin = rep(0,length(x) - 1), ymax = h1$counts), 
-            fill = "white", color = "black") + 
-  geom_line(data = data.frame(x = distances, y = y.val3), 
-            aes(x = x, y = y), , colour = "salmon") + # Factor level 3
-  labs(title = "Oostelijke leemstreek - buiten", x = "Afstand (m)", 
-       y = "Detectiekans")
-```
-
 
 ### Resultaten en visualisatie
 
