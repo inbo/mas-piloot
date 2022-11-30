@@ -110,6 +110,11 @@ design2022 <- read_csv(here(
 ```
 
 ```{r design-2018-2022}
+bezoekstippen_avimap_2021 <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
+)
+
 telpunten_avimap_2021 <- read_sf(
   here("data", "mas",
        "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
@@ -3966,4 +3971,8 @@ grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
 
 - Hoe kunnen we hypotheses testen? Effect class package Thierry?
 - Oppervalkte $A$ moet enkel HOL en OL zijn om abundanties te schatten. Nu zit daar ook nog stedelijk gebied in enzo.
+
+
+
+
 
