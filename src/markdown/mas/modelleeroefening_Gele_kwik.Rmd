@@ -3520,9 +3520,9 @@ par(mfrow = c(1, 1))
 
 Kunnen we deze plots repliceren in `ggplot()`? Herschaling onduidelijk. Combinatie van volgende links geeft een oplossing:  
 https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ  
-https://rdrr.io/cran/mrds/src/R/plot.ds.R
-
-We need some functions from the **mrds** package:
+https://rdrr.io/cran/mrds/src/R/plot.ds.R  
+  
+We hebben een aantal functies nodig van het **mrds** package:
 
 ```{r}
 # Scaling factor needed for correct plotting
@@ -3553,7 +3553,7 @@ sumit <- function(x, n, wt) {
 }
 ```
 
-We calculate detection probability values:
+We berekenen detectiekansen:
 
 ```{r}
 dist_data <- df_dist_terr
@@ -3642,7 +3642,7 @@ df_halfnorm <- rbind(data.frame(dist = distances, y_val = y.val0,
                      Legende = "Oostelijke leemstreek - buiten"))
 ```
 
-Now we can start plotting:
+Nu kunnen we beginnen plotten:
 
 ```{r}
 # Re-create the histogram: Hazard-rate
