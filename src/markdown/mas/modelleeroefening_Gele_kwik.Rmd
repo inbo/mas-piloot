@@ -3591,22 +3591,11 @@ key.scale2 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
 mat3 <- matrix(1, nrow = 100, ncol = 3)
 key.scale3 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
 
-# Gemiddelde
-mat4 <- matrix(1 / 2, nrow = 100, ncol = 3)
-mat4[, 1] <- 1
-key.scale4 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat4)
-
-# Gewogen gemiddelde
-mat5 <- matrix(c(1, 308 / 387, 119 / 387), nrow = 100, ncol = 3, byrow = TRUE)
-key.scale5 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat5)
-
 # Calculate detection probability values
 y.val0 <- keyfct.hz(distances, key.scale0, key_shape_hr)
 y.val1 <- keyfct.hz(distances, key.scale1, key_shape_hr)
 y.val2 <- keyfct.hz(distances, key.scale2, key_shape_hr)
 y.val3 <- keyfct.hz(distances, key.scale3, key_shape_hr)
-y.val4 <- keyfct.hz(distances, key.scale4, key_shape_hr)
-y.val5 <- keyfct.hz(distances, key.scale5, key_shape_hr)
 
 df_hazard <- rbind(data.frame(dist = distances, y_val = y.val0, 
                    Legende = "De Moeren - binnen"),
@@ -3615,11 +3604,7 @@ df_hazard <- rbind(data.frame(dist = distances, y_val = y.val0,
                data.frame(dist = distances, y_val = y.val2, 
                    Legende = "Oostelijke leemstreek - binnen"),
                data.frame(dist = distances, y_val = y.val3, 
-                   Legende = "Oostelijke leemstreek - buiten"),
-               data.frame(dist = distances, y_val = y.val4, 
-                   Legende = "ongewogen gemiddelde"),
-               data.frame(dist = distances, y_val = y.val5, 
-                   Legende = "gewogen gemiddelde"))
+                   Legende = "Oostelijke leemstreek - buiten"))
 
 # Scale parameter - Half-normal
 # Factor = 0: De Moeren - binnen
@@ -3641,22 +3626,11 @@ key.scale2 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
 mat3 <- matrix(1, nrow = 100, ncol = 3)
 key.scale3 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
 
-# Gemiddelde
-mat4 <- matrix(1 / 2, nrow = 100, ncol = 3)
-mat4[, 1] <- 1
-key.scale4 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat4)
-
-# Gewogen gemiddelde
-mat5 <- matrix(c(1, 308 / 387, 119 / 387), nrow = 100, ncol = 3, byrow = TRUE)
-key.scale5 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat5)
-
 # Calculate detection probability values
 y.val0 <- keyfct.hn(distances, key.scale0)
 y.val1 <- keyfct.hn(distances, key.scale1)
 y.val2 <- keyfct.hn(distances, key.scale2)
 y.val3 <- keyfct.hn(distances, key.scale3)
-y.val4 <- keyfct.hn(distances, key.scale4)
-y.val5 <- keyfct.hn(distances, key.scale5)
 
 df_halfnorm <- rbind(data.frame(dist = distances, y_val = y.val0, 
                      Legende = "De Moeren - binnen"),
@@ -3665,11 +3639,7 @@ df_halfnorm <- rbind(data.frame(dist = distances, y_val = y.val0,
                  data.frame(dist = distances, y_val = y.val2, 
                      Legende = "Oostelijke leemstreek - binnen"),
                  data.frame(dist = distances, y_val = y.val3, 
-                     Legende = "Oostelijke leemstreek - buiten"),
-                 data.frame(dist = distances, y_val = y.val4, 
-                     Legende = "ongewogen gemiddelde"),
-                 data.frame(dist = distances, y_val = y.val5, 
-                     Legende = "gewogen gemiddelde"))
+                     Legende = "Oostelijke leemstreek - buiten"))
 ```
 
 Now we can start plotting:
@@ -3705,6 +3675,24 @@ expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2),
 # Re-scale the counts
 hist_hr$counts <- hist_hr$counts / expected.counts
 
+# Calculate the fitted average detection probability
+ddfobj <- hr_model$ddf$ds$aux$ddfobj
+finebr <- seq(0, trunc, length.out = 101)
+xgrid <- NULL
+linevalues <- NULL
+newdat <- ddfobj$xmat
+for (i in 1:(length(finebr) - 1)) {
+  x <- (finebr[i] + finebr[i + 1]) / 2
+  xgrid <- c(xgrid, x)
+  newdat$distance <- rep(x, nrow(newdat))
+
+  detfct.values <- detfct(newdat$distance, ddfobj, select = selected,
+                          width = trunc)
+  linevalues <- c(linevalues, sum(detfct.values/pdot)/sum(1/pdot))
+}
+
+df_gemiddelde_hr <- data.frame(dist = distances, lineval = linevalues)
+
 # Use the ggplot2 package to plot the histogram as a barplot and overlay the 
 # detection functions
 hist_df_hr <- data.frame(mids = hist_hr$mids, counts = hist_hr$counts)
@@ -3712,8 +3700,10 @@ hist_df_hr <- data.frame(mids = hist_hr$mids, counts = hist_hr$counts)
 ggplot(hist_df_hr) + 
   geom_bar(aes(x = mids, y = counts), stat = "identity",
            width = trunc / n_breaks, fill = "white", color = "black") + 
-  geom_line(data = df_hazard %>% filter(!grepl("gemiddelde", df$Legende)), 
-            aes(x = dist, y = y_val, colour = Legende), size = 1) +
+  geom_line(data = df_hazard, aes(x = dist, y = y_val, colour = Legende), 
+            size = 1) +
+  geom_line(data = df_gemiddelde_hr, aes(x = dist, y = lineval), size = 1, 
+            linetype = "dashed") +
   labs(title = "Hazard-rate model", x = "Afstand (m)", y = "Detectiekans") +
   theme(legend.position = c(1, 1),
         legend.justification = c(1, 1),
@@ -3751,6 +3741,24 @@ expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2),
 # Re-scale the counts
 hist_hn$counts <- hist_hn$counts / expected.counts
 
+# Calculate the fitted average detection probability
+ddfobj <- hn_model$ddf$ds$aux$ddfobj
+finebr <- seq(0, trunc, length.out = 101)
+xgrid <- NULL
+linevalues <- NULL
+newdat <- ddfobj$xmat
+for (i in 1:(length(finebr) - 1)) {
+  x <- (finebr[i] + finebr[i + 1]) / 2
+  xgrid <- c(xgrid, x)
+  newdat$distance <- rep(x, nrow(newdat))
+
+  detfct.values <- detfct(newdat$distance, ddfobj, select = selected,
+                          width = trunc)
+  linevalues <- c(linevalues, sum(detfct.values/pdot)/sum(1/pdot))
+}
+
+df_gemiddelde_hn <- data.frame(dist = distances, lineval = linevalues)
+
 # Use the ggplot2 package to plot the histogram as a barplot and overlay the 
 # detection functions
 hist_df_hn <- data.frame(mids = hist_hn$mids, counts = hist_hn$counts)
@@ -3758,15 +3766,15 @@ hist_df_hn <- data.frame(mids = hist_hn$mids, counts = hist_hn$counts)
 ggplot(hist_df_hn) + 
   geom_bar(aes(x = mids, y = counts), stat = "identity",
            width = trunc / n_breaks, fill = "white", color = "black") + 
-  geom_line(data = df_halfnorm %>% filter(!grepl("gemiddelde", df$Legende)), 
-            aes(x = dist, y = y_val, colour = Legende), size = 1) +
+  geom_line(data = df_halfnorm, aes(x = dist, y = y_val, colour = Legende), 
+            size = 1) +
+  geom_line(data = df_gemiddelde_hn, aes(x = dist, y = lineval), size = 1, 
+            linetype = "dashed") +
   labs(title = "Half-normal model", x = "Afstand (m)", y = "Detectiekans") +
   theme(legend.position = c(1, 1),
         legend.justification = c(1, 1),
         legend.background = element_rect(fill = "white", color = "black"))
 ```
-
-the line representing the fitted average detection probability.
 
 
 ### Resultaten en visualisatie
