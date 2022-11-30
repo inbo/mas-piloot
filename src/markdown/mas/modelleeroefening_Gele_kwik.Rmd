@@ -115,6 +115,10 @@ bezoekstippen_avimap_2021 <- read_sf(
        "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
 )
 
+plot_per_jaar <- bezoekstippen_avimap_2021 %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
+
 telpunten_avimap_2021 <- read_sf(
   here("data", "mas",
        "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
@@ -213,12 +217,20 @@ read_csv(here(
 
 ```{r omzeilen-probleemgevallen}
 # probleemgevallen voorlopig omzeilen
+
+# Voeg jaren toe aan plots
+design_2018_2021_jaar <- design_2018_2021 %>%
+  inner_join(plot_per_jaar, by = "plotnaam")
+design2022_jaar <- design2022 %>%
+  mutate(jaar = 2022)
+
+# Voeg 2018-2021 en 2022 samen
 design_2018_2022 <- bind_rows(
-  design_2018_2021,
-  design2022 %>%
+  design_2018_2021_jaar,
+  design2022_jaar %>%
     filter(!grepl("^VL", plotnaam))) %>%
   distinct() %>%
-  arrange(plotnaam)
+  arrange(plotnaam, jaar)
 ```
 
 ```{r overzicht-data, eval=FALSE}
@@ -3971,8 +3983,5 @@ grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
 
 - Hoe kunnen we hypotheses testen? Effect class package Thierry?
 - Oppervalkte $A$ moet enkel HOL en OL zijn om abundanties te schatten. Nu zit daar ook nog stedelijk gebied in enzo.
-
-
-
 
 
