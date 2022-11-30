@@ -3578,12 +3578,30 @@ mat4 <- matrix(1 / 2, nrow = 100, ncol = 3)
 mat4[, 1] <- 1
 key.scale4 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat4)
 
+# Gewogen gemiddelde
+mat5 <- matrix(c(1, 308 / 387, 119 / 387), nrow = 100, ncol = 3, byrow = TRUE)
+key.scale5 <- scalevalue(model$ddf$ds$aux$ddfobj$scale$parameters, mat5)
+
 # Calculate detection probability values
 y.val0 <- keyfct.hz(distances, key.scale0, key.shape)
 y.val1 <- keyfct.hz(distances, key.scale1, key.shape)
 y.val2 <- keyfct.hz(distances, key.scale2, key.shape)
 y.val3 <- keyfct.hz(distances, key.scale3, key.shape)
 y.val4 <- keyfct.hz(distances, key.scale4, key.shape)
+y.val5 <- keyfct.hz(distances, key.scale5, key.shape)
+
+df <- rbind(data.frame(dist = distances, y.val = y.val0, 
+                       Legende = "De Moeren - binnen"),
+            data.frame(dist = distances, y.val = y.val1, 
+                       Legende = "De Moeren - buiten"),
+            data.frame(dist = distances, y.val = y.val2, 
+                       Legende = "Oostelijke leemstreek - binnen"),
+            data.frame(dist = distances, y.val = y.val3, 
+                       Legende = "Oostelijke leemstreek - buiten"),
+            data.frame(dist = distances, y.val = y.val4, 
+                       Legende = "ongewogen gemiddelde"),
+            data.frame(dist = distances, y.val = y.val5, 
+                       Legende = "gewogen gemiddelde"))
 
 # Now let's re-create the histogram
 # from mrds:::detfct
@@ -3629,16 +3647,8 @@ ggplot() +
   geom_rect(aes(xmin = x[1:length(x) - 1], xmax = x[2:length(x)], 
                 ymin = rep(0,length(x) - 1), ymax = h1$counts), 
             fill = "white", color = "black") + 
-  geom_line(data = data.frame(x = distances, y = y.val0), 
-            aes(x = x, y = y), colour = "blue") + # Factor level 0
-  geom_line(data = data.frame(x = distances, y = y.val1), 
-            aes(x = x, y = y), colour = "darkgreen") + # Factor level 1
-  geom_line(data = data.frame(x = distances, y = y.val2), 
-            aes(x = x, y = y), colour = "brown") + # Factor level 2
-  geom_line(data = data.frame(x = distances, y = y.val3), 
-            aes(x = x, y = y), colour = "salmon") + # Factor level 3
-  geom_line(data = data.frame(x = distances, y = y.val4), 
-            aes(x = x, y = y), colour = "black", size = 1) + # Gemiddelde
+  geom_line(data = df %>% filter(!grepl("gemiddelde", df$Legende)), 
+            aes(x = dist, y = y.val, colour = Legende)) +
   xlab("Afstand (m)") +
   ylab("Detectiekans")
 ```
