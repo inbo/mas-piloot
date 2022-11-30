@@ -3383,11 +3383,13 @@ $$
 De gemiddelde detectiekans $\hat{P}_a$ verschilt tussen hazard-ratio en half-normal functies waarbij deze steeds lager is voor half-normal modellen. $\hat{P}_a$ is een samenvattende statistiek die ons een idee geeft van hoe detecteerbaar onze $n$ waargenomen dieren zouden zijn om dezelfde abundantie te schatten als er geen waargenomen covariabelen waren. We bekijken model fit van modellen 6 (half-normal) en 18 (hazard-rate) m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
 
 ```{r}
+breaks <- seq(0, 300, 300 / 15)
+
 # Hazard-rate in functie van regio en sbp
 par(mfrow = c(1, 2))
 gof_ds(ds_scen1_hr5, main = "ds_scen1_hr5")
 
-plot(ds_scen1_hr5, pdf = FALSE, showpoints = FALSE, 
+plot(ds_scen1_hr5, pdf = FALSE, showpoints = FALSE, breaks = breaks,
      main = "P(detectie) ~ regio + sbp")
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "blue",
   data = data.frame(regio = "De Moeren", sbp = "binnen"))
@@ -3397,12 +3399,9 @@ add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "brown",
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"))
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "salmon", 
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "buiten"))
-legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten", 
-       "Oostelijke leemstreek - binnen", "Oostelijke leemstreek - buiten"),
-       lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(1, 1))
-plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE,
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      main = paste0("ds_scen1_hr5", " - ", "AIC: ",
                    as.character(round(summary(ds_scen1_hr5)$ds$aic, digits = 2))
                    )
@@ -3420,28 +3419,28 @@ legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten",
        lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(2, 2))
-plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "De Moeren" & sbp == "binnen",
      main = "De Moeren - binnen", pl.col = alpha("blue", 0.5))
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "blue",
   data = data.frame(regio = "De Moeren", sbp = "binnen"), pdf = TRUE)
 
 
-plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "De Moeren" & sbp == "buiten",
      main = "De Moeren - buiten", pl.col = alpha("darkgreen", 0.5))
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "darkgreen",
   data = data.frame(regio = "De Moeren", sbp = "buiten"), pdf = TRUE)
 
 
-plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "Oostelijke leemstreek" & sbp == "binnen",
      main = "Oostelijke leemstreek - binnen", pl.col = alpha("brown", 0.5))
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "brown",
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"), 
   pdf = TRUE)
 
-plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hr5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "Oostelijke leemstreek" & sbp == "buiten",
      main = "Oostelijke leemstreek - buiten", pl.col = alpha("salmon", 0.5))
 add.df.covar.line(ds_scen1_hr5, lwd = 3, lty = 1, col = "salmon",
@@ -3453,7 +3452,7 @@ par(mfrow = c(1, 2))
 
 gof_ds(ds_scen1_hn5, main = "ds_scen1_hn5")
 
-plot(ds_scen1_hn5, pdf = FALSE, showpoints = FALSE, 
+plot(ds_scen1_hn5, pdf = FALSE, showpoints = FALSE, breaks = breaks, 
      main = "P(detectie) ~ regio + sbp")
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "blue",
   data = data.frame(regio = "De Moeren", sbp = "binnen"))
@@ -3463,12 +3462,9 @@ add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "brown",
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"))
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon", 
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "buiten"))
-legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten", 
-       "Oostelijke leemstreek - binnen", "Oostelijke leemstreek - buiten"),
-       lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(1, 1))
-plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE,
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      main = paste0("ds_scen1_hn5", " - ", "AIC: ",
                    as.character(round(summary(ds_scen1_hn5)$ds$aic, digits = 2))
                    )
@@ -3486,28 +3482,28 @@ legend("topright", legend = c("De Moeren - binnen", "De Moeren - buiten",
        lwd = 3, lty = 1, col = c("blue", "darkgreen", "brown", "salmon"))
 
 par(mfrow = c(2, 2))
-plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "De Moeren" & sbp == "binnen",
      main = "De Moeren - binnen", pl.col = alpha("blue", 0.5))
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "blue",
   data = data.frame(regio = "De Moeren", sbp = "binnen"), pdf = TRUE)
 
 
-plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "De Moeren" & sbp == "buiten",
      main = "De Moeren - buiten", pl.col = alpha("darkgreen", 0.5))
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "darkgreen",
   data = data.frame(regio = "De Moeren", sbp = "buiten"), pdf = TRUE)
 
 
-plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "Oostelijke leemstreek" & sbp == "binnen",
      main = "Oostelijke leemstreek - binnen", pl.col = alpha("brown", 0.5))
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "brown",
   data = data.frame(regio = "Oostelijke leemstreek", sbp = "binnen"), 
   pdf = TRUE)
 
-plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, 
+plot(ds_scen1_hn5, pdf = TRUE, showpoints = FALSE, breaks = breaks,
      subset = regio == "Oostelijke leemstreek" & sbp == "buiten",
      main = "Oostelijke leemstreek - buiten", pl.col = alpha("salmon", 0.5))
 add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon",
@@ -3516,8 +3512,263 @@ add.df.covar.line(ds_scen1_hn5, lwd = 3, lty = 1, col = "salmon",
 par(mfrow = c(1, 1))
 ```
 
-Lukt niet om te repliceren in met `ggplot()`. Herschaling onduidelijk. Deze link geeft mogelijks een relatief eenvoudige oplossing:  
-https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ
+Kunnen we deze plots repliceren in `ggplot()`? Herschaling onduidelijk. Combinatie van volgende links geeft de oplossing:  
+https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ  
+https://rdrr.io/cran/mrds/src/R/plot.ds.R  
+  
+We hebben een aantal functies nodig van het **mrds** package:
+
+```{r}
+# Scaling factor needed for correct plotting
+# From mrds:::scalevalue
+scalevalue <- function(key.scale, z) {
+  return(exp(as.matrix(z) %*% key.scale))
+  }
+
+# This function calculates the detection probability according to a hazard rate 
+# model from mrds:::keyfct.hz
+keyfct.hz <- function(distance, key.scale, key_shape) {
+  return(1 - exp(-(distance/key.scale)^(-key_shape)))
+  }
+
+# This function calculates the detection probability according to a hazard rate 
+# model from mrds:::keyfct.hn
+keyfct.hn <- function(distance, key.scale) {
+  return(exp( -(( distance / (sqrt(2) * key.scale) )^2) ))
+}
+
+# from mrds:::detfct
+bindata <- function(x, r, breaks) {
+  return(hist(r[r >= x[1] & r <= x[2]], breaks = breaks, plot = FALSE)$counts)
+}
+
+sumit <- function(x, n, wt) {
+  return(sum(x/(wt * n)))
+}
+```
+
+We berekenen detectiekansen:
+
+```{r}
+dist_data <- df_dist_terr
+hr_model <- ds_scen1_hr5
+hn_model <- ds_scen1_hn5
+
+# Vector of distances used to re-create the detection function (from 0 out to 
+# truncation distance of 300 m)
+distances <- seq(0 ,300, length.out = 100)
+
+# The models have two dichotomous factor variables that only affect the scale 
+# (not the shape) of the detection function:
+
+# Shape parameter
+key_shape_hr <- scalevalue(hr_model$ddf$ds$aux$ddfobj$shape$parameters, 
+                           matrix(1, nrow = 100, 1))
+
+# Scale parameter - Hazard-rate
+# Factor = 0: De Moeren - binnen
+mat0 <- matrix(1, nrow = 100, ncol = 3)
+mat0[, 2:3] <- 0
+key.scale0 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
+
+# Factor = 1: De Moeren - buiten
+mat1 <- matrix(1, nrow = 100, ncol = 3)
+mat1[, 2] <- 0
+key.scale1 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
+
+# Factor = 2: Oostelijke leemstreek - binnen
+mat2 <- matrix(1, nrow = 100, ncol = 3)
+mat2[, 3] <- 0
+key.scale2 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
+
+# Factor = 3: Oostelijke leemstreek - buiten
+mat3 <- matrix(1, nrow = 100, ncol = 3)
+key.scale3 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
+
+# Calculate detection probability values
+y.val0 <- keyfct.hz(distances, key.scale0, key_shape_hr)
+y.val1 <- keyfct.hz(distances, key.scale1, key_shape_hr)
+y.val2 <- keyfct.hz(distances, key.scale2, key_shape_hr)
+y.val3 <- keyfct.hz(distances, key.scale3, key_shape_hr)
+
+df_hazard <- rbind(data.frame(dist = distances, y_val = y.val0, 
+                   Legende = "De Moeren - binnen"),
+               data.frame(dist = distances, y_val = y.val1, 
+                   Legende = "De Moeren - buiten"),
+               data.frame(dist = distances, y_val = y.val2, 
+                   Legende = "Oostelijke leemstreek - binnen"),
+               data.frame(dist = distances, y_val = y.val3, 
+                   Legende = "Oostelijke leemstreek - buiten"))
+
+# Scale parameter - Half-normal
+# Factor = 0: De Moeren - binnen
+mat0 <- matrix(1, nrow = 100, ncol = 3)
+mat0[, 2:3] <- 0
+key.scale0 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
+
+# Factor = 1: De Moeren - buiten
+mat1 <- matrix(1, nrow = 100, ncol = 3)
+mat1[, 2] <- 0
+key.scale1 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
+
+# Factor = 2: Oostelijke leemstreek - binnen
+mat2 <- matrix(1, nrow = 100, ncol = 3)
+mat2[, 3] <- 0
+key.scale2 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
+
+# Factor = 3: Oostelijke leemstreek - buiten
+mat3 <- matrix(1, nrow = 100, ncol = 3)
+key.scale3 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
+
+# Calculate detection probability values
+y.val0 <- keyfct.hn(distances, key.scale0)
+y.val1 <- keyfct.hn(distances, key.scale1)
+y.val2 <- keyfct.hn(distances, key.scale2)
+y.val3 <- keyfct.hn(distances, key.scale3)
+
+df_halfnorm <- rbind(data.frame(dist = distances, y_val = y.val0, 
+                     Legende = "De Moeren - binnen"),
+                 data.frame(dist = distances, y_val = y.val1, 
+                     Legende = "De Moeren - buiten"),
+                 data.frame(dist = distances, y_val = y.val2, 
+                     Legende = "Oostelijke leemstreek - binnen"),
+                 data.frame(dist = distances, y_val = y.val3, 
+                     Legende = "Oostelijke leemstreek - buiten"))
+```
+
+Nu kunnen we beginnen plotten:
+
+```{r}
+# Re-create the histogram: Hazard-rate
+
+# Detection probability for each fitted value & Nhat estimate
+selected <- rep(TRUE, nrow(hr_model$ddf$ds$aux$ddfobj$xmat))
+if (length(hr_model$ddf$fitted) == 1) {
+  pdot <- rep(hr_model$ddf$fitted, sum(as.numeric(selected)))
+} else {
+  pdot <- hr_model$ddf$fitted[selected]
+  Nhat <- sum(1 / pdot)
+}
+
+# Create a dummy histogram
+# dist_data is the data.frame object of the distance data
+# Right-truncating here at 300 m
+# If you inspect the internal functions of the mrds package, you will find how 
+# the number of histogram breaks is calculated. In our case, the value is 15
+n_breaks <- 15
+trunc <- 300
+breaks <- seq(0, trunc, trunc / n_breaks)
+hist_hr <- hist(dist_data[dist_data$distance <= trunc,]$distance, 
+                breaks = breaks, plot = FALSE)
+
+# Calculate expected counts for each distance value for point transects
+nc <- length(breaks) - 1
+expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2), 
+  ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
+
+# Re-scale the counts
+hist_hr$counts <- hist_hr$counts / expected.counts
+
+# Calculate the fitted average detection probability
+ddfobj <- hr_model$ddf$ds$aux$ddfobj
+finebr <- seq(0, trunc, length.out = 101)
+xgrid <- NULL
+linevalues <- NULL
+newdat <- ddfobj$xmat
+for (i in 1:(length(finebr) - 1)) {
+  x <- (finebr[i] + finebr[i + 1]) / 2
+  xgrid <- c(xgrid, x)
+  newdat$distance <- rep(x, nrow(newdat))
+
+  detfct.values <- detfct(newdat$distance, ddfobj, select = selected,
+                          width = trunc)
+  linevalues <- c(linevalues, sum(detfct.values/pdot)/sum(1/pdot))
+}
+
+df_gemiddelde_hr <- data.frame(dist = distances, lineval = linevalues)
+
+# Use the ggplot2 package to plot the histogram as a barplot and overlay the 
+# detection functions
+hist_df_hr <- data.frame(mids = hist_hr$mids, counts = hist_hr$counts)
+
+ggplot(hist_df_hr) + 
+  geom_bar(aes(x = mids, y = counts), stat = "identity",
+           width = trunc / n_breaks, fill = "white", color = "black") + 
+  geom_line(data = df_hazard, aes(x = dist, y = y_val, colour = Legende), 
+            size = 1) +
+  geom_line(data = df_gemiddelde_hr, aes(x = dist, y = lineval), size = 1, 
+            linetype = "dashed") +
+  labs(title = "Hazard-rate model", x = "Afstand (m)", y = "Detectiekans") +
+  theme(legend.position = c(1, 1),
+        legend.justification = c(1, 1),
+        legend.background = element_rect(fill = "white", color = "black"))
+```
+
+```{r}
+# Re-create the histogram: Half-normal
+
+# Detection probability for each fitted value & Nhat estimate
+selected <- rep(TRUE, nrow(hn_model$ddf$ds$aux$ddfobj$xmat))
+if (length(hn_model$ddf$fitted) == 1) {
+  pdot <- rep(hn_model$ddf$fitted, sum(as.numeric(selected)))
+} else {
+  pdot <- hn_model$ddf$fitted[selected]
+  Nhat <- sum(1 / pdot)
+}
+
+# Create a dummy histogram
+# dist_data is the data.frame object of the distance data
+# Right-truncating here at 300 m
+# If you inspect the internal functions of the mrds package, you will find how 
+# the number of histogram breaks is calculated. In our case, the value is 15
+n_breaks <- 15
+trunc <- 300
+breaks <- seq(0, trunc, trunc / n_breaks)
+hist_hn <- hist(dist_data[dist_data$distance <= trunc,]$distance, 
+                breaks = breaks, plot = FALSE)
+
+# Calculate expected counts for each distance value for point transects
+nc <- length(breaks) - 1
+expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2), 
+  ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
+
+# Re-scale the counts
+hist_hn$counts <- hist_hn$counts / expected.counts
+
+# Calculate the fitted average detection probability
+ddfobj <- hn_model$ddf$ds$aux$ddfobj
+finebr <- seq(0, trunc, length.out = 101)
+xgrid <- NULL
+linevalues <- NULL
+newdat <- ddfobj$xmat
+for (i in 1:(length(finebr) - 1)) {
+  x <- (finebr[i] + finebr[i + 1]) / 2
+  xgrid <- c(xgrid, x)
+  newdat$distance <- rep(x, nrow(newdat))
+
+  detfct.values <- detfct(newdat$distance, ddfobj, select = selected,
+                          width = trunc)
+  linevalues <- c(linevalues, sum(detfct.values/pdot)/sum(1/pdot))
+}
+
+df_gemiddelde_hn <- data.frame(dist = distances, lineval = linevalues)
+
+# Use the ggplot2 package to plot the histogram as a barplot and overlay the 
+# detection functions
+hist_df_hn <- data.frame(mids = hist_hn$mids, counts = hist_hn$counts)
+
+ggplot(hist_df_hn) + 
+  geom_bar(aes(x = mids, y = counts), stat = "identity",
+           width = trunc / n_breaks, fill = "white", color = "black") + 
+  geom_line(data = df_halfnorm, aes(x = dist, y = y_val, colour = Legende), 
+            size = 1) +
+  geom_line(data = df_gemiddelde_hn, aes(x = dist, y = lineval), size = 1, 
+            linetype = "dashed") +
+  labs(title = "Half-normal model", x = "Afstand (m)", y = "Detectiekans") +
+  theme(legend.position = c(1, 1),
+        legend.justification = c(1, 1),
+        legend.background = element_rect(fill = "white", color = "black"))
+```
 
 
 ### Resultaten en visualisatie
