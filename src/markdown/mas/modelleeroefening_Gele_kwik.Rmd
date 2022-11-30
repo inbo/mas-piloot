@@ -3985,3 +3985,35 @@ grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
 - Oppervalkte $A$ moet enkel HOL en OL zijn om abundanties te schatten. Nu zit daar ook nog stedelijk gebied in enzo.
 
 
+# Gele kwikstaart 2018-2022{#gele-kwik-longterm}
+
+Nu kunnen we overgaan naar een dataset van Gele kwikstaart over de jaren heen (2018-2022). We selecteren de data voor Gele kwikstaart van 2018-2022 met broedcode > 0. Opmerking: wat met *Gele kwikstaart (spec)*?
+
+```{r}
+# design 2018-2022 Oostelijke leemstreek en De Moeren
+design_langterm <- design_2018_2022 %>%
+  filter(regio %in% c("De Moeren", "Oostelijke leemstreek"))
+
+# Selecteer tellingen van Gele kwikstaart in 2018-2022 in de twee regio's
+# met broedcode > 0 en binnen telrondes
+gele_kwik_presences <- mas_clean %>% 
+  st_drop_geometry() %>%
+  filter(naam == "Gele Kwikstaart", !is.na(periode_in_jaar), wrntype > 0L) %>%  
+  inner_join(design_langterm, by = c("plotnaam", "jaar")) # Moeren en Leemstreek
+
+# Totale lijst van bezochte plots in 2018-2022
+bezoekenlijst_2018_2022 <- design_langterm %>% 
+  expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # voeg telperiodes toe
+  filter(!is.na(periode_in_jaar)) %>%
+  arrange(plotnaam, jaar, periode_in_jaar)
+
+# Voeg afwezigheden toe door te mergen met alle bezoeken
+gele_kwik <- gele_kwik_presences %>%
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  summarise(aantal = sum(aantal)) %>% # som aantallen gespot per dag 
+  full_join(bezoekenlijst_2018_2022, by = c("plotnaam", "jaar", 
+                                            "periode_in_jaar")) %>%
+  replace(is.na(.), 0) %>%
+  arrange(plotnaam, jaar, periode_in_jaar)
+```
+
