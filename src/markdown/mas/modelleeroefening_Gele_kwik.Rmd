@@ -3998,8 +3998,7 @@ design_langterm <- design_2018_2022 %>%
 
 # Selecteer tellingen van Gele kwikstaart in 2018-2022 in de twee regio's
 # met broedcode > 0 en binnen telrondes
-gele_kwik_presences <- mas_clean %>% 
-  st_drop_geometry() %>%
+gele_kwik_presences <- mas_clean %>%
   filter(naam == "Gele Kwikstaart", !is.na(periode_in_jaar), wrntype > 0L) %>%  
   inner_join(design_langterm, by = c("plotnaam", "jaar")) # Moeren en Leemstreek
 
@@ -4011,6 +4010,7 @@ bezoekenlijst_2018_2022 <- design_langterm %>%
 
 # Voeg afwezigheden toe door te mergen met alle bezoeken
 gele_kwik <- gele_kwik_presences %>%
+  st_drop_geometry() %>%
   group_by(plotnaam, jaar, periode_in_jaar) %>%
   summarise(aantal = sum(aantal)) %>% # som aantallen gespot per dag 
   full_join(bezoekenlijst_2018_2022, by = c("plotnaam", "jaar", 
@@ -4158,7 +4158,61 @@ gele_kwik_presences %>%
 
 ## Afbakenen territoria
 
-blablabla
+Het aantal koppels wordt bepaald o.b.v.:
+
+1. Uitsluitende waarnemingen  
+Waarnemingen tijdens éénzelfde telling worden met volledige zekerheid als verschillende dieren beschouwd. Wij beschouwen vier telrondes per jaar.
+
+2. Clustering op basis van fusieafstand  
+Waarnemingen gedurende verschillende tellingen binnen hetzelfde jaar, maar binnen een bepaalde geografische afstand van elkaar (= fusieafstand) worden geclusterd. We gaan er dan van uit dat dit hetzelfde dier was.
+
+Deze strategie werkt enkel voor honkvaste soorten. Bovendien is de keuze van de fusieafstand belangrijk. Deze kan gebaseerd worden op basis van de data en/of literatuur. De volgende figuur geeft de afstanden weer tussen verschillende koppels binnen dezelfde telling (dus zelfde plot in zelfde telperiode). Dit kan echter een onderschatting geven aangezien onze tellingen zich tot cirkels met straal 300 m beperken. We weten niet of individuen op afstand > 600 m dezelfde zijn. Bovendien kunnen plots overlappen of < 600 m van elkaar verwijderd zijn. We verwachten dat dit echter in dit geval geen grote verschillen zal meebrengen voor deze exploratieve figuur.
+
+```{r}
+# Selecteer coördinaten van broedkoppels waarvan er > 1 per telling
+# (zelfde plot zelfde telperiode) werden gezien
+broedkoppel_lang <- gele_kwik_presences %>% 
+  group_by(plotnaam, periode_in_jaar, jaar) %>%
+  mutate(group_id = cur_group_id()) %>%
+  expand(nesting(group_id), nesting(group_id2 = group_id)) %>%
+  filter(st_geometry_type(geom) == "MULTIPOINT") %>%
+  st_cast(to = "POINT")
+
+# Bereken paarsgewijze afstanden van broedkoppels per telling 
+# (zelfde plot, zelfde telperiode, zelfde jaar)
+dst_lang <- c()
+for (group in broedkoppels$group_id) {
+  df_lang <- broedkoppels %>% filter(group_id == group)
+  dst_lang <- c(dst_lang, st_distance(df_lang))
+}
+```
+
+```{r}
+# Visualiseer in histogram (filter 0 m eruit)
+plot_dist_terr_lang <- dst_lang %>% as_tibble() %>% 
+  filter(value != 0) %>%
+  ggplot() +
+    geom_histogram(aes(x = value, y = ..density..), fill = "yellow", 
+                   colour = "black", binwidth = 5, alpha = 0.5) +
+    labs(x = "Kleinste afstand tot een ander koppel in dezelfde telling (m)") +
+    geom_vline(xintercept = mean(dst_lang[dst_lang != 0]), colour = "darkgreen", 
+               size = 1.2) + 
+    geom_vline(xintercept = quantile(dst_lang[dst_lang != 0], 
+               probs = c(0.25, 0.5, 0.75)),colour = "darkblue", size = 1.2) +
+    geom_density(aes(x = value, y = ..density..), size = 1)
+plot_dist_terr_lang
+
+# Extract pieken
+hist_piek_lang <- ggplot_build(plot_dist_terr_lang)$data[[1]] %>% 
+  filter(y == max(y)) %>% 
+  pull(x)
+dens_piek_lang <- ggplot_build(plot_dist_terr_lang)$data[[4]] %>% 
+  filter(y == max(y)) %>% 
+  pull(x)
+```
+
+De top van de densiteitscurve van de koppelafstanden lag op `r round(dens_piek_lang, digits = 2)` m, de top van de histogram op `r hist_piek_lang` m, de mediaan op `r round(median(dst_lang[dst_lang != 0]), digits = 2)` m en het gemiddelde op `r round(mean(dst_lang[dst_lang != 0]), digits = 2)` m. Om conservatief te blijven kiezen we als fusieafstand het gemiddelde.
+
 
 ### Data preparatie
 
