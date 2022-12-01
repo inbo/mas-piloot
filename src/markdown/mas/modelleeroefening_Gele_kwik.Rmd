@@ -4022,11 +4022,22 @@ gele_kwik <- gele_kwik_presences %>%
 
 ## Data exploratie{#exploratie-lang}
 
+```{r}
+gele_kwik_presences %>%
+  st_drop_geometry() %>%
+  distinct(plotid, regio, periode_in_jaar, doy, jaar) %>%
+  ggplot(aes(x = periode_in_jaar, y = doy, colour  = factor(jaar))) + 
+  geom_point() +
+  geom_line(aes(group = interaction(plotid, factor(jaar)))) +
+  labs(y = "Dag in het jaar", x = "Telperiode") +
+  facet_wrap(~regio)
+```
+
 **Aantallen**
 
-Enkele samenvattende statistieken:
+Enkele samenvattende statistieken van de aantallen broedparen Gele kwikstaaart:
 
-```{r stats-aantallen-nodist}
+```{r}
 gele_kwik %>%
   group_by(regio, jaar, periode_in_jaar) %>%
   summarise(min = min(aantal), 
@@ -4037,9 +4048,9 @@ gele_kwik %>%
   kable()
 ```
 
-Aantal tellingen per categorie:
+Aantal broedparen per count:
 
-```{r tellingen-aantallen-nodist}
+```{r}
 gele_kwik %>%
   group_by(regio, jaar, periode_in_jaar, aantal) %>%
   summarise(n = n(), .groups = "drop") %>%
@@ -4059,9 +4070,11 @@ gele_kwik %>%
     geom_bar(stat = "identity", col = "black") +
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank()) + 
-    facet_wrap(regio~jaar, scales = "free_y") +
+    facet_wrap(jaar~regio, scales = "free") +
     labs(y = "", x = "Aantal broedparen Gele kwikstaart per plot") +
-  theme(legend.position = "bottom")
+    theme(legend.position = c(1, 0),
+          legend.justification = c(1, 0),
+          legend.direction = "horizontal")
 ```
 
 Totaal aantal getelde broedparen Gele kwikstaart per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval.
@@ -4080,20 +4093,34 @@ gele_kwik %>%
 
 **Waarnemingen**
 
-Een waarneming is een telling van een aantal individuen op een bepaalde afstand in een bepaalde telcirkel in een bepaalde telperiode in een bepaald jaar.
+Een waarneming is een telling van een aantal individuen op een bepaalde afstand in een bepaalde telcirkel in een bepaalde telperiode in een bepaald jaar. Het is vooral opvallend dat in 2022 veel minder waarnemingen waren terwijl er meer plots waren bezocht. 
 
 ```{r}
 plots_per_jaar <- gele_kwik %>%
-  group_by(jaar) %>%
+  group_by(regio, jaar) %>%
   summarise(aantal_plots = n_distinct(plotnaam))
 
 gele_kwik_presences %>%
-  group_by(jaar) %>%
-  summarise(aantal_waarnemingen = n()) %>%
-  full_join(plots_per_jaar, by = "jaar") %>%
-  select(jaar, aantal_plots, aantal_waarnemingen) %>%
+  group_by(regio, jaar) %>%
+  summarise(aantal_waarnemingen = n(), .groups = "drop") %>%
+  full_join(plots_per_jaar, by = c("regio", "jaar")) %>%
+  select(regio, jaar, aantal_plots, aantal_waarnemingen) %>%
   kable()
 ```
+
+```{r}
+gele_kwik_presences %>%
+  group_by(regio, jaar) %>%
+  summarise(aantal_waarnemingen = n(), .groups = "drop") %>%
+  full_join(plots_per_jaar, by = c("regio", "jaar")) %>%
+  select(regio, jaar, aantal_plots, aantal_waarnemingen) %>%
+  ggplot() +
+    geom_bar(aes(x = jaar, y = aantal_plots, fill = aantal_waarnemingen), stat = "identity") +
+    scale_fill_gradientn(colours = rainbow(2)) +
+    facet_grid(~regio)
+```
+
+In telperiode 1 worden opvallend minder Gele kwikstaarten gezien in beide regio's. 
 
 ```{r}
 gele_kwik_presences %>%
@@ -4104,23 +4131,30 @@ gele_kwik_presences %>%
   theme(legend.position = "bottom")
 ```
 
+**Afstanden**
+
+```{r}
+gele_kwik_presences %>% 
+  st_drop_geometry() %>%
+  group_by(regio, jaar) %>%
+  summarise(min = min(distance2plot, na.rm = TRUE), 
+            mediaan = median(distance2plot, na.rm = TRUE),
+            gemiddelde = mean(distance2plot, na.rm = TRUE),
+            max = max(distance2plot, na.rm = TRUE),
+            varantie = var(distance2plot, na.rm = TRUE)) %>%
+  kable(digits = 1)
+```
 
 ```{r}
 gele_kwik_presences %>%
-  st_drop_geometry() %>%
-  distinct(plotid, regio, periode_in_jaar, doy, jaar) %>%
-  ggplot(aes(x = periode_in_jaar, y = doy, colour  = factor(jaar))) + 
-  geom_point() +
-  geom_line(aes(group = interaction(plotid, factor(jaar)))) +
-  labs(y = "Dag in het jaar", x = "Telperiode") +
-  facet_wrap(~regio)
+  ggplot() +
+    geom_histogram(aes(x = distance2plot, fill = stratum), bins = 30) +
+    facet_wrap(jaar~regio, scales = "free") +
+    labs(y = "Aantal", x = "Afstand (m)") +
+    theme(legend.position = c(1, 0),
+          legend.justification = c(1, 0),
+          legend.direction = "horizontal")
 ```
-
-- plots per jaar
-- waarnemingen per telperiode per jaar
-- zie haas verkenning (Hans)
-- distances verdeling per jaar en regio
-- ...
 
 ## Afbakenen territoria
 
