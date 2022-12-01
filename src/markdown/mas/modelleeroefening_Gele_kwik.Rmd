@@ -4365,6 +4365,64 @@ blablabla
 ### Data preparatie
 
 ```{r}
+# Lees coördinaten telpunten in 
+telpunten_2018_2021 <- read_sf(
+  here("data", "mas", 
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
+  ) %>%
+  select(plotnaam = naam)
+
+telpunten_2022 <- read_sf(
+  here("data/processed/steekproef_piloot_avimap.geojson")
+  ) %>%
+  select(plotnaam = definitief_punt)
+
+# Voeg telpunten samen en verwijder duplicaten
+telpunten_sf <- rbind(telpunten_2018_2021, telpunten_2022) %>%
+  distinct()
+
+# Bereken centroide per cluster 
+dist_df_centroid <- df_territoria_lang %>%
+  st_as_sf(sf_column_name = "geom") %>%
+  group_by(cluster) %>%
+  mutate(geom = st_union(geom)) %>%
+  st_centroid() %>%
+  ungroup() %>%
+  arrange(cluster) %>%
+  distinct() %>%
+  rename(geometry = geom)
+
+# Bereken afstanden van centroide tot telpunt
+dist_df <- inner_join(dist_df_centroid %>% as.data.frame(), 
+                      telpunten_sf %>% as.data.frame(), 
+                      by = "plotnaam") %>%
+  mutate(distance = as.numeric(
+    st_distance(
+      .data[["geometry.x"]] %>% st_sf(), 
+      .data[["geometry.y"]] %>% st_sf(), 
+      by_element = TRUE)
+    )) %>%
+  select(-"geometry.y") %>% 
+  rename(geometry = geometry.x) %>%
+  st_sf(sf_column_name = "geometry")
+```
+
+```{r}
+# Zoek punten waarbij oorspronkelijke en nieuwe afstanden niet overeenkomen
+intersect <- dist_df %>%
+  filter(!(distance2plot %in% c(floor(distance), ceiling(distance))))
+
+# Vergelijk oorspronkelijke en nieuwe afstanden (mismatches in blauw)
+dist_df %>%
+  ggplot() +
+    geom_abline(intercept = 0, slope = 1, colour = "red") + 
+    geom_point(data = dist_df, aes(x = distance2plot, y = distance)) +
+    geom_point(data = intersect, aes(x = distance2plot, y = distance), 
+               colour = "blue")
+```
+
+
+```{r}
 perimeters %>% mutate(Area = as.numeric(st_area(geom)) / 1e6) %>%
             select(regio = Naam, Area) %>%
             st_drop_geometry()
