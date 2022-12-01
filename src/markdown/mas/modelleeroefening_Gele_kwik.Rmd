@@ -4216,6 +4216,49 @@ De top van de densiteitscurve van de koppelafstanden lag op `r round(dens_piek_l
 
 ### Data preparatie
 
+We hebben voor elke waarneming hun `x`- en `y`-coördinaten nodig in een geprojecteerd coördinatensysteem. `survey` is een geheel getal id voor elke telling. Een survey is dus een unieke combinatie van een plot, een telperiode en een jaar. `status` is een geheel getal dat de broedcode aangeeft. Een hogere waarde veronderstelt meer zekerheid over een broedgeval. `id` is een unieke id voor iedere observatie. Een observatie is een waarneming van één enkel individu op een bepaalde locatie in een bepaalde survey met een bepaalde status.
+
+```{r}
+# Voorbereiden dataframe
+df_territoria_lang <- gele_kwik_presences %>% 
+  st_drop_geometry() %>%
+  group_by(plotnaam, periode_in_jaar, jaar) %>%
+  mutate(survey = cur_group_id(),
+         status = as.integer(wrntype)) %>%
+  ungroup() %>%
+  rename(x = x_coord, y = y_coord) %>%
+  select(oid, survey, status, x, y, aantal)
+
+# Dupliceer rijen volgens aantal (elke rij is 1 individu)
+df_territoria_lang <- 
+  tibble(
+    df_territoria_lang[rep(seq_len(dim(df_territoria_lang)[1]), 
+                  df_territoria_lang$aantal), , 
+                  drop = FALSE], 
+    row.names = NULL
+  ) %>%
+  mutate(aantal = 1)
+
+# Gedupliceerde rijen hebben zelfde oid --> nieuw id maken voor elke waarneming
+df_territoria_lang <- df_territoria_lang %>% mutate(id = row_number())
+```
+
+Zodra we een dataframe met de waarnemingen hebben, maken we verbinding met een SQLite-database en importeren de waarnemingen. Deze kent elke waarneming toe aan een eigen cluster.
+
+```{r SQLite-territoria}
+set.seed(20221103)
+
+conn <- connect_db()
+import_observations(observations = df_territoria, conn = conn, max_dist = 600)
+```
+
+Vervolgens moeten we de afstandsmatrix berekenen. Dit is niet de volledige afstandsmatrix. We laten alle irrelevante afstanden weg, b.v. tussen waarnemingen van dezelfde telling of met een afstand groter dan tweemaal de maximale clusterafstand.
+
+```{r distmatrix-territoria}
+distance_matrix(conn = conn, max_dist = 600)
+```
+
+
 ### Clusteren
 
 ### Resultaten
