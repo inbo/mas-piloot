@@ -4211,10 +4211,13 @@ dens_piek_lang <- ggplot_build(plot_dist_terr_lang)$data[[4]] %>%
   pull(x)
 ```
 
-De top van de densiteitscurve van de koppelafstanden lag op `r round(dens_piek_lang, digits = 2)` m, de top van de histogram op `r hist_piek_lang` m, de mediaan op `r round(median(dst_lang[dst_lang != 0]), digits = 2)` m en het gemiddelde op `r round(mean(dst_lang[dst_lang != 0]), digits = 2)` m. Om conservatief te blijven kiezen we als fusieafstand het gemiddelde.
+Blauw: Q1-Q3. Groen: gemiddelde.  
+De top van de densiteitscurve van de koppelafstanden lag op `r round(dens_piek_lang, digits = 2)` m, de top van de histogram op `r hist_piek_lang` m, de mediaan op `r round(median(dst_lang[dst_lang != 0]), digits = 2)` m en het gemiddelde op `r round(mean(dst_lang[dst_lang != 0]), digits = 2)` m.
+
+Johannes liet ons weten dat dit niet goed overeenkomt met de biologie van de soort. Bij SOVON gebruiken ze een clusterafstand van 50 m, dus hier gaan we verder met deze afstand.
 
 ```{r}
-fusie_afstand_lang <- mean(dst_lang[dst_lang != 0])
+fusie_afstand_lang <- 50
 ```
 
 
@@ -4253,7 +4256,7 @@ Zodra we een dataframe met de waarnemingen hebben, maken we verbinding met een S
 set.seed(20221103)
 
 conn <- connect_db()
-import_observations(observations = df_territoria, conn = conn, max_dist = 600)
+import_observations(observations = df_territoria_lang, conn = conn, max_dist = 600)
 ```
 
 Vervolgens moeten we de afstandsmatrix berekenen. Dit is niet de volledige afstandsmatrix. We laten alle irrelevante afstanden weg, b.v. tussen waarnemingen van dezelfde telling of met een afstand groter dan tweemaal de maximale clusterafstand.
