@@ -4253,23 +4253,46 @@ df_territoria_lang <- df_territoria_lang %>% mutate(id = row_number())
 Zodra we een dataframe met de waarnemingen hebben, maken we verbinding met een SQLite-database en importeren de waarnemingen. Deze kent elke waarneming toe aan een eigen cluster.
 
 ```{r SQLite-territoria}
-set.seed(20221103)
+set.seed(20221201)
 
 conn <- connect_db()
-import_observations(observations = df_territoria_lang, conn = conn, max_dist = 600)
+import_observations(observations = df_territoria_lang, conn = conn, 
+                    max_dist = fusie_afstand_lang)
 ```
 
 Vervolgens moeten we de afstandsmatrix berekenen. Dit is niet de volledige afstandsmatrix. We laten alle irrelevante afstanden weg, b.v. tussen waarnemingen van dezelfde telling of met een afstand groter dan tweemaal de maximale clusterafstand.
 
 ```{r distmatrix-territoria}
-distance_matrix(conn = conn, max_dist = 600)
+distance_matrix(conn = conn, max_dist = fusie_afstand_lang)
 ```
 
 
 ### Clusteren
 
+Nu kunnen we beginnen met het clusteren. De clustering houdt rekening met alle waarnemingen met een broedcode hoger dan of gelijk aan de ingestelde broedcode. Herhaal de clustering voor elk broedcodeniveau. Merk op dat het overslaan van niveaus impliceert dat we ze combineren met het lagere niveau.
+
+```{r cluster-territoria}
+# Broedcodes
+broedcodes <- sort(unique(df_territoria_lang$status))
+
+# Cluster van meest zekere broedcode naar minder zeker
+result <- vector(mode = "list", length = length(broedcodes))
+for (broedcode in rev(broedcodes)) {
+  print(paste0("Clusteren broedcode ", broedcode))
+  cluster_observation(conn = conn, status = broedcode, 
+                      max_dist = fusie_afstand_lang)
+  result[[broedcode]] <- get_cluster(conn = conn)
+}
+dbDisconnect(conn = conn)
+
+# voeg clusternummer toe aan de dataset
+df_territoria_lang$cluster <- result[[1]]$observations$cluster
+```
+
+
 ### Resultaten
 
+In totaal hadden we `r nrow(result[[1]]$observations)` observaties (waarneming van een bepaald individu in een plot in een bepaalde telperiode in een bepaald jaar). Nu hebben we `r nrow(result[[1]]$cluster)` clusters (= broedparen).
 
 ## Distance sampling
 
