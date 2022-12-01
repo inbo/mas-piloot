@@ -4000,7 +4000,8 @@ design_langterm <- design_2018_2022 %>%
 # met broedcode > 0 en binnen telrondes
 gele_kwik_presences <- mas_clean %>%
   filter(naam == "Gele Kwikstaart", !is.na(periode_in_jaar), wrntype > 0L) %>%  
-  inner_join(design_langterm, by = c("plotnaam", "jaar")) # Moeren en Leemstreek
+  inner_join(design_langterm, by = c("plotnaam", "jaar")) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "))
 
 # Totale lijst van bezochte plots in 2018-2022
 bezoekenlijst_2018_2022 <- design_langterm %>% 
@@ -4016,7 +4017,8 @@ gele_kwik <- gele_kwik_presences %>%
   full_join(bezoekenlijst_2018_2022, by = c("plotnaam", "jaar", 
                                             "periode_in_jaar")) %>%
   replace(is.na(.), 0) %>%
-  arrange(plotnaam, jaar, periode_in_jaar)
+  arrange(plotnaam, jaar, periode_in_jaar) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "))
 ```
 
 
@@ -4228,13 +4230,11 @@ We hebben voor elke waarneming hun `x`- en `y`-coördinaten nodig in een geproje
 ```{r}
 # Voorbereiden dataframe
 df_territoria_lang <- gele_kwik_presences %>% 
-  st_drop_geometry() %>%
   group_by(plotnaam, periode_in_jaar, jaar) %>%
   mutate(survey = cur_group_id(),
          status = as.integer(wrntype)) %>%
   ungroup() %>%
-  rename(x = x_coord, y = y_coord) %>%
-  select(oid, survey, status, x, y, aantal)
+  rename(x = x_coord, y = y_coord)
 
 # Dupliceer rijen volgens aantal (elke rij is 1 individu)
 df_territoria_lang <- 
@@ -4292,13 +4292,84 @@ df_territoria_lang$cluster <- result[[1]]$observations$cluster
 
 ### Resultaten
 
-In totaal hadden we `r nrow(result[[1]]$observations)` observaties (waarneming van een bepaald individu in een plot in een bepaalde telperiode in een bepaald jaar). Nu hebben we `r nrow(result[[1]]$cluster)` clusters (= broedparen).
+In totaal hadden we `r nrow(result[[1]]$observations)` observaties (waarneming van een bepaald individu in een plot in een bepaalde telperiode in een bepaald jaar). Nu hebben we `r nrow(result[[1]]$cluster)` clusters (= broedparen). We vergelijken het aantal territoria met het gemiddelde en maximum over de telperiodes per plot per jaar. Bij deze laatste is ook met absensies rekening gehouden (maakt voor maximum niet uit). Voor het 
+
+```{r}
+# Bereken aantal plots per regio per jaar
+plots_per_regiojaar <- design_langterm %>% 
+  group_by(regio, jaar) %>% 
+  summarise(n_plots = n_distinct(plotnaam), .groups = "drop") %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "))
+
+# Voeg aantal plots per regio toe en bereken aantal clusters per plots
+territoria_per_plot_lang <- df_territoria_lang %>% 
+  full_join(plots_per_regiojaar, by = "Region.Label") %>%
+  group_by(Region.Label, n_plots) %>%
+  summarise(broedparen = n_distinct(cluster), .groups = "drop") %>%
+  mutate(Estimate = broedparen / n_plots,
+         categorie = "territoria")
+
+cirkelopp <- pi * 300^2
+gele_kwik %>%
+  
+  # Bepaal voor elke plot het gemiddeld aantal individuen en maximum over
+  # de telperiodes per jaar
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  mutate(totaal = sum(aantal)) %>%
+  group_by(plotnaam, jaar) %>%
+  mutate(gemiddelde = mean(totaal),
+            maximum = max(totaal)) %>%
+  ungroup() %>%
+  select(-c(periode_in_jaar, aantal, totaal)) %>%
+  distinct() %>%
+  
+  # Bereken dan het totaal aantal individuen over alle plots (som)
+  group_by(Region.Label) %>%
+  summarise(tot_gemiddelde = sum(gemiddelde),
+            tot_max = sum(maximum)) %>% 
+  
+  # Deel door aantal plots om aantal broedkoppels per plot te krijgen
+  full_join(plots_per_regiojaar, by = "Region.Label") %>%
+  mutate(tot_gemiddelde_plots = tot_gemiddelde / n_plots,
+         tot_max_plots = tot_max / n_plots) %>%
+  pivot_longer(cols = c("tot_gemiddelde_plots", "tot_max_plots"), 
+               names_to = "categorie", values_to = "Estimate") %>%
+  
+  # Voeg territoria data toe
+  select(Region.Label, Estimate, categorie) %>%
+  rbind(territoria_per_plot_lang[, -c(2, 3)]) %>%
+  
+  # Splits Region.Label
+  separate(Region.Label, into = c("regio", "jaar"), sep = " - ") %>%
+  
+  # Visualiseer
+  ggplot(aes(x = jaar, y = Estimate)) + 
+    geom_bar(aes(fill = regio), stat = "identity") + 
+    scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+         name = "Aantal broedparen Gele kwikstaart per 100 ha")) +
+    labs(x = "", y = "Aantal broedparen Gele kwikstaart per plot") +
+    theme(legend.position = "") +
+    facet_wrap(regio~categorie, labeller = labeller(
+      categorie = c(
+        "tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
+        "tot_max_plots" = "Maximum aantal broedparen per plot",
+        "territoria" = "Aantal territoria")
+      ))
+```
+
 
 ## Distance sampling
 
 blablabla
 
 ### Data preparatie
+
+```{r}
+perimeters %>% mutate(Area = as.numeric(st_area(geom)) / 1e6) %>%
+            select(regio = Naam, Area) %>%
+            st_drop_geometry()
+```
+
 
 ### Model fit en selectie
 
