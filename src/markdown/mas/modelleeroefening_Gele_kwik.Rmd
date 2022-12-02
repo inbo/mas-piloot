@@ -4453,8 +4453,13 @@ mapview(telpunten_2022 %>% st_buffer(300),
 mapview(df_territoria_lang %>%
           filter(cluster %in% clusters_dubble) %>%
           st_as_sf(sf_column_name = "geom"), zcol = "cluster")
+
+df_territoria_lang %>%
+          filter(cluster %in% clusters_dubble) %>%
+          st_as_sf(sf_column_name = "geom")
 ```
 
+klopt gwn niet ...
 
 ```{r}
 conversion_factor <- convert_units("meter", NULL, "Square kilometer")
