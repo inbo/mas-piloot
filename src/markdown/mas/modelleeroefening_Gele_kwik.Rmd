@@ -4183,8 +4183,8 @@ broedkoppel_lang <- gele_kwik_presences %>%
 # Bereken paarsgewijze afstanden van broedkoppels per telling 
 # (zelfde plot, zelfde telperiode, zelfde jaar)
 dst_lang <- c()
-for (group in broedkoppels$group_id) {
-  df_lang <- broedkoppels %>% filter(group_id == group)
+for (group in broedkoppel_lang$group_id) {
+  df_lang <- broedkoppel_lang %>% filter(group_id == group)
   dst_lang <- c(dst_lang, st_distance(df_lang))
 }
 ```
@@ -4407,18 +4407,21 @@ dist_df <- inner_join(dist_df_centroid %>% as.data.frame(),
   st_sf(sf_column_name = "geometry")
 ```
 
+Er zijn nog steeds veel punten waarvoor de oorspronkelijke en herberekende afstanden niet overeenkomen.
+
 ```{r}
 # Zoek punten waarbij oorspronkelijke en nieuwe afstanden niet overeenkomen
 intersect <- dist_df %>%
-  filter(!(distance2plot %in% c(floor(distance), ceiling(distance))))
+  dplyr::filter(distance2plot == floor(distance) | 
+                distance2plot ==  ceiling(distance))
 
 # Vergelijk oorspronkelijke en nieuwe afstanden (mismatches in blauw)
 dist_df %>%
   ggplot() +
     geom_abline(intercept = 0, slope = 1, colour = "red") + 
-    geom_point(data = dist_df, aes(x = distance2plot, y = distance)) +
-    geom_point(data = intersect, aes(x = distance2plot, y = distance), 
-               colour = "blue")
+    geom_point(data = dist_df, aes(x = distance2plot, y = distance), 
+               colour = "blue") +
+    geom_point(data = intersect, aes(x = distance2plot, y = distance))
 ```
 
 
