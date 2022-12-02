@@ -4103,6 +4103,7 @@ plots_per_jaar <- gele_kwik %>%
   summarise(aantal_plots = n_distinct(plotnaam))
 
 gele_kwik_presences %>%
+  st_drop_geometry() %>%
   group_by(regio, jaar) %>%
   summarise(aantal_waarnemingen = n(), .groups = "drop") %>%
   full_join(plots_per_jaar, by = c("regio", "jaar")) %>%
@@ -4412,7 +4413,8 @@ dist_df_centroid <- df_territoria_lang %>%
   st_centroid() %>%
   ungroup() %>%
   arrange(cluster) %>%
-  distinct(cluster) %>%
+  select(plotnaam, aantal, regio, sbp, openheid, Region.Label, cluster) %>%
+  distinct() %>%
   rename(geometry = geom)
 
 # Bereken afstanden van centroide tot telpunt
@@ -4425,33 +4427,53 @@ dist_df <- inner_join(dist_df_centroid %>% as.data.frame(),
       .data[["geometry.y"]] %>% st_sf(), 
       by_element = TRUE)
     )) %>%
-  select(-"geometry.y") %>% 
+  select(-c("geometry.y", "plotnaam")) %>% 
   rename(geometry = geometry.x) %>%
-  st_sf(sf_column_name = "geometry")
+  st_sf(sf_column_name = "geometry") %>%
+  
+  # Verander namen van kolommen
+  rename("size" = aantal) %>%
+  distinct()
 ```
 
-Er zijn nog steeds veel punten waarvoor de oorspronkelijke en herberekende afstanden niet overeenkomen.
+!! probleem overlappende telcirkels!! controleer dit... effect op distance sampling?? sampled oppervlak kleiner maaktuit voor densities
 
 ```{r}
-# Zoek punten waarbij oorspronkelijke en nieuwe afstanden niet overeenkomen
-intersect <- dist_df %>%
-  dplyr::filter(distance2plot == floor(distance) | 
-                distance2plot ==  ceiling(distance))
+clusters_dubble <- dist_df %>%
+  group_by(cluster) %>%
+  mutate(n = n()) %>%
+  filter(n > 1) %>%
+  distinct(cluster) %>%
+  pull()
 
-# Vergelijk oorspronkelijke en nieuwe afstanden (mismatches in blauw)
-dist_df %>%
-  ggplot() +
-    geom_abline(intercept = 0, slope = 1, colour = "red") + 
-    geom_point(data = dist_df, aes(x = distance2plot, y = distance), 
-               colour = "blue") +
-    geom_point(data = intersect, aes(x = distance2plot, y = distance))
+mapview(telpunten_2018_2021 %>% st_buffer(300), 
+        legend = FALSE, col.regions = "green", alpha.region = 0.1) +
+mapview(telpunten_2022 %>% st_buffer(300), 
+        legend = FALSE, col.regions = "green", alpha.region = 0.1) +
+mapview(df_territoria_lang %>%
+          filter(cluster %in% clusters_dubble) %>%
+          st_as_sf(sf_column_name = "geom"), zcol = "cluster")
 ```
 
 
 ```{r}
-perimeters %>% mutate(Area = as.numeric(st_area(geom)) / 1e6) %>%
+conversion_factor <- convert_units("meter", NULL, "Square kilometer")
+
+areas <- perimeters %>% mutate(Area = as.numeric(st_area(geom)) / 1e6) %>%
             select(regio = Naam, Area) %>%
             st_drop_geometry()
+
+region_table <- design_langterm %>%
+  distinct(regio, jaar) %>%
+  full_join(areas, by = "regio") %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - ")) %>%
+  select(Region.Label, Area)
+
+sample_table <- design_langterm %>%
+  distinct(plotnaam, regio, jaar) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "),
+         Effort = 1) %>%
+  select(Sample.Label = plotnaam, Region.Label, Effort)
 ```
 
 
