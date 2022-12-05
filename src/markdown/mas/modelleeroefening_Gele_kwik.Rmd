@@ -4617,6 +4617,18 @@ for (m in fitted_models) {
 
 lukt niet met test...
 
+```{r}
+summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1, 
+                    dens_jaren_hr1, dens_jaren_hn3, dens_jaren_hr3, 
+                    dens_jaren_hn4, dens_jaren_hr4, dens_jaren_hn6, 
+                    dens_jaren_hr6, dens_jaren_hn7, dens_jaren_hr7, 
+                    dens_jaren_hn10, dens_jaren_hr10, dens_jaren_hn13, 
+                    dens_jaren_hr13, dens_jaren_hn17, dens_jaren_hr17, 
+                    dens_jaren_hn18, dens_jaren_hr18, dens_jaren_hn21, 
+                    dens_jaren_hr21, dens_jaren_hr24)
+```
+
+
 ### Resultaten
 
 ## Discussie
