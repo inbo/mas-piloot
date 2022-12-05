@@ -4454,13 +4454,13 @@ dist_df %>%
         legend.justification = c(1, 0))
 ```
 
-In een tweede stap maken we de dataset klaar om de detectiecurve te fitten. We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `distance`: afstand tot waarnemer voor elke waarneming; kolommen met covariaten: `sbp`, `regio` en `openheid`. 
+In een tweede stap maken we de dataset klaar om de detectiecurve te fitten. We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `distance`: afstand tot waarnemer voor elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`. 
 
 ```{r}
 detection_df <- dist_df %>%
   st_drop_geometry() %>%
   rename(object = id) %>%
-  select(object, distance, regio, sbp, openheid)
+  select(object, distance, regio, jaar, sbp, openheid)
 ```
 
 Ten slotte maken we de dataframes en parameters klaar om de densiteiten te berekenen. `Region_table` met de oppervlaktes per regio-jaar (totale oppervlakte strata), `sample_table` geeft aan welke samples in welke regio's voorkomen en met welke effort (effort is overal 1 bij ons omdat we met territoria al de verschillende periodes hebben beschouwd) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata (regio-jaar) zitten. Ten slotte zet de conversiefactor de afstanden om van meter naar vierkante kilometer.
@@ -4522,6 +4522,8 @@ obs_table <- dist_df %>%
 
 
 ### Model fit en selectie
+
+
 
 ### Resultaten
 
