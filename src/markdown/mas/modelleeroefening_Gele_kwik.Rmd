@@ -4251,7 +4251,7 @@ make_territoria_df <- function(dataframe, j) {
   
   # Gedupliceerde rijen hebben zelfde oid --> nieuw id maken voor elke waarneming
   df_territoria_lang %>% 
-    mutate(id = row_number())
+    mutate(id = as.numeric(paste0(row_number(), j)))
 }
 ```
 
@@ -4298,16 +4298,16 @@ territoria_cluster <- function(dataframe, fusie_afstand) {
 
 ```{r}
 set.seed(20221202)
-df_territoria_2018$cluster <- paste(territoria_cluster(df_territoria_2018,
-                                    fusie_afstand_lang), 2018, sep = "_")
-df_territoria_2019$cluster <- paste(territoria_cluster(df_territoria_2019,
-                                    fusie_afstand_lang), 2019, sep = "_")
-df_territoria_2020$cluster <- paste(territoria_cluster(df_territoria_2020,
-                                    fusie_afstand_lang), 2020, sep = "_")
-df_territoria_2021$cluster <- paste(territoria_cluster(df_territoria_2021,
-                                    fusie_afstand_lang), 2021, sep = "_")
-df_territoria_2022$cluster <- paste(territoria_cluster(df_territoria_2022,
-                                    fusie_afstand_lang), 2022, sep = "_")
+df_territoria_2018$cluster <- territoria_cluster(df_territoria_2018, 
+                                                 fusie_afstand_lang)
+df_territoria_2019$cluster <- territoria_cluster(df_territoria_2019,
+                                                 fusie_afstand_lang)
+df_territoria_2020$cluster <- territoria_cluster(df_territoria_2020,
+                                                 fusie_afstand_lang)
+df_territoria_2021$cluster <- territoria_cluster(df_territoria_2021,
+                                                 fusie_afstand_lang)
+df_territoria_2022$cluster <- territoria_cluster(df_territoria_2022,
+                                                 fusie_afstand_lang)
 
 df_territoria_lang <- rbind(df_territoria_2018, df_territoria_2019, 
                             df_territoria_2020, df_territoria_2021, 
@@ -4388,6 +4388,8 @@ blablabla
 
 ### Data preparatie
 
+Een eerste belangrijke stap in data preparatie is het herberekenen van de 
+
 ```{r}
 # Lees coördinaten telpunten in 
 telpunten_2018_2021 <- read_sf(
@@ -4427,7 +4429,7 @@ dist_df <- inner_join(dist_df_centroid %>% as.data.frame(),
       .data[["geometry.y"]] %>% st_sf(), 
       by_element = TRUE)
     )) %>%
-  select(-c("geometry.y", "plotnaam")) %>% 
+  select(-c("geometry.y")) %>% 
   rename(geometry = geometry.x) %>%
   st_sf(sf_column_name = "geometry") %>%
   
@@ -4435,6 +4437,7 @@ dist_df <- inner_join(dist_df_centroid %>% as.data.frame(),
   rename("size" = aantal) %>%
   distinct()
 ```
+
 
 !! probleem overlappende telcirkels!! controleer dit... effect op distance sampling?? sampled oppervlak kleiner maaktuit voor densities
 
@@ -4446,17 +4449,15 @@ clusters_dubble <- dist_df %>%
   distinct(cluster) %>%
   pull()
 
-mapview(telpunten_2018_2021 %>% st_buffer(300), 
-        legend = FALSE, col.regions = "green", alpha.region = 0.1) +
-mapview(telpunten_2022 %>% st_buffer(300), 
-        legend = FALSE, col.regions = "green", alpha.region = 0.1) +
+mapview(design_langterm %>% left_join(telpunten_sf, by = "plotnaam") %>% st_as_sf() %>% st_buffer(300) %>% mutate(jaar = as.factor(jaar)), 
+        zcol = "jaar", alpha.region = 0.1) +
 mapview(df_territoria_lang %>%
           filter(cluster %in% clusters_dubble) %>%
           st_as_sf(sf_column_name = "geom"), zcol = "cluster")
 
 df_territoria_lang %>%
           filter(cluster %in% clusters_dubble) %>%
-          st_as_sf(sf_column_name = "geom")
+          st_as_sf(sf_column_name = "geom") %>% View
 ```
 
 klopt gwn niet ...
