@@ -4463,7 +4463,7 @@ detection_df <- dist_df %>%
   select(object, distance, regio, sbp, openheid)
 ```
 
-Ten slotte maken we de dataframes en parameters klaar om de densiteiten te berekenen. `Region_table` met de oppervlaktes per regio-jaar (totale oppervlakte strata), `sample_table` geeft aan welke samples in welke regio's voorkomen en met welke effort (effort is overal 1 bij ons omdat we met territoria al de verschillende periodes hebben beschouwd) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata (regio-jaar) zitten. De conversiefactor zet de afstanden om van meter naar vierkante kilometer.
+Ten slotte maken we de dataframes en parameters klaar om de densiteiten te berekenen. `Region_table` met de oppervlaktes per regio-jaar (totale oppervlakte strata), `sample_table` geeft aan welke samples in welke regio's voorkomen en met welke effort (effort is overal 1 bij ons omdat we met territoria al de verschillende periodes hebben beschouwd) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata (regio-jaar) zitten. Ten slotte zet de conversiefactor de afstanden om van meter naar vierkante kilometer.
 
 ```{r}
 # Bereken oppervlaktes van de regio's
@@ -4486,16 +4486,39 @@ sample_table <- design_langterm %>%
 conversion_factor <- convert_units("meter", NULL, "Square kilometer")
 ```
 
-Voor de `obs_table` 
+Voor de `obs_table` wordt het iets complexer omdat we nu enkel met de clusters willen werken en niet met alle waarnemingen. Bovendien overlappen sommige plots binnen de fusieafstand waardoor sommige waarnemingen geclusterd zijn die vanaf verschillende plots zijn geobserveerd. Voor deze clusters moeten we `Sample.Label` zelf kiezen. Het maakt niet uit of een cluster verbonden is met de een of andere plot zolang die dezelfde covariaten hebben (zelfde regio, sbp en openheid). Dit moet dus wel gecontroleerd worden.
+
+```{r}
+# Welke clusters behoren tot meerdere plots?
+clusters_dubble <- dist_df %>%
+  group_by(cluster) %>%
+  mutate(n = n_distinct(plotnaam)) %>%
+  filter(n > 1) %>%
+  distinct(cluster) %>%
+  pull()
+
+dist_df %>% 
+  st_drop_geometry() %>%
+  filter(cluster %in% clusters_dubble) %>%
+  arrange(cluster, plotnaam) %>%
+  select(cluster, plotnaam, regio, sbp, openheid) %>% 
+  kable()
+```
+
+Dit is ok, dus we geven aan deze clusters de eerste `Sample.Label` mee volgens het alfabet (dus voor cluster 1222021 geven we VL0110 mee en niet VL0118).
 
 ```{r}
 obs_table <- dist_df %>%
   st_drop_geometry() %>%
   select(object = cluster, Region.Label, Sample.Label = plotnaam) %>%
+  
+  # Selecteer eerste plot voor clusters die tot verschillende plots behoren
+  arrange(object, Sample.Label) %>%
+  group_by(object) %>%
+  mutate(Sample.Label = first(Sample.Label)) %>%
   distinct() %>%
   as_tibble()
 ```
-
 
 
 ### Model fit en selectie
