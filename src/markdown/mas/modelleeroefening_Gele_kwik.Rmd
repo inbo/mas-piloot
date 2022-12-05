@@ -4311,7 +4311,9 @@ df_territoria_2022$cluster <- territoria_cluster(df_territoria_2022,
 
 df_territoria_lang <- rbind(df_territoria_2018, df_territoria_2019, 
                             df_territoria_2020, df_territoria_2021, 
-                            df_territoria_2022)
+                            df_territoria_2022) %>%
+  rename(geometry = geom) %>%
+  st_as_sf()
 ```
 
 ### Resultaten
@@ -4327,6 +4329,7 @@ plots_per_regiojaar <- design_langterm %>%
 
 # Voeg aantal plots per regio toe en bereken aantal clusters per plots
 territoria_per_plot_lang <- df_territoria_lang %>% 
+  st_drop_geometry() %>%
   full_join(plots_per_regiojaar, by = "Region.Label") %>%
   group_by(Region.Label, n_plots) %>%
   summarise(broedparen = n_distinct(cluster), .groups = "drop") %>%
@@ -4388,7 +4391,7 @@ blablabla
 
 ### Data preparatie
 
-Een eerste belangrijke stap in data preparatie is het herberekenen van de 
+Een eerste belangrijke stap in data preparatie is het herberekenen van de afstanden tussen de waarnemingen en de telpunten.
 
 ```{r}
 # Lees coördinaten telpunten in 
@@ -4407,20 +4410,8 @@ telpunten_2022 <- read_sf(
 telpunten_sf <- rbind(telpunten_2018_2021, telpunten_2022) %>%
   distinct()
 
-# Bereken centroide per cluster 
-dist_df_centroid <- df_territoria_lang %>%
-  st_as_sf(sf_column_name = "geom") %>%
-  group_by(cluster) %>%
-  mutate(geom = st_union(geom)) %>%
-  st_centroid() %>%
-  ungroup() %>%
-  arrange(cluster) %>%
-  select(plotnaam, aantal, regio, sbp, openheid, Region.Label, cluster) %>%
-  distinct() %>%
-  rename(geometry = geom)
-
 # Bereken afstanden van centroide tot telpunt
-dist_df <- inner_join(dist_df_centroid %>% as.data.frame(), 
+dist_df <- inner_join(df_territoria_lang %>% as.data.frame(), 
                       telpunten_sf %>% as.data.frame(), 
                       by = "plotnaam") %>%
   mutate(distance = as.numeric(
