@@ -4410,7 +4410,7 @@ telpunten_2022 <- read_sf(
 telpunten_sf <- rbind(telpunten_2018_2021, telpunten_2022) %>%
   distinct()
 
-# Bereken afstanden van centroide tot telpunt
+# Bereken afstanden van waarneming tot telpunt
 dist_df <- inner_join(df_territoria_lang %>% as.data.frame(), 
                       telpunten_sf %>% as.data.frame(), 
                       by = "plotnaam") %>%
@@ -4422,36 +4422,15 @@ dist_df <- inner_join(df_territoria_lang %>% as.data.frame(),
     )) %>%
   select(-c("geometry.y")) %>% 
   rename(geometry = geometry.x) %>%
-  st_sf(sf_column_name = "geometry") %>%
-  
-  # Verander namen van kolommen
-  rename("size" = aantal) %>%
-  distinct()
+  st_sf(sf_column_name = "geometry")
 ```
 
-
-!! probleem overlappende telcirkels!! controleer dit... effect op distance sampling?? sampled oppervlak kleiner maaktuit voor densities
+Inderdaad, er is een mismatch met de afstanden uit de app en de herberekende afstanden.
 
 ```{r}
-clusters_dubble <- dist_df %>%
-  group_by(cluster) %>%
-  mutate(n = n()) %>%
-  filter(n > 1) %>%
-  distinct(cluster) %>%
-  pull()
 
-mapview(design_langterm %>% left_join(telpunten_sf, by = "plotnaam") %>% st_as_sf() %>% st_buffer(300) %>% mutate(jaar = as.factor(jaar)), 
-        zcol = "jaar", alpha.region = 0.1) +
-mapview(df_territoria_lang %>%
-          filter(cluster %in% clusters_dubble) %>%
-          st_as_sf(sf_column_name = "geom"), zcol = "cluster")
-
-df_territoria_lang %>%
-          filter(cluster %in% clusters_dubble) %>%
-          st_as_sf(sf_column_name = "geom") %>% View
 ```
 
-klopt gwn niet ...
 
 ```{r}
 conversion_factor <- convert_units("meter", NULL, "Square kilometer")
