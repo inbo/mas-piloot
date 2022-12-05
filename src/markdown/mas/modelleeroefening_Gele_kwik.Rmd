@@ -4628,6 +4628,15 @@ summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1,
                     dens_jaren_hr21, dens_jaren_hr24)
 ```
 
+```{r}
+gof_ds(dens_jaren_hr0)
+plot(dens_jaren_hr0, pdf = TRUE)
+```
+
+```{r}
+summary(dens_jaren_hr0)
+```
+
 
 ### Resultaten
 
