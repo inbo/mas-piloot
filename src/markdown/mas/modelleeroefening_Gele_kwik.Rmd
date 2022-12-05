@@ -4425,10 +4425,23 @@ dist_df <- inner_join(df_territoria_lang %>% as.data.frame(),
   st_sf(sf_column_name = "geometry")
 ```
 
-Inderdaad, er is een mismatch met de afstanden uit de app en de herberekende afstanden.
+Inderdaad, er is een mismatch met de afstanden uit de app en de herberekende afstanden. We zien vooral mismatches in 2022 en de mismatches van vòòr 2022 zijn enkel van plot VL0075 of VL0073.
 
 ```{r}
-
+dist_df %>%
+  mutate(mismatch = ifelse(distance2plot == floor(distance) |
+                           distance2plot == ceiling(distance),
+                           "no", "yes")) %>%
+  ggplot(aes(x = distance2plot, y = distance)) +
+    geom_abline(intercept = 0, slope = 1, colour = "black") + 
+    geom_point(aes(colour = mismatch)) +
+    labs(x = "Originele afstand (app SOVON)", 
+         y = "Herberekende afstand waarneming tot telpunt") +
+    scale_x_continuous(breaks = seq(0, 900, 100)) +
+    scale_y_continuous(breaks = seq(0, 900, 100)) +
+    facet_wrap(~jaar) +
+    theme(legend.position = c(1, 0),
+        legend.justification = c(1, 0))
 ```
 
 
