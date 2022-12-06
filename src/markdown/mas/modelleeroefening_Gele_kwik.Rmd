@@ -15,6 +15,7 @@ editor_options:
 ```{r setup, include=FALSE}
 renv::restore()
 library(rstan)
+library(effectclass)
 library(mapview)
 library(INLA)
 library(inlatools)
@@ -4524,8 +4525,7 @@ obs_table <- dist_df %>%
 ### Model fit
 
 **1. Bereken detectiekans**  
-We fitten half-normal en hazard-rate key functions waarbij we alle combinaties van covariaten beschouwen. Ook interacties ...
-
+We fitten half-normal en hazard-rate key functions waarbij we alle combinaties van covariaten beschouwen en interacties.
 
 ```{r}
 match_variables <- c("regio", "jaar", "sbp", "openheid")
@@ -4594,9 +4594,9 @@ for (i in seq_len(length(forms))) {
 }
 ```
 
-```{r}
-test <- c(NULL)
+**2. Bereken densiteiten**  
 
+```{r}
 for (m in fitted_models) {
   dens_schat <- dht(model = get(m), region.table = region_table, 
       sample.table = sample_table, obs.table = obs_table,
@@ -4607,15 +4607,11 @@ for (m in fitted_models) {
 
   suffix <- sub("^.+_", "", m)
   assign(paste0("dens_jaren_", suffix), dsmodel)
-  
-  test <- c(test, paste0("dens_jaren_", suffix))
 }
 ```
 
 
 ### Model selectie
-
-lukt niet met test...
 
 ```{r}
 summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1, 
@@ -4630,14 +4626,106 @@ summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1,
 
 ```{r}
 gof_ds(dens_jaren_hr0)
-plot(dens_jaren_hr0, pdf = TRUE)
-```
-
-```{r}
-summary(dens_jaren_hr0)
+plot(dens_jaren_hr0, pdf = TRUE, showpoints = FALSE)
+plot(dens_jaren_hr0, showpoints = FALSE)
 ```
 
 
 ### Resultaten
+
+```{r}
+# Vat resultaten Hazard-rate model samen
+summary_results_dens_jaren_hr0 <- bind_rows(
+  summary_dens_jaren_hr0$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "Aantal broedparen Gele kwikstaart per 100 ha"),
+  summary_dens_jaren_hr0$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "Totaal aantal broedparen Gele kwikstaart")
+  ) %>%
+  filter(Label != "Total") %>%
+  separate(Label, into = c("regio", "jaar"), sep = " - ")
+```
+
+Abundanties:
+
+```{r}
+summary_results_dens_jaren_hr0 %>%
+  filter(variable == "abundance") %>%
+  select(regio, jaar, schatting = Estimate, se, lcl, ucl) %>%
+  arrange(regio, jaar) %>%
+  kable(digits = 3)
+```
+
+Densiteiten:
+
+```{r}
+summary_results_dens_jaren_hr0 %>%
+  filter(variable == "density") %>%
+  select(regio, jaar, schatting = Estimate, se, lcl, ucl) %>%
+  arrange(regio, jaar) %>%
+  kable(digits = 3)
+```
+
+We visualiseren de absolute verschillen.
+
+```{r}
+summary_results_dens_jaren_hr0 %>%
+  filter(variable == "density") %>%
+  ggplot(aes(x = jaar, y = Estimate, colour = regio)) + 
+    geom_point(position = position_dodge(width = 0.5), size = 4) + 
+    geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25,
+                  position = position_dodge(width = 0.5)) +
+    scale_y_continuous(limits = c(0, NA)) +
+    facet_wrap(~regio, scales = "free_y") +
+    labs(x = "", y = "Aantal broedparen per 100 ha", 
+         title = "Gele kwikstaart - densiteit") +
+    theme(legend.position = "")
+```
+
+
+```{r}
+RPD <- function(reference, value, limit=NULL) {
+  if (is.null(limit)) {
+    return(((value - reference) / mean(c(reference, value))) * 100)
+  } else {
+    return(((limit - reference) / mean(c(reference, value))) * 100)
+  }
+}
+```
+
+```{r}
+summary_results_dens_jaren_hr0 %>%
+  filter(variable == "density") %>%
+  arrange(jaar) %>%
+  group_by(regio) %>%
+  mutate(ref = first(Estimate)) %>%
+  ungroup() %>%
+  filter(jaar != 2018) %>%
+  rowwise() %>%
+  mutate(rel_est = RPD(ref, Estimate),
+         rel_lcl = RPD(ref, Estimate, lcl),
+         rel_ucl = RPD(ref, Estimate, ucl), 
+         reference = 0,
+         lower_thresh = -25, 
+         upper_thresh = 33) %>%
+  ggplot(aes(x = jaar, y = rel_est, ymin = rel_lcl, ymax = rel_ucl, colour = regio)) + 
+    geom_hline(aes(yintercept = reference), linetype = 2,
+               size = 1, colour = alpha("firebrick", 0.8)) +
+    geom_hline(aes(yintercept = lower_thresh), linetype = 3,
+               size = 1, colour = alpha("firebrick", 0.8)) +
+    geom_hline(aes(yintercept = upper_thresh), linetype = 3,
+             size = 1, colour = alpha("firebrick", 0.8)) +
+    geom_errorbar(width = 0.25) +
+    labs(x = "", y = "Procentuele wijziging t.o.v. 2018", 
+       title = "Gele kwikstaart - Aantal broedparen per 100 ha") +
+    scale_y_continuous(sec.axis = sec_axis(~(100 + .) / 100), 
+                       name = "relatieve wijziging t.o.v. 2018") +
+    stat_effect(reference = reference, threshold = thresholds, size = 4) +
+    scale_effect("classificatie") +
+    facet_wrap(~regio) +
+    guides(colour = "none")
+```
+
 
 ## Discussie
