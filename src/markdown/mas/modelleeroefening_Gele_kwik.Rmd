@@ -4526,31 +4526,35 @@ obs_table <- dist_df %>%
 ### Model fit
 
 **1. Bereken detectiekans**  
-We fitten half-normal en hazard-rate key functions waarbij we alle combinaties van covariaten beschouwen en interacties.
+We fitten half-normal en hazard-rate key functions waarbij we alle combinaties van covariaten beschouwen en alle combinaties van interacties.
 
 ```{r}
+# We maken formules uit combinaties van alle variabelen
 match_variables <- c("regio", "jaar", "sbp", "openheid")
 combos <- sapply(seq(length(match_variables)), function(i) {
   as.list(as.data.frame(combn(x = match_variables, m = i)))
 })
-
 combos <- unlist(combos, recursive = FALSE)
 
+# Combinaties zonder interacties
 forms1 <- sapply(combos, function(x) {
   as.formula(paste0("~", paste(x, collapse = "+")))
   })
+# Combinaties interacties
 forms2 <- sapply(combos, function(x) {
   as.formula(paste0("~", paste(x, collapse = "*")))
   })[-c(1:4)]
-
+# Voeg combinaties samen
 forms <- c(forms1, forms2)
-
-keys <- c("hn", "hr")
 ```
 
+We fitten alle detectiefuncties met een for-loop. Niet alle interacties kunnen gefit worden omdat niet elke categorie van openheid en sbp in elke regio en/of jaar aanwezig is (opgevangen door `tryCatch()`). We beschouwen de half-normal en hazard-rate key functions.
 
 ```{r}
-# Null model
+# Key functions
+keys <- c("hn", "hr")
+
+# Null models
 detection_hn0 <- ddf(data = detection_df, method = "ds",
   dsmodel = ~mcds(key = "hn", formula = ~1),
   meta.data = list(width = 300, point = TRUE))
@@ -4562,18 +4566,22 @@ detection_hr0 <- ddf(data = detection_df, method = "ds",
 # Sla namen van de gefitte models op
 fitted_models <- c("detection_hn0", "detection_hr0")
 
+# Loop over formules en over key functions
 for (i in seq_len(length(forms))) {
-  f <- as.character(forms[i])
+  f <- as.character(forms[i]) # f is de formule
   
   for (k in keys) {
+    # Vang warnings of errors op
     tt <- tryCatch(
       ddf(data = detection_df, method = "ds",
         dsmodel = ~mcds(key = k, formula = f),
         meta.data = list(width = 300, point = TRUE)),
       error = function(e) e, warning = function(w) w)
     
+    # Naam voor model
     mod_name <- paste0("detection_", k, i)
     
+    # Sla het model enkel op als er geen problemen zijn
     if (is(tt, "warning")) {
       print(paste0("Warning: Model '", mod_name, "' did not converge. ", 
                    "Formula: '", f, "'. Key: '", k, "'."))
@@ -4588,7 +4596,9 @@ for (i in seq_len(length(forms))) {
       print(paste0("Model '", mod_name, "' fitted. ", 
                    "Formula: '", f, "'. Key: '", k, "'."))
       
+      # Sla gefitte model op
       assign(mod_name, det_model)
+      # Sla naam van gefitte model op
       fitted_models <- c(fitted_models, mod_name)
     }
   }
@@ -4596,39 +4606,59 @@ for (i in seq_len(length(forms))) {
 ```
 
 **2. Bereken densiteiten**  
+Op basis van de detectiekansen berekend in **1.**, berekenen we nu de densiteiten in een for-loop. Op het einde brengen we **1.** en **2.** samen in een dsmodel zodat we gebruik kunnen maken van de functies in de **Distance** package.
 
 ```{r}
+final_models <- vector(length = length(fitted_models))
+
+# Loop over gefitte modellen
 for (m in fitted_models) {
   dens_schat <- dht(model = get(m), region.table = region_table, 
       sample.table = sample_table, obs.table = obs_table,
       options = list(group = FALSE, convert.units = conversion_factor))
   
+  # Maak dsmodel voor later gebruik functies in Distance package
   dsmodel <- list(ddf = get(m), dht = dens_schat)
   class(dsmodel) <- "dsmodel"
-
+  
+  # Sla het volledige 2-part model op
   suffix <- sub("^.+_", "", m)
   assign(paste0("dens_jaren_", suffix), dsmodel)
+  
+  # Sla naam van gefitte model op
+  final_models[match(m, fitted_models)] <- paste0("dens_jaren_", suffix)
 }
 ```
 
 
 ### Model selectie
 
-```{r}
-summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1, 
-                    dens_jaren_hr1, dens_jaren_hn3, dens_jaren_hr3, 
-                    dens_jaren_hn4, dens_jaren_hr4, dens_jaren_hn6, 
-                    dens_jaren_hr6, dens_jaren_hn7, dens_jaren_hr7, 
-                    dens_jaren_hn10, dens_jaren_hr10, dens_jaren_hn13, 
-                    dens_jaren_hr13, dens_jaren_hn17, dens_jaren_hr17, 
-                    dens_jaren_hn18, dens_jaren_hr18, dens_jaren_hn21, 
-                    dens_jaren_hr21, dens_jaren_hr24)
-```
+De namen van de dsmodels zijn opgeslaan in de variabele `final_models`, maar die kunnen we jammergenoeg niet gebruiken in combinatie met de `summarize_ds_models()` functie. We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC’s kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. Modellen met vergelijkbare AIC’s hebben vergelijkbare geschatte detectiekansen, dus in de praktijk is er weinig verschil in de keuze tussen deze modellen. Een half-normal model heeft een parameter minder dan een hazard-rate model met dezelfde variabelen.
 
 ```{r}
-gof_ds(dens_jaren_hr0)
-plot(dens_jaren_hr0, pdf = TRUE, showpoints = FALSE)
-plot(dens_jaren_hr0, showpoints = FALSE)
+summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1, 
+                    dens_jaren_hr1, dens_jaren_hn2, dens_jaren_hr2, 
+                    dens_jaren_hn3, dens_jaren_hr3, dens_jaren_hn4, 
+                    dens_jaren_hr4, dens_jaren_hn5, dens_jaren_hr5, 
+                    dens_jaren_hn6, dens_jaren_hr6, dens_jaren_hn7, 
+                    dens_jaren_hr7, dens_jaren_hn8, dens_jaren_hr8, 
+                    dens_jaren_hn9, dens_jaren_hr9, dens_jaren_hn10, 
+                    dens_jaren_hr10, dens_jaren_hn11, dens_jaren_hr11, 
+                    dens_jaren_hn12, dens_jaren_hr12, dens_jaren_hn13, 
+                    dens_jaren_hr13, dens_jaren_hn14, dens_jaren_hr14, 
+                    dens_jaren_hn15, dens_jaren_hr15, dens_jaren_hn16, 
+                    dens_jaren_hr16, dens_jaren_hn17, dens_jaren_hr17, 
+                    dens_jaren_hn18, dens_jaren_hr18, dens_jaren_hn19, 
+                    dens_jaren_hr19, dens_jaren_hn20, dens_jaren_hr20, 
+                    dens_jaren_hn21, dens_jaren_hr21, dens_jaren_hr24)
+```
+
+
+
+```{r}
+gof_ds(dens_jaren_hr19)
+plot(dens_jaren_hr19, pdf = TRUE, showpoints = FALSE)
+plot(dens_jaren_hr19, showpoints = FALSE)
 ```
 
 
