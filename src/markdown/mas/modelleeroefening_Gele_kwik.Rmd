@@ -4888,13 +4888,30 @@ We kunnen ook paarsgewijze verschillen tussen de jaren berekenen zoals bij de tr
 
 ## Discussie
 
+Er zijn nog een aantal discussiepunten:  
+  
+**Mismatch afstanden**  
+De herberekende afstanden komen niet overeen met de afstanden meegekregen door SOVON. Link met volgende punt?
+  
+**Probleem met inladen data 2022**
+Zie begin code. Zelfde plots hebben verschillende variabelen (sbp, openheid) 2022 vs 2018-2021?
+  
 **Visibiliteit**  
 - visibiliteit verschilt van plot tot plot
 - we willen niet extrapoleren naar de volledige plot als een deel niet kan gezien worden (bv omdat er huizen staan of een stuk bos)
 - niet mogelijk met conventional distance sampling: assumptie uniforme verdeling van dieren  
-
+  
 Stel dat we nu de detectiefunctie laten afhangen van visibiliteit. 
 Hoe lager de visibiliteit, hoe lager de detectiekans.
 Dat wil zeggen dat we voor een lagere visibiliteit gaan overcompenseren voor gemiste dieren ten opzichte van hogere visibiliteit. Stel dat we een plot hebben waarbij 30% visibiliteit is verloren door een bos/huizen.
 De detectiekans zal lager zijn voor deze plot, maar dat wil zeggen dat we hierdoor juist sterker gaan compenseren.
-Stel dat we bij de huizen maar 1 vogel zien, maar de detectiekans is ook super laag, zal het "model" daar juist voor compenseren en bv. zeggen dat er in werkelijkheid 10 zitten, terwijl dat waarschijnlijk niet realistisch is. Het probleem is dat we de assumptie van uniforme verdeling schaden want in de 30 % bos/huizen zitten niet evenveel dieren als in de 70% akker. Of je detectiekans nu laag of hoog is, ze zal compenseren zodat de volledige abundantie is geschat over de plot. Dingen als bos, huizen ... zijn belangrijke elementen in het Vlaamse landschap dus ervan uitgaan dat de dieren uniform verdeeld zijn in plots waar er overlap is met dergelijke elementen zou de impact van bos, huizen ... op densiteiten van akkervogels verwaarlozen.
+Stel dat we bij de huizen maar 1 vogel zien, maar de detectiekans is ook super laag, zal het "model" daar juist voor compenseren en bv. zeggen dat er in werkelijkheid 10 zitten, terwijl dat waarschijnlijk niet realistisch is. Het probleem is dat we de assumptie van uniforme verdeling schaden want in de 30 % bos/huizen zitten niet evenveel dieren als in de 70% akker. Of je detectiekans nu laag of hoog is, ze zal compenseren zodat de volledige abundantie is geschat over de plot. Dingen als bos, huizen ... zijn belangrijke elementen in het Vlaamse landschap dus ervan uitgaan dat de dieren uniform verdeeld zijn in plots waar er overlap is met dergelijke elementen zou de impact van bos, huizen ... op densiteiten van akkervogels verwaarlozen.  
+  
+**Clustering**
+De clustermethode van SOVON wordt niet voor MAS gebruikt wel voor gebiedsdekkende karteringen:  
+*"Tijdens een BMP-bezoek worden doorgaans niet alle individuen opgemerkt, met andere woorden de trefkans is onvolledig. Maar na 5, 6 of 7 bezoeken en clustering kan een betrouwbare schatting van het aantal aanwezige broedparen worden gemaakt. Tijdens een MAS-bezoek van vijf of tien minuten is de trefkans beduidend lager dan bij een BMPbezoek (zie bijvoorbeeld fig. 27a) en zal een kleiner aandeel van de aanwezige individuen worden opgemerkt. Daardoor heeft het bepalen van territoria met behulp van clustering geen zin. Na 2 of 3 MAS-bezoeken zit je met meerdere van deze onvolledige tellingen, waaruit een schatting van het aantal aanwezige individuen moet worden gemaakt."*  
+Zij clusteren o.b.v. 3 criteria die verschillen van soort tot soort:
+- datumgrenzen
+- aantal keer een soort moet waargenomen worden gegeven een aantal bezoeken
+- fusieafstand
+
