@@ -15,6 +15,7 @@ editor_options:
 ```{r setup, include=FALSE}
 renv::restore()
 library(rstan)
+library(effectclass)
 library(mapview)
 library(INLA)
 library(inlatools)
@@ -4311,7 +4312,9 @@ df_territoria_2022$cluster <- territoria_cluster(df_territoria_2022,
 
 df_territoria_lang <- rbind(df_territoria_2018, df_territoria_2019, 
                             df_territoria_2020, df_territoria_2021, 
-                            df_territoria_2022)
+                            df_territoria_2022) %>%
+  rename(geometry = geom) %>%
+  st_as_sf()
 ```
 
 ### Resultaten
@@ -4327,6 +4330,7 @@ plots_per_regiojaar <- design_langterm %>%
 
 # Voeg aantal plots per regio toe en bereken aantal clusters per plots
 territoria_per_plot_lang <- df_territoria_lang %>% 
+  st_drop_geometry() %>%
   full_join(plots_per_regiojaar, by = "Region.Label") %>%
   group_by(Region.Label, n_plots) %>%
   summarise(broedparen = n_distinct(cluster), .groups = "drop") %>%
@@ -4384,11 +4388,21 @@ gele_kwik %>%
 
 ## Distance sampling
 
-blablabla
+In tegenstelling tot de eerdere analyses met de functie `ds()` uit de **Distance** package, gaan we hier expliciet distance sampling in 2 delen opsplitsen:
+
+1. Schatting detectiekans
+    - Fit detectiecurve op afstanden van waarneming tot telpunt (ruwe, ongeclusterde data)
+    - Detectiekans is area under the curve
+    - `ddf()` functie **mrds** package
+2. Schatting abundanties en densiteiten
+    - Extrapoleer geclusterde waarnemingen (territoria) m.b.v. detectiekans bekomen in 1
+    - Bereken densiteiten door de gesamplede oppervlakte in beschouwing te nemen
+    - `dht()` functie **mrds** package
+
 
 ### Data preparatie
 
-Een eerste belangrijke stap in data preparatie is het herberekenen van de 
+Een eerste belangrijke stap in data preparatie is het herberekenen van de afstanden tussen de waarnemingen en de telpunten.
 
 ```{r}
 # Lees coördinaten telpunten in 
@@ -4407,20 +4421,8 @@ telpunten_2022 <- read_sf(
 telpunten_sf <- rbind(telpunten_2018_2021, telpunten_2022) %>%
   distinct()
 
-# Bereken centroide per cluster 
-dist_df_centroid <- df_territoria_lang %>%
-  st_as_sf(sf_column_name = "geom") %>%
-  group_by(cluster) %>%
-  mutate(geom = st_union(geom)) %>%
-  st_centroid() %>%
-  ungroup() %>%
-  arrange(cluster) %>%
-  select(plotnaam, aantal, regio, sbp, openheid, Region.Label, cluster) %>%
-  distinct() %>%
-  rename(geometry = geom)
-
-# Bereken afstanden van centroide tot telpunt
-dist_df <- inner_join(dist_df_centroid %>% as.data.frame(), 
+# Bereken afstanden van waarneming tot telpunt
+dist_df <- inner_join(df_territoria_lang %>% as.data.frame(), 
                       telpunten_sf %>% as.data.frame(), 
                       by = "plotnaam") %>%
   mutate(distance = as.numeric(
@@ -4431,40 +4433,42 @@ dist_df <- inner_join(dist_df_centroid %>% as.data.frame(),
     )) %>%
   select(-c("geometry.y")) %>% 
   rename(geometry = geometry.x) %>%
-  st_sf(sf_column_name = "geometry") %>%
-  
-  # Verander namen van kolommen
-  rename("size" = aantal) %>%
-  distinct()
+  st_sf(sf_column_name = "geometry")
 ```
 
-
-!! probleem overlappende telcirkels!! controleer dit... effect op distance sampling?? sampled oppervlak kleiner maaktuit voor densities
+Inderdaad, er is een mismatch met de afstanden uit de app en de herberekende afstanden. We zien vooral mismatches in 2022 en de mismatches van vòòr 2022 zijn enkel van plot VL0075 of VL0073.
 
 ```{r}
-clusters_dubble <- dist_df %>%
-  group_by(cluster) %>%
-  mutate(n = n()) %>%
-  filter(n > 1) %>%
-  distinct(cluster) %>%
-  pull()
-
-mapview(design_langterm %>% left_join(telpunten_sf, by = "plotnaam") %>% st_as_sf() %>% st_buffer(300) %>% mutate(jaar = as.factor(jaar)), 
-        zcol = "jaar", alpha.region = 0.1) +
-mapview(df_territoria_lang %>%
-          filter(cluster %in% clusters_dubble) %>%
-          st_as_sf(sf_column_name = "geom"), zcol = "cluster")
-
-df_territoria_lang %>%
-          filter(cluster %in% clusters_dubble) %>%
-          st_as_sf(sf_column_name = "geom") %>% View
+dist_df %>%
+  mutate(mismatch = ifelse(distance2plot == floor(distance) |
+                           distance2plot == ceiling(distance),
+                           "no", "yes")) %>%
+  ggplot(aes(x = distance2plot, y = distance)) +
+    geom_abline(intercept = 0, slope = 1, colour = "black") + 
+    geom_point(aes(colour = mismatch)) +
+    labs(x = "Originele afstand (app SOVON)", 
+         y = "Herberekende afstand waarneming tot telpunt") +
+    scale_x_continuous(breaks = seq(0, 900, 100)) +
+    scale_y_continuous(breaks = seq(0, 900, 100)) +
+    facet_wrap(~jaar) +
+    theme(legend.position = c(1, 0),
+        legend.justification = c(1, 0))
 ```
 
-klopt gwn niet ...
+In een tweede stap maken we de dataset klaar om de detectiecurve te fitten. We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `distance`: afstand tot waarnemer voor elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`. 
 
 ```{r}
-conversion_factor <- convert_units("meter", NULL, "Square kilometer")
+detection_df <- dist_df %>%
+  st_drop_geometry() %>%
+  rename(object = id) %>%
+  select(object, distance, regio, jaar, sbp, openheid) %>%
+  mutate(jaar = as.character(jaar))
+```
 
+Ten slotte maken we de dataframes en parameters klaar om de densiteiten te berekenen. `Region_table` met de oppervlaktes per regio-jaar (totale oppervlakte strata), `sample_table` geeft aan welke samples in welke regio's voorkomen en met welke effort (effort is overal 1 bij ons omdat we met territoria al de verschillende periodes hebben beschouwd) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata (regio-jaar) zitten. Ten slotte zet de conversiefactor de afstanden om van meter naar vierkante kilometer.
+
+```{r}
+# Bereken oppervlaktes van de regio's
 areas <- perimeters %>% mutate(Area = as.numeric(st_area(geom)) / 1e6) %>%
             select(regio = Naam, Area) %>%
             st_drop_geometry()
@@ -4480,11 +4484,408 @@ sample_table <- design_langterm %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "),
          Effort = 1) %>%
   select(Sample.Label = plotnaam, Region.Label, Effort)
+
+conversion_factor <- convert_units("meter", NULL, "Square kilometer")
+```
+
+Voor de `obs_table` wordt het iets complexer omdat we nu enkel met de clusters willen werken en niet met alle waarnemingen. Bovendien overlappen sommige plots binnen de fusieafstand waardoor sommige waarnemingen geclusterd zijn die vanaf verschillende plots zijn geobserveerd. Voor deze clusters moeten we `Sample.Label` zelf kiezen. Het maakt niet uit of een cluster verbonden is met de een of andere plot zolang die dezelfde covariaten hebben (zelfde regio, sbp en openheid). Dit moet dus wel gecontroleerd worden.
+
+```{r}
+# Welke clusters behoren tot meerdere plots?
+clusters_dubble <- dist_df %>%
+  group_by(cluster) %>%
+  mutate(n = n_distinct(plotnaam)) %>%
+  filter(n > 1) %>%
+  distinct(cluster) %>%
+  pull()
+
+dist_df %>% 
+  st_drop_geometry() %>%
+  filter(cluster %in% clusters_dubble) %>%
+  arrange(cluster, plotnaam) %>%
+  select(cluster, plotnaam, regio, sbp, openheid) %>% 
+  kable()
+```
+
+Dit is ok, dus we geven aan deze clusters de eerste `Sample.Label` mee volgens het alfabet (dus voor cluster 1222021 geven we VL0110 mee en niet VL0118).
+
+```{r}
+obs_table <- dist_df %>%
+  st_drop_geometry() %>%
+  select(object = cluster, Region.Label, Sample.Label = plotnaam) %>%
+  
+  # Selecteer eerste plot voor clusters die tot verschillende plots behoren
+  arrange(object, Sample.Label) %>%
+  group_by(object) %>%
+  mutate(Sample.Label = first(Sample.Label)) %>%
+  distinct() %>%
+  as_tibble()
 ```
 
 
-### Model fit en selectie
+### Model fit
+
+**1. Bereken detectiekans**  
+We fitten half-normal en hazard-rate key functions waarbij we alle combinaties van covariaten beschouwen en alle combinaties van interacties.
+
+```{r}
+# We maken formules uit combinaties van alle variabelen
+match_variables <- c("regio", "jaar", "sbp", "openheid")
+combos <- sapply(seq(length(match_variables)), function(i) {
+  as.list(as.data.frame(combn(x = match_variables, m = i)))
+})
+combos <- unlist(combos, recursive = FALSE)
+
+# Combinaties zonder interacties
+forms1 <- sapply(combos, function(x) {
+  as.formula(paste0("~", paste(x, collapse = "+")))
+  })
+# Combinaties interacties
+forms2 <- sapply(combos, function(x) {
+  as.formula(paste0("~", paste(x, collapse = "*")))
+  })[-c(1:4)]
+# Voeg combinaties samen
+forms <- c(forms1, forms2)
+```
+
+We fitten alle detectiefuncties met een for-loop. Niet alle interacties kunnen gefit worden omdat niet elke categorie van openheid en sbp in elke regio en/of jaar aanwezig is (opgevangen door `tryCatch()`). We beschouwen de half-normal en hazard-rate key functions.
+
+```{r}
+# Key functions
+keys <- c("hn", "hr")
+
+# Null models
+detection_hn0 <- ddf(data = detection_df, method = "ds",
+  dsmodel = ~mcds(key = "hn", formula = ~1),
+  meta.data = list(width = 300, point = TRUE))
+
+detection_hr0 <- ddf(data = detection_df, method = "ds",
+  dsmodel = ~mcds(key = "hr", formula = ~1),
+  meta.data = list(width = 300, point = TRUE))
+
+# Sla namen van de gefitte models op
+fitted_models <- c("detection_hn0", "detection_hr0")
+
+# Loop over formules en over key functions
+for (i in seq_len(length(forms))) {
+  f <- as.character(forms[i]) # f is de formule
+  
+  for (k in keys) {
+    # Vang warnings of errors op
+    tt <- tryCatch(
+      ddf(data = detection_df, method = "ds",
+        dsmodel = ~mcds(key = k, formula = f),
+        meta.data = list(width = 300, point = TRUE)),
+      error = function(e) e, warning = function(w) w)
+    
+    # Naam voor model
+    mod_name <- paste0("detection_", k, i)
+    
+    # Sla het model enkel op als er geen problemen zijn
+    if (is(tt, "warning")) {
+      print(paste0("Warning: Model '", mod_name, "' did not converge. ", 
+                   "Formula: '", f, "'. Key: '", k, "'."))
+    } else if (is(tt, "error")) {
+      print(paste0("Error: Model '", mod_name, "' not fitted. ", 
+                   "Formula: '", f, "'. Key: '", k, "'."))
+    } else {
+      det_model <- ddf(data = detection_df, method = "ds",
+        dsmodel = ~mcds(key = k, formula = f),
+        meta.data = list(width = 300, point = TRUE))
+      
+      print(paste0("Model '", mod_name, "' fitted. ", 
+                   "Formula: '", f, "'. Key: '", k, "'."))
+      
+      # Sla gefitte model op
+      assign(mod_name, det_model)
+      # Sla naam van gefitte model op
+      fitted_models <- c(fitted_models, mod_name)
+    }
+  }
+}
+```
+
+**2. Bereken densiteiten**  
+Op basis van de detectiekansen berekend in **1.**, berekenen we nu de densiteiten in een for-loop. Op het einde brengen we **1.** en **2.** samen in een dsmodel zodat we gebruik kunnen maken van de functies in de **Distance** package.
+
+```{r}
+final_models <- vector(length = length(fitted_models))
+
+# Loop over gefitte modellen
+for (m in fitted_models) {
+  dens_schat <- dht(model = get(m), region.table = region_table, 
+      sample.table = sample_table, obs.table = obs_table,
+      options = list(group = FALSE, convert.units = conversion_factor))
+  
+  # Maak dsmodel voor later gebruik functies in Distance package
+  dsmodel <- list(ddf = get(m), dht = dens_schat)
+  class(dsmodel) <- "dsmodel"
+  
+  # Sla het volledige 2-part model op
+  suffix <- sub("^.+_", "", m)
+  assign(paste0("dens_jaren_", suffix), dsmodel)
+  
+  # Sla naam van gefitte model op
+  final_models[match(m, fitted_models)] <- paste0("dens_jaren_", suffix)
+}
+```
+
+
+### Model selectie
+
+De namen van de dsmodels zijn opgeslaan in de variabele `final_models`, maar die kunnen we jammergenoeg niet gebruiken in combinatie met de `summarize_ds_models()` functie. We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC’s kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. Modellen met vergelijkbare AIC’s hebben vergelijkbare geschatte detectiekansen, dus in de praktijk is er weinig verschil in de keuze tussen deze modellen. Een half-normal model heeft een parameter minder dan een hazard-rate model met dezelfde variabelen.
+
+```{r}
+summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1, 
+                    dens_jaren_hr1, dens_jaren_hn2, dens_jaren_hr2, 
+                    dens_jaren_hn3, dens_jaren_hr3, dens_jaren_hn4, 
+                    dens_jaren_hr4, dens_jaren_hn5, dens_jaren_hr5, 
+                    dens_jaren_hn6, dens_jaren_hr6, dens_jaren_hn7, 
+                    dens_jaren_hr7, dens_jaren_hn8, dens_jaren_hr8, 
+                    dens_jaren_hn9, dens_jaren_hr9, dens_jaren_hn10, 
+                    dens_jaren_hr10, dens_jaren_hn11, dens_jaren_hr11, 
+                    dens_jaren_hn12, dens_jaren_hr12, dens_jaren_hn13, 
+                    dens_jaren_hr13, dens_jaren_hn14, dens_jaren_hr14, 
+                    dens_jaren_hn15, dens_jaren_hr15, dens_jaren_hn16, 
+                    dens_jaren_hr16, dens_jaren_hn17, dens_jaren_hr17, 
+                    dens_jaren_hn18, dens_jaren_hr18, dens_jaren_hn19, 
+                    dens_jaren_hr19, dens_jaren_hn20, dens_jaren_hr20, 
+                    dens_jaren_hn21, dens_jaren_hr21, dens_jaren_hr24)
+```
+
+We selecteren Hazard-rate model met variabelen jaar en sbp in interactie. Omdat we geen combinaties van interacties en variabelen niet in een interactie hebben gefit vergelijken we nog enkele modellen formules:
+
+- `~jaar * sbp + regio`  
+- `~jaar * sbp + regio`  
+- `~jaar * sbp + openheid`  
+- `~jaar * sbp + regio * openheid`  
+
+```{r}
+# Detectiekans
+detection_hr27 <- ddf(data = detection_df, method = "ds",
+        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio),
+        meta.data = list(width = 300, point = TRUE))
+detection_hr28 <- ddf(data = detection_df, method = "ds",
+        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + openheid),
+        meta.data = list(width = 300, point = TRUE))
+detection_hr29 <- ddf(data = detection_df, method = "ds",
+        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio + openheid),
+        meta.data = list(width = 300, point = TRUE))
+detection_hr30 <- ddf(data = detection_df, method = "ds",
+        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio * openheid),
+        meta.data = list(width = 300, point = TRUE))
+
+# Densiteiten
+dens_schat_hr27 <- dht(model = detection_hr27, region.table = region_table, 
+    sample.table = sample_table, obs.table = obs_table,
+    options = list(group = FALSE, convert.units = conversion_factor))
+dens_schat_hr28 <- dht(model = detection_hr28, region.table = region_table, 
+    sample.table = sample_table, obs.table = obs_table,
+    options = list(group = FALSE, convert.units = conversion_factor))
+dens_schat_hr29 <- dht(model = detection_hr29, region.table = region_table, 
+    sample.table = sample_table, obs.table = obs_table,
+    options = list(group = FALSE, convert.units = conversion_factor))
+dens_schat_hr30 <- dht(model = detection_hr30, region.table = region_table, 
+    sample.table = sample_table, obs.table = obs_table,
+    options = list(group = FALSE, convert.units = conversion_factor))
+
+# Maak dsmodel voor later gebruik functies in Distance package
+dens_jaren_hr27 <- list(ddf = detection_hr27, dht = dens_schat_hr27)
+class(dens_jaren_hr27) <- "dsmodel"
+
+dens_jaren_hr28 <- list(ddf = detection_hr28, dht = dens_schat_hr28)
+class(dens_jaren_hr28) <- "dsmodel"
+
+dens_jaren_hr29 <- list(ddf = detection_hr29, dht = dens_schat_hr29)
+class(dens_jaren_hr29) <- "dsmodel"
+
+dens_jaren_hr30 <- list(ddf = detection_hr30, dht = dens_schat_hr30)
+class(dens_jaren_hr30) <- "dsmodel"
+```
+
+```{r}
+summarize_ds_models(dens_jaren_hr19, dens_jaren_hr27, dens_jaren_hr28, 
+                    dens_jaren_hr29, dens_jaren_hr30)
+```
+
+We zien dat model 19 nog alijd het simpelste model is met een verschil in AIC’s kleiner dan 2.
+
+### Model fit
+
+We bekijken model fit m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
+
+```{r}
+breaks <- seq(0, 300, 300 / 15)
+
+par(mfrow = c(1, 2))
+gof_ds(dens_jaren_hr19)
+plot(dens_jaren_hr19, pdf = TRUE, showpoints = FALSE, breaks = breaks)
+par(mfrow = c(1, 1))
+plot(dens_jaren_hr19, showpoints = FALSE, breaks = breaks)
+```
+
+We zien een goede algemene fit. We kunnen dit ook visualiseren voor elke categorie.
+
+```{r}
+colours <- c("blue", "darkgreen", "brown", "salmon", "orange")
+par(mfrow = c(5, 2))
+for (j in as.character(2018:2022)) {
+  col <- colours[match(j, as.character(2018:2022))]
+  for (s in c("binnen", "buiten")) {
+    test <- list(s)
+    plot(dens_jaren_hr19, pdf = TRUE, showpoints = FALSE, breaks = breaks,
+      subset = jaar == j & sbp == test,
+      main = paste(j, s, sep = " - "), pl.col = alpha(col, 0.5))
+    add.df.covar.line(dens_jaren_hr19, lwd = 3, lty = 1, col = col,
+      data = data.frame(jaar = j, sbp = s), pdf = TRUE)
+  }
+}
+par(mfrow = c(1, 1))
+```
+
 
 ### Resultaten
 
+We kunnen de detectiecurve plotten voor elke categorie zoals eerder in`ggplot()`. Dit zouden we best eens in een fuctie gieten zodat we dat hier ook eenvoudig kunnen gebruiken. Voorlopig gebruiken we dit niet. We maken enkele samenvattende tabellen.
+
+```{r}
+summary_dens_jaren_hr19 <- summary(dens_jaren_hr19)
+
+# Vat resultaten Hazard-rate model samen
+summary_results_dens_jaren_hr19 <- bind_rows(
+  summary_dens_jaren_hr19$dht$individuals$D %>%
+    mutate(variable = "density",
+           type = "Aantal broedparen Gele kwikstaart per 100 ha"),
+  summary_dens_jaren_hr19$dht$individuals$N %>%
+    mutate(variable = "abundance",
+           type = "Totaal aantal broedparen Gele kwikstaart")
+  ) %>%
+  filter(Label != "Total") %>%
+  separate(Label, into = c("regio", "jaar"), sep = " - ")
+```
+
+Abundanties:
+
+```{r}
+summary_results_dens_jaren_hr19 %>%
+  filter(variable == "abundance") %>%
+  select(regio, jaar, schatting = Estimate, se, lcl, ucl) %>%
+  arrange(regio, jaar) %>%
+  kable(digits = 3)
+```
+
+Densiteiten:
+
+```{r}
+summary_results_dens_jaren_hr19 %>%
+  filter(variable == "density") %>%
+  select(regio, jaar, schatting = Estimate, se, lcl, ucl) %>%
+  arrange(regio, jaar) %>%
+  kable(digits = 3)
+```
+
+We visualiseren de absolute verschillen in densiteit over de jaren. De resultaten in 2022 moeten herbekeken worden. De data van dit jaar zijn nog niet goed ingelezen.
+
+```{r}
+summary_results_dens_jaren_hr19 %>%
+  filter(variable == "density") %>%
+  ggplot(aes(x = jaar, y = Estimate, colour = regio)) + 
+    geom_point(size = 4) + 
+    geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25) +
+    scale_y_continuous(limits = c(0, NA)) +
+    facet_wrap(~regio, scales = "free_y") +
+    labs(x = "", y = "Aantal broedparen per 100 ha", 
+         title = "Gele kwikstaart - densiteit") +
+    theme(legend.position = "")
+```
+
+We kunnen de relatieve toename en afname vergelijken over de jaren met de **effectclass** package.  
+https://effectclass.netlify.app/  
+  
+Dit wordt ook gedaan bij de trends in de Algemene broedvogelatlas.
+"Een effect is significant wanneer de referentie buiten het 90% interval ligt.
+We spreken over een **toename** (**afname**) als het interval volledig boven (onder) de referentie ligt.
+Niet significante effect is ook informatief wanneer het bijhorende interval voldoende smal is.
+Bijvoorbeeld als het interval volledig tussen de ondergrens en bovengrens ligt.
+In dat geval kunnen we stellen dat het effect niet significant en klein is, het immers zeker minder sterk dan de ondergrens en minder sterk dan de bovengrens.
+Dergelijk effect krijgt de naam **stabiel**.
+Heeft het effect een breed interval dat zowel de boven- als ondergrens bevat, spreken we over een **onduidelijk** effect.
+Daarnaast is er nog de mogelijkheid dat het interval zowel de bovengrens (ondergrens) als de referentie bevat maar niet de ondergrens (bovengrens).
+Dan spreken we over een **mogelijke toename** (**mogelijke afname**).
+We kunnen de boven- en ondergrens eveneens gebruiken om een verder onderscheid te maken binnen de significante effecten.
+Een interval volledig boven (onder) de bovengrens (ondergrens) wordt dan een **sterke toename** (**sterke afname**).
+Een interval volledig tussen de referentie en de de bovengrens (ondergrens) wordt dan een **matige toename** (**matige afname**).
+Een interval dat de referentie niet bevat maar wel de bovengrens (ondergrens) blijft een **toename** (**afname**)."  
+  
+"De soortenmeetnetten voor de Natura 2000 monitoring streven er naar om een daling in populatiegrootte met -25% over 25 jaar tijd vast te kunnen stellen. Een van daling van -25% komt overeen met aantallen die nog 3/4 van de uitgangssituatie bedragen. Een even sterke wijziging in de omgekeerde richting zorgt er voor dat de aantallen toenemen tot 4/3 van de uitgangssituatie, of een toename met +33% wat we als bovengrens gebruiken."
+
+```{r regels}
+tribble(
+  ~ benaming, ~afkorting, ~regels,
+  "sterke toename",    "`++`", "$B < l$",
+  "toename",           "`+`",  "$R < l < B$ en $B < b$",
+  "matige toename",    "`+~`", "$R < l < B$ en $b < B$",
+  "stabiel",           "`~`",  "$L < l < R$ en $R < b < B$",
+  "matige afname",     "`-~`", "$L < l < R$ en $b < R$",
+  "afname",            "`-`",  "$l < L$ en $L < b < R$",
+  "sterke afname",     "`--`", "$l < L$",
+  "mogelijke toename", "`?+`", "$L < l < R$ en $B < b$",
+  "mogelijke afname",  "`?-`", "$l < L$ en $R < b < B$",
+  "onduidelijk",       "`?`",  "$l < L$ en $B < b$"
+) %>%
+  kable(align = "lcc")
+```
+
+```{r}
+# Functie om relatieve verschillen te berekenen
+RPD <- function(reference, value, limit=NULL) {
+  if (is.null(limit)) {
+    return(((value - reference) / mean(c(reference, value))) * 100)
+  } else {
+    return(((limit - reference) / mean(c(reference, value))) * 100)
+  }
+}
+```
+
+```{r}
+reference <- 0
+thresholds <- c(-25, 33)
+
+summary_results_dens_jaren_hr19 %>%
+  filter(variable == "density") %>%
+  arrange(jaar) %>%
+  group_by(regio) %>%
+  mutate(ref = first(Estimate)) %>%
+  ungroup() %>%
+  filter(jaar != 2018) %>%
+  rowwise() %>%
+  mutate(rel_est = RPD(ref, Estimate),
+         rel_lcl = RPD(ref, Estimate, lcl),
+         rel_ucl = RPD(ref, Estimate, ucl), 
+         reference = reference,
+         lower_thresh = thresholds[1], 
+         upper_thresh = thresholds[2]) %>%
+  ggplot(aes(x = jaar, y = rel_est, ymin = rel_lcl, ymax = rel_ucl, colour = regio)) + 
+    geom_hline(aes(yintercept = reference), linetype = 2,
+               size = 1, colour = alpha("firebrick", 0.8)) +
+    geom_hline(aes(yintercept = lower_thresh), linetype = 3,
+               size = 1, colour = alpha("firebrick", 0.8)) +
+    geom_hline(aes(yintercept = upper_thresh), linetype = 3,
+             size = 1, colour = alpha("firebrick", 0.8)) +
+    geom_errorbar(width = 0.25) +
+    labs(x = "", y = "procentuele wijziging t.o.v. 2018", 
+       title = "Gele kwikstaart - Aantal broedparen per 100 ha") +
+    scale_y_continuous(sec.axis = sec_axis(~(100 + .) / 100, 
+                       name = "relatieve wijziging t.o.v. 2018")) +
+    stat_effect(reference = reference, threshold = thresholds, size = 4) +
+    scale_effect("classificatie") +
+    facet_wrap(~regio) +
+    guides(colour = "none")
+```
+
+We kunnen ook paarsgewijze verschillen tussen de jaren berekenen zoals bij de trends in de Algemene broedvogelatlas.
+
+
 ## Discussie
+
+
