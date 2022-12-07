@@ -4728,7 +4728,7 @@ We zien een goede algemene fit. We kunnen dit ook visualiseren voor elke categor
 
 ```{r}
 colours <- c("blue", "darkgreen", "brown", "salmon", "orange")
-par(mfrow = c(5, 2))
+par(mfrow = c(1, 2))
 for (j in as.character(2018:2022)) {
   col <- colours[match(j, as.character(2018:2022))]
   for (s in c("binnen", "buiten")) {
