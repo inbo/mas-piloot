@@ -4462,7 +4462,7 @@ detection_df <- dist_df %>%
   st_drop_geometry() %>%
   rename(object = id) %>%
   select(object, distance, regio, jaar, sbp, openheid) %>%
-  mutate(jaar = factor(jaar, ordered = TRUE))
+  mutate(jaar = as.character(jaar))
 ```
 
 Ten slotte maken we de dataframes en parameters klaar om de densiteiten te berekenen. `Region_table` met de oppervlaktes per regio-jaar (totale oppervlakte strata), `sample_table` geeft aan welke samples in welke regio's voorkomen en met welke effort (effort is overal 1 bij ons omdat we met territoria al de verschillende periodes hebben beschouwd) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata (regio-jaar) zitten. Ten slotte zet de conversiefactor de afstanden om van meter naar vierkante kilometer.
@@ -4653,24 +4653,110 @@ summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1,
                     dens_jaren_hn21, dens_jaren_hr21, dens_jaren_hr24)
 ```
 
+We selecteren Hazard-rate model met variabelen jaar en sbp in interactie. Omdat we geen combinaties van interacties en variabelen niet in een interactie hebben gefit vergelijken we nog enkele modellen formules:
 
+- `~jaar * sbp + regio`  
+- `~jaar * sbp + regio`  
+- `~jaar * sbp + openheid`  
+- `~jaar * sbp + regio * openheid`  
 
 ```{r}
+# Detectiekans
+detection_hr27 <- ddf(data = detection_df, method = "ds",
+        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio),
+        meta.data = list(width = 300, point = TRUE))
+detection_hr28 <- ddf(data = detection_df, method = "ds",
+        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + openheid),
+        meta.data = list(width = 300, point = TRUE))
+detection_hr29 <- ddf(data = detection_df, method = "ds",
+        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio + openheid),
+        meta.data = list(width = 300, point = TRUE))
+detection_hr30 <- ddf(data = detection_df, method = "ds",
+        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio * openheid),
+        meta.data = list(width = 300, point = TRUE))
+
+# Densiteiten
+dens_schat_hr27 <- dht(model = detection_hr27, region.table = region_table, 
+    sample.table = sample_table, obs.table = obs_table,
+    options = list(group = FALSE, convert.units = conversion_factor))
+dens_schat_hr28 <- dht(model = detection_hr28, region.table = region_table, 
+    sample.table = sample_table, obs.table = obs_table,
+    options = list(group = FALSE, convert.units = conversion_factor))
+dens_schat_hr29 <- dht(model = detection_hr29, region.table = region_table, 
+    sample.table = sample_table, obs.table = obs_table,
+    options = list(group = FALSE, convert.units = conversion_factor))
+dens_schat_hr30 <- dht(model = detection_hr30, region.table = region_table, 
+    sample.table = sample_table, obs.table = obs_table,
+    options = list(group = FALSE, convert.units = conversion_factor))
+
+# Maak dsmodel voor later gebruik functies in Distance package
+dens_jaren_hr27 <- list(ddf = detection_hr27, dht = dens_schat_hr27)
+class(dens_jaren_hr27) <- "dsmodel"
+
+dens_jaren_hr28 <- list(ddf = detection_hr28, dht = dens_schat_hr28)
+class(dens_jaren_hr28) <- "dsmodel"
+
+dens_jaren_hr29 <- list(ddf = detection_hr29, dht = dens_schat_hr29)
+class(dens_jaren_hr29) <- "dsmodel"
+
+dens_jaren_hr30 <- list(ddf = detection_hr30, dht = dens_schat_hr30)
+class(dens_jaren_hr30) <- "dsmodel"
+```
+
+```{r}
+summarize_ds_models(dens_jaren_hr19, dens_jaren_hr27, dens_jaren_hr28, 
+                    dens_jaren_hr29, dens_jaren_hr30)
+```
+
+We zien dat model 19 nog alijd het simpelste model is met een verschil in AIC’s kleiner dan 2.
+
+### Model fit
+
+We bekijken model fit m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
+
+```{r}
+breaks <- seq(0, 300, 300 / 15)
+
+par(mfrow = c(1, 2))
 gof_ds(dens_jaren_hr19)
-plot(dens_jaren_hr19, pdf = TRUE, showpoints = FALSE)
-plot(dens_jaren_hr19, showpoints = FALSE)
+plot(dens_jaren_hr19, pdf = TRUE, showpoints = FALSE, breaks = breaks)
+par(mfrow = c(1, 1))
+plot(dens_jaren_hr19, showpoints = FALSE, breaks = breaks)
+```
+
+We zien een goede algemene fit. We kunnen dit ook visualiseren voor elke categorie.
+
+```{r}
+colours <- c("blue", "darkgreen", "brown", "salmon", "orange")
+par(mfrow = c(5, 2))
+for (j in as.character(2018:2022)) {
+  col <- colours[match(j, as.character(2018:2022))]
+  for (s in c("binnen", "buiten")) {
+    test <- list(s)
+    plot(dens_jaren_hr19, pdf = TRUE, showpoints = FALSE, breaks = breaks,
+      subset = jaar == j & sbp == test,
+      main = paste(j, s, sep = " - "), pl.col = alpha(col, 0.5))
+    add.df.covar.line(dens_jaren_hr19, lwd = 3, lty = 1, col = col,
+      data = data.frame(jaar = j, sbp = s), pdf = TRUE)
+  }
+}
+par(mfrow = c(1, 1))
 ```
 
 
 ### Resultaten
 
+We kunnen de detectiecurve plotten voor elke categorie zoals eerder in`ggplot()`. Dit zouden we best eens in een fuctie gieten zodat we dat hier ook eenvoudig kunnen gebruiken. Voorlopig gebruiken we dit niet. We maken enkele samenvattende tabellen.
+
 ```{r}
+summary_dens_jaren_hr19 <- summary(dens_jaren_hr19)
+
 # Vat resultaten Hazard-rate model samen
-summary_results_dens_jaren_hr0 <- bind_rows(
-  summary_dens_jaren_hr0$dht$individuals$D %>%
+summary_results_dens_jaren_hr19 <- bind_rows(
+  summary_dens_jaren_hr19$dht$individuals$D %>%
     mutate(variable = "density",
            type = "Aantal broedparen Gele kwikstaart per 100 ha"),
-  summary_dens_jaren_hr0$dht$individuals$N %>%
+  summary_dens_jaren_hr19$dht$individuals$N %>%
     mutate(variable = "abundance",
            type = "Totaal aantal broedparen Gele kwikstaart")
   ) %>%
@@ -4681,7 +4767,7 @@ summary_results_dens_jaren_hr0 <- bind_rows(
 Abundanties:
 
 ```{r}
-summary_results_dens_jaren_hr0 %>%
+summary_results_dens_jaren_hr19 %>%
   filter(variable == "abundance") %>%
   select(regio, jaar, schatting = Estimate, se, lcl, ucl) %>%
   arrange(regio, jaar) %>%
@@ -4691,22 +4777,21 @@ summary_results_dens_jaren_hr0 %>%
 Densiteiten:
 
 ```{r}
-summary_results_dens_jaren_hr0 %>%
+summary_results_dens_jaren_hr19 %>%
   filter(variable == "density") %>%
   select(regio, jaar, schatting = Estimate, se, lcl, ucl) %>%
   arrange(regio, jaar) %>%
   kable(digits = 3)
 ```
 
-We visualiseren de absolute verschillen.
+We visualiseren de absolute verschillen in densiteit over de jaren. De resultaten in 2022 moeten herbekeken worden. De data van dit jaar zijn nog niet goed ingelezen.
 
 ```{r}
-summary_results_dens_jaren_hr0 %>%
+summary_results_dens_jaren_hr19 %>%
   filter(variable == "density") %>%
   ggplot(aes(x = jaar, y = Estimate, colour = regio)) + 
-    geom_point(position = position_dodge(width = 0.5), size = 4) + 
-    geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25,
-                  position = position_dodge(width = 0.5)) +
+    geom_point(size = 4) + 
+    geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25) +
     scale_y_continuous(limits = c(0, NA)) +
     facet_wrap(~regio, scales = "free_y") +
     labs(x = "", y = "Aantal broedparen per 100 ha", 
@@ -4714,8 +4799,45 @@ summary_results_dens_jaren_hr0 %>%
     theme(legend.position = "")
 ```
 
+We kunnen de relatieve toename en afname vergelijken over de jaren met de **effectclass** package.  
+https://effectclass.netlify.app/  
+  
+Dit wordt ook gedaan bij de trends in de Algemene broedvogelatlas.
+"Een effect is significant wanneer de referentie buiten het 90% interval ligt.
+We spreken over een **toename** (**afname**) als het interval volledig boven (onder) de referentie ligt.
+Niet significante effect is ook informatief wanneer het bijhorende interval voldoende smal is.
+Bijvoorbeeld als het interval volledig tussen de ondergrens en bovengrens ligt.
+In dat geval kunnen we stellen dat het effect niet significant en klein is, het immers zeker minder sterk dan de ondergrens en minder sterk dan de bovengrens.
+Dergelijk effect krijgt de naam **stabiel**.
+Heeft het effect een breed interval dat zowel de boven- als ondergrens bevat, spreken we over een **onduidelijk** effect.
+Daarnaast is er nog de mogelijkheid dat het interval zowel de bovengrens (ondergrens) als de referentie bevat maar niet de ondergrens (bovengrens).
+Dan spreken we over een **mogelijke toename** (**mogelijke afname**).
+We kunnen de boven- en ondergrens eveneens gebruiken om een verder onderscheid te maken binnen de significante effecten.
+Een interval volledig boven (onder) de bovengrens (ondergrens) wordt dan een **sterke toename** (**sterke afname**).
+Een interval volledig tussen de referentie en de de bovengrens (ondergrens) wordt dan een **matige toename** (**matige afname**).
+Een interval dat de referentie niet bevat maar wel de bovengrens (ondergrens) blijft een **toename** (**afname**)."  
+  
+"De soortenmeetnetten voor de Natura 2000 monitoring streven er naar om een daling in populatiegrootte met -25% over 25 jaar tijd vast te kunnen stellen. Een van daling van -25% komt overeen met aantallen die nog 3/4 van de uitgangssituatie bedragen. Een even sterke wijziging in de omgekeerde richting zorgt er voor dat de aantallen toenemen tot 4/3 van de uitgangssituatie, of een toename met +33% wat we als bovengrens gebruiken."
+
+```{r regels}
+tribble(
+  ~ benaming, ~afkorting, ~regels,
+  "sterke toename",    "`++`", "$B < l$",
+  "toename",           "`+`",  "$R < l < B$ en $B < b$",
+  "matige toename",    "`+~`", "$R < l < B$ en $b < B$",
+  "stabiel",           "`~`",  "$L < l < R$ en $R < b < B$",
+  "matige afname",     "`-~`", "$L < l < R$ en $b < R$",
+  "afname",            "`-`",  "$l < L$ en $L < b < R$",
+  "sterke afname",     "`--`", "$l < L$",
+  "mogelijke toename", "`?+`", "$L < l < R$ en $B < b$",
+  "mogelijke afname",  "`?-`", "$l < L$ en $R < b < B$",
+  "onduidelijk",       "`?`",  "$l < L$ en $B < b$"
+) %>%
+  kable(align = "lcc")
+```
 
 ```{r}
+# Functie om relatieve verschillen te berekenen
 RPD <- function(reference, value, limit=NULL) {
   if (is.null(limit)) {
     return(((value - reference) / mean(c(reference, value))) * 100)
@@ -4726,7 +4848,10 @@ RPD <- function(reference, value, limit=NULL) {
 ```
 
 ```{r}
-summary_results_dens_jaren_hr0 %>%
+reference <- 0
+thresholds <- c(-25, 33)
+
+summary_results_dens_jaren_hr19 %>%
   filter(variable == "density") %>%
   arrange(jaar) %>%
   group_by(regio) %>%
@@ -4737,9 +4862,9 @@ summary_results_dens_jaren_hr0 %>%
   mutate(rel_est = RPD(ref, Estimate),
          rel_lcl = RPD(ref, Estimate, lcl),
          rel_ucl = RPD(ref, Estimate, ucl), 
-         reference = 0,
-         lower_thresh = -25, 
-         upper_thresh = 33) %>%
+         reference = reference,
+         lower_thresh = thresholds[1], 
+         upper_thresh = thresholds[2]) %>%
   ggplot(aes(x = jaar, y = rel_est, ymin = rel_lcl, ymax = rel_ucl, colour = regio)) + 
     geom_hline(aes(yintercept = reference), linetype = 2,
                size = 1, colour = alpha("firebrick", 0.8)) +
@@ -4748,15 +4873,19 @@ summary_results_dens_jaren_hr0 %>%
     geom_hline(aes(yintercept = upper_thresh), linetype = 3,
              size = 1, colour = alpha("firebrick", 0.8)) +
     geom_errorbar(width = 0.25) +
-    labs(x = "", y = "Procentuele wijziging t.o.v. 2018", 
+    labs(x = "", y = "procentuele wijziging t.o.v. 2018", 
        title = "Gele kwikstaart - Aantal broedparen per 100 ha") +
-    scale_y_continuous(sec.axis = sec_axis(~(100 + .) / 100), 
-                       name = "relatieve wijziging t.o.v. 2018") +
+    scale_y_continuous(sec.axis = sec_axis(~(100 + .) / 100, 
+                       name = "relatieve wijziging t.o.v. 2018")) +
     stat_effect(reference = reference, threshold = thresholds, size = 4) +
     scale_effect("classificatie") +
     facet_wrap(~regio) +
     guides(colour = "none")
 ```
 
+We kunnen ook paarsgewijze verschillen tussen de jaren berekenen zoals bij de trends in de Algemene broedvogelatlas.
+
 
 ## Discussie
+
+
