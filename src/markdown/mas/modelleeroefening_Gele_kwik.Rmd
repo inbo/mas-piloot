@@ -4650,7 +4650,8 @@ summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1,
                     dens_jaren_hr16, dens_jaren_hn17, dens_jaren_hr17, 
                     dens_jaren_hn18, dens_jaren_hr18, dens_jaren_hn19, 
                     dens_jaren_hr19, dens_jaren_hn20, dens_jaren_hr20, 
-                    dens_jaren_hn21, dens_jaren_hr21, dens_jaren_hr24)
+                    dens_jaren_hn21, dens_jaren_hr21, dens_jaren_hr24) %>%
+  kable()
 ```
 
 We selecteren Hazard-rate model met variabelen jaar en sbp in interactie. Omdat we geen combinaties van interacties en variabelen niet in een interactie hebben gefit vergelijken we nog enkele modellen formules:
@@ -4705,7 +4706,8 @@ class(dens_jaren_hr30) <- "dsmodel"
 
 ```{r}
 summarize_ds_models(dens_jaren_hr19, dens_jaren_hr27, dens_jaren_hr28, 
-                    dens_jaren_hr29, dens_jaren_hr30)
+                    dens_jaren_hr29, dens_jaren_hr30) %>%
+  kable()
 ```
 
 We zien dat model 19 nog alijd het simpelste model is met een verschil in AIC’s kleiner dan 2.
