@@ -4038,7 +4038,7 @@ gele_kwik_presences %>%
 
 **Aantallen**
 
-Enkele samenvattende statistieken van de aantallen broedparen Gele kwikstaaart:
+Enkele samenvattende statistieken van de aantallen broedparen Gele kwikstaart:
 
 ```{r}
 gele_kwik %>%
