@@ -4919,5 +4919,6 @@ De clustermethode van SOVON wordt niet voor MAS gebruikt wel voor gebiedsdekkend
 Zij clusteren o.b.v. 3 criteria die verschillen van soort tot soort:
 - datumgrenzen
 - aantal keer een soort moet waargenomen worden gegeven een aantal bezoeken
-- fusieafstand
-
+- fusieafstand  
+  
+Een ander probleem bij clustering is dat je detectiekans afhangt van het aantal bezoeken als je gaat beginnen clusteren. Bij vier bezoeken wordt je detectiekans: $p_{new} = 1-(1-p_{old})^4$. Dit geeft een groot verschil. Neem bijvoorbeeld $p = 0.3$ dan is dit na 4 bezoeken $p = 1-(1-0.3)^4 = 0.76$. Het is ook onduidelijk hoe de onzekerheid op $p$ dan moet aangepast worden.
