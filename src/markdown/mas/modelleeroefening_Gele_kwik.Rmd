@@ -4712,6 +4712,7 @@ summarize_ds_models(dens_jaren_hr19, dens_jaren_hr27, dens_jaren_hr28,
 
 We zien dat model 19 nog alijd het simpelste model is met een verschil in AIC’s kleiner dan 2.
 
+
 ### Model fit
 
 We bekijken model fit m.b.v. QQ-plots en probability density function plots. Voor punttransectstudies geven probability density function plots een beter idee van modelfit dan de detectiefunctieplots. Dit komt omdat bij het plotten van de detectiefunctie voor punttransectgegevens, de histogram opnieuw moet worden geschaald om rekening te houden met de geometrie van de punt. Punten op de plot geven de kans op detectie voor elke waarneming aan.
