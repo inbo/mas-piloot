@@ -4918,8 +4918,19 @@ Stel dat we bij de huizen maar 1 vogel zien, maar de detectiekans is ook super l
 De clustermethode van SOVON wordt niet voor MAS gebruikt wel voor gebiedsdekkende karteringen:  
 *"Tijdens een BMP-bezoek worden doorgaans niet alle individuen opgemerkt, met andere woorden de trefkans is onvolledig. Maar na 5, 6 of 7 bezoeken en clustering kan een betrouwbare schatting van het aantal aanwezige broedparen worden gemaakt. Tijdens een MAS-bezoek van vijf of tien minuten is de trefkans beduidend lager dan bij een BMPbezoek (zie bijvoorbeeld fig. 27a) en zal een kleiner aandeel van de aanwezige individuen worden opgemerkt. Daardoor heeft het bepalen van territoria met behulp van clustering geen zin. Na 2 of 3 MAS-bezoeken zit je met meerdere van deze onvolledige tellingen, waaruit een schatting van het aantal aanwezige individuen moet worden gemaakt."*  
 Zij clusteren o.b.v. 3 criteria die verschillen van soort tot soort:
+
 - datumgrenzen
 - aantal keer een soort moet waargenomen worden gegeven een aantal bezoeken
 - fusieafstand  
   
-Een ander probleem bij clustering is dat je detectiekans afhangt van het aantal bezoeken als je gaat beginnen clusteren. Bij vier bezoeken wordt je detectiekans: $p_{new} = 1-(1-p_{old})^4$. Dit geeft een groot verschil. Neem bijvoorbeeld $p = 0.3$ dan is dit na 4 bezoeken $p = 1-(1-0.3)^4 = 0.76$. Het is ook onduidelijk hoe de onzekerheid op $p$ dan moet aangepast worden.
+Bovendien werkt dit enkel bij honkvaste soorten.  
+  
+Een ander probleem bij clustering is dat je detectiekans afhangt van het aantal bezoeken als je gaat beginnen clusteren. Bij vier bezoeken wordt je detectiekans: $p_{new} = 1-(1-p_{old})^4$. Dit geeft een groot verschil. Neem bijvoorbeeld $p = 0.3$ dan is dit na 4 bezoeken $p = 1-(1-0.3)^4 = 0.76$. Het is ook onduidelijk hoe de onzekerheid op $p$ dan moet aangepast worden. Als je enkel met waarnemingen werkt, dan verandert je detectiekans niet, maar wel je bezochte oppervalk $a$. Dan zal het enkel je densiteitsschattingen beïnvloeden.
+
+
+## Conclusie
+
+- Communicatie met SOVON over data en methodiek belangrijk
+- Targets moeten gecontroleerd worden, fout in data/code?
+- Clusteren van individuen mogelijks geen goed idee. Gebruik van ruwe data met `Effort = 4` zal een onderschatting geven maar is een robuustere methode.
+- Voorlopig is het niet belangrijk om hypotheses te testen. We willen enkel een goede schatting van de abundantie met onzekerheid. Als later toch gevraagd wordt, kunnen we eventueel herberkeningen doen en abstracties zodat we van **effectclass** kunnen gebruikmaken.
