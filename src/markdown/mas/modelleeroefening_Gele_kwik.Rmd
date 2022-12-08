@@ -4916,6 +4916,7 @@ De herberekende afstanden komen niet overeen met de afstanden meegekregen door S
 Zie begin code. Zelfde plots hebben verschillende variabelen (sbp, openheid) 2022 vs 2018-2021?
   
 **Visibiliteit**  
+  
 - visibiliteit verschilt van plot tot plot
 - we willen niet extrapoleren naar de volledige plot als een deel niet kan gezien worden (bv omdat er huizen staan of een stuk bos)
 - niet mogelijk met conventional distance sampling: assumptie uniforme verdeling van dieren  
