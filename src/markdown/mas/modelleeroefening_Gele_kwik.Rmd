@@ -4819,7 +4819,7 @@ Een interval volledig boven (onder) de bovengrens (ondergrens) wordt dan een **s
 Een interval volledig tussen de referentie en de de bovengrens (ondergrens) wordt dan een **matige toename** (**matige afname**).
 Een interval dat de referentie niet bevat maar wel de bovengrens (ondergrens) blijft een **toename** (**afname**)."  
   
-"De soortenmeetnetten voor de Natura 2000 monitoring streven er naar om een daling in populatiegrootte met -25% over 25 jaar tijd vast te kunnen stellen. Een van daling van -25% komt overeen met aantallen die nog 3/4 van de uitgangssituatie bedragen. Een even sterke wijziging in de omgekeerde richting zorgt er voor dat de aantallen toenemen tot 4/3 van de uitgangssituatie, of een toename met +33% wat we als bovengrens gebruiken."
+"De soortenmeetnetten voor de Natura 2000 monitoring streven er naar om een daling in populatiegrootte met -25% over 25 jaar tijd vast te kunnen stellen. Een van daling van -25% komt overeen met aantallen die nog 3/4 van de uitgangssituatie bedragen. Een even sterke wijziging in de omgekeerde richting zorgt er voor dat de aantallen toenemen tot 4/3 van de uitgangssituatie, of een toename met +33% wat we als bovengrens gebruiken."  
 
 ```{r regels}
 tribble(
@@ -4837,6 +4837,8 @@ tribble(
 ) %>%
   kable(align = "lcc")
 ```
+
+Opgelet! De volgende omzettingen zijn niet correct. De foutenvlaggen moeten groter zijn en berekend o.b.v. verschil tussen het jaar en het referentiejaar (verschil is som varianties dus grotere foutenvlaggen). Nu is puur een opschuiving en herschaling gedaan. De relatieve verschillen kunnen berekend worden door de log van de fractie te nemen en dan wordt dit het verschil van de logs. Als je ervan uitgaat dat de confidence limits lognormaal zijn kan je ook herberekenen tot de variantie en dit aanpassen (som van varianties en terug exponentieren).
 
 ```{r}
 # Functie om relatieve verschillen te berekenen
@@ -4884,6 +4886,8 @@ summary_results_dens_jaren_hr19 %>%
     facet_wrap(~regio) +
     guides(colour = "none")
 ```
+
+De fout in de symbolen is omdat de package nog in maintenance is.  
 
 We kunnen ook paarsgewijze verschillen tussen de jaren berekenen zoals bij de trends in de Algemene broedvogelatlas.
 
