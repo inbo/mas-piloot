@@ -4802,6 +4802,18 @@ summary_results_dens_jaren_hr19 %>%
     theme(legend.position = "")
 ```
 
+Wat zijn de detectiekansen per categorie?
+
+```{r}
+cbind(dens_jaren_hr19$ddf$data, 
+      det_prob = predict(dens_jaren_hr19, se.fit = TRUE)$fitted, 
+      det_prob_se = predict(dens_jaren_hr19, se.fit = TRUE)$se) %>%
+  select(jaar, sbp, det_prob, det_prob_se) %>%
+  distinct() %>%
+  arrange(jaar, sbp) %>%
+  kable()
+```
+
 We kunnen de relatieve toename en afname vergelijken over de jaren met de **effectclass** package.  
 https://effectclass.netlify.app/  
   
