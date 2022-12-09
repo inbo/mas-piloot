@@ -95,19 +95,17 @@ design2022 <- read_csv(here(
     "steekproef_piloot_avimap.csv")) %>%
   select(plotnaam = definitief_punt,
          regio,
-         stratum) %>%
+         stratum,
+         X, Y) %>%
   mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
          sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
-         stratum = gsub("L\\s{1}", "L\\\n", stratum))
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022) %>%
+  st_as_sf(coords = c("X", "Y"), crs = proj_crs)
 ```
 
 ```{r design-2018-2022}
-bezoekstippen_avimap_2021 <- read_sf(
-  here("data", "mas",
-       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
-)
-
-plot_per_jaar <- bezoekstippen_avimap_2021 %>%
+plot_per_jaar <- mas %>%
   st_drop_geometry() %>%
   distinct(plotnaam, jaar)
 
@@ -153,15 +151,14 @@ design_2018_2021 <- add_openheid_landschap_to_frame(
            as.logical(),
          sbp = ifelse(sbp, "binnen", "buiten")
   ) %>%
-  st_drop_geometry() %>%
   mutate(stratum = paste0(openheid, "\n", sbp, " plan"),
          regio = gsub("Vlaanderen - ", "", regio),
          regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio))
- 
-plotlijst_2018_2022 <- mas %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam) %>%
-  arrange(plotnaam)
+
+design_2018_2021 <- design_2018_2021 %>%
+  full_join(plot_per_jaar %>%
+              filter(jaar != 2022),
+            by = "plotnaam") 
 
 design_2018_2022 <- bind_rows(
   design_2018_2021,
@@ -171,7 +168,7 @@ design_2018_2022 <- bind_rows(
 # er zitten duplos in (zie volgende chunk)
 ```
 
-```{r probleemgevallen, eval=FALSE}
+```{r probleemgevallen}
 # probleemgevallen met verschillende classificatie
 is_duplo <- duplicated(design_2018_2022$plotnaam)
 duplo_plotnaam <- design_2018_2022 %>%
