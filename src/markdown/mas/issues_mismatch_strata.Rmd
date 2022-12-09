@@ -1,10 +1,10 @@
 ---
-title: "Issues mismatch strata"
+title: "Verkenning issues mismatch strata and afstanden"
 author: "Hans Van Calster"
 date: "`r Sys.Date()`"
 output:
   bookdown::html_document2:
-    code_folding: hide
+    code_folding: show
     toc: true
     toc_float: true
     toc_collapsed: true
@@ -34,8 +34,9 @@ source(here("src", "R", "wfs_wcs.R"))
 mbag_dir <- here()
 ```
 
+# Mismatch strata
 
-# Inlezen data{#inlezen-data}
+## Inlezen data{#inlezen-data}
 
 ```{r ronde-intervallen}
 r1_start <- "04-01"
@@ -168,37 +169,147 @@ design_2018_2022 <- bind_rows(
 # er zitten duplos in (zie volgende chunk)
 ```
 
+## Probleemgevallen
+
 ```{r probleemgevallen}
 # probleemgevallen met verschillende classificatie
-is_duplo <- duplicated(design_2018_2022$plotnaam)
-duplo_plotnaam <- design_2018_2022 %>%
-  select(plotnaam) %>%
-  filter(is_duplo)
-design_2018_2022 %>%
-  inner_join(duplo_plotnaam) %>%
-  View()
-
-# volgens bestand buiten plan, maar lijkt niet te kloppen
-# iets mis in targets analyse pipeline?
-avimap <- telpunten_avimap_2021 %>%
-  filter(naam == "VL0003")
-
-read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  filter(definitief_punt == "VL0003") %>%
-  st_as_sf(coords = c("X", "Y"), crs = proj_crs) %>%
-  mapview::mapview()  +
-  mapview::mapview(sbp_akkervogels, col.regions = "yellow") +
-  mapview::mapview(avimap)
-
-read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  inner_join(duplo_plotnaam, by = c("definitief_punt" = "plotnaam")) %>%
-  st_as_sf(coords = c("X", "Y"), crs = proj_crs) %>%
-  mapview::mapview()  +
-  mapview::mapview(sbp_akkervogels, col.regions = "yellow")
+probleemgevallen <- design_2018_2022 %>%
+  group_by(plotnaam) %>%
+  filter(!all(first(openheid) == last(openheid)) |
+         !all(first(sbp) == last(sbp)) |
+         !all(first(regio) == last(regio))) %>%
+  group_by(plotnaam, regio, openheid, sbp, jaar < 2022) %>%
+  summarize()
 ```
+
+De probleemgevallen detecteren we enkel bij telpunten die voor 2022 al bestonden.
+Dit betekent echter niet dat het probleem zich niet voordoet bij nieuwe punten van 2022 - die zitten gewoon niet bij de bestaande punten waarvan we nu de openheid en sbp strata hebben herberekend.
+
+```{r}
+unique(probleemgevallen$plotnaam)
+```
+
+```{r}
+probleemgevallen %>%
+  group_by(plotnaam) %>%
+  summarize(sbp_verschillend = first(sbp) != last(sbp),
+            openheid_verschillend = first(openheid) != last(openheid),
+            regio_verschillend = first(regio) != last(regio)) %>%
+  st_drop_geometry() %>%
+  count(sbp_verschillend, openheid_verschillend, regio_verschillend,
+        name = "Aantal telpunten") %>%
+  kable()
+```
+
+De gevallen waar regio verschillend is, is geen probleem.
+Bilzen is onderdeel van Oostelijke leemstreek.
+Dus daar gewoon regio Bilzen wijzigen naar Oostelijke leemstreek.
+
+```{r}
+probleemgevallen %>%
+  group_by(plotnaam) %>%
+  filter(!all(first(regio) == last(regio))) %>%
+  st_drop_geometry() %>%
+  select(plotnaam, regio, `jaar < 2022`) %>%
+  kable()
+```
+
+```{r regio-opgelost}
+regio_opgelost <- probleemgevallen %>%
+  group_by(plotnaam) %>%
+  mutate(regio = ifelse(first(regio) != last(regio), "Oostelijke leemstreek",
+                        regio),
+         sbp_verschillend = first(sbp) != last(sbp),
+         openheid_verschillend = first(openheid) != last(openheid),
+         probleem = case_when(
+           sbp_verschillend & openheid_verschillend ~ "sbp en openheid",
+           sbp_verschillend ~ "sbp",
+           openheid_verschillend ~ "openheid"
+         )) %>%
+  group_by(plotnaam) %>%
+  filter(!all(first(openheid) == last(openheid)) |
+         !all(first(sbp) == last(sbp)))
+```
+
+Afgaand op inspectie van de kaart, zijn de probleemgevallen te wijten aan fouten bij toekenning van strata in 2022 dataset.
+
+Berekening van openheid klassen zoals in add_openheid_landschap_to_frame()
+
+```{r}
+cutlevels = c(1.25, 1.35, 1.51)
+class_labels = c("GL", "HGL", "HOL", "OL")
+openheid <- rast(path_to_openheid_landschap())
+openheid_dm <- crop(openheid, perimeters %>% filter(Naam == "De Moeren"))
+
+matvec <- c(0, rep(cutlevels, each = 2), +Inf)
+nclass <- length(matvec) / 2
+
+rclasmat <- matvec %>%
+  matrix(ncol = 2, byrow = TRUE)
+rclasmat <- cbind(rclasmat, 1:nclass)
+
+openheid_dm_klassen <- terra::classify(
+  openheid_dm,
+  rcl = rclasmat,
+  include.lowest = TRUE)
+
+openheid_dm_raster <- raster::raster(openheid_dm_klassen)
+openheid_dm_raster <- raster::ratify(openheid_dm_raster)
+levels(openheid_dm_raster)[[1]]$LO <- c("GL", "HGL", "HOL", "OL")
+
+openheid_ol <- crop(openheid,
+                    perimeters %>% filter(Naam == "Oostelijke leemstreek"))
+
+openheid_ol_klassen <- terra::classify(
+  openheid_ol,
+  rcl = rclasmat,
+  include.lowest = TRUE)
+
+openheid_ol_raster <- raster::raster(openheid_ol_klassen)
+openheid_ol_raster <- raster::ratify(openheid_ol_raster)
+levels(openheid_ol_raster)[[1]]$LO <- c("GL", "HGL", "HOL", "OL")
+```
+
+
+```{r kaart-problemen}
+mapview::mapview(regio_opgelost, zcol = "probleem") +
+  mapview::mapview(sbp_akkervogels, col.regions = "lightblue") +
+  mapview::mapview(openheid_dm_raster, alpha = 0.3) +
+  mapview::mapview(openheid_ol_raster, alpha = 0.3, maxpixels = 2107512)
+```
+
+```{r}
+# Create data path
+data_path <- here("data", "mas")
+
+# Source R function to read KML
+source_path <- here("src", "R")
+source(paste(source_path, "read_KML.R", sep = "/"))
+
+# Read data
+kml_file <- paste(data_path, "MAS punten 2022 per teller.kml", sep = "/")
+issue_list_raw <- read_KML(kml_file) %>%
+  st_drop_geometry()
+```
+
+Probleem zit bij manier waarop strata info werd overgenomen indien een nieuw getrokken punt werd vervangen door een bestaand punt, zoals te zien in `issue_list_raw`:
+
+```{r}
+issue_list_raw %>%
+  filter(vervanging_id %in% unique(regio_opgelost$plotnaam)) %>%
+  select(beslissing, vervanging_id, pointid, Naam, openheid_sbp) %>%
+  kable()
+```
+
+
+## Conclusie
+
+De fout zit niet in de targets pipeline.
+De targets pipeline doet enkel een trekking van nieuwe punten.
+Het toevoegen van bestaande punten is achteraf gebeurd (zie afbakening_steekproefkader.Rmd) tijdens manuele controle (nadat eerst gekeken is welke bestaande punten gelegen zijn op minder dan 300m afstand van nieuw getrokken punt).
+Indien een nieuw punt werd vervangen door een bestaand punt werd de strata info overgenomen van het nieuw punt, maar het kan dus zijn dat door de andere ligging van het bestaande punt de strata niet meer kloppen.
+Het is dus nodig dat we deze strata herberekenen indien het gaat om een vervanging.
+
+
+# Issues in verband met afstand bezoekstip tot telpunt
+
