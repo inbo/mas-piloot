@@ -402,3 +402,21 @@ Waarom zijn de verschillen in een band tot max 126 meter?
 summary(mas_controle_afstand)
 ```
 
+De problemen doen zich maar voor bij een beperkt aantal telpunten (115).
+Van 2018-2021 gaat het vaak om dezelfde telpunten waar problemen zijn.
+Dit zijn andere telpunten dan waar problemen mee zijn in 2022.
+
+In De Moeren lijken deze verschillen minder groot dan in de Oostelijke leemstreek.
+
+```{r}
+mas_controle_afstand %>%
+  filter(abs_verschil > 1) %>%
+  st_set_geometry("geometry") %>%
+  group_by(jaar, plotnaam) %>%
+  summarize(mean_abs_verschil = mean(abs_verschil)) %>%
+  mutate(set = str_sub(plotnaam, 1, 2)) %>%
+  ggplot() +
+  geom_point(aes(y = mean_abs_verschil, x = jaar, colour = set), alpha = 0.3) +
+  geom_line(aes(y = mean_abs_verschil, x = jaar, group = plotnaam))
+```
+
