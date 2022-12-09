@@ -313,3 +313,92 @@ Het is dus nodig dat we deze strata herberekenen indien het gaat om een vervangi
 
 # Issues in verband met afstand bezoekstip tot telpunt
 
+Klein aantal > 300 m.
+
+```{r}
+mas %>%
+  ggplot() + 
+  geom_histogram(aes(x = distance2plot, fill = distance2plot > 300),
+                 binwidth = 50, boundary = 0)
+
+mas %>%
+  filter(distance2plot < 600) %>%
+  ggplot() + 
+  geom_histogram(aes(x = distance2plot, fill = distance2plot > 300),
+                 binwidth = 50, boundary = 0)
+
+```
+
+Controle telpunt coördinaten? Lijkt geen probleem (gaat wellicht om verschillen van kleiner dan 0.01 m). Maar wel iets om mee rekening te houden.
+
+```{r}
+telpunten_multiple_coord <- design_2018_2022 %>%
+  distinct(plotnaam, geometry) %>%
+  group_by(plotnaam) %>%
+  filter(n() >= 2)
+
+st_coordinates(telpunten_multiple_coord)
+```
+
+
+
+Herberekenen afstanden:
+
+```{r berekening-afstand}
+alle_telpunten <- design_2018_2022 %>%
+  distinct(plotnaam, geometry) %>%
+  group_by(plotnaam) %>%
+  summarize(.groups = "drop") %>%
+  st_centroid()
+
+mas_controle_afstand <- mas %>%
+  select(plotnaam, distance2plot, naam, jaar) %>%
+  inner_join(alle_telpunten %>% as_tibble(),
+             by = "plotnaam") %>%
+  mutate(correct_distance = st_distance(.$geom, .$geometry,
+            by_element = TRUE),
+         correct_distance = units::drop_units(correct_distance)) %>%
+  mutate(
+    abs_verschil = abs(correct_distance - distance2plot),
+    verschil = ifelse(abs_verschil < 1, 
+                           "minder dan 1 m", "meer dan 1 m"))
+
+```
+
+```{r}
+mas_controle_afstand %>%
+  st_drop_geometry() %>%
+  filter(abs_verschil > 1) %>%
+  as_tibble() %>%
+  ggplot() +
+  geom_histogram(aes(x = distance2plot - correct_distance)) +
+  labs(title = "Verdeling van verschillen voor subset met absoluut verschil groter dan 1 meter")
+```
+
+```{r}
+mas_controle_afstand %>%
+  mutate(verschil = ifelse(abs(correct_distance - distance2plot) < 1, 
+                           "minder dan 1 m", "meer dan 1 m")) %>%
+  ggplot() +
+  geom_abline() +
+  geom_point(aes(x = correct_distance, y = distance2plot,
+                 colour = verschil)) +
+  facet_wrap(~jaar)
+```
+
+```{r}
+mas_controle_afstand %>%
+  filter(correct_distance < 600) %>%
+  ggplot() +
+  geom_abline() +
+  geom_point(aes(x = correct_distance, y = distance2plot,
+                 colour = verschil)) +
+  facet_wrap(~jaar)
+```
+
+Waarom zijn de verschillen in een band tot max 126 meter?
+
+```{r}
+summary(mas_controle_afstand)
+```
+
