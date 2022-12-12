@@ -352,7 +352,7 @@ alle_telpunten <- design_2018_2022 %>%
   st_centroid()
 
 mas_controle_afstand <- mas %>%
-  select(plotnaam, distance2plot, naam, jaar) %>%
+  select(plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
   inner_join(alle_telpunten %>% as_tibble(),
              by = "plotnaam") %>%
   mutate(correct_distance = st_distance(.$geom, .$geometry,
@@ -416,7 +416,69 @@ mas_controle_afstand %>%
   summarize(mean_abs_verschil = mean(abs_verschil)) %>%
   mutate(set = str_sub(plotnaam, 1, 2)) %>%
   ggplot() +
-  geom_point(aes(y = mean_abs_verschil, x = jaar, colour = set), alpha = 0.3) +
+  geom_point(aes(y = mean_abs_verschil, x = jaar, colour = set),
+             alpha = 0.3,
+             position = position_dodge(0.5)) +
   geom_line(aes(y = mean_abs_verschil, x = jaar, group = plotnaam))
+```
+
+Mmmh, lijkt wel geclusterd te zijn
+
+```{r}
+design2022 %>% 
+  full_join(mas_controle_afstand %>%
+              filter(jaar == 2022) %>%
+              st_set_geometry("geometry") %>%
+              group_by(jaar, plotnaam) %>%
+              summarize(mean_abs_verschil = mean(abs_verschil)) %>%
+              st_drop_geometry()
+  ) %>%
+  mapview(zcol = "mean_abs_verschil")
+```
+
+
+De telpunten waar er problemen zijn met distance2plot zijn verplaatst!
+
+```{r kaart-verplaatste-telpunten}
+
+probleemgevallen2022 <- mas_controle_afstand %>%
+  filter(jaar == 2022, abs_verschil > 1)
+
+dist2plotcirkels <- probleemgevallen2022 %>%
+  st_buffer(dist = .$distance2plot)
+
+design2022 %>% 
+  inner_join(mas_controle_afstand %>%
+              filter(jaar == 2022,
+                     abs_verschil > 1) %>%
+              distinct(plotnaam)
+  ) %>%
+  mapview() +
+  mapview(probleemgevallen2022, zcol = "plotnaam", legend = FALSE) +
+  mapview(dist2plotcirkels, zcol = "plotnaam", legend = FALSE,
+          alpha.regions = 0)
+
+```
+
+
+
+
+```{r eval=FALSE}
+issue_list_raw %>%
+  filter(grepl("behouden", beslissing)) %>%
+  mutate(probleemgeval = pointid %in% probleem_plot_2022) %>%
+  ggplot() +
+  geom_bar(aes(x = probleemgeval, fill = openheid_sbp))
+issue_list_raw %>%
+  filter(grepl("behouden", beslissing)) %>%
+  mutate(probleemgeval = pointid %in% probleem_plot_2022) %>%
+  ggplot() +
+  geom_bar(aes(x = probleemgeval, fill = wie))
+issue_list_raw %>%
+  filter(grepl("behouden", beslissing)) %>%
+  mutate(probleemgeval = pointid %in% probleem_plot_2022) %>%
+  ggplot() +
+  geom_bar(aes(x = probleemgeval, fill = beslissing))
+
 ```
 
