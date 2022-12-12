@@ -84,7 +84,8 @@ glimpse(pipelines)
 # We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
 # If the grids are installed, this should match the first line of the pipelines object.
 
-chosen_pipeline_definition <- pipelines %>% slice(1) %>% pull(definition)
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% pull(definition)
 mas_31370_pipeline1 <- 
   st_transform(st_geometry(mas), "EPSG:31370",
                pipeline = chosen_pipeline_definition) %>% 
