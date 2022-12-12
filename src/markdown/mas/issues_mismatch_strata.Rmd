@@ -1,0 +1,422 @@
+---
+title: "Verkenning issues mismatch strata and afstanden"
+author: "Hans Van Calster"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: show
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+library(mapview)
+library(DBI)
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here::here())
+library(tidyverse)
+library(sf)
+library(lubridate)
+library(targets)
+library(terra)
+targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+source(here("src", "R", "berekening_hulpvariabelen.R"))
+source(here("src", "R", "wfs_wcs.R"))
+mbag_dir <- here()
+```
+
+# Mismatch strata
+
+## Inlezen data{#inlezen-data}
+
+```{r ronde-intervallen}
+r1_start <- "04-01"
+r1_stop <- "04-20"
+r2_start <- "04-21"
+r2_stop <- "05-10"
+r3_start <- "05-11"
+r3_stop <- "06-10"
+r4_start <- "06-21"
+r4_stop <- "07-15"
+```
+
+```{r inlezen-mas-data}
+mas <- read_sf(
+  here("data/mas/20220906_qgis_export_sovon_wfs.gpkg")) %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    ))
+```
+
+CRS moet aangepast worden naar Lambert 72.
+
+```{r, project-crs}
+# Belgian Lambert 72
+proj_crs <- 31370
+
+# Herbereken x en y-coördinaten in Lambert 72
+coordinates <- mas %>% 
+  st_transform(crs = proj_crs) %>%
+  st_coordinates() %>%
+  as_tibble() %>%
+  rename(x_coord = X, y_coord = Y)
+
+mas <- mas %>% 
+  st_transform(crs = proj_crs) %>%
+  select(-c(x_coord, y_coord)) %>%
+  cbind(coordinates)
+```
+
+```{r design2022}
+design2022 <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022) %>%
+  st_as_sf(coords = c("X", "Y"), crs = proj_crs)
+```
+
+```{r design-2018-2022}
+plot_per_jaar <- mas %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
+
+telpunten_avimap_2021 <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
+) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger")) %>%
+  select(-st_x, -st_y)
+
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
+
+vlaanderen <- get_feature_wfs(
+  wfs = "https://eservices.minfin.fgov.be/arcgis/services/R2C/Regions/MapServer/WFSServer",
+  layername = "regions",
+  crs = "EPSG:31370",
+  filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
+  select(NameDUT)
+
+
+sbp_akkervogels <- tar_read(sbp_akkervogels,
+                            store = targets_store)
+
+design_2018_2021 <- add_openheid_landschap_to_frame(
+  path = path_to_openheid_landschap(),
+  punten_sf = telpunten_avimap_2021,
+  gebied = vlaanderen,
+  cutlevels = c(1.25, 1.35, 1.51),
+  class_labels = c("GL", "HGL", "HOL", "OL")) %>%
+  select(plotnaam = naam, regio, openheid = openheid_klasse) %>%
+  mutate(sbp = st_intersects(.,
+                             st_union(sbp_akkervogels),
+                             sparse = FALSE) %>%
+           as.logical(),
+         sbp = ifelse(sbp, "binnen", "buiten")
+  ) %>%
+  mutate(stratum = paste0(openheid, "\n", sbp, " plan"),
+         regio = gsub("Vlaanderen - ", "", regio),
+         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio))
+
+design_2018_2021 <- design_2018_2021 %>%
+  full_join(plot_per_jaar %>%
+              filter(jaar != 2022),
+            by = "plotnaam") 
+
+design_2018_2022 <- bind_rows(
+  design_2018_2021,
+  design2022) %>%
+  distinct() %>%
+  arrange(plotnaam)
+# er zitten duplos in (zie volgende chunk)
+```
+
+## Probleemgevallen
+
+```{r probleemgevallen}
+# probleemgevallen met verschillende classificatie
+probleemgevallen <- design_2018_2022 %>%
+  group_by(plotnaam) %>%
+  filter(!all(first(openheid) == last(openheid)) |
+         !all(first(sbp) == last(sbp)) |
+         !all(first(regio) == last(regio))) %>%
+  group_by(plotnaam, regio, openheid, sbp, jaar < 2022) %>%
+  summarize()
+```
+
+De probleemgevallen detecteren we enkel bij telpunten die voor 2022 al bestonden.
+Dit betekent echter niet dat het probleem zich niet voordoet bij nieuwe punten van 2022 - die zitten gewoon niet bij de bestaande punten waarvan we nu de openheid en sbp strata hebben herberekend.
+
+```{r}
+unique(probleemgevallen$plotnaam)
+```
+
+```{r}
+probleemgevallen %>%
+  group_by(plotnaam) %>%
+  summarize(sbp_verschillend = first(sbp) != last(sbp),
+            openheid_verschillend = first(openheid) != last(openheid),
+            regio_verschillend = first(regio) != last(regio)) %>%
+  st_drop_geometry() %>%
+  count(sbp_verschillend, openheid_verschillend, regio_verschillend,
+        name = "Aantal telpunten") %>%
+  kable()
+```
+
+De gevallen waar regio verschillend is, is geen probleem.
+Bilzen is onderdeel van Oostelijke leemstreek.
+Dus daar gewoon regio Bilzen wijzigen naar Oostelijke leemstreek.
+
+```{r}
+probleemgevallen %>%
+  group_by(plotnaam) %>%
+  filter(!all(first(regio) == last(regio))) %>%
+  st_drop_geometry() %>%
+  select(plotnaam, regio, `jaar < 2022`) %>%
+  kable()
+```
+
+```{r regio-opgelost}
+regio_opgelost <- probleemgevallen %>%
+  group_by(plotnaam) %>%
+  mutate(regio = ifelse(first(regio) != last(regio), "Oostelijke leemstreek",
+                        regio),
+         sbp_verschillend = first(sbp) != last(sbp),
+         openheid_verschillend = first(openheid) != last(openheid),
+         probleem = case_when(
+           sbp_verschillend & openheid_verschillend ~ "sbp en openheid",
+           sbp_verschillend ~ "sbp",
+           openheid_verschillend ~ "openheid"
+         )) %>%
+  group_by(plotnaam) %>%
+  filter(!all(first(openheid) == last(openheid)) |
+         !all(first(sbp) == last(sbp)))
+```
+
+Afgaand op inspectie van de kaart, zijn de probleemgevallen te wijten aan fouten bij toekenning van strata in 2022 dataset.
+
+Berekening van openheid klassen zoals in add_openheid_landschap_to_frame()
+
+```{r}
+cutlevels = c(1.25, 1.35, 1.51)
+class_labels = c("GL", "HGL", "HOL", "OL")
+openheid <- rast(path_to_openheid_landschap())
+openheid_dm <- crop(openheid, perimeters %>% filter(Naam == "De Moeren"))
+
+matvec <- c(0, rep(cutlevels, each = 2), +Inf)
+nclass <- length(matvec) / 2
+
+rclasmat <- matvec %>%
+  matrix(ncol = 2, byrow = TRUE)
+rclasmat <- cbind(rclasmat, 1:nclass)
+
+openheid_dm_klassen <- terra::classify(
+  openheid_dm,
+  rcl = rclasmat,
+  include.lowest = TRUE)
+
+openheid_dm_raster <- raster::raster(openheid_dm_klassen)
+openheid_dm_raster <- raster::ratify(openheid_dm_raster)
+levels(openheid_dm_raster)[[1]]$LO <- c("GL", "HGL", "HOL", "OL")
+
+openheid_ol <- crop(openheid,
+                    perimeters %>% filter(Naam == "Oostelijke leemstreek"))
+
+openheid_ol_klassen <- terra::classify(
+  openheid_ol,
+  rcl = rclasmat,
+  include.lowest = TRUE)
+
+openheid_ol_raster <- raster::raster(openheid_ol_klassen)
+openheid_ol_raster <- raster::ratify(openheid_ol_raster)
+levels(openheid_ol_raster)[[1]]$LO <- c("GL", "HGL", "HOL", "OL")
+```
+
+
+```{r kaart-problemen}
+mapview::mapview(regio_opgelost, zcol = "probleem") +
+  mapview::mapview(sbp_akkervogels, col.regions = "lightblue") +
+  mapview::mapview(openheid_dm_raster, alpha = 0.3) +
+  mapview::mapview(openheid_ol_raster, alpha = 0.3, maxpixels = 2107512)
+```
+
+```{r}
+# Create data path
+data_path <- here("data", "mas")
+
+# Source R function to read KML
+source_path <- here("src", "R")
+source(paste(source_path, "read_KML.R", sep = "/"))
+
+# Read data
+kml_file <- paste(data_path, "MAS punten 2022 per teller.kml", sep = "/")
+issue_list_raw <- read_KML(kml_file) %>%
+  st_drop_geometry()
+```
+
+Probleem zit bij manier waarop strata info werd overgenomen indien een nieuw getrokken punt werd vervangen door een bestaand punt, zoals te zien in `issue_list_raw`:
+
+```{r}
+issue_list_raw %>%
+  filter(vervanging_id %in% unique(regio_opgelost$plotnaam)) %>%
+  select(beslissing, vervanging_id, pointid, Naam, openheid_sbp) %>%
+  kable()
+```
+
+
+## Conclusie
+
+De fout zit niet in de targets pipeline.
+De targets pipeline doet enkel een trekking van nieuwe punten.
+Het toevoegen van bestaande punten is achteraf gebeurd (zie afbakening_steekproefkader.Rmd) tijdens manuele controle (nadat eerst gekeken is welke bestaande punten gelegen zijn op minder dan 300m afstand van nieuw getrokken punt).
+Indien een nieuw punt werd vervangen door een bestaand punt werd de strata info overgenomen van het nieuw punt, maar het kan dus zijn dat door de andere ligging van het bestaande punt de strata niet meer kloppen.
+Het is dus nodig dat we deze strata herberekenen indien het gaat om een vervanging.
+
+
+# Issues in verband met afstand bezoekstip tot telpunt
+
+Klein aantal > 300 m.
+
+```{r}
+mas %>%
+  ggplot() + 
+  geom_histogram(aes(x = distance2plot, fill = distance2plot > 300),
+                 binwidth = 50, boundary = 0)
+
+mas %>%
+  filter(distance2plot < 600) %>%
+  ggplot() + 
+  geom_histogram(aes(x = distance2plot, fill = distance2plot > 300),
+                 binwidth = 50, boundary = 0)
+
+```
+
+Controle telpunt coördinaten? Lijkt geen probleem (gaat wellicht om verschillen van kleiner dan 0.01 m). Maar wel iets om mee rekening te houden.
+
+```{r}
+telpunten_multiple_coord <- design_2018_2022 %>%
+  distinct(plotnaam, geometry) %>%
+  group_by(plotnaam) %>%
+  filter(n() >= 2)
+
+st_coordinates(telpunten_multiple_coord)
+```
+
+
+
+Herberekenen afstanden:
+
+```{r berekening-afstand}
+alle_telpunten <- design_2018_2022 %>%
+  distinct(plotnaam, geometry) %>%
+  group_by(plotnaam) %>%
+  summarize(.groups = "drop") %>%
+  st_centroid()
+
+mas_controle_afstand <- mas %>%
+  select(plotnaam, distance2plot, naam, jaar) %>%
+  inner_join(alle_telpunten %>% as_tibble(),
+             by = "plotnaam") %>%
+  mutate(correct_distance = st_distance(.$geom, .$geometry,
+            by_element = TRUE),
+         correct_distance = units::drop_units(correct_distance)) %>%
+  mutate(
+    abs_verschil = abs(correct_distance - distance2plot),
+    verschil = ifelse(abs_verschil < 1, 
+                           "minder dan 1 m", "meer dan 1 m"))
+
+```
+
+```{r}
+mas_controle_afstand %>%
+  st_drop_geometry() %>%
+  filter(abs_verschil > 1) %>%
+  as_tibble() %>%
+  ggplot() +
+  geom_histogram(aes(x = distance2plot - correct_distance)) +
+  labs(title = "Verdeling van verschillen voor subset met absoluut verschil groter dan 1 meter")
+```
+
+```{r}
+mas_controle_afstand %>%
+  mutate(verschil = ifelse(abs(correct_distance - distance2plot) < 1, 
+                           "minder dan 1 m", "meer dan 1 m")) %>%
+  ggplot() +
+  geom_abline() +
+  geom_point(aes(x = correct_distance, y = distance2plot,
+                 colour = verschil)) +
+  facet_wrap(~jaar)
+```
+
+```{r}
+mas_controle_afstand %>%
+  filter(correct_distance < 600) %>%
+  ggplot() +
+  geom_abline() +
+  geom_point(aes(x = correct_distance, y = distance2plot,
+                 colour = verschil)) +
+  facet_wrap(~jaar)
+```
+
+Waarom zijn de verschillen in een band tot max 126 meter?
+
+```{r}
+summary(mas_controle_afstand)
+```
+
+De problemen doen zich maar voor bij een beperkt aantal telpunten (115).
+Van 2018-2021 gaat het vaak om dezelfde telpunten waar problemen zijn.
+Dit zijn andere telpunten dan waar problemen mee zijn in 2022.
+
+In De Moeren lijken deze verschillen minder groot dan in de Oostelijke leemstreek.
+
+```{r}
+mas_controle_afstand %>%
+  filter(abs_verschil > 1) %>%
+  st_set_geometry("geometry") %>%
+  group_by(jaar, plotnaam) %>%
+  summarize(mean_abs_verschil = mean(abs_verschil)) %>%
+  mutate(set = str_sub(plotnaam, 1, 2)) %>%
+  ggplot() +
+  geom_point(aes(y = mean_abs_verschil, x = jaar, colour = set), alpha = 0.3) +
+  geom_line(aes(y = mean_abs_verschil, x = jaar, group = plotnaam))
+```
+
