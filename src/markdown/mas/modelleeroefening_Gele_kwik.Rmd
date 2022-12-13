@@ -80,21 +80,25 @@ mas <- read_sf(
 
 CRS moet aangepast worden naar Lambert 72.
 
-```{r, project-crs}
-# Belgian Lambert 72
-proj_crs <- 31370
+```{r}
+Sys.setenv("PROJ_NETWORK" = "ON")
+sf_proj_network(TRUE)
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+glimpse(pipelines)
+```
 
-# Herbereken x en y-coördinaten in Lambert 72
-coordinates <- mas %>% 
-  st_transform(crs = proj_crs) %>%
-  st_coordinates() %>%
-  as_tibble() %>%
-  rename(x_coord = X, y_coord = Y)
+```{r}
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# If the grids are installed, this should match the first line of the pipelines object.
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% pull(definition)
 
-mas <- mas %>% 
-  st_transform(crs = proj_crs) %>%
-  select(-c(x_coord, y_coord)) %>%
-  cbind(coordinates)
+mas_31370_pipeline1 <- 
+  st_transform(st_geometry(mas), "EPSG:31370",
+               pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(mas), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf
 ```
 
 ```{r design2022}
