@@ -72,22 +72,29 @@ mas <- read_sf(
 
 CRS moet aangepast worden naar Lambert 72.
 
-```{r, project-crs}
-# Belgian Lambert 72
-proj_crs <- 31370
-
-# Herbereken x en y-coördinaten in Lambert 72
-coordinates <- mas %>% 
-  st_transform(crs = proj_crs) %>%
-  st_coordinates() %>%
-  as_tibble() %>%
-  rename(x_coord = X, y_coord = Y)
-
-mas <- mas %>% 
-  st_transform(crs = proj_crs) %>%
-  select(-c(x_coord, y_coord)) %>%
-  cbind(coordinates)
+```{r}
+Sys.setenv("PROJ_NETWORK"="ON")
+sf_proj_network(TRUE)
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+pipelines
+glimpse(pipelines)
 ```
+
+```{r}
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# If the grids are installed, this should match the first line of the pipelines object.
+
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% pull(definition)
+mas_31370_pipeline1 <- 
+  st_transform(st_geometry(mas), "EPSG:31370",
+               pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(mas), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf
+
+```
+
 
 ```{r design2022}
 design2022 <- read_csv(here(
@@ -102,11 +109,11 @@ design2022 <- read_csv(here(
          sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
          stratum = gsub("L\\s{1}", "L\\\n", stratum),
          jaar = 2022) %>%
-  st_as_sf(coords = c("X", "Y"), crs = proj_crs)
+  st_as_sf(coords = c("X", "Y"), crs = 31370)
 ```
 
-```{r design-2018-2022}
-plot_per_jaar <- mas %>%
+```{r read-data}
+plot_per_jaar <- mas_31370_pipeline1 %>%
   st_drop_geometry() %>%
   distinct(plotnaam, jaar)
 
@@ -122,8 +129,19 @@ telpunten_avimap_2021 <- read_sf(
         regio == "Vlaanderen - Leefdaal" ~ "professioneel",
       is.na(teller_2021) &
         regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
-      TRUE ~ "vrijwilliger")) %>%
-  select(-st_x, -st_y)
+      TRUE ~ "vrijwilliger"))
+
+telpunten_avimap_2021_amersfoort <- telpunten_avimap_2021 %>%
+  st_drop_geometry() %>%
+  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
+
+telpunten_avimap_2021 <- st_transform(
+  st_geometry(telpunten_avimap_2021_amersfoort), "EPSG:31370",
+  pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(telpunten_avimap_2021), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf
+  
 
 perimeters <- read_sf(
   here("data", "processed", "piloot_perimeters.gpkg"))
@@ -139,6 +157,11 @@ vlaanderen <- get_feature_wfs(
 sbp_akkervogels <- tar_read(sbp_akkervogels,
                             store = targets_store)
 
+```
+
+
+
+```{r design-2018-2022}
 design_2018_2021 <- add_openheid_landschap_to_frame(
   path = path_to_openheid_landschap(),
   punten_sf = telpunten_avimap_2021,
@@ -161,12 +184,26 @@ design_2018_2021 <- design_2018_2021 %>%
               filter(jaar != 2022),
             by = "plotnaam") 
 
+# problem in 2022 data with position of some VL points
+design2022 <- design2022 %>%
+  filter(grepl("VL", .$plotnaam)) %>%
+  # replace geom by those from design_2018_2021
+  left_join(design_2018_2021 %>%
+              as_tibble() %>%
+              filter(grepl("VL", .$plotnaam)) %>%
+              select(plotnaam, geometry_correct = geometry) %>%
+              distinct()) %>%
+  st_set_geometry("geometry_correct") %>%
+  select(-geometry) %>%
+  rename(geometry = geometry_correct)
+
 design_2018_2022 <- bind_rows(
   design_2018_2021,
   design2022) %>%
   distinct() %>%
   arrange(plotnaam)
 # er zitten duplos in (zie volgende chunk)
+
 ```
 
 ## Probleemgevallen
@@ -316,12 +353,12 @@ Het is dus nodig dat we deze strata herberekenen indien het gaat om een vervangi
 Klein aantal > 300 m.
 
 ```{r}
-mas %>%
+mas_31370_pipeline1 %>%
   ggplot() + 
   geom_histogram(aes(x = distance2plot, fill = distance2plot > 300),
                  binwidth = 50, boundary = 0)
 
-mas %>%
+mas_31370_pipeline1 %>%
   filter(distance2plot < 600) %>%
   ggplot() + 
   geom_histogram(aes(x = distance2plot, fill = distance2plot > 300),
@@ -329,7 +366,7 @@ mas %>%
 
 ```
 
-Controle telpunt coördinaten? Lijkt geen probleem (gaat wellicht om verschillen van kleiner dan 0.01 m). Maar wel iets om mee rekening te houden.
+Controle telpunt coördinaten?
 
 ```{r}
 telpunten_multiple_coord <- design_2018_2022 %>%
@@ -340,8 +377,6 @@ telpunten_multiple_coord <- design_2018_2022 %>%
 st_coordinates(telpunten_multiple_coord)
 ```
 
-
-
 Herberekenen afstanden:
 
 ```{r berekening-afstand}
@@ -351,11 +386,11 @@ alle_telpunten <- design_2018_2022 %>%
   summarize(.groups = "drop") %>%
   st_centroid()
 
-mas_controle_afstand <- mas %>%
-  select(plotnaam, distance2plot, naam, jaar) %>%
+mas_controle_afstand <- mas_31370_pipeline1 %>%
+  select(plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
   inner_join(alle_telpunten %>% as_tibble(),
-             by = "plotnaam") %>%
-  mutate(correct_distance = st_distance(.$geom, .$geometry,
+             by = "plotnaam", suffix = c(".stip", ".telpunt")) %>%
+  mutate(correct_distance = st_distance(.$geometry.stip, .$geometry.telpunt,
             by_element = TRUE),
          correct_distance = units::drop_units(correct_distance)) %>%
   mutate(
@@ -396,17 +431,11 @@ mas_controle_afstand %>%
   facet_wrap(~jaar)
 ```
 
-Waarom zijn de verschillen in een band tot max 126 meter?
 
 ```{r}
 summary(mas_controle_afstand)
 ```
 
-De problemen doen zich maar voor bij een beperkt aantal telpunten (115).
-Van 2018-2021 gaat het vaak om dezelfde telpunten waar problemen zijn.
-Dit zijn andere telpunten dan waar problemen mee zijn in 2022.
-
-In De Moeren lijken deze verschillen minder groot dan in de Oostelijke leemstreek.
 
 ```{r}
 mas_controle_afstand %>%
@@ -416,7 +445,112 @@ mas_controle_afstand %>%
   summarize(mean_abs_verschil = mean(abs_verschil)) %>%
   mutate(set = str_sub(plotnaam, 1, 2)) %>%
   ggplot() +
-  geom_point(aes(y = mean_abs_verschil, x = jaar, colour = set), alpha = 0.3) +
+  geom_point(aes(y = mean_abs_verschil, x = jaar, colour = set),
+             alpha = 0.3,
+             position = position_dodge(0.5)) +
   geom_line(aes(y = mean_abs_verschil, x = jaar, group = plotnaam))
+```
+
+Mmmh, lijkt wel geclusterd te zijn
+
+```{r}
+design2022 %>% 
+  full_join(mas_controle_afstand %>%
+              filter(jaar == 2022) %>%
+              st_set_geometry("geometry") %>%
+              group_by(jaar, plotnaam) %>%
+              summarize(mean_abs_verschil = mean(abs_verschil)) %>%
+              st_drop_geometry()
+  ) %>%
+  mapview(zcol = "mean_abs_verschil")
+```
+
+
+```{r kaart-verplaatste-telpunten}
+probleemgevallen2022 <- mas_controle_afstand %>%
+  filter(jaar == 2022, abs_verschil > 1)
+
+dist2plotcirkels <- probleemgevallen2022 %>%
+  st_buffer(dist = .$distance2plot)
+
+design2022 %>% 
+  inner_join(mas_controle_afstand %>%
+              filter(jaar == 2022,
+                     abs_verschil > 1) %>%
+              distinct(plotnaam)
+  ) %>%
+  mapview() +
+  mapview(probleemgevallen2022, zcol = "plotnaam", legend = FALSE) +
+  mapview(dist2plotcirkels, zcol = "plotnaam", legend = FALSE,
+          alpha.regions = 0)
+```
+
+
+```{r}
+probleem_plot_2022 <- probleemgevallen2022 %>% distinct(plotnaam) %>%
+  pull(plotnaam)
+
+issue_list_raw %>%
+  filter(pointid %in% probleem_plot_2022 |
+           vervanging_id %in% probleem_plot_2022) %>%
+  kable()
+```
+
+Iets misgelopen met de coördinaten van "VL" (bestaande) telpunten in 2022. 
+
+```{r}
+design_2018_2022 %>%
+  mutate(heeft_conversieprobleem = plotnaam %in% probleem_plot_2022) %>%
+  filter(str_detect(plotnaam, "VL"), !is.na(jaar), heeft_conversieprobleem) %>%
+  mapview(zcol = "jaar")
+```
+
+```{r eval=FALSE}
+design_2018_2022 %>%
+  mutate(heeft_conversieprobleem = plotnaam %in% probleem_plot_2022) %>%
+  filter(str_detect(plotnaam, "VL"), !is.na(jaar), heeft_conversieprobleem) %>%
+  select(plotnaam, geometry, jaar)
+```
+
+
+
+```{r}
+issue_list_raw %>%
+  mutate(probleemgeval = pointid %in% probleem_plot_2022 |
+           vervanging_id %in% probleem_plot_2022) %>%
+  ggplot() +
+  geom_bar(aes(x = probleemgeval, fill = openheid_sbp))
+issue_list_raw %>%
+  mutate(probleemgeval = pointid %in% probleem_plot_2022 |
+           vervanging_id %in% probleem_plot_2022) %>%
+  ggplot() +
+  geom_bar(aes(x = probleemgeval, fill = wie))
+issue_list_raw %>%
+  mutate(probleemgeval = pointid %in% probleem_plot_2022 |
+           vervanging_id %in% probleem_plot_2022) %>%
+  ggplot() +
+  geom_bar(aes(x = probleemgeval, fill = beslissing))
+```
+
+# Bepalen van de strata oppervlakte
+
+```{r inlezen-steekproefkaderpuntenset}
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+```
+
+
+```{r}
+perimeters_strata <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  group_by(Naam, openheid_klasse, is_sbp) %>%
+  st_buffer(dist = 300) %>%
+  summarize()
+
+perimeters_strata <- perimeters_strata %>%
+  mutate(stratum = paste(
+    abbreviate(Naam, 2), openheid_klasse, ifelse(is_sbp, "binnen", "buiten")))
+
+mapview(perimeters_strata, zcol = "stratum")
 ```
 
