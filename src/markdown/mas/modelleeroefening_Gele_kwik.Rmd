@@ -60,7 +60,7 @@ r4_start <- "06-21"
 r4_stop <- "07-15"
 ```
 
-```{r inlezen-mas-data}
+```{r inlezen-mas-waarnemingen-2018-2022}
 mas <- read_sf(
   here("data/mas/20220906_qgis_export_sovon_wfs.gpkg")) %>%
   mutate(
@@ -83,14 +83,11 @@ mas <- read_sf(
 
 De CRS moet aangepast worden naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
 
-```{r}
+```{r mas-waarnemingen-conversie-31370}
 Sys.setenv("PROJ_NETWORK" = "ON")
 sf_proj_network(TRUE)
 pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
 glimpse(pipelines)
-```
-
-```{r}
 # We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
 # If the grids are installed, this should match the first line of the pipelines object.
 chosen_pipeline_definition <- pipelines %>%
@@ -104,13 +101,64 @@ mas_31370_pipeline1 <-
   st_as_sf
 ```
 
-We lezen de covariaten data van 2018-2021 in.
+We bepalen alle plot-jaar combinaties waarvoor er waarnemingen zijn.
+Het kan ook zijn dat een plot bezocht is, maar dat er geen waarnemingen van zijn.
 
-```{r design-2018-2021}
-plot_per_jaar <- mas_31370_pipeline1 %>%
+```{r plot-jaar-waarnemingen-2018-2022}
+plot_jaar_met_waarnemingen <- mas_31370_pipeline1 %>%
   st_drop_geometry() %>%
   distinct(plotnaam, jaar)
+```
 
+Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden.
+Voor 2018-2021 moeten we er vanuit gaan dat als er geen waarnemingen zijn voor een bepaald telpunt, het telpunt niet geteld werd.
+
+We stellen nu eerst een lijst samen van plot - jaar combinaties die bezocht zijn.
+Hiervoor moeten we eerst het design inlezen van 2022.
+
+```{r design2022}
+design2022_raw <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370)
+
+plot_bezocht_2022 <- design2022_raw %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
+```
+
+Vervolgens samenvoegen met 2018-2021
+
+```{r plot-jaar-bezocht-2018-2022}
+# veronderstel dat bezocht gelijk is aan die met waarnemingen voor 2018-2021
+plot_jaar_bezocht <- plot_jaar_met_waarnemingen %>%
+  filter(jaar < 2022) %>%
+  rbind(plot_bezocht_2022)
+```
+
+Zijn er bezochte plots waarvan er geen waarnemingen zijn?
+
+```{r bezocht-zonder-waarnemingen}
+plot_jaar_bezocht %>%
+  anti_join(plot_jaar_met_waarnemingen) %>%
+  kable()
+```
+
+
+
+
+We lezen de covariaten data van 2018-2021 in.
+
+```{r}
 telpunten_avimap_2021 <- read_sf(
   here("data", "mas",
        "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
@@ -149,25 +197,14 @@ vlaanderen <- get_feature_wfs(
 
 sbp_akkervogels <- tar_read(sbp_akkervogels,
                             store = targets_store)
+
 ```
 
-We lezen design van 2022 in.
+```{r}
 
-```{r design2022}
-design2022_raw <- read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  select(plotnaam = definitief_punt,
-         regio,
-         stratum,
-         X, Y) %>%
-  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
-         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
-         stratum = gsub("L\\s{1}", "L\\\n", stratum),
-         jaar = 2022L) %>%
-  st_as_sf(coords = c("X", "Y"), crs = 31370)
 ```
+
+
 
 Voeg covariaten toe aan design van 2018-2021 en 2022 en voeg samen in 1 dataframe.
 
