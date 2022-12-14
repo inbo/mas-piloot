@@ -226,7 +226,18 @@ conclusie_df <- rbind(conclusie_df, c("beheersovereenkomst", "-", "+"))
 ## Openheid landschap
 
 
+## Expertise
+
+In Lovenjoel liggen al MAS-punten.  Kortenberg ligt iets ten zuiden van een kerngebied. Lovenjoel is geen kerngebied.
+
+```{r}
+conclusie_df <- rbind(conclusie_df, c("Mas-punten", "-", "+"),
+                      c("kerngebied", "0", "-"))
+```
+
+
 ## ...
+
 
 
 # Discussie en conclusie
