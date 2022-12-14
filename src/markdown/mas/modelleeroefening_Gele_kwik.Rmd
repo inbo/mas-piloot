@@ -172,7 +172,7 @@ design_2018_2021 <- add_openheid_landschap_to_frame(
          regio = gsub("Vlaanderen - ", "", regio),
          regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio))
  
-plotlijst_2018_2022 <- mas %>%
+plotlijst_2018_2022 <- mas_31370_pipeline1 %>%
   st_drop_geometry() %>%
   distinct(plotnaam) %>%
   arrange(plotnaam)
@@ -239,15 +239,15 @@ design_2018_2022 <- bind_rows(
 ```
 
 ```{r overzicht-data, eval=FALSE}
-head(mas)
-summary(mas)
-glimpse(mas)
+head(mas_31370_pipeline1)
+summary(mas_31370_pipeline1)
+glimpse(mas_31370_pipeline1)
 ```
 
 Dubbeltellingen zijn eruit (soort gezien op meerdere teldagen binnen eenzelfde telperiode): in dat geval de laatste teldag genomen.
 
 ```{r check-dubbeltelling}
-dubbels <- mas %>%
+dubbels <- mas_31370_pipeline1 %>%
   st_drop_geometry() %>%
   group_by(plotid, jaar, periode_in_jaar, soortnr) %>%
   summarize(aantal_teldagen = n_distinct(doy),
@@ -255,12 +255,12 @@ dubbels <- mas %>%
   filter(aantal_teldagen > 1)
 # kan zowel zelfde waarnemer als andere waarnemer zijn
 
-mas_clean <- mas %>%
+mas_clean <- mas_31370_pipeline1 %>%
   semi_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")) %>%
   group_by(plotid, jaar, periode_in_jaar) %>%
   filter(doy == max(doy)) %>%
   ungroup() %>%
-  bind_rows(mas %>%
+  bind_rows(mas_31370_pipeline1 %>%
               anti_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")))
 ```
 
