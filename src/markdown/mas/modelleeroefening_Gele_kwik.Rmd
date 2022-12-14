@@ -163,7 +163,7 @@ design_2018_2021 <- add_openheid_landschap_to_frame(
 We willen ook een dataframe met de bezochte plots 2018-2022 met variabelen en overzicht welke plots in welk jaar zijn bezocht.
 
 ```{r design2022}
-design2022 <- read_csv(here(
+design2022_raw <- read_csv(here(
     "data",
     "processed",
     "steekproef_piloot_avimap.csv")) %>%
@@ -192,7 +192,7 @@ design_2018_2021_jaar_bis <- design_2018_2021 %>%
   filter(plotnaam %in% design2022$plotnaam) %>%
   mutate(jaar = 2022)
 # plots 2022 die niew zijn
-design2022_jaar_bis <- design2022 %>%
+design2022_jaar_bis <- design2022_raw %>%
   filter(!(plotnaam %in% design_2018_2021_jaar$plotnaam)) %>%
   mutate(jaar = 2022)
 
@@ -253,6 +253,10 @@ We starten met een beperkte dataset om het aantal broedparen van de Gele kwiksta
 We selecteren de data voor Gele kwikstaart van 2022 met broedcode > 0. Opmerking: wat met *Gele kwikstaart (spec)*?
 
 ```{r selectie-gelekwik-2022}
+design_2022 <- design_2018_2022 %>%
+  filter(jaar == 2022) %>%
+  select(-jaar)
+
 # Selecteer tellingen van Gele kwikstaart in 2022 in de twee regios
 # met broedcode > 0 en binnen telrondes
 gele_kwik_2022_presences <- mas_clean %>% 
