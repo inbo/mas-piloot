@@ -68,27 +68,37 @@ mapview(leefdaal_sf, zcol = "Naam", layer.name = "Deelgebied") %>%
 
 # Data voorbereiden
 
-We splitsen de volledige laag in aparte polygonen:
+We maken een laag met 3 polygonen:
 
 - Zavelberg
 - Kortenberg
 - Lovenjoel
 
 ```{r}
-zavelberg_sf <- leefdaal_sf %>% filter(Naam == "Zavelberg")
-kortenberg_sf <- leefdaal_sf %>% filter(startsWith(Naam, "Kortenberg")) %>%
-  st_union() %>%
-  st_as_sf()
-lovenjoel_sf <- leefdaal_sf %>% filter(Naam == "Lovenjoel")
+leefdaal <- leefdaal_sf %>%
+  mutate(naam = ifelse(startsWith(Naam, "Kortenberg"), "Kortenberg", Naam)) %>%
+  group_by(naam) %>%
+  summarise(geometry = sf::st_union(geometry)) %>%
+  ungroup()
 
-
-mapview(zavelberg_sf, col.regions = "red") +
-  mapview(kortenberg_sf) +
-  mapview(lovenjoel_sf, col.regions = "green")
+mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") %>%
+  addStaticLabels(label = leefdaal$naam)
 ```
 
 
 # Vergelijking doel en controlegebieden
+## Oppervlakte
+
+```{r}
+leefdaal %>%
+  mutate(oppervlakte = st_area(leefdaal)) %>%
+  st_drop_geometry() %>%
+  kable()
+```
+
+De oppervlaktes zijn gelijkaardig tussen alle deelgebieden.
+
+
 ## Landgebruik
 
 
@@ -110,19 +120,29 @@ Voor de steekproeftrekking zijn vooral de oppervlakte aan soortbeschermingsmaatr
 # Lees laag beheersovereenkomsten in
 bo2021 <- read_bo2021(path = path_to_bo2021())
 bo2021_leefdaal <- bo2021 %>%
-  st_intersection(leefdaal_sf)
+  st_intersection(leefdaal)
 
 # Visualisatie
-mapview(zavelberg_sf, col.regions = "red") +
-  mapview(kortenberg_sf) +
-  mapview(lovenjoel_sf, col.regions = "green") +
+mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
   mapview(bo2021_leefdaal, zcol = "BH_DOELST", 
+          col.regions = list("red","blue", "green", "brown"),
           layer.name = "Beheersdoelstelling")
 ```
 
+We willen voor elk deelgebied het oppervlakte-aandeel van de beheerovereenkomsten.
 
 ```{r}
+bh_doelst_leefdaal <- landusemetrics_grid_cell(
+    grid_cell = leefdaal,
+    layer = bo2021_leefdaal,
+    grid_group_by_col = "naam",
+    layer_group_by_col = "BH_DOELST")
 
+srt_object_leefdaal <- landusemetrics_grid_cell(
+    grid_cell = leefdaal,
+    layer = bo2021_leefdaal,
+    grid_group_by_col = "naam",
+    layer_group_by_col = "SRT_OBJECT")
 ```
 
 
