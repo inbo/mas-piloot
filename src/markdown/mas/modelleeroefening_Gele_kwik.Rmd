@@ -279,10 +279,8 @@ We hebben geen mismatches meer. We moeten wel nog enkele aanpassingen doen zodat
 
 ```{r}
 design_2018_2022 <- design_2018_2022_sf %>%
-  st_drop_geometry()
-
-design_2022 <- design_2018_2022 %>%
-  filter(jaar == 2022)
+  st_drop_geometry() %>%
+  mutate(openheid = as.character(openheid))
 ```
 
 Controle op ontbrekende gegevens:
