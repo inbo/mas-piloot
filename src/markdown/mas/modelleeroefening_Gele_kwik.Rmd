@@ -107,12 +107,7 @@ mas_31370_pipeline1 <-
 We lezen de covariaten data van 2018-2021 in.
 
 ```{r design-2018-2021}
-bezoekstippen_avimap_2021 <- read_sf(
-  here("data", "mas",
-       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
-)
-
-plot_per_jaar <- bezoekstippen_avimap_2021 %>%
+plot_per_jaar <- mas_31370_pipeline1 %>%
   st_drop_geometry() %>%
   distinct(plotnaam, jaar)
 
