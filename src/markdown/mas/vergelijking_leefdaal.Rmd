@@ -88,6 +88,21 @@ mapview(zavelberg_sf, col.regions = "red") +
 
 ## Beheerovereenkomsten
 
+Toestand beheerovereenkomsten 2021.
+
+Indeling voor niet-productieve gewassen / beheerovereenkomsten (instrumenten):
+
+- soortbeschermingsmaatregelen
+    - perceelsniveau
+    - randen
+- erosiemaatregelen
+- bufferstroken
+
+```{r}
+
+```
+
+
 
 ## Hoofdteelt
 
