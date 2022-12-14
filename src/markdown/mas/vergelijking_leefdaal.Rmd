@@ -26,6 +26,7 @@ library(sf)
 library(terra)
 library(mapview)
 library(leafem)
+mbag_dir <- here()
 ```
 
 
@@ -50,10 +51,15 @@ We beschouwen vier deelgebieden van het Leefdaal plateau. Deze bevinden zich in 
 # Create data and source paths
 data_path <- here("data", "mas")
 source_path <- here("src", "R")
+
+# Source functions
+source(here(source_path, "berekening_hulpvariabelen.R"))
+source(here(source_path, "geocomputations.R"))
 ```
 
 ```{r}
-leefdaal_sf <- st_read(here(data_path, "Leefdaal_ctr.shp"))
+leefdaal_sf <- st_read(here(data_path, "Leefdaal_ctr.shp")) %>%
+  st_transform(crs = 31370)
 
 mapview(leefdaal_sf, zcol = "Naam", layer.name = "Deelgebied") %>%
   addStaticLabels(label = leefdaal_sf$Naam)
@@ -97,6 +103,23 @@ Indeling voor niet-productieve gewassen / beheerovereenkomsten (instrumenten):
     - randen
 - erosiemaatregelen
 - bufferstroken
+
+Voor de steekproeftrekking zijn vooral de oppervlakte aan soortbeschermingsmaatregelen van belang. Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
+
+```{r}
+# Lees laag beheersovereenkomsten in
+bo2021 <- read_bo2021(path = path_to_bo2021())
+bo2021_leefdaal <- bo2021 %>%
+  st_intersection(leefdaal_sf)
+
+# Visualisatie
+mapview(zavelberg_sf, col.regions = "red") +
+  mapview(kortenberg_sf) +
+  mapview(lovenjoel_sf, col.regions = "green") +
+  mapview(bo2021_leefdaal, zcol = "BH_DOELST", 
+          layer.name = "Beheersdoelstelling")
+```
+
 
 ```{r}
 
