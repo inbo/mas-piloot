@@ -267,8 +267,8 @@ We hebben geen data over deze plots?
 
 ```{r}
 design_2018_2022 %>% filter(is.na(openheid))
+design_2018_2022 %>% filter(is.na(jaar))
 ```
-
 
 ```{r overzicht-data, eval=FALSE}
 head(mas_31370_pipeline1)
