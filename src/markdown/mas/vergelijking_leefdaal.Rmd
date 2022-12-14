@@ -100,6 +100,11 @@ leefdaal %>%
   
 De oppervlaktes zijn gelijkaardig tussen alle deelgebieden.
 
+```{r}
+conclusie_df <- data.frame(onderdeel = "oppervlakte", 
+                            Kortenberg = "0", Lovenjoel = "0")
+```
+
 
 ## Landgebruik
 
@@ -210,6 +215,10 @@ srt_object_leefdaal %>%
   
 Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna niets te vinden en Lovenjoel is in dat opzicht meer vergelijkbaar met Zavelberg. Desondanks wordt in Lovenjoel wel vaak op andere beheersvormen ingezet dan in Zavelberg.
 
+```{r}
+conclusie_df <- rbind(conclusie_df, c("beheersovereenkomst", "-", "+"))
+```
+
 
 ## Hoofdteelt
 
@@ -219,4 +228,10 @@ Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna 
 
 ## ...
 
+
+# Discussie en conclusie
+
+```{r}
+conclusie_df %>% kable()
+```
 
