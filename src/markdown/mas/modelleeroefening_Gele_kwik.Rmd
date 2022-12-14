@@ -41,6 +41,7 @@ library(brms)
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
+mbag_dir <- here()
 ```
 
 
