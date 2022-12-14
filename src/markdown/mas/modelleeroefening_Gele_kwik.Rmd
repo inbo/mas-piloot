@@ -189,7 +189,7 @@ design_2018_2021_jaar <- design_2018_2021 %>%
   inner_join(plot_per_jaar, by = "plotnaam")
 # plots 2022 die al bestonden in 2018-2021 (overnemen variabelen)
 design_2018_2021_jaar_bis <- design_2018_2021 %>%
-  filter(plotnaam %in% design2022$plotnaam) %>%
+  filter(plotnaam %in% design2022_raw$plotnaam) %>%
   mutate(jaar = 2022)
 # plots 2022 die niew zijn
 design2022_jaar_bis <- design2022_raw %>%
@@ -252,7 +252,7 @@ We starten met een beperkte dataset om het aantal broedparen van de Gele kwiksta
 We selecteren de data voor Gele kwikstaart van 2022 met broedcode > 0. Opmerking: wat met *Gele kwikstaart (spec)*?
 
 ```{r selectie-gelekwik-2022}
-design_2022 <- design_2018_2022 %>%
+design2022 <- design_2018_2022 %>%
   filter(jaar == 2022) %>%
   select(-jaar)
 
