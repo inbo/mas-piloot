@@ -24,4 +24,26 @@ opts_knit$set(root.dir = here::here())
 library(tidyverse)
 library(sf)
 library(terra)
+library(mapview)
+library(leafem)
 ```
+
+
+# Inlezen data
+
+We beschouwen vier deelgebieden van het Leefdaal plateau. Deze bevinden zich in een enkele shp-file.
+
+```{r}
+# Create data and source paths
+data_path <- here("data", "mas")
+source_path <- here("src", "R")
+```
+
+```{r}
+leefdaal_sf <- st_read(here(data_path, "Leefdaal_ctr.shp"))
+
+mapview(leefdaal_sf, zcol = "Naam", layer.name = "Deelgebied") %>%
+  addStaticLabels(label = leefdaal_sf$Naam)
+```
+
+
