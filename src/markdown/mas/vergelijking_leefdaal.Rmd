@@ -163,7 +163,6 @@ design_srt_object <- expand.grid(prop_srt_object_leefdaal$naam,
   distinct() %>%
   rename(naam = Var1, SRT_OBJECT = Var2)
 
-
 # Voeg afwezige beheersdoelstellingen toe aan dataframes
 bh_doelst_leefdaal <- prop_bh_doelst_leefdaal %>% 
   full_join(design_bh_doelst, by = c("naam", "BH_DOELST")) %>%
@@ -221,6 +220,59 @@ conclusie_df <- rbind(conclusie_df, c("beheersovereenkomst", "-", "+"))
 
 
 ## Hoofdteelt
+
+Belangrijkste teelten in 2020: goeie file?
+dit ook proberen: lbg_statistieken <- tar_read(lbg_statistics, store = targets_store)
+
+```{r}
+# Lees laag hoofdteelten in
+lbg_binding <- st_read(here(mbag_dir, "data", "landbouwgebruikspercelen", 
+                            "Shapefile", "Lbgbrprc20.shp")) %>%
+  st_transform(crs = 31370)
+hoofdteelten_leefdaal <- lbg_binding %>%
+  st_intersection(leefdaal)
+
+# Visualisatie
+mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
+  mapview(hoofdteelten_leefdaal, zcol = "LBLHFDTLT", legend = FALSE)
+```
+
+We willen voor elk deelgebied het oppervlakte-aandeel van de hoofdteelten.
+
+```{r}
+# Bereken proportie hoofdteelten.
+prop_hfdteelten_leefdaal <- landusemetrics_grid_cell(
+    grid_cell = leefdaal,
+    layer = hoofdteelten_leefdaal,
+    grid_group_by_col = "naam",
+    layer_group_by_col = "LBLHFDTLT")
+
+# Maak designmatrix om afwezige hoofdteelten toe te voegen
+design_hfdteelten <- expand.grid(prop_hfdteelten_leefdaal$naam, 
+                                 prop_hfdteelten_leefdaal$LBLHFDTLT) %>% 
+  distinct() %>%
+  rename(naam = Var1, LBLHFDTLT = Var2)
+
+# Voeg afwezige hoofdteelten toe aan dataframes
+hfdteelten_leefdaal <- prop_hfdteelten_leefdaal %>% 
+  full_join(design_hfdteelten, by = c("naam", "LBLHFDTLT")) %>%
+  replace(is.na(.), 0)
+```
+
+zie file:///C:/R/git_repositories/mbag/src/markdown/mas/afbakening_steekproefkader.html#162_Oppervlakte-aandeel_hoofdteelt
+
+```{r, fig.height=15}
+hfdteelten_leefdaal %>%
+  ggplot(aes(x = naam, y = area_prop)) +
+    geom_bar(aes(fill = naam), stat = "identity") +
+    facet_wrap(~LBLHFDTLT, ncol = 3, scales = "free_y") +
+    labs(x = "", y = "oppervlakte-aandeel", title = "Hoofdteelten") +
+    theme(legend.position = "", 
+          axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+
+**Conclusie**  
+
 
 
 ## Openheid landschap
