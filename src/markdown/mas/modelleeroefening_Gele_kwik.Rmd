@@ -213,11 +213,10 @@ duplo_plotnaam <- design_2018_2022 %>%
   select(plotnaam) %>%
   filter(is_duplo)
 design_2018_2022 %>%
-  inner_join(duplo_plotnaam) %>%
-  View()
+  inner_join(duplo_plotnaam)
 ```
 
-We hebben geen mismatch meer.
+We hebben geen mismatches meer.
 
 ```{r overzicht-data, eval=FALSE}
 head(mas_31370_pipeline1)
@@ -3977,7 +3976,7 @@ grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
 
 # Gele kwikstaart 2018-2022{#gele-kwik}
 
-Nu kunnen we overgaan naar een dataset van Gele kwikstaart over de jaren heen (2018-2022). We selecteren de data voor Gele kwikstaart van 2018-2022 met broedcode > 0. Opmerking: wat met *Gele kwikstaart (spec)*?  
+Nu kunnen we overgaan naar een dataset van Gele kwikstaart over de jaren heen (2018-2022). We selecteren de data voor Gele kwikstaart van 2018-2022 met broedcode > 0 en afstanden < 300 m. Opmerking: wat met *Gele kwikstaart (spec)*?  
   
 Er is een discrepantie in de variabelen van de plots tussen 2018-2021 en 2022 (zie \@ref(inlezen-data)). Daardoor zijn er in de volgende data geen plots die zowel in 2018-2021 en 2022 zijn bezocht. Bovendien zullen de resultaten voor 2022 nu dan ook verschillen van deze in \@ref(gele-kwik-2022).
 
@@ -3987,9 +3986,10 @@ design_langterm <- design_2018_2022 %>%
   filter(regio %in% c("De Moeren", "Oostelijke leemstreek"))
 
 # Selecteer tellingen van Gele kwikstaart in 2018-2022 in de twee regio's
-# met broedcode > 0 en binnen telrondes
+# met broedcode > 0, op minder dan 300 m en binnen telrondes
 gele_kwik_presences <- mas_clean %>%
-  filter(naam == "Gele Kwikstaart", !is.na(periode_in_jaar), wrntype > 0L) %>%  
+  filter(naam == "Gele Kwikstaart", !is.na(periode_in_jaar), wrntype > 0L,
+         distance2plot <= 300) %>%  
   inner_join(design_langterm, by = c("plotnaam", "jaar")) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "))
 
