@@ -46,6 +46,8 @@ source(here("src", "R", "wfs_wcs.R"))
 
 # Inlezen data{#inlezen-data}
 
+We selecteren eerst de MAS-data binnen de telrondes.
+
 ```{r ronde-intervallen}
 r1_start <- "04-01"
 r1_stop <- "04-20"
@@ -78,7 +80,7 @@ mas <- read_sf(
     ))
 ```
 
-CRS moet aangepast worden naar Lambert 72.
+De CRS moet aangepast worden naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
 
 ```{r}
 Sys.setenv("PROJ_NETWORK" = "ON")
@@ -101,28 +103,13 @@ mas_31370_pipeline1 <-
   st_as_sf
 ```
 
-```{r design2022}
-design2022 <- read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  select(plotnaam = definitief_punt,
-         regio,
-         stratum) %>%
-  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
-         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
-         stratum = gsub("L\\s{1}", "L\\\n", stratum))
-```
+We lezen de data van 2018-2021 in en voegen variabelen toe m.b.t. openheid landschap en sbp.
 
-```{r design-2018-2022}
+```{r design-2018-2021}
 bezoekstippen_avimap_2021 <- read_sf(
   here("data", "mas",
        "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
 )
-
-plot_per_jaar <- bezoekstippen_avimap_2021 %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam, jaar)
 
 telpunten_avimap_2021 <- read_sf(
   here("data", "mas",
@@ -171,72 +158,66 @@ design_2018_2021 <- add_openheid_landschap_to_frame(
   mutate(stratum = paste0(openheid, "\n", sbp, " plan"),
          regio = gsub("Vlaanderen - ", "", regio),
          regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio))
- 
-plotlijst_2018_2022 <- mas_31370_pipeline1 %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam) %>%
-  arrange(plotnaam)
-
-design_2018_2022 <- bind_rows(
-  design_2018_2021,
-  design2022) %>%
-  distinct() %>%
-  arrange(plotnaam)
-# er zitten duplos in (zie volgende chunk)
 ```
 
-```{r probleemgevallen, eval=FALSE}
-# probleemgevallen met verschillende classificatie
-is_duplo <- duplicated(design_2018_2022$plotnaam)
+We willen ook een dataframe met de bezochte plots 2018-2022 met variabelen en overzicht welke plots in welk jaar zijn bezocht.
+
+```{r design2022}
+design2022 <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum))
+```
+
+Voor de nieuwe plots (2022) die vervangen zijn door een bestaand punt (2018-2021) moeten de variabelen overgenomen worden van het bestaande punt, omdat er anders mismatch mogelijk is (zie issues_mismatch_strata.Rmd).
+
+```{r omzeilen-probleemgevallen}
+# Which plot visited in which year (2018-2021)
+plot_per_jaar <- bezoekstippen_avimap_2021 %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
+
+# Voeg jaren toe aan plots
+# plots 2018-2021
+design_2018_2021_jaar <- design_2018_2021 %>%
+  inner_join(plot_per_jaar, by = "plotnaam")
+# plots 2022 die al bestonden in 2018-2021 (overnemen variabelen)
+design_2018_2021_jaar_bis <- design_2018_2021 %>%
+  filter(plotnaam %in% design2022$plotnaam) %>%
+  mutate(jaar = 2022)
+# plots 2022 die niew zijn
+design2022_jaar_bis <- design2022 %>%
+  filter(!(plotnaam %in% design_2018_2021_jaar$plotnaam)) %>%
+  mutate(jaar = 2022)
+
+# Voeg 2018-2021 en 2022 samen
+design_2018_2022 <- bind_rows(
+  design_2018_2021_jaar,
+  design_2018_2021_jaar_bis,
+  design2022_jaar_bis) %>%
+  
+  # Bilzen valt onder Oostelijke leemstreek
+  mutate(regio = ifelse(regio ==  "Bilzen", "Oostelijke leemstreek", regio)) %>%
+  distinct() %>%
+  arrange(plotnaam, jaar)
+
+# Hebben we nog duplicaten?
+is_duplo <- duplicated(data.frame(design_2018_2022$plotnaam, design_2018_2022$jaar))
 duplo_plotnaam <- design_2018_2022 %>%
   select(plotnaam) %>%
   filter(is_duplo)
 design_2018_2022 %>%
   inner_join(duplo_plotnaam) %>%
   View()
-
-# volgens bestand buiten plan, maar lijkt niet te kloppen
-# iets mis in targets analyse pipeline?
-avimap <- telpunten_avimap_2021 %>%
-  filter(naam == "VL0003")
-
-read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  filter(definitief_punt == "VL0003") %>%
-  st_as_sf(coords = c("X", "Y"), crs = proj_crs) %>%
-  mapview::mapview()  +
-  mapview::mapview(sbp_akkervogels, col.regions = "yellow") +
-  mapview::mapview(avimap)
-
-read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  inner_join(duplo_plotnaam, by = c("definitief_punt" = "plotnaam")) %>%
-  st_as_sf(coords = c("X", "Y"), crs = proj_crs) %>%
-  mapview::mapview()  +
-  mapview::mapview(sbp_akkervogels, col.regions = "yellow")
 ```
 
-```{r omzeilen-probleemgevallen}
-# probleemgevallen voorlopig omzeilen
-
-# Voeg jaren toe aan plots
-design_2018_2021_jaar <- design_2018_2021 %>%
-  inner_join(plot_per_jaar, by = "plotnaam")
-design2022_jaar <- design2022 %>%
-  mutate(jaar = 2022)
-
-# Voeg 2018-2021 en 2022 samen
-design_2018_2022 <- bind_rows(
-  design_2018_2021_jaar,
-  design2022_jaar %>%
-    filter(!grepl("^VL", plotnaam))) %>%
-  distinct() %>%
-  arrange(plotnaam, jaar)
-```
+We hebben geen mismatch meer.
 
 ```{r overzicht-data, eval=FALSE}
 head(mas_31370_pipeline1)
@@ -244,7 +225,7 @@ summary(mas_31370_pipeline1)
 glimpse(mas_31370_pipeline1)
 ```
 
-Dubbeltellingen zijn eruit (soort gezien op meerdere teldagen binnen eenzelfde telperiode): in dat geval de laatste teldag genomen.
+Voor de waarnemingen verwijderen we ook dubbeltellingen. Indien de soort gezien was op meerdere teldagen binnen eenzelfde telperiode, wordt de laatste teldag genomen.
 
 ```{r check-dubbeltelling}
 dubbels <- mas_31370_pipeline1 %>%
