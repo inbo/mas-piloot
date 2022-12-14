@@ -60,7 +60,7 @@ r4_start <- "06-21"
 r4_stop <- "07-15"
 ```
 
-```{r inlezen-mas-data}
+```{r inlezen-mas-waarnemingen-2018-2022}
 mas <- read_sf(
   here("data/mas/20220906_qgis_export_sovon_wfs.gpkg")) %>%
   mutate(
@@ -83,14 +83,11 @@ mas <- read_sf(
 
 De CRS moet aangepast worden naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
 
-```{r}
+```{r mas-waarnemingen-conversie-31370}
 Sys.setenv("PROJ_NETWORK" = "ON")
 sf_proj_network(TRUE)
 pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
 glimpse(pipelines)
-```
-
-```{r}
 # We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
 # If the grids are installed, this should match the first line of the pipelines object.
 chosen_pipeline_definition <- pipelines %>%
@@ -104,43 +101,7 @@ mas_31370_pipeline1 <-
   st_as_sf
 ```
 
-We lezen de covariaten data van 2018-2021 in.
-
-```{r design-2018-2021}
-bezoekstippen_avimap_2021 <- read_sf(
-  here("data", "mas",
-       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
-)
-
-plot_per_jaar <- bezoekstippen_avimap_2021 %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam, jaar)
-
-telpunten_avimap_2021 <- read_sf(
-  here("data", "mas",
-       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
-) %>%
-  rename(teller_2021 = teller) %>%
-  mutate(
-    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
-    type_teller_2021 = case_when(
-      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
-        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
-      is.na(teller_2021) &
-        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
-      TRUE ~ "vrijwilliger"))
-
-telpunten_avimap_2021_amersfoort <- telpunten_avimap_2021 %>%
-  st_drop_geometry() %>%
-  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
-
-telpunten_avimap_2021 <- st_transform(
-  st_geometry(telpunten_avimap_2021_amersfoort), "EPSG:31370",
-  pipeline = chosen_pipeline_definition) %>% 
-  st_sf(st_drop_geometry(telpunten_avimap_2021), geometry = .) %>% 
-  as_tibble %>% 
-  st_as_sf
-
+```{r inlezen-polygoon-lagen}
 perimeters <- read_sf(
   here("data", "processed", "piloot_perimeters.gpkg"))
 
@@ -154,9 +115,26 @@ vlaanderen <- get_feature_wfs(
 
 sbp_akkervogels <- tar_read(sbp_akkervogels,
                             store = targets_store)
+
 ```
 
-We lezen design van 2022 in.
+
+We bepalen alle plot-jaar combinaties waarvoor er waarnemingen zijn.
+Het kan ook zijn dat een plot bezocht is, maar dat er geen waarnemingen van zijn.
+
+```{r plot-jaar-waarnemingen-2018-2022}
+plot_jaar_met_waarnemingen <- mas_31370_pipeline1 %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
+```
+
+Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden.
+Voor 2018-2021 moeten we er _voorlopig_ vanuit gaan dat als er geen waarnemingen zijn voor een bepaald telpunt, het telpunt niet geteld werd.
+
+<!--De plot-jaar lijsten voor 2018-2021 opvragen die bezocht werden zodat we nullen/afwezigheden correct kunnen toevoegen-->
+
+We stellen nu eerst een lijst samen van plot - jaar combinaties die bezocht zijn.
+Hiervoor moeten we eerst het design inlezen van 2022.
 
 ```{r design2022}
 design2022_raw <- read_csv(here(
@@ -172,78 +150,122 @@ design2022_raw <- read_csv(here(
          stratum = gsub("L\\s{1}", "L\\\n", stratum),
          jaar = 2022L) %>%
   st_as_sf(coords = c("X", "Y"), crs = 31370)
+
+plot_bezocht_2022 <- design2022_raw %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
 ```
 
-Voeg covariaten toe aan design van 2018-2021 en 2022 en voeg samen in 1 dataframe.
+Vervolgens samenvoegen met 2018-2021
 
-```{r}
-design_2018_2021 <- add_openheid_landschap_to_frame(
+```{r plot-jaar-bezocht-2018-2022}
+# veronderstel dat bezocht gelijk is aan die met waarnemingen voor 2018-2021
+plot_jaar_bezocht <- plot_jaar_met_waarnemingen %>%
+  filter(jaar < 2022) %>%
+  rbind(plot_bezocht_2022)
+```
+
+Zijn er bezochte plots waarvan er geen waarnemingen zijn?
+
+```{r bezocht-zonder-waarnemingen}
+pjb <- plot_jaar_bezocht %>%
+  anti_join(plot_jaar_met_waarnemingen)
+
+pjb %>%
+  kable()
+```
+
+Ja, in `r nrow(pjb)` telpunten werd niets waargenomen. Dus het is aannemelijk dat dit ook in de eerdere jaren soms het geval zal geweest zijn.
+
+We voegen nu eerst de locatie van de telpunten toe aan `plot_jaar_bezocht`.
+De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON.
+Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn.
+Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest).
+Het kan ook zijn dat het wel bezocht is geweest, maar dat er geen waarnemingen zijn.
+
+```{r telpunten-2018-2021}
+telpunten_2018_2021 <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
+) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger"))
+
+telpunten_2018_2021_amersfoort <- telpunten_2018_2021 %>%
+  st_drop_geometry() %>%
+  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
+
+telpunten_2018_2021 <- st_transform(
+  st_geometry(telpunten_2018_2021_amersfoort), "EPSG:31370",
+  pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(telpunten_2018_2021), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf %>%
+  mutate(regio = gsub("Vlaanderen - ", "", regio),
+         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio),
+         regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio))
+```
+
+```{r telpunten-2018-2022-locaties}
+telpunten_2018_2021_geom_only <- telpunten_2018_2021 %>%
+  select(plotnaam = naam, regio)
+
+telpunten_2022_geom_only <- design2022_raw %>%
+  select(plotnaam, regio)
+
+# locaties 2022 zijn verkeerd in design2022 voor VL plots
+telpunten_geom_only <- bind_rows(
+  telpunten_2018_2021_geom_only,
+  telpunten_2022_geom_only %>% filter(!grepl("VL", .$plotnaam))
+)
+```
+
+Nu voegen we de geometry toe aan de plot - jaar combinaties via een inner join.
+Opgepast! Er zijn een aantal telpunten die in geen enkel jaar werden bezocht. Deze worden in deze stap verwijderd.
+Het kan ook zijn dat er hier een aantal onterecht verwijderd worden (wel bezocht, maar geen waarnemingen).
+Zoals eerder aangegeven in commentaar moeten we dit navragen.
+
+```{r toevoegen-geoms}
+plot_jaar_bezocht_sf <- telpunten_geom_only %>%
+  inner_join(plot_jaar_bezocht)
+```
+
+Tot slot voegen we aan `plot_jaar_bezocht_sf` de strata toe waartoe ze behoren.
+We gebruiken hiervoor dezelfde code als werd gebruikt in het `targets` project voor het trekken van de pilootsteekproef 2022.
+
+```{r toevoegen-strata}
+telpunten_strata <- add_openheid_landschap_to_frame(
   path = path_to_openheid_landschap(),
-  punten_sf = telpunten_avimap_2021,
+  punten_sf = plot_jaar_bezocht_sf %>% distinct(plotnaam, regio, geometry),
   gebied = vlaanderen,
   cutlevels = c(1.25, 1.35, 1.51),
   class_labels = c("GL", "HGL", "HOL", "OL")) %>%
-  select(plotnaam = naam, regio, openheid = openheid_klasse) %>%
+  select(plotnaam, regio, openheid = openheid_klasse) %>%
   mutate(sbp = st_intersects(.,
                              st_union(sbp_akkervogels),
                              sparse = FALSE) %>%
            as.logical(),
          sbp = ifelse(sbp, "binnen", "buiten")
   ) %>%
-  mutate(stratum = paste0(openheid, "\n", sbp, " plan"),
-         regio = gsub("Vlaanderen - ", "", regio),
-         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio))
+  mutate(stratum = paste0(openheid, "\n", sbp, " plan"))
 
-design_2018_2021 <- design_2018_2021 %>%
-  full_join(plot_per_jaar %>%
-              filter(jaar != 2022),
-            by = "plotnaam")  %>%
-  mutate(regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio)) %>%
+design_2018_2022_sf <- plot_jaar_bezocht_sf %>%
+  st_join(telpunten_strata %>% select(-plotnaam, -regio)) %>%
   filter(regio %in% c("Oostelijke leemstreek", "De Moeren"))
-
-# problem in 2022 data with position of some VL points
-design2022_fixed <- design2022_raw %>%
-  filter(grepl("VL", .$plotnaam)) %>%
-  # replace geom by those from design_2018_2021
-  left_join(design_2018_2021 %>%
-              as_tibble() %>%
-              filter(grepl("VL", .$plotnaam)) %>%
-              select(plotnaam, geometry_correct = geometry) %>%
-              distinct()) %>%
-  st_set_geometry("geometry_correct") %>%
-  select(-geometry) %>%
-  rename(geometry = geometry_correct)
-
-# Recalculate covariates
-design2022 <- add_openheid_landschap_to_frame(
-  path = path_to_openheid_landschap(),
-  punten_sf = design2022_fixed,
-  gebied = vlaanderen,
-  cutlevels = c(1.25, 1.35, 1.51),
-  class_labels = c("GL", "HGL", "HOL", "OL")) %>%
-  select(-c(openheid, openheid_waarde, sbp, stratum)) %>%
-  rename(openheid = openheid_klasse) %>%
-  mutate(sbp = st_intersects(.,
-                             st_union(sbp_akkervogels),
-                             sparse = FALSE) %>%
-           as.logical(),
-         sbp = ifelse(sbp, "binnen", "buiten"),
-         stratum = paste0(openheid, "\n", sbp, " plan")
-  ) %>%
-  select(plotnaam, regio, openheid, geometry, sbp, stratum, jaar)
-
-design_2018_2022_full <- bind_rows(
-  design_2018_2021,
-  design2022) %>%
-  distinct() %>%
-  arrange(plotnaam)
 ```
 
 Hebben we nog mismatches?
 
 ```{r probleemgevallen}
 # probleemgevallen met verschillende classificatie?
-probleemgevallen <- design_2018_2022_full %>%
+probleemgevallen <- design_2018_2022_sf %>%
   group_by(plotnaam) %>%
   filter(!all(first(openheid) == last(openheid)) |
          !all(first(sbp) == last(sbp)) |
@@ -256,18 +278,17 @@ probleemgevallen
 We hebben geen mismatches meer. We moeten wel nog enkele aanpassingen doen zodat we de rest van het script probleemloos kunnen runnen:
 
 ```{r}
-design_2018_2022 <- design_2018_2022_full %>%
+design_2018_2022 <- design_2018_2022_sf %>%
   st_drop_geometry()
 
-design2022 <- design2022 %>%
-  st_drop_geometry()
+design_2022 <- design_2018_2022 %>%
+  filter(jaar == 2022)
 ```
 
-We hebben geen data over deze plots?
+Controle op ontbrekende gegevens:
 
 ```{r}
-design_2018_2022 %>% filter(is.na(openheid))
-design_2018_2022 %>% filter(is.na(jaar))
+stopifnot(all(complete.cases(design_2018_2022)))
 ```
 
 ```{r overzicht-data, eval=FALSE}
