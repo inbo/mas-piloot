@@ -2527,7 +2527,7 @@ broedkoppels <- gele_kwik_2022_territoria %>%
   group_by(plotnaam, periode_in_jaar) %>%
   mutate(group_id = cur_group_id()) %>% 
   expand(nesting(group_id), nesting(group_id2 = group_id)) %>%
-  filter(st_geometry_type(geom) == "MULTIPOINT") %>%
+  filter(st_geometry_type(geometry) == "MULTIPOINT") %>%
   st_cast(to = "POINT")
 
 # Bereken paarsgewijze afstanden van broedkoppels per telling 
