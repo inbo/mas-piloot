@@ -82,3 +82,19 @@ mapview(zavelberg_sf, col.regions = "red") +
 ```
 
 
+# Vergelijking doel en controlegebieden
+## Landgebruik
+
+
+## Beheerovereenkomsten
+
+
+## Hoofdteelt
+
+
+## Openheid landschap
+
+
+## ...
+
+
