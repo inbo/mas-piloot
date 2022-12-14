@@ -169,27 +169,46 @@ srt_object_leefdaal <- prop_srt_object_leefdaal %>%
   replace(is.na(.), 0)
 ```
 
+We vergelijken eerst het totale oppervlakte aandeel van beheersovereenkomsten. We zien dat het oppervlakte-aandeel beheersovereenkomsten veel groter is in Zavelberg dan Lovenjoel en zeker dan Kortenberg.
+
+```{r}
+bh_doelst_leefdaal %>%
+  group_by(naam) %>%
+  summarise(area_prop = sum(area_prop)) %>%
+  ggplot(aes(x = naam, y = area_prop)) +
+      geom_bar(aes(fill = naam), stat = "identity") +
+      labs(x = "", y = "oppervlakte-aandeel", title = "Totaal") +
+      theme(legend.position = "", 
+            axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+
+Nu kunnen we ook per categorie vergelijken. We zien voor de variabele BH_DOELST dat soortbeschermingsmaatregelen een groot aandeel in Zavelberg innemen maar niet in de andere deelgebieden. Lovenjoel scoort wel hoger als het gaat om beheer van KLE's, erosiebestrijding en perceelrandsbeheer. In kortenberg is er slechts een kleine oppervlakte perceelrandsbeheer aanwezig en geen andere beheersovereenkomsten.
+
 ```{r}
 bh_doelst_leefdaal %>%
   ggplot(aes(x = naam, y = area_prop)) +
     geom_bar(aes(fill = naam), stat = "identity") +
     facet_wrap(~BH_DOELST, ncol = 2, scales = "free_y") +
-    labs(x = "", y = "oppervlakte-aandeel", title = "BH_DOELST") +
+    labs(x = "", y = "oppervlakte-aandeel", title = "BH_DOELST per categorie") +
     theme(legend.position = "", 
-          axis.text.x = element_text(angle = 90))
+          axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
 
+We zien voor de variabele SRT_OBJECT dat Lovenjoel en Zavelberg grotendeels op andere beheersvormen inzetten, maar er is wel wat overlap bijvoorbeeld in erosiestroken en bufferstroken.
+
+```{r}
 srt_object_leefdaal %>%
   ggplot(aes(x = naam, y = area_prop)) +
     geom_bar(aes(fill = naam), stat = "identity") +
     facet_wrap(~SRT_OBJECT, ncol = 3, scales = "free_y") +
-    labs(x = "", y = "oppervlakte-aandeel", title = "SRT_OBJECT") +
+    labs(x = "", y = "oppervlakte-aandeel", title = "SRT_OBJECT per categorie") +
     theme(legend.position = "", 
-          axis.text.x = element_text(angle = 90))
+          axis.text.x = element_text(angle = 90, vjust = 0.5))
 ```
 
 **Conclusie**  
   
-
+Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna niets te vinden en Lovenjoel is in dat opzicht meer vergelijkbaar met Zavelberg. Desondanks wordt in Lovenjoel wel vaak op andere beheersvormen ingezet dan in Zavelberg.
 
 
 ## Hoofdteelt
