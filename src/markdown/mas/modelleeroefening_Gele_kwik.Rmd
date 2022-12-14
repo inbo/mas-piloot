@@ -3128,7 +3128,6 @@ plot_circles <- function(plot) {
             nudge_x = 100,
             nudge_y = -10) +
     
-    coord_sf(datum = proj_crs) +
     labs(title = paste0("plot: ", plot))
 }
 
@@ -3976,7 +3975,7 @@ grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
 
 # Gele kwikstaart 2018-2022{#gele-kwik}
 
-Nu kunnen we overgaan naar een dataset van Gele kwikstaart over de jaren heen (2018-2022). We selecteren de data voor Gele kwikstaart van 2018-2022 met broedcode > 0 en afstanden < 300 m. Opmerking: wat met *Gele kwikstaart (spec)*?  
+Nu kunnen we overgaan naar een dataset van Gele kwikstaart over de jaren heen (2018-2022). We selecteren de data voor Gele kwikstaart van 2018-2022 met broedcode > 0 en afstanden <= 300 m. Opmerking: wat met *Gele kwikstaart (spec)*?  
   
 Er is een discrepantie in de variabelen van de plots tussen 2018-2021 en 2022 (zie \@ref(inlezen-data)). Daardoor zijn er in de volgende data geen plots die zowel in 2018-2021 en 2022 zijn bezocht. Bovendien zullen de resultaten voor 2022 nu dan ook verschillen van deze in \@ref(gele-kwik-2022).
 
@@ -4168,7 +4167,7 @@ broedkoppel_lang <- gele_kwik_presences %>%
   group_by(plotnaam, periode_in_jaar, jaar) %>%
   mutate(group_id = cur_group_id()) %>%
   expand(nesting(group_id), nesting(group_id2 = group_id)) %>%
-  filter(st_geometry_type(geom) == "MULTIPOINT") %>%
+  filter(st_geometry_type(geometry) == "MULTIPOINT") %>%
   st_cast(to = "POINT")
 
 # Bereken paarsgewijze afstanden van broedkoppels per telling 
@@ -4302,7 +4301,6 @@ df_territoria_2022$cluster <- territoria_cluster(df_territoria_2022,
 df_territoria_lang <- rbind(df_territoria_2018, df_territoria_2019, 
                             df_territoria_2020, df_territoria_2021, 
                             df_territoria_2022) %>%
-  rename(geometry = geom) %>%
   st_as_sf()
 ```
 
