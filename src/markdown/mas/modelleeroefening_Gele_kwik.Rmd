@@ -136,7 +136,7 @@ Voor 2018-2021 moeten we er _voorlopig_ vanuit gaan dat als er geen waarnemingen
 We stellen nu eerst een lijst samen van plot - jaar combinaties die bezocht zijn.
 Hiervoor moeten we eerst het design inlezen van 2022.
 
-```{r design2022}
+```{r design_2022}
 design2022_raw <- read_csv(here(
     "data",
     "processed",
@@ -220,7 +220,7 @@ telpunten_2018_2021_geom_only <- telpunten_2018_2021 %>%
 telpunten_2022_geom_only <- design2022_raw %>%
   select(plotnaam, regio)
 
-# locaties 2022 zijn verkeerd in design2022 voor VL plots
+# locaties 2022 zijn verkeerd in design_2022 voor VL plots
 telpunten_geom_only <- bind_rows(
   telpunten_2018_2021_geom_only,
   telpunten_2022_geom_only %>% filter(!grepl("VL", .$plotnaam))
@@ -325,7 +325,7 @@ We starten met een beperkte dataset om het aantal broedparen van de Gele kwiksta
 We selecteren de data voor Gele kwikstaart van 2022 met broedcode > 0. Opmerking: wat met *Gele kwikstaart (spec)*?
 
 ```{r selectie-gelekwik-2022}
-design2022 <- design_2018_2022 %>%
+design_2022 <- design_2018_2022 %>%
   filter(jaar == 2022) %>%
   select(-jaar)
 
@@ -335,10 +335,10 @@ gele_kwik_2022_presences <- mas_clean %>%
   st_drop_geometry() %>%
   filter(naam == "Gele Kwikstaart", jaar == 2022, 
          !is.na(periode_in_jaar), wrntype > 0L) %>%  
-  inner_join(design2022, by = "plotnaam") # Moeren en Leemstreek
+  inner_join(design_2022, by = "plotnaam") # Moeren en Leemstreek
 
 # Totale lijst van bezochte plots in 2022
-bezoekenlijst_2022 <- design2022 %>% 
+bezoekenlijst_2022 <- design_2022 %>% 
   expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # voeg telperiodes toe
   filter(!is.na(periode_in_jaar))
 
@@ -1592,7 +1592,7 @@ gele_kwik_2022_ds_presence <- gele_kwik_2022_ds_new %>%
 # Maak dataframes met regio (stratum) info en plot info
 reg_table <- reg_tab %>%
   rename(Region.Label = regio)
-samp_table <- design2022 %>%
+samp_table <- design_2022 %>%
   select(-c(stratum, openheid, sbp)) %>%
   rename(Sample.Label = plotnaam, 
          Region.Label = regio) %>%
@@ -2167,7 +2167,7 @@ Elambda %>%
 Dit geeft echter een vreemd resultaat aangezien er in De Moeren geen plots in HOL zijn.
 
 ```{r}
-design2022 %>% count(regio, openheid) %>%
+design_2022 %>% count(regio, openheid) %>%
   rename("aantal plots" = n) %>%
   kable()
 ```
@@ -2525,7 +2525,7 @@ gele_kwik_2022_ds %>% mutate(dist_bin = case_when(
   select(-c(`1`, `2`, `3`, `NA`)) %>%
   cbind(predicted = summary(stan_dist, pars = c("n"))$summary[, "mean"]) %>%
   as_tibble() %>%
-  full_join(design2022, by = c("Sample.Label" = "plotnaam")) %>%
+  full_join(design_2022, by = c("Sample.Label" = "plotnaam")) %>%
   group_by(regio ) %>%
   summarise(aantal = sum(predicted))
 ```
@@ -2592,7 +2592,7 @@ Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de 
 gele_kwik_2022_territoria <- mas_clean %>%
   filter(naam == "Gele Kwikstaart", jaar == 2022, 
          !is.na(periode_in_jaar), wrntype > 0L) %>%  
-  inner_join(design2022, by = "plotnaam") # Moeren en Leemstreek
+  inner_join(design_2022, by = "plotnaam") # Moeren en Leemstreek
 
 # Selecteer coördinaten van broedkoppels waarvan er > 1 per telling
 # (zelfde plot zelfde telperiode) werden gezien
@@ -2745,7 +2745,7 @@ plot_terr <- gele_kwik_2022 %>%
   
   # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
   # alle plots (som)
-  inner_join(design2022, by = "plotnaam") %>%
+  inner_join(design_2022, by = "plotnaam") %>%
   select(plotnaam, gemiddelde, maximum, regio) %>%
   group_by(regio) %>%
   summarise(tot_gemiddelde = sum(gemiddelde),
@@ -2903,7 +2903,7 @@ plot_terr2 <- gele_kwik_2022 %>%
   
   # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
   # alle plots (som)
-  inner_join(design2022, by = "plotnaam") %>%
+  inner_join(design_2022, by = "plotnaam") %>%
   select(plotnaam, gemiddelde, maximum, regio) %>%
   group_by(regio) %>%
   summarise(tot_gemiddelde = sum(gemiddelde),
@@ -4005,7 +4005,7 @@ p3 <- gele_kwik_2022 %>%
   
   # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
   # alle plots (som)
-  inner_join(design2022, by = "plotnaam") %>%
+  inner_join(design_2022, by = "plotnaam") %>%
   select(plotnaam, gemiddelde, maximum, regio) %>%
   group_by(regio) %>%
   summarise(tot_gemiddelde = sum(gemiddelde),
