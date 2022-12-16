@@ -315,6 +315,7 @@ mas_clean <- mas_31370_pipeline1 %>%
               anti_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")))
 ```
 
+Controle afstanden:
 
 ```{r sanity-check-on-distances}
 mas_controle_afstand <- mas_clean %>%
@@ -331,6 +332,8 @@ mas_controle_afstand <- mas_clean %>%
 
 stopifnot(all(mas_controle_afstand$abs_verschil < 1.5))
 ```
+
+ok!
 
 
 # Gele kwikstaart 2022{#gele-kwik-2022}
