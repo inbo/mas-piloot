@@ -208,7 +208,7 @@ bh_doelst_leefdaal %>%
           axis.text.x = element_text(angle = 90, vjust = 0.5))
 ```
 
-We willen een overzicht van de verschillen met Zavelberg.
+We willen een overzicht van de verschillen met Zavelberg (categorie ‘Kortenberg/Lovenjoel’: verschil met Zavelberg gelijk voor controlegebieden).
 
 ```{r}
 bh_doelst_leefdaal %>%
@@ -268,7 +268,6 @@ srt_object_leefdaal %>%
          title = "SRT_OBJECT per categorie")
 ```
 
-
 **Conclusie**  
   
 Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna niets te vinden en Lovenjoel is in dat opzicht meer vergelijkbaar met Zavelberg. Desondanks wordt in Lovenjoel wel vaak op andere beheersvormen ingezet dan in Zavelberg. Hierdoor heeft Kortenberg wel vaker een kleiner verschil in oppervlakte beheersovereenkomst met Zavelberg.
@@ -282,7 +281,6 @@ conclusie_df <- rbind(conclusie_df, c("beheersovereenkomsten - totaal", "-", "+"
 ## Hoofdteelt
 
 Belangrijkste teelten in 2020: goeie file?
-dit ook proberen: lbg_statistieken <- tar_read(lbg_statistics, store = targets_store)
 
 ```{r}
 # Lees laag hoofdteelten in
@@ -300,7 +298,7 @@ mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
 We willen voor elk deelgebied het oppervlakte-aandeel van de hoofdteelten.
 
 ```{r}
-# Bereken proportie hoofdteelten.
+# Bereken proportie hoofdteelten
 prop_hfdteelten_leefdaal <- landusemetrics_grid_cell(
     grid_cell = leefdaal,
     layer = hoofdteelten_leefdaal,
@@ -319,7 +317,6 @@ hfdteelten_leefdaal <- prop_hfdteelten_leefdaal %>%
   full_join(design_hfdteelten, by = c("naam", "LBLHFDTLT")) %>%
   replace(is.na(.), 0)
 ```
-
 
 ```{r}
 hfdteelten_leefdaal %>%
@@ -388,10 +385,155 @@ conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "-", "+"))
 
 ## Openheid landschap
 
+We onderscheiden vier categoriën:
+
+- gesloten landschap: GL
+- half-gesloten landschap: HGL
+- half-open landschap: HoL
+- open landschap: OL
+
+```{r}
+prop_openheid_landschap <- function(
+  polygoon,
+  openheid_laag,
+  path = path_to_openheid_landschap(),
+  cutlevels = c(1.25, 1.35, 1.51),
+  class_labels = c("GL", "HGL", "HOL", "OL")) {
+  
+  # Splits raster in categoriën
+  matvec <- c(0, rep(cutlevels, each = 2), +Inf)
+  nclass <- length(matvec) / 2
+
+  rclasmat <- matvec %>%
+    matrix(ncol = 2, byrow = TRUE)
+  rclasmat <- cbind(rclasmat, 1:nclass)
+  
+  openheid_klassen <- terra::classify(
+    openheid_laag,
+    rcl = rclasmat,
+    include.lowest = TRUE)
+  
+  # Bereken proporties oppervlakte
+  out <- landusemetrics_grid_cell(
+           grid_cell = leefdaal,
+           layer = openheid_klassen,
+           grid_group_by_col = "naam",
+           layer_group_by_col = "") %>%
+    mutate(openheid_klasse = factor(value,
+                                    levels = 1:nclass,
+                                    labels = class_labels)) %>%
+    select(naam, openheid_klasse, area_prop = freq)
+  
+  return(out)
+}
+```
+
+```{r}
+# Lees in openheid raster
+openheid <- rast(path_to_openheid_landschap()) %>%
+    project("epsg:31370")
+openheid_leefdaal <- crop(openheid, leefdaal) %>%
+  raster::raster()
+
+# Splits raster in categoriën
+cutlevels = c(1.25, 1.35, 1.51)
+class_labels = c("GL", "HGL", "HOL", "OL")
+
+openheid <- rast(path_to_openheid_landschap()) %>%
+    project("epsg:31370")
+openheid_leefdaal_cropped <- crop(openheid, leefdaal)
+
+matvec <- c(0, rep(cutlevels, each = 2), +Inf)
+nclass <- length(matvec) / 2
+
+rclasmat <- matvec %>%
+  matrix(ncol = 2, byrow = TRUE)
+rclasmat <- cbind(rclasmat, 1:nclass)
+
+openheid_leefdaal_klassen <- terra::classify(
+  openheid_leefdaal_cropped,
+  rcl = rclasmat,
+  include.lowest = TRUE)
+
+openheid_leefdaal_raster <- raster::raster(openheid_leefdaal_klassen)
+openheid_leefdaal_raster <- raster::ratify(openheid_leefdaal_raster)
+levels(openheid_leefdaal_raster)[[1]]$LO <- c("GL", "HGL", "HOL", "OL")
+
+# Visualisatie
+mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied", 
+        alpha.regions = 0.6, alpha = 1) +
+  mapview(openheid_leefdaal_raster, layer.name = "Openheid", 
+        alpha.regions = 0.4)
+```
+
+We willen voor elk deelgebied het oppervlakte-aandeel van openheid landschap.
+
+```{r}
+# Bereken proportie openheid landschap
+prop_openheid_leefdaal <- prop_openheid_landschap(leefdaal, openheid) %>%
+  ungroup()
+
+# Maak designmatrix om afwezige hoofdteelten toe te voegen
+design_openheid <- expand.grid(prop_openheid_leefdaal$naam, 
+                               prop_openheid_leefdaal$openheid_klasse) %>% 
+  distinct() %>%
+  rename(naam = Var1, openheid_klasse = Var2)
+
+# Voeg afwezige hoofdteelten toe aan dataframes
+openheid_leefdaal <- prop_openheid_leefdaal %>% 
+  full_join(design_openheid, by = c("naam", "openheid_klasse")) %>%
+  replace(is.na(.), 0)
+```
+
+```{r}
+openheid_leefdaal %>%
+  mutate(openheid_klasse = reorder(openheid_klasse, area_prop, FUN = "mean",
+                                   decreasing = TRUE)) %>%
+  ggplot(aes(x = naam, y = area_prop)) +
+    geom_bar(aes(fill = naam), stat = "identity") +
+    facet_wrap(~openheid_klasse, ncol = 2, scales = "free_y") +
+    labs(x = "", y = "oppervlakte-aandeel", title = "Openheid landschap") +
+    theme(legend.position = "", 
+          axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+
+De verschillen lijken kleiner in Kortenberg. Inderdaad, Kortenberg heeft steeds een kleiner verschil met Zavelberg dan Lovenjoel (categorie ‘Kortenberg/Lovenjoel’: verschil met Zavelberg gelijk voor controlegebieden).
+
+```{r}
+openheid_leefdaal %>%
+  select(naam, openheid_klasse, area_prop) %>%
+  group_by(openheid_klasse) %>%
+  pivot_wider(names_from = naam, values_from = area_prop) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    ) %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = check)) +
+    labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
+         title = "Openheid landschap")
+```
+
+**Conclusie**  
+
+Kortenberg is meer gelijkaardig aan Zavelberg dan Lovenjoel in termen van openheid van het landschap.
+
+```{r}
+conclusie_df <- rbind(conclusie_df, c("openheid", "+", "-"))
+```
+
 
 ## Expertise
 
-In Lovenjoel liggen al MAS-punten.  Kortenberg ligt iets ten zuiden van een kerngebied. Lovenjoel is geen kerngebied.
+- In Lovenjoel liggen al MAS-punten.
+- Kortenberg ligt iets ten zuiden van een kerngebied. Lovenjoel is geen kerngebied.
 
 ```{r}
 conclusie_df <- rbind(conclusie_df, c("Mas-punten", "-", "+"),
