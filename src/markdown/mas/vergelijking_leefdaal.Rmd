@@ -202,6 +202,30 @@ bh_doelst_leefdaal %>%
           axis.text.x = element_text(angle = 90, vjust = 0.5))
 ```
 
+We willen een overzicht van de verschillen met Zavelberg.
+
+```{r}
+bh_doelst_leefdaal %>%
+  select(naam, BH_DOELST, area_prop) %>%
+  group_by(BH_DOELST) %>%
+  pivot_wider(names_from = naam, values_from = area_prop) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    ) %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = check)) +
+    labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
+         title = "BH_DOELST per categorie")
+```
+
 We zien voor de variabele SRT_OBJECT dat Lovenjoel en Zavelberg grotendeels op andere beheersvormen inzetten, maar er is wel wat overlap bijvoorbeeld in erosiestroken en bufferstroken.
 
 ```{r}
@@ -216,12 +240,36 @@ srt_object_leefdaal %>%
           axis.text.x = element_text(angle = 90, vjust = 0.5))
 ```
 
+```{r}
+srt_object_leefdaal %>%
+  select(naam, SRT_OBJECT, area_prop) %>%
+  group_by(SRT_OBJECT) %>%
+  pivot_wider(names_from = naam, values_from = area_prop) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    ) %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = check)) +
+    labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
+         title = "SRT_OBJECT per categorie")
+```
+
+
 **Conclusie**  
   
-Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna niets te vinden en Lovenjoel is in dat opzicht meer vergelijkbaar met Zavelberg. Desondanks wordt in Lovenjoel wel vaak op andere beheersvormen ingezet dan in Zavelberg.
+Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna niets te vinden en Lovenjoel is in dat opzicht meer vergelijkbaar met Zavelberg. Desondanks wordt in Lovenjoel wel vaak op andere beheersvormen ingezet dan in Zavelberg. Hierdoor heeft Kortenberg wel vaker een kleiner verschil in oppervlakte beheersovereenkomst met Zavelberg.
 
 ```{r}
-conclusie_df <- rbind(conclusie_df, c("beheersovereenkomst", "-", "+"))
+conclusie_df <- rbind(conclusie_df, c("beheersovereenkomst totaal", "-", "+"),
+                      c("beheersovereenkomst verschil", "+", "-"))
 ```
 
 
@@ -310,7 +358,7 @@ hfdteelten_diff %>%
     theme(legend.position = c(1, 0), legend.justification = c(1, 0))
 ```
 
-De verschillen lijken kleiner in Lovenjoel. Inderdaad Lovenjoel heeft vaker een kleiner verschil met Zavelberg dan Kortenberg (verschil gelijk in categorie Kortenberg/Lovenjoel).
+De verschillen lijken kleiner in Lovenjoel. Inderdaad Lovenjoel heeft vaker een kleiner verschil met Zavelberg dan Kortenberg (categorie 'Kortenberg/Lovenjoel': verschil met Zavelberg gelijk voor controlegebieden).
 
 ```{r}
 hfdteelten_diff %>%
