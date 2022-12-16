@@ -271,6 +271,13 @@ hfdteelten_leefdaal %>%
           axis.text.x = element_text(angle = 90, vjust = 0.5))
 ```
 
+```{r}
+hfdteelten_leefdaal %>%
+  ggplot(aes(x = area_prop, y = LBLHFDTLT)) +
+    geom_point(aes(colour = naam)) +
+    labs(x = "oppervlakte-aandeel", y = "", title = "Hoofdteelten")
+```
+
 **Conclusie**  
 
 
