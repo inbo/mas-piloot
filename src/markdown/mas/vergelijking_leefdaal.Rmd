@@ -266,6 +266,7 @@ hfdteelten_leefdaal <- prop_hfdteelten_leefdaal %>%
   replace(is.na(.), 0)
 ```
 
+
 ```{r}
 hfdteelten_leefdaal %>%
   mutate(LBLHFDTLT = reorder(LBLHFDTLT, area_prop, FUN = "mean",
@@ -273,11 +274,61 @@ hfdteelten_leefdaal %>%
   ggplot(aes(x = area_prop, y = LBLHFDTLT)) +
     geom_point(aes(colour = naam)) +
     labs(x = "oppervlakte-aandeel", y = "", title = "Hoofdteelten",
-         legend = "deelgebied")
+         colour = "deelgebied") +
+    theme(legend.position = c(1, 0), legend.justification = c(1, 0))
 ```
+
+We willen een overzicht van de verschillen met Zavelberg. Hoe groter de waarde, hoe groter het verschil tussen de controlegebieden en Zavelberg.
+
+```{r}
+hfdteelten_diff <- hfdteelten_leefdaal %>%
+  select(naam, LBLHFDTLT, area_prop) %>%
+  group_by(LBLHFDTLT) %>%
+  pivot_wider(names_from = naam, values_from = area_prop) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    )
+  
+
+hfdteelten_diff %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "area_prop") %>%
+  mutate(LBLHFDTLT = reorder(LBLHFDTLT, area_prop, FUN = "mean",
+                           decreasing = FALSE)) %>%
+  ggplot(aes(x = LBLHFDTLT, y = area_prop)) +
+    geom_bar(aes(fill = naam), 
+             stat = "identity", position = "dodge") +
+    coord_flip() +
+    labs(y = "oppervlakte-aandeel", x = "", title = "Hoofdteelten",
+         fill = "deelgebied") +
+    theme(legend.position = c(1, 0), legend.justification = c(1, 0))
+```
+
+De verschillen lijken kleiner in Lovenjoel. Inderdaad Lovenjoel heeft vaker een kleiner verschil met Zavelberg dan Kortenberg (verschil gelijk in categorie Kortenberg/Lovenjoel).
+
+```{r}
+hfdteelten_diff %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = check)) +
+    labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
+         title = "Hoofdteelten")
+```
+
 
 **Conclusie**  
 
+
+```{r}
+conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "-", "+"))
+```
 
 
 ## Openheid landschap
