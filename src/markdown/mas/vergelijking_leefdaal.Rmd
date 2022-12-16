@@ -377,6 +377,7 @@ hfdteelten_diff %>%
 
 **Conclusie**  
 
+We zien vaker kleinere verschillen met Zavelberg in oppervlakte-aandeel hoofdteelten in Lovenjoel dan in Kortenberg.
 
 ```{r}
 conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "-", "+"))
