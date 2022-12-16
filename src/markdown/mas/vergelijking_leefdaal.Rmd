@@ -144,13 +144,15 @@ prop_bh_doelst_leefdaal <- landusemetrics_grid_cell(
     grid_cell = leefdaal,
     layer = bo2021_leefdaal,
     grid_group_by_col = "naam",
-    layer_group_by_col = "BH_DOELST")
+    layer_group_by_col = "BH_DOELST") %>%
+  ungroup()
 
 prop_srt_object_leefdaal <- landusemetrics_grid_cell(
     grid_cell = leefdaal,
     layer = bo2021_leefdaal,
     grid_group_by_col = "naam",
-    layer_group_by_col = "SRT_OBJECT")
+    layer_group_by_col = "SRT_OBJECT") %>%
+  ungroup()
 
 # Maak designmatrix om afwezige beheersvormen toe te voegen
 design_bh_doelst <- expand.grid(prop_bh_doelst_leefdaal$naam, 
@@ -190,6 +192,8 @@ Nu kunnen we ook per categorie vergelijken. We zien voor de variabele BH_DOELST 
 
 ```{r}
 bh_doelst_leefdaal %>%
+  mutate(BH_DOELST = reorder(BH_DOELST, area_prop, FUN = "mean",
+                             decreasing = TRUE)) %>%
   ggplot(aes(x = naam, y = area_prop)) +
     geom_bar(aes(fill = naam), stat = "identity") +
     facet_wrap(~BH_DOELST, ncol = 2, scales = "free_y") +
@@ -202,6 +206,8 @@ We zien voor de variabele SRT_OBJECT dat Lovenjoel en Zavelberg grotendeels op a
 
 ```{r}
 srt_object_leefdaal %>%
+  mutate(SRT_OBJECT = reorder(SRT_OBJECT, area_prop, FUN = "mean",
+                             decreasing = TRUE)) %>%
   ggplot(aes(x = naam, y = area_prop)) +
     geom_bar(aes(fill = naam), stat = "identity") +
     facet_wrap(~SRT_OBJECT, ncol = 3, scales = "free_y") +
@@ -245,7 +251,8 @@ prop_hfdteelten_leefdaal <- landusemetrics_grid_cell(
     grid_cell = leefdaal,
     layer = hoofdteelten_leefdaal,
     grid_group_by_col = "naam",
-    layer_group_by_col = "LBLHFDTLT")
+    layer_group_by_col = "LBLHFDTLT") %>%
+  ungroup()
 
 # Maak designmatrix om afwezige hoofdteelten toe te voegen
 design_hfdteelten <- expand.grid(prop_hfdteelten_leefdaal$naam, 
@@ -259,23 +266,14 @@ hfdteelten_leefdaal <- prop_hfdteelten_leefdaal %>%
   replace(is.na(.), 0)
 ```
 
-zie file:///C:/R/git_repositories/mbag/src/markdown/mas/afbakening_steekproefkader.html#162_Oppervlakte-aandeel_hoofdteelt
-
-```{r, fig.height=15}
-hfdteelten_leefdaal %>%
-  ggplot(aes(x = naam, y = area_prop)) +
-    geom_bar(aes(fill = naam), stat = "identity") +
-    facet_wrap(~LBLHFDTLT, ncol = 3, scales = "free_y") +
-    labs(x = "", y = "oppervlakte-aandeel", title = "Hoofdteelten") +
-    theme(legend.position = "", 
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-```
-
 ```{r}
 hfdteelten_leefdaal %>%
+  mutate(LBLHFDTLT = reorder(LBLHFDTLT, area_prop, FUN = "mean",
+                             decreasing = FALSE)) %>%
   ggplot(aes(x = area_prop, y = LBLHFDTLT)) +
     geom_point(aes(colour = naam)) +
-    labs(x = "oppervlakte-aandeel", y = "", title = "Hoofdteelten")
+    labs(x = "oppervlakte-aandeel", y = "", title = "Hoofdteelten",
+         legend = "deelgebied")
 ```
 
 **Conclusie**  
