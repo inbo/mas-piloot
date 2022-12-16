@@ -85,6 +85,10 @@ mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") %>%
   addStaticLabels(label = leefdaal$naam)
 ```
 
+# Methodiek
+
+Per categorie scoren we welk controlegebied het best lijkt op ons doelgebied (Zavelberg). Indien het ene gebied een voordeel is ten opzichte van het andere controlegebied, geven we een "+". Indien het ene gebied een nadeel is ten opzichte van het andere controlegebied, geven we een "-". Indien er geen duidelijk voor of nadeel is ten opzichte van het andere controlegebied, geven we een "0". Deze scores kunnen ons op het einde een overzicht bieden van de voordelen van de verschillende gebieden. De finale keuze moet wel nog steeds afhangen van een meer genuanceerde discussie. Sommige categoriën kunnen groter doorwegen dan andere.
+
 
 # Vergelijking doel en controlegebieden
 ## Oppervlakte
@@ -268,8 +272,8 @@ srt_object_leefdaal %>%
 Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna niets te vinden en Lovenjoel is in dat opzicht meer vergelijkbaar met Zavelberg. Desondanks wordt in Lovenjoel wel vaak op andere beheersvormen ingezet dan in Zavelberg. Hierdoor heeft Kortenberg wel vaker een kleiner verschil in oppervlakte beheersovereenkomst met Zavelberg.
 
 ```{r}
-conclusie_df <- rbind(conclusie_df, c("beheersovereenkomst totaal", "-", "+"),
-                      c("beheersovereenkomst verschil", "+", "-"))
+conclusie_df <- rbind(conclusie_df, c("beheersovereenkomsten - totaal", "-", "+"),
+                      c("beheersovereenkomsten - verschil", "+", "-"))
 ```
 
 
