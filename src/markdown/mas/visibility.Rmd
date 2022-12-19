@@ -1,0 +1,222 @@
+---
+title: "Berekening zichtbaarheid"
+author: "Hans Van Calster"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(GVI)
+library(terra)
+library(sf)
+library(dplyr)
+library(ggplot2)
+library(inbospatial)
+library(targets)
+```
+
+```{r steekproef}
+targets_store <- here::here(
+  "src", "targets", "mas_steekproef_pilootfase", "_targets")
+steekproef <- tar_read(steekproef_zichtbaarheid, store = targets_store) %>%
+  mutate(openheid_sbp = paste(openheid_klasse,
+                             ifelse(is_sbp,
+                                    "binnen plan",
+                                    "buiten plan"))
+         )
+```
+
+
+```{r bereken-viewshed}
+bereken_viewshed <- function(point,
+                       dist = 300,
+                       obs_height = 1.7,
+                       resolution = 1) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+
+  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+
+  viewshed(
+    observer = point,
+    max_distance = dist,
+    dsm_rast = dsm_r1,
+    dtm_rast = dtm_r1,
+    observer_height = obs_height,
+    raster_res = resolution,
+    plot = TRUE)
+}
+
+```
+
+```{r bereken-visibility-prop}
+bereken_visibility_prop <- function(point,
+                       dist = 300,
+                       obs_height = 1.7,
+                       resolution = 1) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+
+  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+
+  visibility_proportion(
+    observer = point,
+    max_distance = dist,
+    dsm_rast = dsm_r1,
+    dtm_rast = dtm_r1,
+    observer_height = obs_height,
+    raster_res = resolution,
+    plot = FALSE)
+}
+
+```
+
+
+```{r bereken-vgvi}
+bereken_vgvi <- function(point,
+                       dist = 300,
+                       obs_height = 1.7,
+                       resolution = 1) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+
+  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+  
+  greenspace <- rast(dtm_r1)
+  greenspace[] <- 1
+  
+  poly25 <- point %>% st_buffer(dist = 25)
+
+  vgvi_from_sf(
+    observer = poly25,
+    spacing = 5,
+    m = 0,
+    b = 0,
+    mode = "exponential",
+    cores = 4,
+    progress = TRUE,
+    max_distance = dist,
+    dsm_rast = dsm_r1,
+    dtm_rast = dtm_r1,
+    greenspace_rast = greenspace,
+    observer_height = obs_height,
+    raster_res = resolution)
+}
+
+```
+
+> The VGVI expresses the proportion of visible greenness to the total visible area based on a viewshed. The estimated VGVI values range between 0 and 1, where 0 = no green cells are visible, and 1 = all of the visible cells are green. 
+
+```{r}
+out <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vgvi()
+
+out %>%
+  ggplot() +
+  geom_sf(aes(colour = VGVI))
+```
+
+
+```{r bereken-zichtbaarheid}
+bereken_vvi <- function(point,
+                       dist = 300,
+                       obs_height = 1.7,
+                       resolution = 1) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+
+  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+  
+  poly25 <- point %>% st_buffer(dist = 25)
+
+  vvi_from_sf(
+    observer = poly25,
+    spacing = 5,
+    cores = 4,
+    progress = TRUE,
+    max_distance = dist,
+    dsm_rast = dsm_r1,
+    dtm_rast = dtm_r1,
+    observer_height = obs_height,
+    raster_res = resolution)
+}
+```
+
+```{r}
+out <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi()
+
+out %>%
+  ggplot() +
+  geom_sf(aes(colour = VVI))
+
+out %>%
+  ggplot() +
+  geom_histogram(aes(x = VVI))
+
+
+steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_viewshed()
+steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_visibility_prop()
+
+# 25 m noordelijker
+steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  mutate(geometry = geometry + c(0, 25)) %>%
+  st_set_crs(31370) %>%
+  bereken_viewshed()
+steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  mutate(geometry = geometry + c(0, 25)) %>%
+  st_set_crs(31370) %>%
+  bereken_visibility_prop()
+# 25 m zuidelijker
+steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  mutate(geometry = geometry + c(0, -25)) %>%
+  st_set_crs(31370) %>%
+  bereken_viewshed()
+steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  mutate(geometry = geometry + c(0, 25)) %>%
+  st_set_crs(31370) %>%
+  bereken_visibility_prop()
+
+
+
+```
+
