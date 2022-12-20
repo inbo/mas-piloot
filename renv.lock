@@ -95,15 +95,15 @@
     },
     "GVI": {
       "Package": "GVI",
-      "Version": "1.0",
+      "Version": "1.2",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
-      "RemoteUsername": "STBrinkmann",
+      "RemoteUsername": "hansvancalster",
       "RemoteRepo": "GVI",
-      "RemoteRef": "main",
-      "RemoteSha": "7d384ccecdb8a4285a43e6bdc02c7b7567c1bc70",
-      "Hash": "d6f463974a46cd036ea083104594fd8f",
+      "RemoteRef": "visibility-from-sf",
+      "RemoteSha": "3eb5b85aaf674ae477365e846713ffaec9818911",
+      "Hash": "f07f03b9937234a8d60b0e76b6beaf8b",
       "Requirements": [
         "Rcpp",
         "RcppProgress",
@@ -1655,6 +1655,27 @@
         "rlang"
       ]
     },
+    "inbospatial": {
+      "Package": "inbospatial",
+      "Version": "0.0.2",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "inbo",
+      "RemoteRepo": "inbospatial",
+      "RemoteRef": "v0.0.2",
+      "RemoteSha": "b316ddea49c6cd2eb607d8bc238fb36b1a5340db",
+      "Hash": "5f30a2cdb92eb28caa15c21a7dbb4cb8",
+      "Requirements": [
+        "assertthat",
+        "httr",
+        "readr",
+        "sf",
+        "stringr",
+        "terra",
+        "xml2"
+      ]
+    },
     "inlatools": {
       "Package": "inlatools",
       "Version": "0.0.2",
@@ -2009,8 +2030,8 @@
       "Repository": "https://inbo.r-universe.dev",
       "RemoteUrl": "https://github.com/tidyverse/lubridate",
       "RemoteRef": "HEAD",
-      "RemoteSha": "be024010ededa0d09cffe6e323777e3ab266f419",
-      "Hash": "16c7ce1bc02b20b0a2371d545e315812",
+      "RemoteSha": "c4714046ec412e669906ab8d1cd9a8e4fb125e13",
+      "Hash": "c00dc2b6d235358d3b876e5d3cd2906b",
       "Requirements": [
         "cpp11",
         "generics"
@@ -3234,7 +3255,7 @@
       "Repository": "https://ropensci.r-universe.dev",
       "RemoteUrl": "https://github.com/ropensci/tarchetypes",
       "RemoteRef": "main",
-      "RemoteSha": "4f75effd39342dd863fb6970fcbf54dcf92cbb13",
+      "RemoteSha": "441948ced3a9b5b97f9b43fee610b7593fbc9b53",
       "Hash": "e9acaa614fb0940956b59a5219fc253a",
       "Requirements": [
         "digest",
