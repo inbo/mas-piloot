@@ -6,6 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+renv::restore()
 knitr::opts_chunk$set(echo = TRUE)
 library(GVI)
 library(terra)
