@@ -27,6 +27,7 @@ library(terra)
 library(mapview)
 library(leafem)
 mbag_dir <- here()
+targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 ```
 
 
