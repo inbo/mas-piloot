@@ -154,13 +154,13 @@ prop_landgebruik_leefdaal <- landusemetrics_grid_cell(
                                      labels = legende_landgebruik$label)) %>%
   select(naam, landgebruik_klasse, area_prop = freq)
 
-# Maak designmatrix om afwezige hoofdteelten toe te voegen
+# Maak designmatrix om afwezige landgebruiken toe te voegen
 design_landgebruik <- expand.grid(prop_landgebruik_leefdaal$naam, 
                         prop_landgebruik_leefdaal$landgebruik_klasse) %>% 
   distinct() %>%
   rename(naam = Var1, landgebruik_klasse = Var2)
 
-# Voeg afwezige hoofdteelten toe aan dataframes
+# Voeg afwezige landgebruiken toe aan dataframes
 landgebruik_leefdaal <- prop_landgebruik_leefdaal %>% 
   full_join(design_landgebruik, by = c("naam", "landgebruik_klasse")) %>%
   replace(is.na(.), 0)
@@ -205,7 +205,7 @@ landgebruik_diff %>%
     geom_bar(aes(fill = naam), 
              stat = "identity", position = "dodge") +
     coord_flip() +
-    labs(y = "oppervlakte-aandeel", x = "", title = "Hoofdteelten",
+    labs(y = "oppervlakte-aandeel", x = "", title = "Landgebruik",
          fill = "deelgebied") +
     theme(legend.position = c(1, 0), legend.justification = c(1, 0))
 ```
