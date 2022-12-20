@@ -104,7 +104,7 @@ leefdaal %>%
 
 **Conclusie**  
   
-De oppervlaktes zijn gelijkaardig tussen alle deelgebieden.
+De oppervlaktes zijn gelijkaardig tussen alle deelgebieden. Er is geen duidelijk voordeel van een controlegebied tegenover de ander.
 
 ```{r}
 conclusie_df <- data.frame(onderdeel = "oppervlakte", 
