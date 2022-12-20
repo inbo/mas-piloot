@@ -34,13 +34,12 @@ mbag_dir <- here()
 
 We zullen een testcase maken van Leefdaal om het meetnet uit te breiden. Hiervoor moeten we een controlegebied voorzien. Deze moet vergelijkbaar zijn qua perceelsgrootte, dooradering, aandeel beheersovereenkomsten, landgebruik ...  
 We beschouwen hier doelgebied Zavelberg:  
-  
 Dit is het deelgebied van plateau Leefdaal met de hoogste dekkingsgraad aan beheerovereenkomsten, nl. 12 %. De totale oppervlakte van deze polygoon is 478 ha. Ter vergelijking, UHasselt heeft daar 3 jaar lang ook MAS punten geteld, misschien interessant om daar later mee te vergelijken (puntenset staat op de drive).
 
 We beschouwen twee potentiële controlegebieden:  
   
-- Kortenberg (twee deelgebieden samen 480ha, vlakbij de luchthaven van Zaventem) waar er geen (echt nul) beheerovereenkomsten liggen, en er iets ten noorden van wel een kerngebied ligt (dus kan niet slecht zijn voor akkervogels).
-- Lovenjoel, daar is een polygoon van 483ha getekend. Dat is zeer gelijkaardig gebied, en daar liggen al nieuwe MAS-punten. We zouden kunnen bekijken of we deze als test kunnen gebruiken. Daar liggen wel al redelijk wat beheerovereenkomsten, terwijl het geen kerngebied is.
+1. Kortenberg (twee deelgebieden samen 480 ha, vlakbij de luchthaven van Zaventem) waar er bijna geen beheerovereenkomsten liggen, en er iets ten noorden van wel een kerngebied ligt (dus kan niet slecht zijn voor akkervogels).
+2. Lovenjoel, daar is een polygoon van 483 ha getekend. Dat is zeer gelijkaardig gebied, en daar liggen al nieuwe MAS-punten. We zouden kunnen bekijken of we deze als test kunnen gebruiken. Daar liggen wel al redelijk wat beheerovereenkomsten, terwijl het geen kerngebied is.
 
 
 # Inlezen data
