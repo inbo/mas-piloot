@@ -113,29 +113,55 @@ conclusie_df <- data.frame(onderdeel = "oppervlakte",
 ```
 
 
-## landgebruiksamenstelling
+## Landgebruiksamenstelling
 
 Landgebruiksamenstelling 2019 -> nieuwe file? om de 3 jaar  
 
 ```{r}
 # Lees in landgebruik raster
-legende_landgebruik <- read_legend_lum(path_to_legend_lum())
+legende_landgebruik <- read_legend_lum(path_to_legend_lum()) %>%
+  filter(bestand_id == "vito")
 landgebruik <- read_lum_rast(file = path_to_lum(), legend = legende_landgebruik)
-landgebruik_leefdaal <- crop(landgebruik, leefdaal)
+landgebruik_leefdaal_raster <- crop(landgebruik, leefdaal)
 
 # Zet om naar raster en voeg categoriën opnieuw toe
-levels_landgebruik <- levels(landgebruik_leefdaal)
-landgebruik_leefdaal <- landgebruik_leefdaal %>%
+levels_landgebruik <- levels(landgebruik_leefdaal_raster)
+landgebruik_leefdaal_raster <- landgebruik_leefdaal_raster %>%
   raster::raster()
-levels(landgebruik_leefdaal) <- levels_landgebruik
+levels(landgebruik_leefdaal_raster) <- levels_landgebruik
 
 # Visualisatie
 kleur <- legende_landgebruik %>%
-  filter(bestand_id == "vito") %>%
   pull(kleur)
 mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
   mapview(raster, layer.name = "Landgebruik", col.regions = kleur,
         att = "land_use")
+```
+
+We willen voor elk deelgebied het oppervlakte-aandeel van landgebruiksamenstelling.
+
+```{r}
+# Bereken proportie landgebruik
+prop_landgebruik_leefdaal <- landusemetrics_grid_cell(
+    grid_cell = leefdaal,
+    layer = rast(landgebruik_leefdaal_raster),
+    grid_group_by_col = "naam",
+    layer_group_by_col = "") %>%
+  mutate(landgebruik_klasse = factor(value,
+                                     levels = legende_landgebruik$value,
+                                     labels = legende_landgebruik$label)) %>%
+  select(naam, landgebruik_klasse, area_prop = freq)
+
+# Maak designmatrix om afwezige hoofdteelten toe te voegen
+design_landgebruik <- expand.grid(prop_landgebruik_leefdaal$naam, 
+                        prop_landgebruik_leefdaal$landgebruik_klasse) %>% 
+  distinct() %>%
+  rename(naam = Var1, landgebruik_klasse = Var2)
+
+# Voeg afwezige hoofdteelten toe aan dataframes
+landgebruik_leefdaal <- prop_landgebruik_leefdaal %>% 
+  full_join(design_landgebruik, by = c("naam", "landgebruik_klasse")) %>%
+  replace(is.na(.), 0)
 ```
 
 
