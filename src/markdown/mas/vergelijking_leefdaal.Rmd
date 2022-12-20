@@ -237,6 +237,13 @@ landgebruik_diff %>%
     geom_text(aes(label = round(som, digits = 3)), vjust = -1)
 ```
 
+**Conclusie**  
+  
+Kortenberg heeft vaker een kleiner verschil in proportie landgebruik met Zavelberg dan Lovenjoel en het totale verschil is ook kleiner.
+
+```{r}
+conclusie_df <- rbind(conclusie_df, c("landgebruiksamenstelling", "+", "-"))
+```
 
 
 ## Beheerovereenkomsten
