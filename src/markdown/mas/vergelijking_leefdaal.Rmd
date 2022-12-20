@@ -89,7 +89,7 @@ mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") %>%
 
 Per categorie scoren we welk controlegebied het best lijkt op ons doelgebied (Zavelberg). Indien het ene gebied een voordeel is ten opzichte van het andere controlegebied, geven we een "+". Indien het ene gebied een nadeel is ten opzichte van het andere controlegebied, geven we een "-". Indien er geen duidelijk voor of nadeel is ten opzichte van het andere controlegebied, geven we een "0".  
   
-Deze scores zijn tot op een zekere hoogte subjectief, maar ze kunnen ons op het einde een overzicht bieden van de voor- en nadelen tussen de verschillende gebieden. De finale keuze moet wel nog steeds afhangen van een meer genuanceerde discussie. Sommige categoriën kunnen groter doorwegen dan andere.
+Deze scores zijn tot op een zekere hoogte subjectief, maar ze kunnen ons op het einde een overzicht bieden van de voor- en nadelen tussen de verschillende gebieden. De finale keuze moet wel nog steeds afhangen van een meer genuanceerde discussie. Sommige categoriën kunnen zwaarder doorwegen dan andere.
 
 
 # Vergelijking doel- en controlegebieden
