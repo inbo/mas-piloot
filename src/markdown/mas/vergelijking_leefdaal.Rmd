@@ -147,6 +147,7 @@ prop_landgebruik_leefdaal <- landusemetrics_grid_cell(
     layer = rast(landgebruik_leefdaal_raster),
     grid_group_by_col = "naam",
     layer_group_by_col = "") %>%
+  ungroup() %>%
   mutate(landgebruik_klasse = factor(value,
                                      levels = legende_landgebruik$value,
                                      labels = legende_landgebruik$label)) %>%
@@ -163,6 +164,79 @@ landgebruik_leefdaal <- prop_landgebruik_leefdaal %>%
   full_join(design_landgebruik, by = c("naam", "landgebruik_klasse")) %>%
   replace(is.na(.), 0)
 ```
+
+```{r}
+landgebruik_leefdaal %>%
+  mutate(landgebruik_klasse = reorder(landgebruik_klasse, area_prop, 
+                                      FUN = "mean", decreasing = FALSE)) %>%
+  ggplot(aes(x = area_prop, y = landgebruik_klasse)) +
+    geom_point(aes(colour = naam)) +
+    labs(x = "oppervlakte-aandeel", y = "", title = "Landgebruik",
+         colour = "deelgebied") +
+    theme(legend.position = c(1, 0), legend.justification = c(1, 0))
+```
+
+We willen een overzicht van de verschillen met Zavelberg. Hoe groter de waarde, hoe groter het verschil tussen de controlegebieden en Zavelberg.
+
+```{r}
+landgebruik_diff <- landgebruik_leefdaal %>%
+  select(naam, landgebruik_klasse, area_prop) %>%
+  group_by(landgebruik_klasse) %>%
+  pivot_wider(names_from = naam, values_from = area_prop) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    )
+
+landgebruik_diff %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "area_prop") %>%
+  mutate(landgebruik_klasse = reorder(landgebruik_klasse, area_prop, 
+                                      FUN = "mean", decreasing = FALSE)) %>%
+  ggplot(aes(x = landgebruik_klasse, y = area_prop)) +
+    geom_bar(aes(fill = naam), 
+             stat = "identity", position = "dodge") +
+    coord_flip() +
+    labs(y = "oppervlakte-aandeel", x = "", title = "Hoofdteelten",
+         fill = "deelgebied") +
+    theme(legend.position = c(1, 0), legend.justification = c(1, 0))
+```
+
+Kortenberg heeft 1 keer vaker een kleiner verschil met Zavelberg dan Lovenjoel. Dit zegt wel niets over de grootte van het verschil. 
+
+```{r}
+landgebruik_diff %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot(aes(x = check)) +
+    geom_bar() +
+    labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
+         title = "Landgebruik") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
+```
+
+We tellen daarom alle verschillen op. We zien dat Kortenberg een kleiner verschil heeft in proportie landgebruik met Zavelberg dan Lovenjoel.
+
+```{r}
+landgebruik_diff %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "area_prop") %>%
+  group_by(naam) %>%
+  mutate(som = sum(area_prop)) %>%
+  select(naam, som) %>%
+  distinct() %>%
+  ggplot(aes(x = naam, y = som)) +
+    geom_bar(stat = "identity") +
+    labs(y = "verschil met Zavelberg", x = "", 
+         title = "Landgebruik") +
+    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
+```
+
 
 
 ## Beheerovereenkomsten
@@ -395,7 +469,6 @@ hfdteelten_diff <- hfdteelten_leefdaal %>%
     diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
     diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
     )
-  
 
 hfdteelten_diff %>%
   pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
@@ -417,10 +490,11 @@ Kortenberg heeft vaker een kleiner verschil met Zavelberg dan Lovenjoel (categor
 hfdteelten_diff %>%
   mutate(check = reorder(check, check, FUN = "length",
                          decreasing = TRUE)) %>%
-  ggplot() +
-    geom_bar(aes(x = check)) +
+  ggplot(aes(x = check)) +
+    geom_bar() +
     labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
-         title = "Hoofdteelten")
+         title = "Hoofdteelten") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
 ```
 
 
@@ -565,10 +639,11 @@ openheid_leefdaal %>%
     ) %>%
   mutate(check = reorder(check, check, FUN = "length",
                          decreasing = TRUE)) %>%
-  ggplot() +
-    geom_bar(aes(x = check)) +
+  ggplot(aes(x = check)) +
+    geom_bar() +
     labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
-         title = "Openheid landschap")
+         title = "Openheid landschap") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
 ```
 
 **Conclusie**  
