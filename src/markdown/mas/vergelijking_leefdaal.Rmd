@@ -92,6 +92,206 @@ Per categorie scoren we welk controlegebied het best lijkt op ons doelgebied (Za
 Deze scores zijn tot op een zekere hoogte subjectief, maar ze kunnen ons op het einde een overzicht bieden van de voor- en nadelen tussen de verschillende gebieden. De finale keuze moet wel nog steeds afhangen van een meer genuanceerde discussie. Sommige categoriën kunnen zwaarder doorwegen dan andere.
 
 
+# Vergelijking beheerovereenkomsten
+
+We beschouwen de toestand beheerovereenkomsten van 2021. Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
+
+- soortbeschermingsmaatregelen
+    - perceelsniveau
+    - randen
+- erosiemaatregelen
+- bufferstroken
+
+Voor de steekproeftrekking zijn vooral de oppervlakte aan soortbeschermingsmaatregelen van belang. Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
+
+```{r}
+# Lees laag beheersovereenkomsten in
+bo2021 <- read_bo2021(path = path_to_bo2021())
+bo2021_leefdaal <- bo2021 %>%
+  st_intersection(leefdaal)
+
+# Visualisatie
+mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
+  mapview(bo2021_leefdaal, zcol = "BH_DOELST", 
+          col.regions = list("red","blue", "green", "brown"),
+          layer.name = "Beheersdoelstelling")
+```
+
+We willen voor elk deelgebied het oppervlakte-aandeel van de beheerovereenkomsten.
+
+```{r}
+# Bereken proporties beheersdoelstellingen
+prop_bh_doelst_leefdaal <- landusemetrics_grid_cell(
+    grid_cell = leefdaal,
+    layer = bo2021_leefdaal,
+    grid_group_by_col = "naam",
+    layer_group_by_col = "BH_DOELST") %>%
+  ungroup()
+
+prop_srt_object_leefdaal <- landusemetrics_grid_cell(
+    grid_cell = leefdaal,
+    layer = bo2021_leefdaal,
+    grid_group_by_col = "naam",
+    layer_group_by_col = "SRT_OBJECT") %>%
+  ungroup()
+
+# Maak designmatrix om afwezige beheersvormen toe te voegen
+design_bh_doelst <- expand.grid(prop_bh_doelst_leefdaal$naam, 
+                                prop_bh_doelst_leefdaal$BH_DOELST) %>% 
+  distinct() %>%
+  rename(naam = Var1, BH_DOELST = Var2)
+
+design_srt_object <- expand.grid(prop_srt_object_leefdaal$naam, 
+                                 prop_srt_object_leefdaal$SRT_OBJECT) %>% 
+  distinct() %>%
+  rename(naam = Var1, SRT_OBJECT = Var2)
+
+# Voeg afwezige beheersdoelstellingen toe aan dataframes
+bh_doelst_leefdaal <- prop_bh_doelst_leefdaal %>% 
+  full_join(design_bh_doelst, by = c("naam", "BH_DOELST")) %>%
+  replace(is.na(.), 0)
+
+srt_object_leefdaal <- prop_srt_object_leefdaal %>% 
+  full_join(design_srt_object, by = c("naam", "SRT_OBJECT")) %>%
+  replace(is.na(.), 0)
+```
+
+We vergelijken eerst het totale oppervlakte aandeel van beheersovereenkomsten. We zien dat het oppervlakte-aandeel beheersovereenkomsten veel groter is in Zavelberg dan Lovenjoel en zeker dan Kortenberg.
+
+```{r}
+bh_doelst_leefdaal %>%
+  group_by(naam) %>%
+  summarise(area_prop = sum(area_prop)) %>%
+  ggplot(aes(x = naam, y = area_prop)) +
+      geom_bar(aes(fill = naam), stat = "identity") +
+      labs(x = "", y = "oppervlakte-aandeel", title = "Totaal") +
+      theme(legend.position = "", 
+            axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+
+Nu kunnen we ook per categorie vergelijken. We zien voor de variabele BH_DOELST dat soortbeschermingsmaatregelen een groot aandeel in Zavelberg innemen maar niet in de andere deelgebieden. Lovenjoel is wel gelijkaardiger als Zavelberg als het gaat om beheer van KLE's, erosiebestrijding en perceelrandsbeheer. In Kortenberg is er slechts een kleine oppervlakte perceelrandsbeheer aanwezig en geen andere beheersovereenkomsten.
+
+```{r}
+bh_doelst_leefdaal %>%
+  mutate(BH_DOELST = reorder(BH_DOELST, area_prop, FUN = "mean",
+                             decreasing = TRUE)) %>%
+  ggplot(aes(x = naam, y = area_prop)) +
+    geom_bar(aes(fill = naam), stat = "identity") +
+    facet_wrap(~BH_DOELST, ncol = 2, scales = "free_y") +
+    labs(x = "", y = "oppervlakte-aandeel", title = "BH_DOELST per categorie") +
+    theme(legend.position = "", 
+          axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+
+We willen een overzicht van de verschillen met Zavelberg (categorie ‘Kortenberg/Lovenjoel’: verschil met Zavelberg gelijk voor controlegebieden). Dit zegt echter niets over de grootte van het verschil.
+
+```{r}
+bh_doelst_leefdaal %>%
+  select(naam, BH_DOELST, area_prop) %>%
+  group_by(BH_DOELST) %>%
+  pivot_wider(names_from = naam, values_from = area_prop) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    ) %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot(aes(x = check)) +
+    geom_bar() +
+    scale_y_continuous(breaks = seq(0, 3), limits = c(0, 3)) +
+    labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
+         title = "BH_DOELST per categorie") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
+```
+
+We tellen daarom alle verschillen op. We zien dat Kortenberg een kleiner verschil heeft in proportie beheerovereenkomst met Zavelberg dan Lovenjoel.
+
+```{r}
+bh_doelst_leefdaal %>%
+  select(naam, BH_DOELST, area_prop) %>%
+  group_by(BH_DOELST) %>%
+  pivot_wider(names_from = naam, values_from = area_prop) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    ) %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "area_prop") %>%
+  group_by(naam) %>%
+  mutate(som = sum(area_prop)) %>%
+  select(naam, som) %>%
+  distinct() %>%
+  ggplot(aes(x = naam, y = som)) +
+    geom_bar(stat = "identity") +
+    scale_y_continuous(limits = c(0, 0.14)) +
+    labs(y = "verschil met Zavelberg", x = "", 
+         title = "BH_DOELST per categorie") +
+    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
+```
+
+We zien voor de variabele SRT_OBJECT dat Lovenjoel en Zavelberg grotendeels op andere beheersvormen inzetten, maar er is wel wat overlap bijvoorbeeld in erosiestroken en bufferstroken.
+
+```{r}
+srt_object_leefdaal %>%
+  mutate(SRT_OBJECT = reorder(SRT_OBJECT, area_prop, FUN = "mean",
+                             decreasing = TRUE)) %>%
+  ggplot(aes(x = naam, y = area_prop)) +
+    geom_bar(aes(fill = naam), stat = "identity") +
+    facet_wrap(~SRT_OBJECT, ncol = 3, scales = "free_y") +
+    labs(x = "", y = "oppervlakte-aandeel", title = "SRT_OBJECT per categorie") +
+    theme(legend.position = "", 
+          axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+
+```{r}
+srt_object_leefdaal %>%
+  select(naam, SRT_OBJECT, area_prop) %>%
+  group_by(SRT_OBJECT) %>%
+  pivot_wider(names_from = naam, values_from = area_prop) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    ) %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot(aes(x = check)) +
+    geom_bar() +
+    scale_y_continuous(breaks = seq(0, 6), limits = c(0, 6)) +
+    labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
+         title = "SRT_OBJECT per categorie") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
+```
+
+Het absolute verschil in oppervlakte beheerovereenkomsten zal het zelfde zijn als bij BH_DOELST.
+
+
+**Conclusie**  
+  
+Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna niets te vinden en Lovenjoel is in dat opzicht meer vergelijkbaar met Zavelberg. Desondanks wordt in Lovenjoel wel vaker op andere beheersvormen ingezet dan in Zavelberg. Hierdoor heeft Kortenberg wel vaker een kleiner verschil in oppervlakte beheersovereenkomst met Zavelberg. Voor het controlegebied is het belangrijk dat hier geen beheerovereenkomsten aanwezig zijn, en dan vooral beheerovereenkomsten m.b.t. soortbescherming. We besluiten dat Kortenberg hier dan beter scoort dan Lovenjoel door de quasi volledige afwezigheid van beheersovereenkomsten, maar geven wel een "0" aan Lovenjoel omdat er ook geen beheerovereenkomsten m.b.t. soortbescherming zijn.
+
+```{r}
+conclusie_df <- data.frame(onderdeel = "beheersovereenkomsten", 
+  Kortenberg = "+", Lovenjoel = "0", opmerking = "geen  beheerovereenkomsten 
+  m.b.t. soortbescherming, Kortenberg over het algemeen quasi geen 
+  beheerovereenkomsten")
+```
+
+
 # Vergelijking doel- en controlegebieden
 ## Oppervlakte
 
@@ -102,21 +302,20 @@ leefdaal %>%
   kable()
 ```
 
+
 **Conclusie**  
   
 De oppervlaktes zijn gelijkaardig tussen alle deelgebieden. Er is geen duidelijk voordeel van een controlegebied tegenover de ander.
 
 ```{r}
-conclusie_df <- data.frame(onderdeel = "oppervlakte", 
-                           Kortenberg = "0", Lovenjoel = "0",
-                           opmerking = "bijna geen verschil")
+conclusie_df <- rbind(conclusie_df, c("oppervlakte", "0", "0", 
+                        "bijna geen verschil"))
 ```
 
 
 ## Landgebruiksamenstelling
 
-We beschouwen de rasterlaag van landgebruiksamenstelling van 2019.  
--> nieuwe file? om de 3 jaar...
+We beschouwen de rasterlaag van landgebruiksamenstelling van 2019. Voorlopig is de laag van 2022 nog niet beschikbaar (om de 3 jaar vernieuwing).
 
 ```{r}
 # Lees in landgebruik raster
@@ -242,6 +441,7 @@ landgebruik_diff %>%
     geom_text(aes(label = round(som, digits = 3)), vjust = -1)
 ```
 
+
 **Conclusie**  
   
 Kortenberg heeft vaker een kleiner verschil in proportie landgebruik met Zavelberg dan Lovenjoel en het totale verschil is ook kleiner. Bovendien is het verschil met Zavelberg in akkerproportie kleinst voor Kortenberg. Deze verschillen zijn niet zo groot. We geven daarom Kortenberg een "+" en Lovenjoel een "0".
@@ -252,208 +452,9 @@ conclusie_df <- rbind(conclusie_df, c("landgebruiksamenstelling", "+", "0",
 ```
 
 
-## Beheerovereenkomsten
-
-We beschouwen de toestand beheerovereenkomsten van 2021. Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
-
-- soortbeschermingsmaatregelen
-    - perceelsniveau
-    - randen
-- erosiemaatregelen
-- bufferstroken
-
-Voor de steekproeftrekking zijn vooral de oppervlakte aan soortbeschermingsmaatregelen van belang. Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
-
-```{r}
-# Lees laag beheersovereenkomsten in
-bo2021 <- read_bo2021(path = path_to_bo2021())
-bo2021_leefdaal <- bo2021 %>%
-  st_intersection(leefdaal)
-
-# Visualisatie
-mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
-  mapview(bo2021_leefdaal, zcol = "BH_DOELST", 
-          col.regions = list("red","blue", "green", "brown"),
-          layer.name = "Beheersdoelstelling")
-```
-
-We willen voor elk deelgebied het oppervlakte-aandeel van de beheerovereenkomsten.
-
-```{r}
-# Bereken proporties beheersdoelstellingen
-prop_bh_doelst_leefdaal <- landusemetrics_grid_cell(
-    grid_cell = leefdaal,
-    layer = bo2021_leefdaal,
-    grid_group_by_col = "naam",
-    layer_group_by_col = "BH_DOELST") %>%
-  ungroup()
-
-prop_srt_object_leefdaal <- landusemetrics_grid_cell(
-    grid_cell = leefdaal,
-    layer = bo2021_leefdaal,
-    grid_group_by_col = "naam",
-    layer_group_by_col = "SRT_OBJECT") %>%
-  ungroup()
-
-# Maak designmatrix om afwezige beheersvormen toe te voegen
-design_bh_doelst <- expand.grid(prop_bh_doelst_leefdaal$naam, 
-                                prop_bh_doelst_leefdaal$BH_DOELST) %>% 
-  distinct() %>%
-  rename(naam = Var1, BH_DOELST = Var2)
-
-design_srt_object <- expand.grid(prop_srt_object_leefdaal$naam, 
-                                 prop_srt_object_leefdaal$SRT_OBJECT) %>% 
-  distinct() %>%
-  rename(naam = Var1, SRT_OBJECT = Var2)
-
-# Voeg afwezige beheersdoelstellingen toe aan dataframes
-bh_doelst_leefdaal <- prop_bh_doelst_leefdaal %>% 
-  full_join(design_bh_doelst, by = c("naam", "BH_DOELST")) %>%
-  replace(is.na(.), 0)
-
-srt_object_leefdaal <- prop_srt_object_leefdaal %>% 
-  full_join(design_srt_object, by = c("naam", "SRT_OBJECT")) %>%
-  replace(is.na(.), 0)
-```
-
-We vergelijken eerst het totale oppervlakte aandeel van beheersovereenkomsten. We zien dat het oppervlakte-aandeel beheersovereenkomsten veel groter is in Zavelberg dan Lovenjoel en zeker dan Kortenberg.
-
-```{r}
-bh_doelst_leefdaal %>%
-  group_by(naam) %>%
-  summarise(area_prop = sum(area_prop)) %>%
-  ggplot(aes(x = naam, y = area_prop)) +
-      geom_bar(aes(fill = naam), stat = "identity") +
-      labs(x = "", y = "oppervlakte-aandeel", title = "Totaal") +
-      theme(legend.position = "", 
-            axis.text.x = element_text(angle = 90, vjust = 0.5))
-```
-
-Nu kunnen we ook per categorie vergelijken. We zien voor de variabele BH_DOELST dat soortbeschermingsmaatregelen een groot aandeel in Zavelberg innemen maar niet in de andere deelgebieden. Lovenjoel scoort wel hoger als het gaat om beheer van KLE's, erosiebestrijding en perceelrandsbeheer. In Kortenberg is er slechts een kleine oppervlakte perceelrandsbeheer aanwezig en geen andere beheersovereenkomsten.
-
-```{r}
-bh_doelst_leefdaal %>%
-  mutate(BH_DOELST = reorder(BH_DOELST, area_prop, FUN = "mean",
-                             decreasing = TRUE)) %>%
-  ggplot(aes(x = naam, y = area_prop)) +
-    geom_bar(aes(fill = naam), stat = "identity") +
-    facet_wrap(~BH_DOELST, ncol = 2, scales = "free_y") +
-    labs(x = "", y = "oppervlakte-aandeel", title = "BH_DOELST per categorie") +
-    theme(legend.position = "", 
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-```
-
-We willen een overzicht van de verschillen met Zavelberg (categorie ‘Kortenberg/Lovenjoel’: verschil met Zavelberg gelijk voor controlegebieden). Dit zegt echter niets over de grootte van het verschil.
-
-```{r}
-bh_doelst_leefdaal %>%
-  select(naam, BH_DOELST, area_prop) %>%
-  group_by(BH_DOELST) %>%
-  pivot_wider(names_from = naam, values_from = area_prop) %>%
-  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
-         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
-  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
-  ungroup() %>%
-  mutate(check = case_when(
-    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
-    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
-    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
-    ) %>%
-  mutate(check = reorder(check, check, FUN = "length",
-                         decreasing = TRUE)) %>%
-  ggplot(aes(x = check)) +
-    geom_bar() +
-    scale_y_continuous(breaks = seq(0, 3), limits = c(0, 3)) +
-    labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
-         title = "BH_DOELST per categorie") +
-    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
-```
-
-We tellen daarom alle verschillen op. We zien dat Kortenberg een kleiner verschil heeft in proportie beheerovereenkomst met Zavelberg dan Lovenjoel.
-
-```{r}
-bh_doelst_leefdaal %>%
-  select(naam, BH_DOELST, area_prop) %>%
-  group_by(BH_DOELST) %>%
-  pivot_wider(names_from = naam, values_from = area_prop) %>%
-  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
-         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
-  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
-  ungroup() %>%
-  mutate(check = case_when(
-    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
-    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
-    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
-    ) %>%
-  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
-               names_prefix = "diff_", values_to = "area_prop") %>%
-  group_by(naam) %>%
-  mutate(som = sum(area_prop)) %>%
-  select(naam, som) %>%
-  distinct() %>%
-  ggplot(aes(x = naam, y = som)) +
-    geom_bar(stat = "identity") +
-    scale_y_continuous(limits = c(0, 0.14)) +
-    labs(y = "verschil met Zavelberg", x = "", 
-         title = "BH_DOELST per categorie") +
-    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
-```
-
-We zien voor de variabele SRT_OBJECT dat Lovenjoel en Zavelberg grotendeels op andere beheersvormen inzetten, maar er is wel wat overlap bijvoorbeeld in erosiestroken en bufferstroken.
-
-```{r}
-srt_object_leefdaal %>%
-  mutate(SRT_OBJECT = reorder(SRT_OBJECT, area_prop, FUN = "mean",
-                             decreasing = TRUE)) %>%
-  ggplot(aes(x = naam, y = area_prop)) +
-    geom_bar(aes(fill = naam), stat = "identity") +
-    facet_wrap(~SRT_OBJECT, ncol = 3, scales = "free_y") +
-    labs(x = "", y = "oppervlakte-aandeel", title = "SRT_OBJECT per categorie") +
-    theme(legend.position = "", 
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-```
-
-```{r}
-srt_object_leefdaal %>%
-  select(naam, SRT_OBJECT, area_prop) %>%
-  group_by(SRT_OBJECT) %>%
-  pivot_wider(names_from = naam, values_from = area_prop) %>%
-  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
-         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
-  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
-  ungroup() %>%
-  mutate(check = case_when(
-    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
-    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
-    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
-    ) %>%
-  mutate(check = reorder(check, check, FUN = "length",
-                         decreasing = TRUE)) %>%
-  ggplot(aes(x = check)) +
-    geom_bar() +
-    scale_y_continuous(breaks = seq(0, 6), limits = c(0, 6)) +
-    labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
-         title = "SRT_OBJECT per categorie") +
-    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
-```
-
-Het absolute verschil in oppervlakte beheerovereenkomsten zal het zelfde zijn als bij BH_DOELST.
-
-**Conclusie**  
-  
-Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna niets te vinden en Lovenjoel is in dat opzicht meer vergelijkbaar met Zavelberg. Desondanks wordt in Lovenjoel wel vaker op andere beheersvormen ingezet dan in Zavelberg. Hierdoor heeft Kortenberg wel vaker een kleiner verschil in oppervlakte beheersovereenkomst met Zavelberg.
-
-```{r}
-conclusie_df <- rbind(conclusie_df, c("beheersovereenkomsten - totaal", "-", 
-                          "+", "bijna niets aanwezig in Kortenberg"),
-                        c("beheersovereenkomsten - verschil", "+", "-",
-                          "vaker andere beheersvorm Zavelberg vs. Lovenjoel"))
-```
-
-
 ## Hoofdteelt
 
-Belangrijkste teelten in 2021: goeie file? nieuwere data?
+Belangrijkste teelten in 2021.
 
 ```{r}
 # Lees laag hoofdteelten in
@@ -576,9 +577,15 @@ conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "+", "0",
 ```
 
 
+## Perceelsgrootte
+
+Op basis van hoofdteelt-laag in 2021.
+
+
+
 ## Openheid landschap
 
-We onderscheiden vier categoriën:
+Op basis van hoogtemodel 2018 (nieuwe laag elke 10 jaar). We onderscheiden vier categoriën:
 
 - gesloten landschap: GL
 - half-gesloten landschap: HGL
@@ -757,7 +764,12 @@ conclusie_df <- rbind(conclusie_df, c("openheid landschap", "+", "-",
 ```
 
 
-## Expertise
+## Multivariate data-analyse
+
+...
+
+
+# Vergelijking o.b.v. expertise
 
 - In Lovenjoel liggen al MAS-punten.
 - Kortenberg ligt iets ten zuiden van een kerngebied. Lovenjoel is geen kerngebied.
