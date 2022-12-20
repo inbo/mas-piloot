@@ -685,7 +685,7 @@ openheid_leefdaal %>%
           axis.text.x = element_text(angle = 90, vjust = 0.5))
 ```
 
-De verschillen lijken kleiner in Kortenberg. Inderdaad, Kortenberg heeft steeds een kleiner verschil met Zavelberg dan Lovenjoel (categorie ‘Kortenberg/Lovenjoel’: verschil met Zavelberg gelijk voor controlegebieden).
+De verschillen lijken kleiner in Kortenberg. Inderdaad, Kortenberg heeft steeds een kleiner verschil met Zavelberg dan Lovenjoel (categorie ‘Kortenberg/Lovenjoel’: verschil met Zavelberg gelijk voor controlegebieden). Dit zegt echter niets over de grootte van het verschil.
 
 ```{r}
 openheid_leefdaal %>%
@@ -705,10 +705,42 @@ openheid_leefdaal %>%
                          decreasing = TRUE)) %>%
   ggplot(aes(x = check)) +
     geom_bar() +
+    scale_y_continuous(limits = c(0, 4.5)) +
     labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
          title = "Openheid landschap") +
     geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
 ```
+
+We tellen daarom alle verschillen op. Kortenberg heeft een kleiner verschil in proportie openheid met Zavelberg dan Lovenjoel.
+
+```{r}
+openheid_leefdaal %>%
+  select(naam, openheid_klasse, area_prop) %>%
+  group_by(openheid_klasse) %>%
+  pivot_wider(names_from = naam, values_from = area_prop) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    ) %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "area_prop") %>%
+  group_by(naam) %>%
+  mutate(som = sum(area_prop)) %>%
+  select(naam, som) %>%
+  distinct() %>%
+  ggplot(aes(x = naam, y = som)) +
+    geom_bar(stat = "identity") +
+    scale_y_continuous(limits = c(0, 1.1)) +
+    labs(y = "verschil met Zavelberg", x = "", 
+         title = "Openheid landschap") +
+    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
+```
+
 
 **Conclusie**  
 
@@ -728,10 +760,6 @@ conclusie_df <- rbind(conclusie_df, c("openheid", "+", "-"))
 conclusie_df <- rbind(conclusie_df, c("Mas-punten", "-", "+"),
                       c("kerngebied", "0", "-"))
 ```
-
-
-## ...
-
 
 
 # Discussie en conclusie
