@@ -108,7 +108,8 @@ De oppervlaktes zijn gelijkaardig tussen alle deelgebieden. Er is geen duidelijk
 
 ```{r}
 conclusie_df <- data.frame(onderdeel = "oppervlakte", 
-                            Kortenberg = "0", Lovenjoel = "0")
+                           Kortenberg = "0", Lovenjoel = "0",
+                           opmerking = "bijna geen verschil")
 ```
 
 
@@ -243,10 +244,11 @@ landgebruik_diff %>%
 
 **Conclusie**  
   
-Kortenberg heeft vaker een kleiner verschil in proportie landgebruik met Zavelberg dan Lovenjoel en het totale verschil is ook kleiner. Bovendien is het verschil met Zavelberg in akkerproportie kleinst voor Kortenberg.
+Kortenberg heeft vaker een kleiner verschil in proportie landgebruik met Zavelberg dan Lovenjoel en het totale verschil is ook kleiner. Bovendien is het verschil met Zavelberg in akkerproportie kleinst voor Kortenberg. Deze verschillen zijn niet zo groot. We geven daarom Kortenberg een "+" en Lovenjoel een "0".
 
 ```{r}
-conclusie_df <- rbind(conclusie_df, c("landgebruiksamenstelling", "+", "-"))
+conclusie_df <- rbind(conclusie_df, c("landgebruiksamenstelling", "+", "0",
+                        "voordeel Kortenberg niet super groot"))
 ```
 
 
@@ -442,8 +444,10 @@ Het absolute verschil in oppervlakte beheerovereenkomsten zal het zelfde zijn al
 Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna niets te vinden en Lovenjoel is in dat opzicht meer vergelijkbaar met Zavelberg. Desondanks wordt in Lovenjoel wel vaker op andere beheersvormen ingezet dan in Zavelberg. Hierdoor heeft Kortenberg wel vaker een kleiner verschil in oppervlakte beheersovereenkomst met Zavelberg.
 
 ```{r}
-conclusie_df <- rbind(conclusie_df, c("beheersovereenkomsten - totaal", "-", "+"),
-                      c("beheersovereenkomsten - verschil", "+", "-"))
+conclusie_df <- rbind(conclusie_df, c("beheersovereenkomsten - totaal", "-", 
+                          "+", "bijna niets aanwezig in Kortenberg"),
+                        c("beheersovereenkomsten - verschil", "+", "-",
+                          "vaker andere beheersvorm Zavelberg vs. Lovenjoel"))
 ```
 
 
@@ -567,7 +571,8 @@ hfdteelten_diff %>%
 Zowel Kortenberg als Lovenjoel hebben ongeveer even vaak een kleiner verschil met Zavelberg en het totale verschil in oppervlakte-aandeel is slechts iets kleiner bij Kortenberg. We geven daarom Kortenberg een "+" en Lovenjoel een "0".
 
 ```{r}
-conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "+", "0"))
+conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "+", "0", 
+                        "voordeel Kortenberg niet super groot"))
 ```
 
 
@@ -747,7 +752,8 @@ openheid_leefdaal %>%
 Kortenberg is meer gelijkaardig aan Zavelberg dan Lovenjoel in termen van openheid van het landschap.
 
 ```{r}
-conclusie_df <- rbind(conclusie_df, c("openheid", "+", "-"))
+conclusie_df <- rbind(conclusie_df, c("openheid landschap", "+", "-", 
+                        "relatief groot voordeel voor Kortenberg"))
 ```
 
 
@@ -757,14 +763,32 @@ conclusie_df <- rbind(conclusie_df, c("openheid", "+", "-"))
 - Kortenberg ligt iets ten zuiden van een kerngebied. Lovenjoel is geen kerngebied.
 
 ```{r}
-conclusie_df <- rbind(conclusie_df, c("Mas-punten", "-", "+"),
-                      c("kerngebied", "0", "-"))
+conclusie_df <- rbind(conclusie_df, c("MAS-punten", "-", "+",
+                          "MAS-punten reeds aanwezig in Lovenjoel"),
+                        c("kerngebied", "0", "-", 
+                          "kerngebied in de buurt van Kortenberg"))
 ```
 
 
 # Discussie en conclusie
 
+We krijgen een overzicht van alle categoriën:
+
 ```{r}
 conclusie_df %>% kable()
 ```
 
+```{r}
+rbind(data.frame(conclusie = conclusie_df$Kortenberg, 
+                 deelgebied = rep("Kortenberg", nrow(conclusie_df))),
+      data.frame(conclusie = conclusie_df$Lovenjoel, 
+                 deelgebied = rep("Lovenjoel", nrow(conclusie_df)))) %>%
+  count(deelgebied, conclusie) %>%
+  mutate(conclusie = factor(conclusie, levels = c("-", "0", "+"), 
+                            ordered = TRUE)) %>%
+  arrange(conclusie) %>%
+  pivot_wider(names_from = conclusie, values_from = n) %>%
+  kable()
+```
+
+De finale beslissing hangt af van het belang dat aan elke categorie wordt toegekend. Als aanwezigheid van beheerovereenkomsten en MAS-punten heel belangrijk zijn, kunnen we stellen dat Lovenjoel goed kan dienen als controlegebied. Indien oppervlakte-aandeel in landgebruik, hoofdteelt en openheid landschap zo goed mogelijk moet overeenkomen met Zavelberg, dan lijkt Kortenberg een betere kandidaat.
