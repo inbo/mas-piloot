@@ -209,7 +209,7 @@ landgebruik_diff %>%
     theme(legend.position = c(1, 0), legend.justification = c(1, 0))
 ```
 
-Kortenberg heeft 1 keer vaker een kleiner verschil met Zavelberg dan Lovenjoel. Dit zegt wel niets over de grootte van het verschil. 
+Kortenberg heeft 1 keer vaker een kleiner verschil met Zavelberg dan Lovenjoel. Dit zegt echter niets over de grootte van het verschil. 
 
 ```{r}
 landgebruik_diff %>%
@@ -341,7 +341,7 @@ bh_doelst_leefdaal %>%
           axis.text.x = element_text(angle = 90, vjust = 0.5))
 ```
 
-We willen een overzicht van de verschillen met Zavelberg (categorie ‘Kortenberg/Lovenjoel’: verschil met Zavelberg gelijk voor controlegebieden). Dit zegt wel niets over de grootte van het verschil.
+We willen een overzicht van de verschillen met Zavelberg (categorie ‘Kortenberg/Lovenjoel’: verschil met Zavelberg gelijk voor controlegebieden). Dit zegt echter niets over de grootte van het verschil.
 
 ```{r}
 bh_doelst_leefdaal %>%
@@ -529,7 +529,7 @@ hfdteelten_diff %>%
     theme(legend.position = c(1, 0), legend.justification = c(1, 0))
 ```
 
-Kortenberg heeft vaker een kleiner verschil met Zavelberg dan Lovenjoel (categorie 'Kortenberg/Lovenjoel': verschil met Zavelberg gelijk voor controlegebieden), maar dit is maar 16 keer ten opzichte van 15 dus dit is geen groot verschil.
+Kortenberg heeft vaker een kleiner verschil met Zavelberg dan Lovenjoel (categorie 'Kortenberg/Lovenjoel': verschil met Zavelberg gelijk voor controlegebieden), maar dit is maar 16 keer ten opzichte van 15 dus dit is geen groot verschil. Dit zegt echter niets over de grootte van het verschil.
 
 ```{r}
 hfdteelten_diff %>%
@@ -537,18 +537,37 @@ hfdteelten_diff %>%
                          decreasing = TRUE)) %>%
   ggplot(aes(x = check)) +
     geom_bar() +
+    scale_y_continuous(breaks = seq(0, 18, by = 2), limits = c(0, 17)) +
     labs(y = "aantal keer kleinste verschil\nmet Zavelberg", x = "", 
          title = "Hoofdteelten") +
     geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
 ```
 
+We tellen daarom alle verschillen op. We zien dat Kortenberg een kleiner verschil heeft in proportie hoofdteeld met Zavelberg dan Lovenjoel. Dit is opnieuw maar een klein verschil.
+
+```{r}
+hfdteelten_diff %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "area_prop") %>%
+  group_by(naam) %>%
+  mutate(som = sum(area_prop)) %>%
+  select(naam, som) %>%
+  distinct() %>%
+  ggplot(aes(x = naam, y = som)) +
+    geom_bar(stat = "identity") +
+    scale_y_continuous(limits = c(0, 0.525)) +
+    labs(y = "verschil met Zavelberg", x = "", 
+         title = "Hoofdteelten") +
+    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
+```
+
 
 **Conclusie**  
 
-Zowel Kortenberg als Lovenjoel hebben ongeveer even vaak een kleiner verschil met Zavelberg.
+Zowel Kortenberg als Lovenjoel hebben ongeveer even vaak een kleiner verschil met Zavelberg en het totale verschil in oppervlakte-aandeel is slechts iets kleiner bij Kortenberg. We geven daarom Kortenberg een "+" en Lovenjoel een "0".
 
 ```{r}
-conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "0", "0"))
+conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "+", "0"))
 ```
 
 
