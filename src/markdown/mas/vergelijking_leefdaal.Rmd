@@ -134,8 +134,8 @@ levels(landgebruik_leefdaal_raster) <- levels_landgebruik
 kleur <- legende_landgebruik %>%
   pull(kleur)
 mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
-  mapview(raster, layer.name = "Landgebruik", col.regions = kleur,
-        att = "land_use")
+  mapview(landgebruik_leefdaal_raster, layer.name = "Landgebruik", 
+          col.regions = kleur, att = "land_use")
 ```
 
 We willen voor elk deelgebied het oppervlakte-aandeel van landgebruiksamenstelling.
