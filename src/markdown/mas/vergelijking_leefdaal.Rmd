@@ -27,7 +27,6 @@ library(terra)
 library(mapview)
 library(leafem)
 mbag_dir <- here()
-targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 ```
 
 
@@ -113,7 +112,28 @@ conclusie_df <- data.frame(onderdeel = "oppervlakte",
 ```
 
 
-## Landgebruik
+## landgebruiksamenstelling
+
+Landgebruiksamenstelling 2019 -> nieuwe file? om de 3 jaar  
+  
+Volgende code werkt niet: geeft GitRepositories en ik heb git_repositories.
+`targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")`
+`tar_read(vito_lum_2019_file, store = targets_store)` 
+
+
+```{r}
+# Lees in landgebruik raster
+landgebruik <- rast(here("data", "landgebruik", "vito", 
+                      "lu_landgebruik_vlaa_2019_v2.tif"))
+landgebruik_leefdaal <- crop(landgebruik, leefdaal) %>%
+  raster::raster()
+
+# Visualisatie
+mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied", 
+        alpha.regions = 0.6, alpha = 1) +
+  mapview(landgebruik_leefdaal, layer.name = "Landgebruik", 
+        alpha.regions = 0.4)
+```
 
 
 ## Beheerovereenkomsten
@@ -281,7 +301,7 @@ conclusie_df <- rbind(conclusie_df, c("beheersovereenkomsten - totaal", "-", "+"
 
 ## Hoofdteelt
 
-Belangrijkste teelten in 2020: goeie file?
+Belangrijkste teelten in 2020: goeie file? nieuwere data?
 
 ```{r}
 # Lees laag hoofdteelten in
