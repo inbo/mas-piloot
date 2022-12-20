@@ -87,64 +87,12 @@ bereken_visibility_prop <- function(point,
 ```
 
 
-```{r bereken-vgvi}
-bereken_vgvi <- function(point,
-                       dist = 300,
-                       obs_height = 1.7,
-                       resolution = 1) {
-
-  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
-
-  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
-                             bbox = bbox_buffer,
-                             layername = "EL.GridCoverage.DSM",
-                             resolution = resolution)
-  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
-                             bbox = bbox_buffer,
-                             layername = "EL.GridCoverage.DTM",
-                             resolution = resolution)
-  
-  greenspace <- rast(dtm_r1)
-  greenspace[] <- 1
-  
-  poly25 <- point %>% st_buffer(dist = 25)
-
-  vgvi_from_sf(
-    observer = poly25,
-    spacing = 5,
-    m = 0,
-    b = 0,
-    mode = "exponential",
-    cores = 4,
-    progress = TRUE,
-    max_distance = dist,
-    dsm_rast = dsm_r1,
-    dtm_rast = dtm_r1,
-    greenspace_rast = greenspace,
-    observer_height = obs_height,
-    raster_res = resolution)
-}
-
-```
-
-> The VGVI expresses the proportion of visible greenness to the total visible area based on a viewshed. The estimated VGVI values range between 0 and 1, where 0 = no green cells are visible, and 1 = all of the visible cells are green. 
-
-```{r}
-out <- steekproef %>%
-  filter(pointid == "Ol_4269.12") %>%
-  bereken_vgvi()
-
-out %>%
-  ggplot() +
-  geom_sf(aes(colour = VGVI))
-```
-
-
 ```{r bereken-zichtbaarheid}
 bereken_vvi <- function(point,
                        dist = 300,
                        obs_height = 1.7,
-                       resolution = 1) {
+                       resolution = 1,
+                       spacing = 5) {
 
   bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
 
@@ -161,7 +109,7 @@ bereken_vvi <- function(point,
 
   vvi_from_sf(
     observer = poly25,
-    spacing = 5,
+    spacing = spacing,
     cores = 4,
     progress = TRUE,
     max_distance = dist,
@@ -171,6 +119,10 @@ bereken_vvi <- function(point,
     raster_res = resolution)
 }
 ```
+
+## Voorbeeld voor 1 telpunt:
+
+Berekening zichtbaarheidsindex binnen straal van 25 m rond telpunt in een raster van locaties die 5 m van elkaar liggen:
 
 ```{r}
 out <- steekproef %>%
@@ -184,16 +136,22 @@ out %>%
 out %>%
   ggplot() +
   geom_histogram(aes(x = VVI))
+```
 
+Viewshed telpunt zelf:
 
+```{r centrum}
 steekproef %>%
   filter(pointid == "Ol_4269.12") %>%
   bereken_viewshed()
 steekproef %>%
   filter(pointid == "Ol_4269.12") %>%
   bereken_visibility_prop()
+```
 
-# 25 m noordelijker
+25 m noordelijker
+
+```{r noord}
 steekproef %>%
   filter(pointid == "Ol_4269.12") %>%
   mutate(geometry = geometry + c(0, 25)) %>%
@@ -204,7 +162,11 @@ steekproef %>%
   mutate(geometry = geometry + c(0, 25)) %>%
   st_set_crs(31370) %>%
   bereken_visibility_prop()
-# 25 m zuidelijker
+```
+
+25 m zuidelijker
+
+```{r zuid}
 steekproef %>%
   filter(pointid == "Ol_4269.12") %>%
   mutate(geometry = geometry + c(0, -25)) %>%
@@ -217,6 +179,124 @@ steekproef %>%
   bereken_visibility_prop()
 
 
+```
+
+
+## Test op groter aantal punten
+
+Rechtstreeks via WCS werkt niet want laat niet toe om groot gebied te downloaden.
+
+```{r eval=FALSE}
+test2 <- steekproef %>%
+  filter(Naam == "De Moeren") %>%
+  bereken_vvi()
+```
+
+Dus data afhalen van onze GIS server.
+Echter volledige bestand voor heel Vlaanderen is 30Gb...
+
+```{r}
+perimeters <- tar_read(perimeters_data, store = targets_store) %>%
+  select(-section)
+
+dm <- perimeters %>% filter(Naam == "De Moeren")
+```
+
+De volgende chunks lezen van de server en schrijven het deel weg dat valt binnen bounding box van de Moeren (naar data/dem folder).
+Voor de Moeren zijn deze bestanden 160 Mb groot.
+
+```{r eval=!file.exists(here::here("data", "dem", "dhmvii_dsm_1m_demoeren.tif"))}
+dsm_dm <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDSMRAS1m.tif") %>%
+  terra::crop(
+    dm,
+    filename = here::here("data", "dem", "dhmvii_dsm_1m_demoeren.tif"))
+```
+
+```{r eval=file.exists(here::here("data", "dem", "dhmvii_dsm_1m_demoeren.tif"))}
+dsm_dm <- terra::rast(here::here("data", "dem", "dhmvii_dsm_1m_demoeren.tif"))
+crs(dsm_dm) <- "epsg:31370"
+```
+
+```{r eval=!file.exists(here::here("data", "dem", "dhmvii_dtm_1m_demoeren.tif"))}
+dtm_dm <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDTMRAS1m.tif") %>%
+  terra::crop(
+    dm,
+    filename = here::here("data", "dem", "dhmvii_dtm_1m_demoeren.tif"))
+```
+
+```{r eval=file.exists(here::here("data", "dem", "dhmvii_dtm_1m_demoeren.tif"))}
+dtm_dm <- terra::rast(here::here("data", "dem", "dhmvii_dtm_1m_demoeren.tif"))
+crs(dtm_dm) <- "epsg:31370"
+```
+
+Zichtbaarheidsindex voor 8642 punten in 1 minuut:
+
+```{r}
+dm_25mpoly <- steekproef %>%
+  filter(Naam == "De Moeren") %>%
+  st_buffer(dist = 25)
+
+vvi_dm <- vvi_from_sf(
+    observer = dm_25mpoly,
+    spacing = 5,
+    cores = 4,
+    progress = TRUE,
+    max_distance = 300,
+    dsm_rast = dsm_dm,
+    dtm_rast = dtm_dm,
+    observer_height = 1.7,
+    raster_res = 1)
 
 ```
+
+```{r}
+library(mapview)
+mapview(vvi_dm, zcol = "VVI")
+```
+
+
+```{r}
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+```
+
+Berekening op volledige steekproefkader (Moeren en Leemstreek) zou `r round(nrow(steekproefkader) * 88 * 18 * 1e-3 /3600, 1)` uur duren.
+Dit is met een `spacing` van 5 meter, ofwel 88 punten binnen elke 25 m cirkel rond het telpunt.
+Indien we de spacing verhogen naar 10 meter binnen de 25m straal cirkels, zijn er 25 punten in straal 25 m rond het telpunt en dan zou het `r round(nrow(steekproefkader) * 25 * 18 * 1e-3 /3600, 1)` uur duren.
+
+## Wanneer is zichtbaarheid te laag?
+
+Vanaf wanneer besluiten we dat de zichtbaarheid te laag is?
+De Moeren is een zeer plat open landschap waar de zichtbaarheid normaal hoog is.
+Verdeling van de zichtbaarheidsindices in de Moeren:
+
+
+```{r}
+vvi_dm %>%
+  st_join(dm_25mpoly %>% st_buffer(dist = 5)
+          ) %>%
+  mutate(pointid = reorder(pointid, VVI, mean)) %>%
+  ggplot(aes(x = VVI, y = pointid)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = mean_cl_boot, colour = "red")
+
+```
+
+Check VVI versus zichtbaarheid zoals berekend werd in targets pipeline.
+De verschillen zijn wellicht te wijten aan verschil in locatie.
+Targets pipeline is exacte locatie van het telpunt.
+VVI berekening is raster van punten binnen cirkel 25 m straal rond telpunt.
+
+```{r}
+vvi_dm %>%
+  st_join(dm_25mpoly %>% st_buffer(dist = -22),
+          left = FALSE
+          ) %>%
+  ggplot() +
+  geom_point(aes(x = zichtbaarheid, y = VVI)) +
+  geom_abline()
+```
+
+
+
+
 
