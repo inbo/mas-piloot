@@ -55,6 +55,7 @@ source_path <- here("src", "R")
 # Source functions
 source(here(source_path, "berekening_hulpvariabelen.R"))
 source(here(source_path, "geocomputations.R"))
+source(here(source_path, "steekproefkader.R"))
 ```
 
 ```{r}
@@ -115,24 +116,26 @@ conclusie_df <- data.frame(onderdeel = "oppervlakte",
 ## landgebruiksamenstelling
 
 Landgebruiksamenstelling 2019 -> nieuwe file? om de 3 jaar  
-  
-Volgende code werkt niet: geeft GitRepositories en ik heb git_repositories.
-`targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")`
-`tar_read(vito_lum_2019_file, store = targets_store)` 
-
 
 ```{r}
 # Lees in landgebruik raster
-landgebruik <- rast(here("data", "landgebruik", "vito", 
-                      "lu_landgebruik_vlaa_2019_v2.tif"))
-landgebruik_leefdaal <- crop(landgebruik, leefdaal) %>%
+legende_landgebruik <- read_legend_lum(path_to_legend_lum())
+landgebruik <- read_lum_rast(file = path_to_lum(), legend = legende_landgebruik)
+landgebruik_leefdaal <- crop(landgebruik, leefdaal)
+
+# Zet om naar raster en voeg categoriën opnieuw toe
+levels_landgebruik <- levels(landgebruik_leefdaal)
+landgebruik_leefdaal <- landgebruik_leefdaal %>%
   raster::raster()
+levels(landgebruik_leefdaal) <- levels_landgebruik
 
 # Visualisatie
-mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied", 
-        alpha.regions = 0.6, alpha = 1) +
-  mapview(landgebruik_leefdaal, layer.name = "Landgebruik", 
-        alpha.regions = 0.4)
+kleur <- legende_landgebruik %>%
+  filter(bestand_id == "vito") %>%
+  pull(kleur)
+mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
+  mapview(raster, layer.name = "Landgebruik", col.regions = kleur,
+        att = "land_use")
 ```
 
 
@@ -301,12 +304,12 @@ conclusie_df <- rbind(conclusie_df, c("beheersovereenkomsten - totaal", "-", "+"
 
 ## Hoofdteelt
 
-Belangrijkste teelten in 2020: goeie file? nieuwere data?
+Belangrijkste teelten in 2021: goeie file? nieuwere data?
 
 ```{r}
 # Lees laag hoofdteelten in
 lbg_binding <- st_read(here(mbag_dir, "data", "landbouwgebruikspercelen", 
-                            "Shapefile", "Lbgbrprc20.shp")) %>%
+                            "Shapefile", "Lbgbrprc21.shp")) %>%
   st_transform(crs = 31370)
 hoofdteelten_leefdaal <- lbg_binding %>%
   st_intersection(leefdaal)
@@ -382,7 +385,7 @@ hfdteelten_diff %>%
     theme(legend.position = c(1, 0), legend.justification = c(1, 0))
 ```
 
-De verschillen lijken kleiner in Lovenjoel. Inderdaad Lovenjoel heeft vaker een kleiner verschil met Zavelberg dan Kortenberg (categorie 'Kortenberg/Lovenjoel': verschil met Zavelberg gelijk voor controlegebieden).
+Kortenberg heeft vaker een kleiner verschil met Zavelberg dan Lovenjoel (categorie 'Kortenberg/Lovenjoel': verschil met Zavelberg gelijk voor controlegebieden), maar dit is maar 16 keer ten opzichte van 15 dus dit is geen groot verschil.
 
 ```{r}
 hfdteelten_diff %>%
@@ -397,10 +400,10 @@ hfdteelten_diff %>%
 
 **Conclusie**  
 
-We zien vaker kleinere verschillen met Zavelberg in oppervlakte-aandeel hoofdteelten in Lovenjoel dan in Kortenberg.
+Zowel Kortenberg als Lovenjoel hebben ongeveer even vaak een kleiner verschil met Zavelberg.
 
 ```{r}
-conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "-", "+"))
+conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "0", "0"))
 ```
 
 
