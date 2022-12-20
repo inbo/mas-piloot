@@ -335,7 +335,7 @@ kleur <- legende_landgebruik %>%
   pull(kleur)
 mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
   mapview(landgebruik_leefdaal_raster, layer.name = "Landgebruik", 
-          col.regions = kleur, att = "land_use")
+          col.regions = kleur, att = "land_use", legend = FALSE)
 ```
 
 We willen voor elk deelgebied het oppervlakte-aandeel van landgebruiksamenstelling.
@@ -579,8 +579,23 @@ conclusie_df <- rbind(conclusie_df, c("hoofdteelten", "+", "0",
 
 ## Perceelsgrootte
 
-Op basis van hoofdteelt-laag in 2021.
+Op basis van hoofdteelt-laag in 2021. Hiervoor mergen we aaneenliggende percelen van hetzelfde type (zelfde hoofdteelt).
 
+```{r}
+percelen_leefdaal <- hoofdteelten_leefdaal %>%
+  group_by(LBLHFDTLT) %>%
+  summarise() %>%
+  st_cast("MULTIPOLYGON") %>%
+  st_cast("POLYGON")
+
+# Visualisatie
+mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
+  mapview(percelen_leefdaal, zcol = "LBLHFDTLT", legend = FALSE)
+```
+
+- Bereken oppervlakte voor elke polygoon
+- Bereken mediaan en interkwartielafstand voor elk deelgebied
+- Vergelijk
 
 
 ## Openheid landschap
