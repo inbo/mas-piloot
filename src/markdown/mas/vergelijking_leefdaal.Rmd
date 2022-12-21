@@ -583,19 +583,65 @@ Op basis van hoofdteelt-laag in 2021. Hiervoor mergen we aaneenliggende percelen
 
 ```{r}
 percelen_leefdaal <- hoofdteelten_leefdaal %>%
-  group_by(LBLHFDTLT) %>%
+  group_by(naam, LBLHFDTLT) %>%
   summarise() %>%
   st_cast("MULTIPOLYGON") %>%
-  st_cast("POLYGON")
+  st_cast("POLYGON") %>%
+  ungroup()
 
 # Visualisatie
 mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied") +
   mapview(percelen_leefdaal, zcol = "LBLHFDTLT", legend = FALSE)
 ```
 
-- Bereken oppervlakte voor elke polygoon
-- Bereken mediaan en interkwartielafstand voor elk deelgebied
-- Vergelijk
+We bereken de oppervlakte voor elke polygoon (= perceel).
+
+```{r}
+percelen_leefdaal %>%
+  mutate(oppervlakte = st_area(geometry)) %>%
+  st_drop_geometry() %>%
+  units::drop_units() %>%
+  ggplot(aes(x = oppervlakte, fill = naam)) +
+    geom_density(alpha = 0.4) +
+    labs(y = "densiteit", x = "oppervlakte perceel (m²)", 
+         title = "Perceelsgrootte", fill = "deelgebied") +
+    facet_wrap(~naam) +
+    theme(legend.position = "")
+
+percelen_leefdaal %>%
+  mutate(oppervlakte = log(st_area(geometry))) %>%
+  st_drop_geometry() %>%
+  units::drop_units() %>%
+  ggplot(aes(x = oppervlakte, fill = naam)) +
+    geom_density(alpha = 0.4) +
+    labs(y = "densiteit", x = "oppervlakte perceel (log)", 
+         title = "Perceelsgrootte", fill = "deelgebied")
+```
+
+De perceelgroottes zijn tamelijk gelijkaardig voor alle gebieden. We bekijken nog enkele samenvattende statistieken van de perceelsgrootte (oppervlakte in m²):
+
+```{r}
+percelen_leefdaal %>%
+  mutate(oppervlakte = st_area(geometry)) %>%
+  st_drop_geometry() %>%
+  units::drop_units() %>%
+  group_by(naam) %>%
+  summarise(Q1 = quantile(oppervlakte, 0.25),
+            mediaan = median(oppervlakte),
+            Q3 = quantile(oppervlakte, 0.75),
+            IQR = IQR(oppervlakte)) %>%
+  kable()
+```
+
+
+**Conclusie**  
+
+De perceelsgroottes in Lovenjoel zijn iets gelijkaardiger als Zavelberg dan Kortenberg (mediaan), maar het verschil tussen Kortenberg en Lovenjoel is niet zo groot. We geven daarom Kortenberg een "0" en Lovenjoel een "+".
+
+```{r}
+conclusie_df <- rbind(conclusie_df, c("perceelsgrootte", "0", "+", 
+                        "voordeel Lovenjoel niet super groot"))
+```
 
 
 ## Openheid landschap
