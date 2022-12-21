@@ -1236,4 +1236,5 @@ rbind(data.frame(conclusie = conclusie_df$Kortenberg,
   kable()
 ```
 
-De finale beslissing hangt af van het belang dat aan elke categorie wordt toegekend. Als aanwezigheid van beheerovereenkomsten en MAS-punten heel belangrijk is, kunnen we stellen dat Lovenjoel goed kan dienen als controlegebied. Indien oppervlakte-aandeel in landgebruik, hoofdteelt en openheid landschap zo goed mogelijk moet overeenkomen met Zavelberg, dan lijkt Kortenberg een betere kandidaat.
+Uit de vorige tabellen kunnen we besluiten dat Kortenberg een betere kandidaat lijkt als controlegebied dan Lovenjoel. Ook uit de multivariate data-analyse bleek dat Kortenberg meer gelijkaardig is aan Zavelberg dan Lovenjoel op vlak van totale oppervlakte, landgebruik, hoofdteelten, perceelsgrootte en openheid van het landschap.  
+De finale beslissing kan echter nog afhangen van het belang dat aan elke categorie wordt toegekend. Als de overeenkomst in oppervlakte, perceelsgrootte en de aanwezigheid van MAS-punten heel belangrijk is, kan Lovenjoel misschien even goed dienen als controlegebied. 
