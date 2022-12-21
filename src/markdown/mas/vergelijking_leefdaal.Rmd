@@ -924,8 +924,7 @@ pca_opp$x %>%
               round(PC2, digits = 2), ")")), vjust = 1.5) +
     geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
     geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "") +
-    labs(x = "PC1", y = "PC2")
+    theme(legend.position = "")
 ```
 
 ```{r}
@@ -986,8 +985,7 @@ pca_landgebruik$x %>%
               round(PC2, digits = 2), ")")), vjust = 1.5) +
     geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
     geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "") +
-    labs(x = "PC1", y = "PC2")
+    theme(legend.position = "")
 ```
 
 ```{r}
@@ -1040,8 +1038,7 @@ pca_hoofdteelten$x %>%
               round(PC2, digits = 2), ")")), vjust = 1.5) +
     geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
     geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "") +
-    labs(x = "PC1", y = "PC2")
+    theme(legend.position = "")
 ```
 
 ```{r}
@@ -1094,8 +1091,7 @@ pca_openheid$x %>%
               round(PC2, digits = 2), ")")), vjust = 1.5) +
     geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
     geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "") +
-    labs(x = "PC1", y = "PC2")
+    theme(legend.position = "")
 ```
 
 ```{r}
@@ -1166,18 +1162,6 @@ pca_fit$x %>%
 ```
 
 ```{r}
-pca_fit %>%
-  broom::tidy(matrix = "rotation") %>%
-  pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = column), hjust = 1, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-0.25, 0.25)) +
-    scale_x_continuous(limits = c(-0.5, 0.25)) +
-    theme(legend.position = "")
-
 pca_fit$rotation %>%
   as.data.frame() %>%
   rownames_to_column("deelgebied") %>%
@@ -1213,7 +1197,9 @@ pca_fit$rotation %>%
 
 ### Conclusie
 
-
+De resultaten van de multivariate data-analyses zijn grotendeels in overeenstemming met de eerdere resultaten o.b.V. exploratieve figuren. Enkel bij het samennemen van oppervlakte en perceelsgrootte hebben we beslist nog een correctie toe te voegen in voordeel van Lovenjoel, omdat de aparte variabelen geen belangrijk voordeel toonden.  
+  
+Uit de analyse met alle variabelen samen, lijkt Kortenberg iets meer gelijkaardig aan Zavelberg dan Lovenjoel. In de uiteindelijke conclusie kunnen we nagaan of het besluit op basis van de conclusietabel (met "+", "-", "0") overeenkomt met deze analyses.
 
 
 # Vergelijking o.b.v. expertise
@@ -1229,7 +1215,7 @@ conclusie_df <- rbind(conclusie_df, c("MAS-punten", "-", "+",
 ```
 
 
-# Discussie en conclusie
+# Finale discussie en conclusie
 
 We krijgen een overzicht van alle categoriën:
 
