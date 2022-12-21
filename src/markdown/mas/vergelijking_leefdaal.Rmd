@@ -826,8 +826,53 @@ conclusie_df <- rbind(conclusie_df, c("openheid landschap", "+", "-",
 
 
 ## Multivariate data-analyse
+### Data preparatie
 
-...
+We willen een dataframe met de deelgebieden als rijen en de variabelen als kolommen. Als variabelen nemen we de totale oppervlakte van de deelgebieden, de proporties voor elk landgebruikstype, hoofdteeldtype en type openheid landschap, en de mediaan van de perceelsgroottes per deelgebied.
+
+```{r}
+# Oppervlakte
+opp_leefdaal_df <- leefdaal %>%
+  mutate(oppervlakte = st_area(leefdaal)) %>%
+  st_drop_geometry() %>%
+  units::drop_units() %>%
+  arrange(naam)
+
+# Landgebruiksamenstelling
+landgebruik_leefdaal_df <- landgebruik_leefdaal %>%
+  pivot_wider(names_from = landgebruik_klasse, values_from = area_prop) %>%
+  rename(Grasland_landgebruik = Grasland) %>%
+  arrange(naam)
+
+# Hoofdteelt
+hfdteelten_leefdaal_df <- hfdteelten_leefdaal  %>%
+  select(naam, LBLHFDTLT, area_prop) %>%
+  pivot_wider(names_from = LBLHFDTLT, values_from = area_prop) %>%
+  rename(Grasland_teelt = Grasland) %>%
+  arrange(naam)
+
+# Perceelsgrootte
+percelen_leefdaal_df <- percelen_leefdaal %>%
+  mutate(oppervlakte = st_area(geometry)) %>%
+  st_drop_geometry() %>%
+  units::drop_units() %>%
+  group_by(naam) %>%
+  summarise(perceelsgrootte = median(oppervlakte)) %>%
+  arrange(naam)
+  
+# Openheid landschap
+openheid_leefdaal_df <- openheid_leefdaal %>%
+  pivot_wider(names_from = openheid_klasse, values_from = area_prop) %>%
+  arrange(naam)
+  
+# Complete dataset
+df_list <- list(opp_leefdaal_df, landgebruik_leefdaal_df, 
+                hfdteelten_leefdaal_df, percelen_leefdaal_df,
+                openheid_leefdaal_df)
+leefdaal_multivar <- df_list %>% 
+  reduce(full_join, by = "naam")
+```
+
 
 
 # Vergelijking o.b.v. expertise
