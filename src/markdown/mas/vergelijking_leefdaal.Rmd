@@ -876,7 +876,7 @@ leefdaal_multivar <- df_list %>%
 
 ### PCA specifieke datasets
 
-We voeren eerst PCA uit op specifieke categoriën.
+We voeren eerst PCA uit op specifieke categoriën. Deze kunnen dienen als controle van de eerdere resultaten. We voeren PCA uit waarbij we de data standardiseren (center en scale).
 
 ```{r}
 # Functie om proportie variatie te berekenen van PC's
@@ -1112,7 +1112,7 @@ Deze resultaten zijn in overeenstemming met onze conclusie in \@ref(openheid). D
 
 ### PCA complete dataset
 
-We voeren PCA uit waarbij we de data standardiseren (center en scale).
+We voeren nu ook een PCA uit op de dataset met alle variabelen samen.
 
 ```{r}
 pca_fit <- prcomp(leefdaal_multivar, center = TRUE, scale = TRUE)
