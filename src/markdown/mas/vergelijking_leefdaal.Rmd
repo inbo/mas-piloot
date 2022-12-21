@@ -286,9 +286,9 @@ Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna 
 
 ```{r}
 conclusie_df <- data.frame(onderdeel = "beheersovereenkomsten", 
-  Kortenberg = "+", Lovenjoel = "0", opmerking = "geen  beheerovereenkomsten 
-  m.b.t. soortbescherming, Kortenberg over het algemeen quasi geen 
-  beheerovereenkomsten")
+  Kortenberg = "+", Lovenjoel = "0", opmerking = 
+    paste0("geen  beheerovereenkomsten m.b.t. soortbescherming, Kortenberg",
+           "over het algemeen quasi geen beheerovereenkomsten"))
 ```
 
 
@@ -941,7 +941,15 @@ pca_opp$rotation %>%
     scale_x_continuous(limits = c(-1, 1))
 ```
 
-Deze resultaten zijn in overeenstemming met onze eerdere conclusies. In \@ref(oppervlakte) zagen we dat Zavelberg en Lovenjoel groter zijn dan Kortenberg, terwijl we in \@ref(perceel) zagen dat de mediaan van de perceelgroottes kleiner zijn in Lovenjoel en Zavelberg dan Kortenberg. Dat maakt Lovenjoel meer gelijkaardig aan Zavelberg dan Kortenberg. We hebben toen echter geen voordeel gegeven aan Lovenjoel t.o.v. Kortenberg omdat de verschillen dermate klein zijn.
+Deze resultaten zijn in overeenstemming met onze eerdere conclusies. In \@ref(oppervlakte) zagen we dat Zavelberg en Lovenjoel groter zijn dan Kortenberg, terwijl we in \@ref(perceel) zagen dat de mediaan van de perceelgroottes kleiner zijn in Lovenjoel en Zavelberg dan Kortenberg. Dat maakt Lovenjoel meer gelijkaardig aan Zavelberg dan Kortenberg. We hebben toen echter geen voordeel gegeven aan Lovenjoel t.o.v. Kortenberg omdat de verschillen dermate klein zijn.  
+  
+Omdat we hier toch een voordeel van Lovenjoel t.o.v. Kortenberg zien, zullen we een correctie geven door een nieuwe rij toe te voegen met "+" voor Lovenjoel en "-" voor Kortenberg.
+
+```{r}
+conclusie_df <- rbind(conclusie_df, 
+                      c("oppervlakte en perceelsgrootte", "-", "+", 
+                        "correctie na PCA"))
+```
 
 
 #### Landgebruiksamenstelling
