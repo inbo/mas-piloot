@@ -548,7 +548,7 @@ hfdteelten_diff %>%
     geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
 ```
 
-We tellen daarom alle verschillen op. We zien dat Kortenberg een kleiner verschil heeft in proportie hoofdteeld met Zavelberg dan Lovenjoel. Dit is opnieuw maar een klein verschil.
+We tellen daarom alle verschillen op. We zien dat Kortenberg een kleiner verschil heeft in proportie hoofdteelt met Zavelberg dan Lovenjoel. Dit is opnieuw maar een klein verschil.
 
 ```{r}
 hfdteelten_diff %>%
@@ -828,7 +828,7 @@ conclusie_df <- rbind(conclusie_df, c("openheid landschap", "+", "-",
 ## Multivariate data-analyse
 ### Data preparatie
 
-We willen een dataframe met de deelgebieden als rijen en de variabelen als kolommen. Als variabelen nemen we de totale oppervlakte van de deelgebieden, de proporties voor elk landgebruikstype, hoofdteeldtype en type openheid landschap, en de mediaan van de perceelsgroottes per deelgebied.
+We willen een dataframe met de deelgebieden als rijen en de variabelen als kolommen. Als variabelen nemen we de totale oppervlakte van de deelgebieden, de proporties voor elk landgebruikstype, hoofdteelttype en type openheid landschap, en de mediaan van de perceelsgroottes per deelgebied.
 
 ```{r}
 # Oppervlakte
