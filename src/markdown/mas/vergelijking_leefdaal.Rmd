@@ -947,6 +947,60 @@ pca_opp$rotation %>%
 Deze resultaten zijn in overeenstemming met onze eerdere conclusies. In \@ref(oppervlakte) zagen we dat Zavelberg en Lovenjoel groter zijn dan Kortenberg, terwijl we in \@ref(perceel) zagen dat de mediaan van de perceelgroottes kleiner zijn in Lovenjoel en Zavelberg dan Kortenberg. Dat maakt Lovenjoel meer gelijkaardig aan Zavelberg dan Kortenberg. We hebben toen echter geen voordeel gegeven aan Lovenjoel t.o.v. Kortenberg omdat de verschillen dermate klein zijn.
 
 
+#### Landgebruik
+
+```{r}
+pca_landgebruik <- prcomp(landgebruik_leefdaal_df %>% 
+                            column_to_rownames(var = "naam"), 
+                          center = TRUE, scale = TRUE)
+```
+
+De eerste PC verklaart een kleine 2/3 en de tweede PC een dikke 1/3 van alle variatie in de data. 
+
+```{r}
+perc_var(pca_landgebruik$sdev) %>%
+  ggplot(aes(PC, proportie)) +
+    geom_bar(stat = "identity") +
+    scale_x_continuous(breaks = 1:length(pca_landgebruik$sdev)) +
+    scale_y_continuous(limits = c(0, 1)) +
+    geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
+```
+
+Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
+
+```{r}
+pca_landgebruik$x %>%
+  as.data.frame() %>%
+  rownames_to_column("deelgebied") %>%
+  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
+    geom_point(size = 3) +
+    scale_y_continuous(limits = c(-4, 4)) +
+    scale_x_continuous(limits = c(-4, 4)) +
+    geom_text(aes(label = deelgebied), vjust = -1) +
+    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
+              round(PC2, digits = 2), ")")), vjust = 1.5) +
+    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
+    theme(legend.position = "") +
+    labs(x = "PC1", y = "PC2")
+```
+
+```{r}
+pca_landgebruik$rotation %>%
+  as.data.frame() %>%
+  rownames_to_column("deelgebied") %>%
+  ggplot(aes(PC1, PC2)) +
+    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
+    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
+    scale_y_continuous(limits = c(-1, 1)) +
+    scale_x_continuous(limits = c(-1, 1))
+```
+
+Deze resultaten zijn in overeenstemming met onze eerdere conclusies in \@ref(landgebruik). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is. Bovendien zien we dat Akker sterk met PC1 is gecorreleerd wat we toen ook als pro voor Kortenberg zagen.
+
+
 #### Openheid landschap
 
 ```{r}
