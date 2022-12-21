@@ -1197,7 +1197,7 @@ pca_fit$rotation %>%
 
 ### Conclusie
 
-De resultaten van de multivariate data-analyses zijn grotendeels in overeenstemming met de eerdere resultaten o.b.V. exploratieve figuren. Enkel bij het samennemen van oppervlakte en perceelsgrootte hebben we beslist nog een correctie toe te voegen in voordeel van Lovenjoel, omdat de aparte variabelen geen belangrijk voordeel toonden.  
+De resultaten van de multivariate data-analyses zijn grotendeels in overeenstemming met de eerdere resultaten o.b.v. exploratieve figuren. Enkel bij het samennemen van oppervlakte en perceelsgrootte hebben we beslist nog een correctie toe te voegen in voordeel van Lovenjoel, omdat de aparte variabelen geen belangrijk voordeel toonden maar er samen wel een voordeel duidelijk is.  
   
 Uit de analyse met alle variabelen samen, lijkt Kortenberg iets meer gelijkaardig aan Zavelberg dan Lovenjoel. In de uiteindelijke conclusie kunnen we nagaan of het besluit op basis van de conclusietabel (met "+", "-", "0") overeenkomt met deze analyses.
 
@@ -1237,4 +1237,5 @@ rbind(data.frame(conclusie = conclusie_df$Kortenberg,
 ```
 
 Uit de vorige tabellen kunnen we besluiten dat Kortenberg een betere kandidaat lijkt als controlegebied dan Lovenjoel. Ook uit de multivariate data-analyse bleek dat Kortenberg meer gelijkaardig is aan Zavelberg dan Lovenjoel op vlak van totale oppervlakte, landgebruik, hoofdteelten, perceelsgrootte en openheid van het landschap.  
+  
 De finale beslissing kan echter nog afhangen van het belang dat aan elke categorie wordt toegekend. Als de overeenkomst in oppervlakte, perceelsgrootte en de aanwezigheid van MAS-punten heel belangrijk is, kan Lovenjoel misschien even goed dienen als controlegebied. 
