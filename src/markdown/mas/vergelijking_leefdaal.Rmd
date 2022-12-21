@@ -644,7 +644,7 @@ conclusie_df <- rbind(conclusie_df, c("perceelsgrootte", "0", "+",
 ```
 
 
-## Openheid landschap
+## Openheid landschap{#openheid}
 
 Op basis van hoogtemodel 2018 (nieuwe laag elke 10 jaar). We onderscheiden vier categoriën:
 
@@ -830,6 +830,9 @@ conclusie_df <- rbind(conclusie_df, c("openheid landschap", "+", "-",
 
 We willen een dataframe met de deelgebieden als rijen en de variabelen als kolommen. Als variabelen nemen we de totale oppervlakte van de deelgebieden, de proporties voor elk landgebruikstype, hoofdteeldtype en type openheid landschap, en de mediaan van de perceelsgroottes per deelgebied.
 
+biplot(prcomp(openheid_leefdaal_df %>%
++                   column_to_rownames(var = "naam"), center = TRUE, scale = TRUE))
+
 ```{r}
 # Oppervlakte
 opp_leefdaal_df <- leefdaal %>%
@@ -870,10 +873,170 @@ df_list <- list(opp_leefdaal_df, landgebruik_leefdaal_df,
                 hfdteelten_leefdaal_df, percelen_leefdaal_df,
                 openheid_leefdaal_df)
 leefdaal_multivar <- df_list %>% 
-  reduce(full_join, by = "naam")
+  reduce(full_join, by = "naam") %>%
+  column_to_rownames(var = "naam")
+```
+
+### PCA specifieke datasets
+
+We voeren eerst PCA uit op specifieke categoriën.
+
+```{r}
+# Functie om proportie variatie te berekenen van PC's
+perc_var <- function(vec) {
+  data.frame(proportie = (vec ^ 2) / sum(vec ^ 2), PC = seq_along(vec))
+  }
 ```
 
 
+#### Openheid landschap
+
+```{r}
+pca_openheid <- prcomp(openheid_leefdaal_df %>% 
+                         column_to_rownames(var = "naam"), 
+                       center = TRUE, scale = TRUE)
+```
+
+De eerste PC verklaart quasi alle variatie in de data. 
+
+```{r}
+perc_var(pca_openheid$sdev) %>%
+  ggplot(aes(PC, proportie)) +
+    geom_bar(stat = "identity") +
+    geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
+```
+
+Kortenberg ligt dichter bij Zavelberg langs PC1 dan Lovenjoel.
+
+```{r}
+pca_openheid$x %>%
+  as.data.frame() %>%
+  rownames_to_column("deelgebied") %>%
+  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
+    geom_point(size = 3) +
+    scale_y_continuous(limits = c(-3, 3)) +
+    scale_x_continuous(limits = c(-3, 3)) +
+    geom_text(aes(label = deelgebied), vjust = -1) +
+    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
+              round(PC2, digits = 2), ")")), vjust = 1.5) +
+    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
+    theme(legend.position = "") +
+    labs(x = "PC1", y = "PC2")
+```
+
+```{r}
+# Definieer pijlstijl voor plotten
+arrow_style <- arrow(
+  angle = 20, ends = "first", type = "closed", length = grid::unit(8, "pt")
+)
+
+pca_openheid$rotation %>%
+  as.data.frame() %>%
+  rownames_to_column("deelgebied") %>%
+  ggplot(aes(PC1, PC2)) +
+    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
+    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
+    scale_y_continuous(limits = c(-1, 1)) +
+    scale_x_continuous(limits = c(-1, 1))
+```
+
+Deze resultaten zijn in overeenstemming met onze conclusie in \@ref(openheid).
+
+
+### PCA complete dataset
+
+We voeren PCA uit waarbij we de data standardiseren (center en scale).
+
+```{r}
+pca_fit <- prcomp(leefdaal_multivar, center = TRUE, scale = TRUE)
+plot(pca_fit)
+biplot(pca_fit)
+```
+
+De eerste PC verklaart ruwweg 2/3 van de variatie en de tweede as 1/3.
+
+```{r}
+pca_fit %>%
+  broom::tidy(matrix = "eigenvalues") %>%
+  ggplot(aes(PC, percent)) +
+    geom_bar(stat = "identity") +
+    scale_x_continuous(breaks = 1:length(pca_fit$sdev)) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    geom_text(aes(label = round(percent, digits = 3)), vjust = -0.5)
+```
+
+Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
+
+```{r}
+pca_fit %>%
+  broom::augment(leefdaal_multivar) %>%
+  ggplot(aes(.fittedPC1, .fittedPC2, colour = .rownames)) + 
+    geom_point(size = 3) +
+    scale_y_continuous(limits = c(-7.5, 7.5)) +
+    scale_x_continuous(limits = c(-7.5, 7.5)) +
+    geom_text(aes(label = .rownames), vjust = -1) +
+    geom_text(aes(label = paste0("(", round(.fittedPC1, digits = 2), ", ", 
+              round(.fittedPC2, digits = 2), ")")), vjust = 1.5) +
+    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
+    theme(legend.position = "") +
+    labs(x = "PC1", y = "PC2")
+```
+
+Als we de Euclidische afstand tussen de deelgebieden berekenen, ligt Kortenberg iets dichter. 
+
+```{r}
+# calculate distances
+pca_fit %>%
+  broom::augment(leefdaal_multivar) %>%
+  select(.rownames, .fittedPC1, .fittedPC2) %>%
+  column_to_rownames(var = ".rownames") %>%
+  dist() %>%
+  as.matrix() %>%
+  as.data.frame() %>%
+  select("afstand tot Zavelberg" = Zavelberg) %>%
+  kable()
+```
+
+
+```{r}
+# define arrow style for plotting
+arrow_style <- arrow(
+  angle = 20, ends = "first", type = "closed", length = grid::unit(8, "pt")
+)
+
+# plot rotation matrix
+pca_fit %>%
+  broom::tidy(matrix = "rotation") %>%
+  pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value") %>%
+  ggplot(aes(PC1, PC2)) +
+    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
+    geom_text(aes(label = column), hjust = 1, nudge_x = -0.02) +
+    scale_y_continuous(limits = c(-0.25, 0.25)) +
+    scale_x_continuous(limits = c(-0.5, 0.25)) +
+    theme(legend.position = "")
+```
+
+```{r}
+pca_fit$rotation %>% 
+  as.data.frame() %>%
+  mutate(abs = abs(PC1)) %>%
+  arrange(desc(abs)) %>%
+  select(PC1) %>%
+  kable()
+
+pca_fit$rotation %>% 
+  as.data.frame() %>%
+  mutate(abs = abs(PC2)) %>%
+  arrange(desc(abs)) %>%
+  select(PC2) %>%
+  kable()
+```
 
 # Vergelijking o.b.v. expertise
 
