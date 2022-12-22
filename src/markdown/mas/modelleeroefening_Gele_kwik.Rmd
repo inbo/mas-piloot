@@ -385,8 +385,6 @@ gele_kwik_2022 %>%
   kable()
 ```
 
-We zien dat de gemiddeldes en de variantie ongeveer gelijk zijn zodat we mogelijks geen overdispersie hebben.  
-  
 Aantal tellingen per categorie:
 
 ```{r tellingen-aantallen-nodist}
@@ -600,7 +598,7 @@ hyp1
 plot(hyp1)
 ```
 
-De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal broedparen Gele kwikstaart in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is -0.47. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder broedparen Gele kwikstaart in de Oostelijke leemstreek dan in De Moeren.
+De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal broedparen Gele kwikstaart in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is `r round(hyp1$hypothesis$Estimate, digits = 3)`. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder broedparen Gele kwikstaart in de Oostelijke leemstreek dan in De Moeren.
 
 Het toevoegen van een interactie `regio:periode_in_jaar` blijkt geen meerwaarde voor het model:
 
@@ -642,7 +640,7 @@ if (!file.exists(paste0(model_path, "fit_brmpois2.rds"))) {
 }
 
 # Comparison among models
-comparisons <- loo_compare(fit_brmpois1, fit_brmpois2, 
+comparisons2 <- loo_compare(fit_brmpois1, fit_brmpois2, 
                            criterion = "kfold")[, c(1, 2)] %>%
                 as.data.frame() %>%
                 mutate(model = c("Poisson: no interaction", 
@@ -654,7 +652,7 @@ rbind(fit_brmpois1$criteria$kfold$estimates[, "Estimate"],
   ) %>%
   as.data.frame() %>%
   mutate(model = c("Poisson: no interaction", "Poisson: interaction")) %>%
-  full_join(comparisons, by = "model") %>%
+  full_join(comparisons2, by = "model") %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
   select(model, everything()) %>%
@@ -733,7 +731,7 @@ tibble(model = c("Poisson", "Negative binomial", "Zero-inflated Poisson",
   kable(digits = 3)
 ```
 
-Het Poisson model is opnieuw het simpelste model met de beste fit. We controleren voor overdispersie (waarom hier onderdispersie?):
+Het Poisson model is opnieuw het simpelste model met relatief de beste fit. We controleren voor overdispersie (waarom hier onderdispersie?):
 
 ```{r}
 plot(dispersion_check(inlapois1))
@@ -1062,7 +1060,7 @@ summarize_ds_models(dsmodelunif1,
 
 **Resultaten en visualisatie**
 
-Op basis van deze redenering kiezen we voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende detectiekans:
+Op basis van deze redenering kiezen we voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende scale parameter:
 
 ```{r final-model-summary-ds}
 summary_hr1 <- summary(dsmodelhr1)
@@ -1278,7 +1276,7 @@ plot(dsmodelhr1_binned, pdf = TRUE,
 par(mfrow = c(1, 1))
 ```
 
-Op basis van model fit kiezen we opnieuw voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende detectiekans die gelijkaardig is als voordien:
+Op basis van model fit kiezen we opnieuw voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende scale parameter die gelijkaardig is als voordien:
 
 ```{r final-model-summary-ds-binned}
 summary_hr1_binned <- summary(dsmodelhr1_binned)
@@ -1424,7 +1422,7 @@ dsmodelhr11 <- ds(data = gele_kwik_2022_ds, key = "hr",
                  convert_units = conversion_factor)
 ```
 
-We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC’s kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. We kiezen we voor model 20 met de Hazard-rate functie waarbij de detectiekans afhankelijk is van soortbeschermingsplan per regio. 
+We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC’s kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. Nog altijd is het Hazard-rate model zonder variabelen het best. 
 
 ```{r}
 summarize_ds_models(dsmodelunif1, 
@@ -1437,99 +1435,7 @@ summarize_ds_models(dsmodelunif1,
   kable()
 ```
 
-Model fit:
 
-```{r}
-par(mfrow = c(1, 2))
-gof_ds(dsmodelhr8, main = "dsmodelhr8")
-  
-  plot(dsmodelhr8, pdf = TRUE, 
-       main = paste0("dsmodelhr8", " - ", "AIC: ",
-                     as.character(round(summary(dsmodelhr8)$ds$aic, digits = 2))
-                     )
-       )
-par(mfrow = c(1, 1))
-```
-
-Resultaten:
-
-```{r}
-summary_hr8 <- summary(dsmodelhr8)
-summary_hr8$ds$coeff$key.scale %>%
-  kable(digits = 2)
-
-plot(dsmodelhr8)
-```
-
-Visualisatie:
-
-```{r}
-summary_results_hr8 <- bind_rows(
-  summary_hr8$dht$clusters$D %>%
-    mutate(variable = "density",
-           type = "clusters"),
-  summary_hr8$dht$clusters$N %>%
-    mutate(variable = "abundance",
-           type = "clusters"),
-  summary_hr8$dht$individuals$D %>%
-    mutate(variable = "density",
-           type = "individuals"),
-  summary_hr8$dht$individuals$N %>%
-    mutate(variable = "abundance",
-           type = "individuals")
-  ) %>%
-  as_tibble() %>%
-  separate(Label, c("regio", "periode_in_jaar"), sep = " - ") %>%
-  filter(!is.na(periode_in_jaar))
-
-summary_results_hr8 %>%
-  filter(type == "individuals") %>%
-  mutate(variable = recode_factor(variable, 
-            abundance = "Totaal aantal broedparen Gele kwikstaart",
-            density = "Aantal broedparen Gele kwikstaart per 100 ha")) %>%
-  ggplot(aes(x = regio, y = Estimate)) + 
-  geom_pointrange(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar),
-                  position = position_dodge(width = 0.5)) + 
-  facet_wrap(~variable, scales = "free_y") +
-  labs(x = "", y = "")
-```
-
-Vergelijken met vorig model:
-
-```{r}
-# Detectiekans null model
-dist_model_hr1 <- summary_results %>%
-  filter(type == "individuals", variable == "density") %>%
-  ggplot(aes(x = regio, y = Estimate)) + 
-    geom_point(aes(colour = periode_in_jaar), size = 4, 
-               position = position_dodge(width = 0.5)) +
-    geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
-                  width = 0.25, position = position_dodge(width = 0.5)) + 
-    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
-    labs(x = "", y = "Aantal broedparen Gele kwikstaart per 100 ha", 
-         title = "P(detectie) ~ 1") +
-    theme(legend.position = "bottom")
-
-# Detectiekans afhankelijk van sbp per regio
-dist_model_hr8 <- summary_results_hr8 %>%
-  filter(type == "individuals", variable == "density") %>%
-  ggplot(aes(x = regio, y = Estimate)) + 
-    geom_point(aes(colour = periode_in_jaar), size = 4, 
-               position = position_dodge(width = 0.5)) +
-    geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
-                  width = 0.25, position = position_dodge(width = 0.5)) + 
-    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
-    labs(x = "", y = "", 
-         title = "P(detectie) ~ sbp + regio + sbp:regio") +
-    theme(legend.position = "bottom")
-
-
-grid.arrange(dist_model_hr1, dist_model_hr8, ncol = 2)
-```
-
-We zien kleine verschillen. Vooral in De Moeren wel iets lager met covariaten.
-  
- 
 **Spelen met sampling effort**   
 Krijgen we dezelfde resultaten als we geen rekening houden met telperiode en effort = 4 zetten?
 
@@ -1540,32 +1446,32 @@ gele_kwik_2022_ds_new <- gele_kwik_2022_ds %>%
          Region.Label = regio)
   
 # Fit model
-dsmodelhr8_new <- ds(data = gele_kwik_2022_ds_new, key = "hr", 
+dsmodelhr1_new <- ds(data = gele_kwik_2022_ds_new, key = "hr", 
                  formula = ~ regio + sbp + regio:sbp,
                  adjustment = NULL, truncation = 300, transect = "point", 
                  dht_group = FALSE,
                  convert_units = conversion_factor)
 
 # Samenvatting model
-summary_hr8_new <- summary(dsmodelhr8_new)
+summary_hr1_new <- summary(dsmodelhr1_new)
 
-summary_results_hr8_new <- bind_rows(
-  summary_hr8_new$dht$clusters$D %>%
+summary_results_hr1_new <- bind_rows(
+  summary_hr1_new$dht$clusters$D %>%
     mutate(variable = "density",
            type = "clusters"),
-  summary_hr8_new$dht$clusters$N %>%
+  summary_hr1_new$dht$clusters$N %>%
     mutate(variable = "abundance",
            type = "clusters"),
-  summary_hr8_new$dht$individuals$D %>%
+  summary_hr1_new$dht$individuals$D %>%
     mutate(variable = "density",
            type = "individuals"),
-  summary_hr8_new$dht$individuals$N %>%
+  summary_hr1_new$dht$individuals$N %>%
     mutate(variable = "abundance",
            type = "individuals")
   )
 
 # Effort = 1 model
-dist_model_hr8 <- summary_results_hr8 %>%
+dist_model_hr1 <- summary_results %>%
   filter(type == "individuals", variable == "density") %>%
   ggplot(aes(x = regio, y = Estimate)) + 
     geom_point(aes(colour = periode_in_jaar), size = 4, 
@@ -1578,7 +1484,7 @@ dist_model_hr8 <- summary_results_hr8 %>%
     theme(legend.position = "bottom")
 
 # Effort = 4 model
-dist_model_hr8_new <- summary_results_hr8_new %>%
+dist_model_hr1_new <- summary_results_hr1_new %>%
   filter(type == "individuals", 
          variable == "density",
          Label != "Total") %>%
@@ -1593,7 +1499,7 @@ dist_model_hr8_new <- summary_results_hr8_new %>%
     theme(legend.position = "bottom")
 
 
-grid.arrange(dist_model_hr8, dist_model_hr8_new, ncol = 2)
+grid.arrange(dist_model_hr1, dist_model_hr1_new, ncol = 2)
 ```
 
 Ja dit lijkt goed overeen te komen.
@@ -1617,32 +1523,32 @@ samp_table <- design_2022 %>%
   mutate(Effort = 4)
 
 # Fit model  
-dsmodelhr8_presence <- ds(data = gele_kwik_2022_ds_presence, key = "hr", 
+dsmodelhr1_presence <- ds(data = gele_kwik_2022_ds_presence, key = "hr", 
                  formula = ~ regio + sbp + regio:sbp,
                  adjustment = NULL, truncation = 300, transect = "point", 
                  dht_group = FALSE, convert_units = conversion_factor,
                  region_table = reg_table, sample_table = samp_table)
 
 # Samenvatting model
-summary_results_hr8_presence <- summary(dsmodelhr8_presence)
+summary_results_hr1_presence <- summary(dsmodelhr1_presence)
 
-summary_results_hr8_presence <- bind_rows(
-  summary_results_hr8_presence$dht$clusters$D %>%
+summary_results_hr1_presence <- bind_rows(
+  summary_results_hr1_presence$dht$clusters$D %>%
     mutate(variable = "density",
            type = "clusters"),
-  summary_results_hr8_presence$dht$clusters$N %>%
+  summary_results_hr1_presence$dht$clusters$N %>%
     mutate(variable = "abundance",
            type = "clusters"),
-  summary_results_hr8_presence$dht$individuals$D %>%
+  summary_results_hr1_presence$dht$individuals$D %>%
     mutate(variable = "density",
            type = "individuals"),
-  summary_results_hr8_presence$dht$individuals$N %>%
+  summary_results_hr1_presence$dht$individuals$N %>%
     mutate(variable = "abundance",
            type = "individuals")
   )
 
 # Model vanuit presence data
-dist_model_hr8_presence <- summary_results_hr8_presence %>%
+dist_model_hr1_presence <- summary_results_hr1_presence %>%
   filter(type == "individuals", variable == "density", Label != "Total") %>%
   ggplot(aes(x = Label, y = Estimate)) + 
     geom_point(aes(colour = Label), size = 4, 
@@ -1655,7 +1561,7 @@ dist_model_hr8_presence <- summary_results_hr8_presence %>%
     theme(legend.position = "bottom")
 
 # Model vanuit presence-absence data
-dist_model_hr8_new <- summary_results_hr8_new %>%
+dist_model_hr1_new <- summary_results_hr1_new %>%
   filter(type == "individuals", 
          variable == "density",
          Label != "Total") %>%
@@ -1670,7 +1576,7 @@ dist_model_hr8_new <- summary_results_hr8_new %>%
     theme(legend.position = "bottom")
 
 
-grid.arrange(dist_model_hr8_presence, dist_model_hr8_new, ncol = 2)
+grid.arrange(dist_model_hr1_presence, dist_model_hr1_new, ncol = 2)
 ```
 
 We hebben exact dezelfde resultaten.
@@ -1926,7 +1832,7 @@ um_model_hr18 <- distsamp(formula = ~regio + sbp~sbp + openheid,
          unitsOut = "kmsq")
 ```
 
-Het half-normal model waarbij detectiekans verschilt per soortbeschermingsplan en densiteit verschilt per regio, soortbeschermingsplan en openheid landschap scoort het best (eenvoudigst model met verschil in AIC < 2)
+Het half-normal model waarbij detectiekans verschilt per soortbeschermingsplan en regio en densiteit verschilt per soortbeschermingsplan en openheid landschap scoort het best (eenvoudigst model met verschil in AIC < 2)
 
 ```{r}
 fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
@@ -1950,51 +1856,27 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
 modSel(fm_list)
 ```
 
-Detectiekans verschilt per soortbeschermingsplan, maar we testen ook nog enkele combinaties voor densiteit.
+Is het nuttig om een interactie toe te voegen?
 
 ```{r, cache=TRUE}
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per regio
-um_model_hn19 <- distsamp(formula = ~sbp~regio, 
+um_model_hn19 <- distsamp(formula = ~regio * sbp~sbp * openheid,
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
-um_model_hr19 <- distsamp(formula = ~sbp~regio, 
+um_model_hr19 <- distsamp(formula = ~regio * sbp~sbp * openheid,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per soortbeschermingsplan
-um_model_hn20 <- distsamp(formula = ~sbp~sbp, 
+um_model_hn20 <- distsamp(formula = ~regio * sbp~sbp + openheid,
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
-um_model_hr20 <- distsamp(formula = ~sbp~sbp, 
+um_model_hr20 <- distsamp(formula = ~regio * sbp~sbp + openheid, 
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per openheid landschap
-um_model_hn21 <- distsamp(formula = ~sbp~openheid, 
+um_model_hn21 <- distsamp(formula = ~regio + sbp~sbp * openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
-um_model_hr21 <- distsamp(formula = ~sbp~openheid, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per regio en soortbeschermingsplan
-um_model_hn22 <- distsamp(formula = ~sbp~regio + sbp, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr22 <- distsamp(formula = ~sbp~regio + sbp, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per regio en openheid landschap
-um_model_hn23 <- distsamp(formula = ~sbp~regio + openheid, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr23 <- distsamp(formula = ~sbp~regio + openheid, 
+um_model_hr21 <- distsamp(formula = ~regio + sbp~sbp * openheid, 
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 ```
@@ -2012,8 +1894,7 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
                    hn16 = um_model_hn16, hn17 = um_model_hn17,
                    hn18 = um_model_hn18,
                    hn19 = um_model_hn19, hn20 = um_model_hn20,
-                   hn21 = um_model_hn21, hn22 = um_model_hn22,
-                   hn23 = um_model_hn23,
+                   hn21 = um_model_hn21,
                    hr1 = um_model_hr1, hr2 = um_model_hr2, hr3 = um_model_hr3,
                    hr4 = um_model_hr4, hr5 = um_model_hr5, hr6 = um_model_hr6,
                    hr7 = um_model_hr7, hr8 = um_model_hr8, hr9 = um_model_hr9, 
@@ -2024,104 +1905,10 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
                    hr16 = um_model_hr16, hr17 = um_model_hr17,
                    hr18 = um_model_hr18,
                    hr19 = um_model_hr19, hr20 = um_model_hr20,
-                   hr21 = um_model_hr21, hr22 = um_model_hr22,
-                   hr23 = um_model_hr23)
+                   hr21 = um_model_hr21)
 modSel(fm_list)
 ```
 
-Als laatste testen we of we het model eenvoudiger kan of als er interacties kunnen toegevoegd worden.
-
-```{r, cache=TRUE}
-# Densiteit verschilt per openheid landschap
-um_model_hn24 <- distsamp(formula = ~1~openheid, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr24 <- distsamp(formula = ~1~openheid, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan
-um_model_hn25 <- distsamp(formula = ~sbp~1, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr25 <- distsamp(formula = ~sbp~1, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan in interactie met 
-# openheid landschap
-# Densiteit verschilt per soortbeschermingsplan in interactie met 
-# openheid landschap
-um_model_hn26 <- distsamp(formula = ~sbp*openheid~sbp*openheid, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr26 <- distsamp(formula = ~sbp*openheid~sbp*openheid, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan in interactie met regio
-# Densiteit verschilt per openheid landschap in interactie met regio
-um_model_hn27 <- distsamp(formula = ~sbp*regio~openheid*regio, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr27 <- distsamp(formula = ~sbp*regio~openheid*regio, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per openheid landschap in interactie met regio
-um_model_hn28 <- distsamp(formula = ~sbp~openheid*regio, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr28 <- distsamp(formula = ~sbp~openheid*regio, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan in interactie met regio
-# Densiteit verschilt per openheid landschap
-um_model_hn29 <- distsamp(formula = ~sbp*regio~openheid, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr29 <- distsamp(formula = ~sbp*regio~openheid, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-```
-
-Model 21 blijft het eenvoudigste model binnen een AIC verschil van 2.
-
-```{r}
-fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
-                   hn4 = um_model_hn4, hn5 = um_model_hn5, hn6 = um_model_hn6,
-                   hn7 = um_model_hn7, hn8 = um_model_hn8, hn9 = um_model_hn9, 
-                   hn10 = um_model_hn10,
-                   hn11 = um_model_hn11, hn12 = um_model_hn12, 
-                   hn13 = um_model_hn13,
-                   hn14 = um_model_hn14, hn15 = um_model_hn15,
-                   hn16 = um_model_hn16, hn17 = um_model_hn17,
-                   hn18 = um_model_hn18,
-                   hn19 = um_model_hn19, hn20 = um_model_hn20,
-                   hn21 = um_model_hn21, hn22 = um_model_hn22,
-                   hn23 = um_model_hn23,
-                   hn24 = um_model_hn24, hn25 = um_model_hn25,
-                   hn26 = um_model_hn26, hn27 = um_model_hn27,
-                   hn28 = um_model_hn28, hn29 = um_model_hn29,
-                   hr1 = um_model_hr1, hr2 = um_model_hr2, hr3 = um_model_hr3,
-                   hr4 = um_model_hr4, hr5 = um_model_hr5, hr6 = um_model_hr6,
-                   hr7 = um_model_hr7, hr8 = um_model_hr8, hr9 = um_model_hr9, 
-                   hr10 = um_model_hr10,
-                   hr11 = um_model_hr11, hr12 = um_model_hr12, 
-                   hr13 = um_model_hr13,
-                   hr14 = um_model_hr14, hr15 = um_model_hr15,
-                   hr16 = um_model_hr16, hr17 = um_model_hr17,
-                   hr18 = um_model_hr18,
-                   hr19 = um_model_hr19, hr20 = um_model_hr20,
-                   hr21 = um_model_hr21, hr22 = um_model_hr22,
-                   hr23 = um_model_hr23,
-                   hr24 = um_model_hr24, hr25 = um_model_hr25,
-                   hr26 = um_model_hr26, hr27 = um_model_hr27,
-                   hr28 = um_model_hr28, hr29 = um_model_hr29)
-modSel(fm_list)
-```
 
 **Resultaten en visualisatie**
 
@@ -2132,23 +1919,37 @@ Het finaal model geeft:
 um_model_hn21
 
 # Densiteit
-# Half-open landschap
-backTransform(linearComb(um_model_hn21["state"], c(1, 0)))
+# Half-open landschap binnen sbp
+backTransform(linearComb(um_model_hn21["state"], c(1, 0, 0, 0)))
 
-# Open landschap
-backTransform(linearComb(um_model_hn21["state"], c(1, 1)))
+# Open landschap binnen sbp
+backTransform(linearComb(um_model_hn21["state"], c(1, 0, 1, 0)))
+
+# Half-open landschap buiten sbp
+backTransform(linearComb(um_model_hn21["state"], c(1, 1, 0, 0)))
+
+# Open landschap buiten sbp
+backTransform(linearComb(um_model_hn21["state"], c(1, 1, 1, 1)))
 
 # Detectiekans
-# Binnen soortbeschermingsplan
-backTransform(linearComb(um_model_hn21["det"], c(1, 0)))
+# Binnen soortbeschermingsplan De Moeren
+backTransform(linearComb(um_model_hn21["det"], c(1, 0, 0)))
 
-# Buiten soortbeschermingsplan
-backTransform(linearComb(um_model_hn21["det"], c(1, 1)))
+# Binnen soortbeschermingsplan Oostelijke leemstreek
+backTransform(linearComb(um_model_hn21["det"], c(1, 1, 0)))
+
+# Buiten soortbeschermingsplan De Moeren
+backTransform(linearComb(um_model_hn21["det"], c(1, 0, 1)))
+
+# Buiten soortbeschermingsplan Oostelijke leemstreek
+backTransform(linearComb(um_model_hn21["det"], c(1, 1, 1)))
 
 # Predicties
-new_df_dens <- expand.grid(regio = unique(covs_unmarked$regio),
-                           openheid = unique(covs_unmarked$openheid))
-new_df_detect <- data.frame(sbp = c("buiten", "binnen"))
+new_df_dens <- expand.grid(sbp = c("buiten", "binnen"),
+                           openheid = unique(covs_unmarked$openheid),
+                           regio = unique(covs_unmarked$regio))
+new_df_detect <- expand.grid(sbp = c("buiten", "binnen"),
+                           regio = unique(covs_unmarked$regio))
 
 Elambda <- predict(um_model_hn21, type = "state", newdata = new_df_dens,
     appendData = TRUE)
@@ -2156,25 +1957,30 @@ Esigma <- predict(um_model_hn21, type = "det", newdata = new_df_detect,
     appendData = TRUE)
 ```
 
-We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten de soortbeschermingsplans:
+We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten soortbeschermingsplan per regio:
 
 ```{r}
 # Detection function
-plot(function(x) gxhn(x, sigma = 107.02456), 0, 300, xlab = "Afstand (m)",
+plot(function(x) gxhn(x, sigma = 95.48460), 0, 300, xlab = "Afstand (m)",
     ylab = "Detection probability", las = 1, col = "blue")
-plot(function(x) gxhn(x, sigma = 92.08468), 0, 300, add = TRUE, col = "green")
-legend('topright', c("Binnen sbp", "Buiten sbp"),
-    col = c("blue", "green"), lty = 1)
+plot(function(x) gxhn(x, sigma = 108.52155), 0, 300, add = TRUE, col = "green")
+plot(function(x) gxhn(x, sigma = 92.44877), 0, 300, add = TRUE, col = "brown")
+plot(function(x) gxhn(x, sigma = 105.07122), 0, 300, add = TRUE, col = "orange")
+legend('topright', c("Buiten sbp - De Moeren", "Binnen sbp - De Moeren",
+                     "Buiten sbp - Oostelijke leemstreek", 
+                     "Binnen sbp - Oostelijke leemstreek"),
+    col = c("blue", "green", "brown", "orange"), lty = 1)
 ```
 
 De schatting van de densiteiten:
 
 ```{r}
 Elambda %>%
- ggplot(aes(x = openheid, y = Predicted)) + 
+ mutate(categorie = paste(sbp, openheid, sep = " - ")) %>%
+ ggplot(aes(x = categorie, y = Predicted)) + 
   geom_pointrange(aes(ymin = lower, ymax = upper, colour = regio),
                   position = position_dodge(width = 0.5)) +
-  labs(colour =  "Regio", x = "Openheid landschap", 
+  labs(colour =  "Regio", x = "", 
        y = "Aantal broedparen Gele kwikstaart per 100 ha") +
   scale_y_continuous(limits = c(0, NA))
 ```
@@ -2193,24 +1999,9 @@ design_2022 %>% count(regio, openheid) %>%
 <span style="color: red;">
 Hoe kunnen we hiermee rekening houden? Interactie met regio werkt niet.
 </span>
-
-```{r}
-# Maak predicties o.b.v. interactiemodel
-Elambda_interaction <- predict(um_model_hn28, type = "state", 
-                               newdata = new_df_dens, appendData = TRUE)
-
-# Visualiseer
-Elambda_interaction %>%
- ggplot(aes(x = openheid, y = Predicted)) + 
-  geom_pointrange(aes(ymin = lower, ymax = upper, colour = regio),
-                  position = position_dodge(width = 0.5)) +
-  labs(colour =  "Regio", x = "Openheid landschap", 
-       y = "Aantal broedparen Gele kwikstaart per 100 ha",
-       title = "Densiteit afhankelijk van interactie regio en openheid") +
-  scale_y_continuous(limits = c(0, NA))
-```
-
-We hebben geen rekening gehouden met de telperiodes. De functie `gdistsamp()` fit een meer complex model maar op welke manier hier dan met herhaalde tellingen wordt rekening gehouden is me momenteel niet duidelijk. Bovendien kan de " probability of being available for detection" geschat worden en kan een negatief binomiaal verdeling getest worden.
+  
+  
+We hebben geen rekening gehouden met de telperiodes. De functie `gdistsamp()` fit een meer complex model maar op welke manier hier dan met herhaalde tellingen wordt rekening gehouden is me momenteel niet duidelijk. Bovendien kan de "probability of being available for detection" geschat worden en kan een negatief binomiaal verdeling getest worden.
 
 Voor de datapreparatie voegen we nu de optie `occasionCol`toe.
 
@@ -2238,10 +2029,10 @@ um_model_GDS <- gdistsamp(~1, ~1, ~1, data = umf2, keyfun = "halfnorm",
                   output = "density", unitsOut = "kmsq", mixture = "P")
 um_model_GDS2 <- gdistsamp(~1, ~1, ~1, data = umf2, keyfun = "halfnorm", 
                    output = "density", unitsOut = "kmsq", mixture = "NB")
-um_model_GDS3 <- gdistsamp(~openheid, ~1, ~sbp, data = umf2, 
+um_model_GDS3 <- gdistsamp(~sbp * openheid, ~1, ~regio + sbp, data = umf2, 
                            keyfun = "halfnorm", output = "density", 
                            unitsOut = "kmsq", mixture = "P")
-um_model_GDS4 <- gdistsamp(~openheid, ~1, ~sbp, data = umf2, 
+um_model_GDS4 <- gdistsamp(~sbp * openheid, ~1, ~regio + sbp, data = umf2, 
                            keyfun = "halfnorm", output = "density", 
                            unitsOut = "kmsq", mixture = "NB")
 ```
@@ -2258,18 +2049,30 @@ modSel(fm_list2)
 um_model_GDS4
 
 # Densiteit
-# Half-open landschap
-backTransform(linearComb(um_model_GDS4["lambda"], c(1, 0)))
+# Half-open landschap binnen sbp
+backTransform(linearComb(um_model_GDS4["lambda"], c(1, 0, 0, 0)))
 
-# Open landschap
-backTransform(linearComb(um_model_GDS4["lambda"], c(1, 1)))
+# Open landschap binnen sbp
+backTransform(linearComb(um_model_GDS4["lambda"], c(1, 0, 1, 0)))
+
+# Half-open landschap buiten sbp
+backTransform(linearComb(um_model_GDS4["lambda"], c(1, 1, 0, 0)))
+
+# Open landschap buiten sbp
+backTransform(linearComb(um_model_GDS4["lambda"], c(1, 1, 1, 1)))
 
 # Detectiekans
-# Binnen soortbeschermingsplan
-backTransform(linearComb(um_model_GDS4["det"], c(1, 0)))
+# Binnen soortbeschermingsplan De Moeren
+backTransform(linearComb(um_model_GDS4["det"], c(1, 0, 0)))
 
-# Buiten soortbeschermingsplan
-backTransform(linearComb(um_model_GDS4["det"], c(1, 1)))
+# Binnen soortbeschermingsplan Oostelijke leemstreek
+backTransform(linearComb(um_model_GDS4["det"], c(1, 1, 0)))
+
+# Buiten soortbeschermingsplan De Moeren
+backTransform(linearComb(um_model_GDS4["det"], c(1, 0, 1)))
+
+# Buiten soortbeschermingsplan Oostelijke leemstreek
+backTransform(linearComb(um_model_GDS4["det"], c(1, 1, 1)))
 
 # Predicties
 Elambda2 <- predict(um_model_GDS4, type = "lambda", newdata = new_df_dens,
@@ -2282,21 +2085,26 @@ We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten de soor
 
 ```{r}
 # Detection function
-plot(function(x) gxhn(x, sigma = 107.21133), 0, 300, xlab = "Afstand (m)",
+plot(function(x) gxhn(x, sigma = 99.16160), 0, 300, xlab = "Afstand (m)",
     ylab = "Detection probability", las = 1, col = "blue")
-plot(function(x) gxhn(x, sigma = 91.76288), 0, 300, add = TRUE, col = "green")
-legend('topright', c("Binnen sbp", "Buiten sbp"),
-    col = c("blue", "green"), lty = 1)
+plot(function(x) gxhn(x, sigma = 112.61232), 0, 300, add = TRUE, col = "green")
+plot(function(x) gxhn(x, sigma = 91.62027), 0, 300, add = TRUE, col = "brown")
+plot(function(x) gxhn(x, sigma = 104.04805), 0, 300, add = TRUE, col = "orange")
+legend('topright', c("Buiten sbp - De Moeren", "Binnen sbp - De Moeren",
+                     "Buiten sbp - Oostelijke leemstreek", 
+                     "Binnen sbp - Oostelijke leemstreek"),
+    col = c("blue", "green", "brown", "orange"), lty = 1)
 ```
 
 De schatting van de densiteiten:
 
 ```{r}
 Elambda2 %>%
- ggplot(aes(x = openheid, y = Predicted)) + 
+ mutate(categorie = paste(sbp, openheid, sep = " - ")) %>%
+ ggplot(aes(x = categorie, y = Predicted)) + 
   geom_pointrange(aes(ymin = lower, ymax = upper, colour = regio),
                   position = position_dodge(width = 0.5)) +
-  labs(colour =  "Regio", x = "Openheid landschap", 
+  labs(colour =  "Regio", x = "", 
        y = "Aantal broedparen Gele kwikstaart per 100 ha") +
   scale_y_continuous(limits = c(0, NA))
 ```
@@ -2305,7 +2113,7 @@ Dit geeft nog steeds vreemde resultaten. We voeren een klassieke GLMM uit zoals 
 
 ```{r}
 # Voeg openheid landschap toe als variabele
-brmpois_openheid1 <- brm(bf(aantal ~ regio + periode_in_jaar + openheid + 
+brmpois_openheid1 <- brm(bf(aantal ~ regio + periode_in_jaar + sbp * openheid + 
                               (1 | plotnaam)), 
                         data = gele_kwik_2022, family = poisson(), 
                         chains = nchains, warmup = burnin, iter = niter, 
@@ -2416,6 +2224,7 @@ newdata_interaction %>%
 <span style="color: red;">
 Waarom werkt een interactie niet in **unmarked**??
 </span>
+
 
 ### Hierarchical distance sampling in STAN{#HDS_STAN}
 
@@ -2794,7 +2603,7 @@ plot_terr <- gele_kwik_2022 %>%
         "territoria" = "Aantal territoria")
       ))
 
-grid.arrange(GLMM_model, dist_model_hr8, plot_terr, 
+grid.arrange(GLMM_model, dist_model_hr1, plot_terr, 
              layout_matrix = rbind(c(1, 2), c(3)))
 ```
 
@@ -2952,7 +2761,7 @@ plot_terr2 <- gele_kwik_2022 %>%
         "territoria" = "Aantal territoria")
       ))
 
-grid.arrange(GLMM_model, dist_model_hr8, plot_terr2, 
+grid.arrange(GLMM_model, dist_model_hr1, plot_terr2, 
              layout_matrix = rbind(c(1, 2), c(3)))
 ```
 
@@ -3036,7 +2845,7 @@ In dit scenario clusteren we waarnemingen tot broedparen met **territoria**. Daa
 
 ### Data voorbereiden
 
-In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten van waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten en `Region.Label` is een label voor elke regio (zelfde als `regio`-kolom). We hebben ook een dataframe die we als optie `region_table` meegeven met `Region.Label` en `Area` en een dataframe die we als optie `sample_table` meegeven met `Sample.Label`, `Region.Label` en `Effort`. `Effort` is het aantal keer dat een plot is bezocht (overal 1). Deze laatste tabel bevat alle plotnamen, ook deze waar geen Gele kwikstaart werd gezien.
+In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten van waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten en `Region.Label` is een label voor elke regio (zelfde als `regio`-kolom). We hebben ook een dataframe die we als optie `region_table` meegeven met `Region.Label` en `Area` en een dataframe die we als optie `sample_table` meegeven met `Sample.Label`, `Region.Label` en `Effort`. `Effort` is het aantal keer dat een plot is bezocht (overal 1). Deze laatste tabel bevat alle plotnamen, ook deze waar geen Gele kwikstaart werd gezien. We gebruiken enkel afstanden <= 300 m
 
 ```{r}
 # Voeg clusters toe aan presence data
@@ -3073,9 +2882,10 @@ df_dist_terr_presence2 <- left_join(df_dist_terr_presence %>% as.data.frame(),
   rename(geometry = geometry.x) %>%
   st_sf(sf_column_name = "geometry")
 
-# Voeg regio label toe
+# Voeg regio label toe en filter op distance
 df_dist_terr <- df_dist_terr_presence2 %>%
-  mutate(Region.Label = regio)
+  mutate(Region.Label = regio) %>%
+  filter(distance <= 300)
 
 
 # Sample table
@@ -3121,127 +2931,6 @@ df_dist_terr %>%
     facet_wrap(~regio) +
     labs(y = "Aantal", x = "Afstand (m)")
 ```
-
-We zien plots enkele afstanden > 300 m. Dit zou niet mogen kunnen. We kijken even naar clusters die bestaan uit 1 waarneming. Hierbij zijn de coördinaten van de centroide gelijk aan de coördinaten van de originele waarneming.
-
-```{r}
-# Dataset met oorspronkelijke afstanden
-original_dist <- sp::merge(gele_kwik_2022_territoria, df_territoria2, 
-                           by = intersect("oid", "oid")) %>%
-  group_by(cluster) %>%
-  mutate(n = n()) %>%
-  filter(n == 1) %>%
-  rename(origi_distance = distance2plot) %>%
-  arrange(cluster)
-
-# Welke clusters bestaan uit 1 waarneming?
-single_clusts <- original_dist$cluster
-
-# Dataset met herberekende afstanden (centroid tot telpunt)
-new_dist <- df_dist_terr %>%
-  filter(cluster %in% single_clusts) %>%
-  rename(new_distance = distance) %>%
-  arrange(cluster)
-
-# Join oorspronkelijke en nieuwe datasets
-full_df <- original_dist %>% 
-  st_join(new_dist)
-
-# Zoek punten waarbij oorspronkelijke en nieuwe afstanden niet overeenkomen
-intersect <- full_df %>%
-  filter(!(origi_distance %in% c(floor(new_distance), ceiling(new_distance))))
-
-# Vergelijk oorspronkelijke en nieuwe afstanden (mismatches in blauw)
-full_df %>%
-  ggplot(aes(x = origi_distance, y = new_distance)) +
-    geom_abline(intercept = 0, slope = 1, colour = "red") + 
-    geom_point() +
-    geom_point(data = intersect, aes(x = origi_distance, y = new_distance), 
-               colour = "blue")
-```
-
-We zien dat voor sommige clusters de herberekende afstanden niet gelijk zijn aan de afstanden in de originele dataset (kolom `distance2plot`). Waarom?
-
-```{r}
-intersect %>% 
-  group_by(regio.x, sbp.x, openheid.x) %>%
-  st_drop_geometry() %>%
-  summarise(aantal_broedparen = sum(aantal.x)) %>%
-  group_by(regio.x) %>%
-  mutate(aantal_broedparen_per_regio = sum(aantal_broedparen)) %>%
-  kable()
-```
-
-We zien geen verband met regio, sbp of openheid. We plotten enkele clusters die mismatchen. In blauw zien we dat de herberekende afstanden voor elke cluster mooi door het telpunt gaan. Dit is niet voor de originele afstanden (rood):
-
-```{r}
-plot_circles <- function(plot) {
-  
-  data_origi <- original_dist %>% 
-    filter(plotnaam == plot) 
-  buffer_origi <- data_origi %>% 
-    st_buffer(data_origi$origi_distance)
-  
-  data_new <- new_dist %>% 
-   filter(Sample.Label == plot)
-  buffer_new <- data_new %>% 
-    st_buffer(data_new$new_distance)
-  
-  ggplot() +
-    geom_sf(data = data_origi,
-            colour = "red", size = 5) +
-    geom_sf(data = buffer_origi,
-            colour = "red", fill = alpha("white", 0)) +
-    geom_sf_text(data = data_origi,
-                 label = "original distance", colour = "red", 
-                 nudge_x = c(0, 0),
-                 nudge_y = c(50, 50)) +
-    
-    geom_sf(data = data_new,
-            colour = "blue", size = 3) +
-    geom_sf(data = buffer_new,
-            colour = "blue", fill = alpha("white", 0)) +
-    geom_sf_text(data = data_new,
-            label = "new distance", colour = "blue", 
-            nudge_x = c(0, 0),
-            nudge_y = c(75, 75)) +
-    
-    geom_sf(data = telpunt_coord %>% 
-              filter(definitief_punt == plot),
-            colour = "darkgreen", size = 5) +
-    geom_sf(data = telpunt_coord %>% 
-              filter(definitief_punt == plot) %>% 
-              st_buffer(300),
-          colour = "darkgreen", fill = alpha("white", 0)) +
-    geom_sf_text(data = telpunt_coord %>% 
-              filter(definitief_punt == plot),
-            label = "telpunt (300 m buffer)", colour = "darkgreen", 
-            nudge_x = 100,
-            nudge_y = -10) +
-    
-    labs(title = paste0("plot: ", plot))
-}
-
-
-plot_circles("DM_222.6")
-plot_circles("DM_137.2")
-plot_circles("Ol_4680")
-```
-
-We zien ook geen spatiale trend in de waarnemingen waarvoor we een mismatch hebben:
-
-```{r}
-intersect_ids <- intersect$cluster.x
-full_df <- full_df %>% 
-  mutate(correct = ifelse(cluster.x %in% intersect_ids, "fout", "correct"))
-
-mapview(telpunt_coord, legend = FALSE, col.regions = "green") +
-mapview(telpunt_coord %>% st_buffer(300), 
-        legend = FALSE, col.regions = "green", alpha.region = 0.1) +
-mapview(full_df, zcol = "correct")
-```
-
-**Conclusie:** We hebben de exacte coördinaten van de clusters en de telpunten dus we gaan er van uit dat de herberekende afstanden correct zijn. Voorlopig hebben we geen verklaring. Bij SOVON terugkoppelen hoe die afstanden worden berekend (automatisch in app?). Een mogelijkheid is wel dat de teller niet exact op het telpunt staat wanneer hij waarnemingen ingeeft waardoor de berekende afstanden in de app nu niet overeenkomen met de afstand tussen het theoretische telpunt en de waarnemingen. Soms zijn de mismatches wel groot (> 100 m), en vele gevallen is er geen mismatch. De mismatches zijn ook aanwezig bij verschillende tellers. Het blijft dus onduidelijk wat er aan de hand is.
 
 
 ### Model fit en selectie
@@ -3470,7 +3159,9 @@ summarize_ds_models(ds_scen1_unif1,
   kable()
 ```
 
-De modellen waarbij de detectiekans afhankelijk is van regio en soortbeschermingsplan scoren het best. 
+Het Hazard-rate model waarbij de detectiekans afhankelijk is van soortbeschermingsplan is het best.  
+  
+Als oefening gaan we verder met de modellen waarbij de detectiekans afhankelijk is van regio en soortbeschermingsplan.
 
 $$
 \sigma(\mathbf{z}) = \exp{\left( \beta_0 + \beta_1 z_{regio} + \beta_2 z_{sbp} \right)}
@@ -3639,7 +3330,7 @@ bindata <- function(x, r, breaks) {
 }
 
 sumit <- function(x, n, wt) {
-  return(sum(x/(wt * n)))
+  return(sum(x / (wt * n)))
 }
 ```
 
@@ -3652,7 +3343,7 @@ hn_model <- ds_scen1_hn5
 
 # Vector of distances used to re-create the detection function (from 0 out to 
 # truncation distance of 300 m)
-distances <- seq(0 ,300, length.out = 100)
+distances <- seq(0, 300, length.out = 100)
 
 # The models have two dichotomous factor variables that only affect the scale 
 # (not the shape) of the detection function:
@@ -3992,7 +3683,7 @@ p1 <- territoria_per_plot2 %>%
     geom_bar(aes(fill = regio), stat = "identity") +
     geom_text(aes(label = round(Estimate, digits = 2)), vjust = -0.5,
               colour = "black") +
-    scale_y_continuous(limits = c(0, 14)) +
+    scale_y_continuous(limits = c(0, 20)) +
     labs(x = "", y = "Aantal broedparen Gele kwikstaart\nper 100 ha", 
          title = "Aantal territoria") +
   theme(legend.position = "")
@@ -4006,7 +3697,7 @@ p2 <- rbind(df_results_hr5, df_results_hn5) %>%
             position = position_dodge(width = 1.75), vjust = -0.25) +
     geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25,
                   position = position_dodge(width = 0.5)) +
-    scale_y_continuous(limits = c(0, 14)) +
+    scale_y_continuous(limits = c(0, 20)) +
     scale_colour_manual(values = c("orange", "purple")) +
     labs(x = "", y = "", title = "P(detectie) ~ regio + sbp")
 
