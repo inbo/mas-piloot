@@ -40,7 +40,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
 
   # Calculate detection curves for different covariate combinations
 
-  if (!dist_model$ddf$ds$aux$ddfobj$intercept.only) {
+  if (!dist_model$ddf$ds$aux$ddfobj$intercept.only & !is.null(design_mat)) {
 
     # Make sure the design matrix is a dataframe
     design_mat <- design_mat %>%
@@ -176,7 +176,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
   # detection functions
   hist_df <- data.frame(mids = dummy_hist$mids, counts = dummy_hist$counts)
 
-  if (!dist_model$ddf$ds$aux$ddfobj$intercept.only) {
+  if (!dist_model$ddf$ds$aux$ddfobj$intercept.only & !is.null(design_mat)) {
     if (plot_average_fit) {
       out <- ggplot(hist_df) +
         geom_bar(aes(x = mids, y = counts), stat = "identity",
