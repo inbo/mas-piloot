@@ -4205,25 +4205,6 @@ dist_df <- inner_join(df_territoria_lang %>% as.data.frame(),
   st_sf(sf_column_name = "geometry")
 ```
 
-Inderdaad, er is een mismatch met de afstanden uit de app en de herberekende afstanden. We zien vooral mismatches in 2022 en de mismatches van vòòr 2022 zijn enkel van plot VL0075 of VL0073.
-
-```{r}
-dist_df %>%
-  mutate(mismatch = ifelse(distance2plot == floor(distance) |
-                           distance2plot == ceiling(distance),
-                           "no", "yes")) %>%
-  ggplot(aes(x = distance2plot, y = distance)) +
-    geom_abline(intercept = 0, slope = 1, colour = "black") + 
-    geom_point(aes(colour = mismatch)) +
-    labs(x = "Originele afstand (app SOVON)", 
-         y = "Herberekende afstand waarneming tot telpunt") +
-    scale_x_continuous(breaks = seq(0, 900, 100)) +
-    scale_y_continuous(breaks = seq(0, 900, 100)) +
-    facet_wrap(~jaar) +
-    theme(legend.position = c(1, 0),
-        legend.justification = c(1, 0))
-```
-
 In een tweede stap maken we de dataset klaar om de detectiecurve te fitten. We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `distance`: afstand tot waarnemer voor elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`. 
 
 ```{r}
@@ -4419,68 +4400,11 @@ summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1,
                     dens_jaren_hr16, dens_jaren_hn17, dens_jaren_hr17, 
                     dens_jaren_hn18, dens_jaren_hr18, dens_jaren_hn19, 
                     dens_jaren_hr19, dens_jaren_hn20, dens_jaren_hr20, 
-                    dens_jaren_hn21, dens_jaren_hr21, dens_jaren_hr24) %>%
+                    dens_jaren_hn21, dens_jaren_hr21, dens_jaren_hn24) %>%
   kable()
 ```
 
-We selecteren Hazard-rate model met variabelen jaar en sbp in interactie. Omdat we geen combinaties van interacties en variabelen niet in een interactie hebben gefit vergelijken we nog enkele modellen formules:
-
-- `~jaar * sbp + regio`  
-- `~jaar * sbp + regio`  
-- `~jaar * sbp + openheid`  
-- `~jaar * sbp + regio * openheid`  
-
-```{r}
-# Detectiekans
-detection_hr27 <- ddf(data = detection_df, method = "ds",
-        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio),
-        meta.data = list(width = 300, point = TRUE))
-detection_hr28 <- ddf(data = detection_df, method = "ds",
-        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + openheid),
-        meta.data = list(width = 300, point = TRUE))
-detection_hr29 <- ddf(data = detection_df, method = "ds",
-        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio + openheid),
-        meta.data = list(width = 300, point = TRUE))
-detection_hr30 <- ddf(data = detection_df, method = "ds",
-        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio * openheid),
-        meta.data = list(width = 300, point = TRUE))
-
-# Densiteiten
-dens_schat_hr27 <- dht(model = detection_hr27, region.table = region_table, 
-    sample.table = sample_table, obs.table = obs_table,
-    options = list(group = FALSE, convert.units = conversion_factor))
-dens_schat_hr28 <- dht(model = detection_hr28, region.table = region_table, 
-    sample.table = sample_table, obs.table = obs_table,
-    options = list(group = FALSE, convert.units = conversion_factor))
-dens_schat_hr29 <- dht(model = detection_hr29, region.table = region_table, 
-    sample.table = sample_table, obs.table = obs_table,
-    options = list(group = FALSE, convert.units = conversion_factor))
-dens_schat_hr30 <- dht(model = detection_hr30, region.table = region_table, 
-    sample.table = sample_table, obs.table = obs_table,
-    options = list(group = FALSE, convert.units = conversion_factor))
-
-# Maak dsmodel voor later gebruik functies in Distance package
-dens_jaren_hr27 <- list(ddf = detection_hr27, dht = dens_schat_hr27)
-class(dens_jaren_hr27) <- "dsmodel"
-
-dens_jaren_hr28 <- list(ddf = detection_hr28, dht = dens_schat_hr28)
-class(dens_jaren_hr28) <- "dsmodel"
-
-dens_jaren_hr29 <- list(ddf = detection_hr29, dht = dens_schat_hr29)
-class(dens_jaren_hr29) <- "dsmodel"
-
-dens_jaren_hr30 <- list(ddf = detection_hr30, dht = dens_schat_hr30)
-class(dens_jaren_hr30) <- "dsmodel"
-```
-
-```{r}
-summarize_ds_models(dens_jaren_hr19, dens_jaren_hr27, dens_jaren_hr28, 
-                    dens_jaren_hr29, dens_jaren_hr30) %>%
-  kable()
-```
-
-We zien dat model 19 nog alijd het simpelste model is met een verschil in AIC’s kleiner dan 2.
-
+Het beste model heeft variabelen regio en jaar. Als oefening selecteren we het Hazard-rate model met variabelen jaar en sbp in interactie.
 
 ### Model fit
 
@@ -4716,3 +4640,4 @@ Een ander probleem bij clustering is dat je detectiekans afhangt van het aantal 
 - Targets moeten gecontroleerd worden, fout in data/code?
 - Clusteren van individuen mogelijks geen goed idee. Gebruik van ruwe data met `Effort = 4` zal een onderschatting geven maar is een robuustere methode.
 - Voorlopig is het niet belangrijk om hypotheses te testen. We willen enkel een goede schatting van de abundantie met onzekerheid. Als later toch gevraagd wordt, kunnen we eventueel herberkeningen doen en abstracties zodat we van **effectclass** kunnen gebruikmaken.
+- Telperiode 1 niet gebruiken
