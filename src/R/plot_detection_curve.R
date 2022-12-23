@@ -16,11 +16,22 @@ keyfct.hn <- function(distance, key.scale) {
   return(exp( -(( distance / (sqrt(2) * key.scale) )^2) ))
 }
 
+# from mrds:::detfct
+bindata <- function(x, r, breaks) {
+  return(hist(r[r >= x[1] & r <= x[2]], breaks = breaks,
+              plot = FALSE)$counts)}
+sumit <- function(x, n, wt) {
+  return(sum(x / (wt * n)))}
+
 plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
                                  trunc = 300, n_breaks = 15,
                                  plot_average_fit = TRUE) {
   require(mrds)
   require(tidyverse)
+
+  if (!dist_model$ddf$meta.data$point) {
+    stop(paste0("Function only works for point transects!"), call. = FALSE)
+  }
 
   # Vector of distances used to re-create the detection function (from 0 out to
   # truncation distance, default 300 m)
@@ -129,10 +140,16 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
   dummy_hist <- hist(dist_data[dist_data$distance <= trunc,]$distance,
                      breaks = breaks, plot = FALSE)
 
-  # Calculate expected counts for each distance value for point transects
-  nc <- length(breaks) - 1
-  expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2),
-    ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
+  # Calculate expected counts for each distance
+  if (dist_model$ddf$meta.data$point) {
+    nc <- length(breaks) - 1
+    expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2),
+      ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
+  } else {
+    expected.counts <- apply(t(as.matrix(c(0, trunc))), 1, bindata,
+      r = (0:1000) * trunc / 1001, breaks = breaks)
+    expected.counts <- apply(expected.counts, 1, sumit, n = 1001, wt = pdot)
+  }
 
   # Re-scale the counts
   dummy_hist$counts <- dummy_hist$counts / expected.counts
