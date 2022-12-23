@@ -41,6 +41,7 @@ library(brms)
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
+source(here("src", "R", "plot_detection_curve.R"))
 mbag_dir <- here()
 ```
 
@@ -1067,7 +1068,7 @@ summary_hr1 <- summary(dsmodelhr1)
 summary_hr1$ds$coeff$key.scale %>%
   kable(digits = 2)
 
-plot(dsmodelhr1)
+plot_detection_curve(dsmodelhr1)
 ```
 
 De schattingen van abundantie (totaal aantal broedparen voor de volledige regio) en voor densiteit (aantal broedparen per 100 ha):
@@ -3303,258 +3304,23 @@ Kunnen we deze plots repliceren in `ggplot()`? Herschaling onduidelijk. Combinat
 https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ  
 https://rdrr.io/cran/mrds/src/R/plot.ds.R  
   
-We hebben een aantal functies nodig van het **mrds** package:
+We hebben dit in een functie gegoten in plot_detection_curve.R. Indien we parameters willen combineren, moeten we een designmatrix meegeven en labels per categorie.
 
 ```{r}
-# Scaling factor needed for correct plotting
-# From mrds:::scalevalue
-scalevalue <- function(key.scale, z) {
-  return(exp(as.matrix(z) %*% key.scale))
-  }
+design_plot <- matrix(c(1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1), 
+                      ncol = 3, byrow = TRUE)
 
-# This function calculates the detection probability according to a hazard rate 
-# model from mrds:::keyfct.hz
-keyfct.hz <- function(distance, key.scale, key_shape) {
-  return(1 - exp(-(distance/key.scale)^(-key_shape)))
-  }
+labels_plot <- c("De Moeren - binnen", "De Moeren - buiten", 
+                 "Oostelijke leemstreek - binnen", 
+                 "Oostelijke leemstreek - buiten")
 
-# This function calculates the detection probability according to a hazard rate 
-# model from mrds:::keyfct.hn
-keyfct.hn <- function(distance, key.scale) {
-  return(exp( -(( distance / (sqrt(2) * key.scale) )^2) ))
-}
+plot_detection_curve(ds_scen1_hr5, design_mat = design_plot, 
+                     labels = labels_plot) +
+  labs(title = "Hazard-rate model")
 
-# from mrds:::detfct
-bindata <- function(x, r, breaks) {
-  return(hist(r[r >= x[1] & r <= x[2]], breaks = breaks, plot = FALSE)$counts)
-}
-
-sumit <- function(x, n, wt) {
-  return(sum(x / (wt * n)))
-}
-```
-
-We berekenen detectiekansen:
-
-```{r}
-dist_data <- df_dist_terr
-hr_model <- ds_scen1_hr5
-hn_model <- ds_scen1_hn5
-
-# Vector of distances used to re-create the detection function (from 0 out to 
-# truncation distance of 300 m)
-distances <- seq(0, 300, length.out = 100)
-
-# The models have two dichotomous factor variables that only affect the scale 
-# (not the shape) of the detection function:
-
-# Shape parameter
-key_shape_hr <- scalevalue(hr_model$ddf$ds$aux$ddfobj$shape$parameters, 
-                           matrix(1, nrow = 100, 1))
-
-# Scale parameter - Hazard-rate
-# Factor = 0: De Moeren - binnen
-mat0 <- matrix(1, nrow = 100, ncol = 3)
-mat0[, 2:3] <- 0
-key.scale0 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
-
-# Factor = 1: De Moeren - buiten
-mat1 <- matrix(1, nrow = 100, ncol = 3)
-mat1[, 2] <- 0
-key.scale1 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
-
-# Factor = 2: Oostelijke leemstreek - binnen
-mat2 <- matrix(1, nrow = 100, ncol = 3)
-mat2[, 3] <- 0
-key.scale2 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
-
-# Factor = 3: Oostelijke leemstreek - buiten
-mat3 <- matrix(1, nrow = 100, ncol = 3)
-key.scale3 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
-
-# Calculate detection probability values
-y.val0 <- keyfct.hz(distances, key.scale0, key_shape_hr)
-y.val1 <- keyfct.hz(distances, key.scale1, key_shape_hr)
-y.val2 <- keyfct.hz(distances, key.scale2, key_shape_hr)
-y.val3 <- keyfct.hz(distances, key.scale3, key_shape_hr)
-
-df_hazard <- rbind(data.frame(dist = distances, y_val = y.val0, 
-                   Legende = "De Moeren - binnen"),
-               data.frame(dist = distances, y_val = y.val1, 
-                   Legende = "De Moeren - buiten"),
-               data.frame(dist = distances, y_val = y.val2, 
-                   Legende = "Oostelijke leemstreek - binnen"),
-               data.frame(dist = distances, y_val = y.val3, 
-                   Legende = "Oostelijke leemstreek - buiten"))
-
-# Scale parameter - Half-normal
-# Factor = 0: De Moeren - binnen
-mat0 <- matrix(1, nrow = 100, ncol = 3)
-mat0[, 2:3] <- 0
-key.scale0 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
-
-# Factor = 1: De Moeren - buiten
-mat1 <- matrix(1, nrow = 100, ncol = 3)
-mat1[, 2] <- 0
-key.scale1 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
-
-# Factor = 2: Oostelijke leemstreek - binnen
-mat2 <- matrix(1, nrow = 100, ncol = 3)
-mat2[, 3] <- 0
-key.scale2 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
-
-# Factor = 3: Oostelijke leemstreek - buiten
-mat3 <- matrix(1, nrow = 100, ncol = 3)
-key.scale3 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
-
-# Calculate detection probability values
-y.val0 <- keyfct.hn(distances, key.scale0)
-y.val1 <- keyfct.hn(distances, key.scale1)
-y.val2 <- keyfct.hn(distances, key.scale2)
-y.val3 <- keyfct.hn(distances, key.scale3)
-
-df_halfnorm <- rbind(data.frame(dist = distances, y_val = y.val0, 
-                     Legende = "De Moeren - binnen"),
-                 data.frame(dist = distances, y_val = y.val1, 
-                     Legende = "De Moeren - buiten"),
-                 data.frame(dist = distances, y_val = y.val2, 
-                     Legende = "Oostelijke leemstreek - binnen"),
-                 data.frame(dist = distances, y_val = y.val3, 
-                     Legende = "Oostelijke leemstreek - buiten"))
-```
-
-Nu kunnen we beginnen plotten:
-
-```{r}
-# Re-create the histogram: Hazard-rate
-
-# Detection probability for each fitted value & Nhat estimate
-selected <- rep(TRUE, nrow(hr_model$ddf$ds$aux$ddfobj$xmat))
-if (length(hr_model$ddf$fitted) == 1) {
-  pdot <- rep(hr_model$ddf$fitted, sum(as.numeric(selected)))
-} else {
-  pdot <- hr_model$ddf$fitted[selected]
-  Nhat <- sum(1 / pdot)
-}
-
-# Create a dummy histogram
-# dist_data is the data.frame object of the distance data
-# Right-truncating here at 300 m
-# If you inspect the internal functions of the mrds package, you will find how 
-# the number of histogram breaks is calculated. In our case, the value is 15
-n_breaks <- 15
-trunc <- 300
-breaks <- seq(0, trunc, trunc / n_breaks)
-hist_hr <- hist(dist_data[dist_data$distance <= trunc,]$distance, 
-                breaks = breaks, plot = FALSE)
-
-# Calculate expected counts for each distance value for point transects
-nc <- length(breaks) - 1
-expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2), 
-  ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
-
-# Re-scale the counts
-hist_hr$counts <- hist_hr$counts / expected.counts
-
-# Calculate the fitted average detection probability
-ddfobj <- hr_model$ddf$ds$aux$ddfobj
-finebr <- seq(0, trunc, length.out = 101)
-xgrid <- NULL
-linevalues <- NULL
-newdat <- ddfobj$xmat
-for (i in 1:(length(finebr) - 1)) {
-  x <- (finebr[i] + finebr[i + 1]) / 2
-  xgrid <- c(xgrid, x)
-  newdat$distance <- rep(x, nrow(newdat))
-
-  detfct.values <- detfct(newdat$distance, ddfobj, select = selected,
-                          width = trunc)
-  linevalues <- c(linevalues, sum(detfct.values/pdot)/sum(1/pdot))
-}
-
-df_gemiddelde_hr <- data.frame(dist = distances, lineval = linevalues)
-
-# Use the ggplot2 package to plot the histogram as a barplot and overlay the 
-# detection functions
-hist_df_hr <- data.frame(mids = hist_hr$mids, counts = hist_hr$counts)
-
-ggplot(hist_df_hr) + 
-  geom_bar(aes(x = mids, y = counts), stat = "identity",
-           width = trunc / n_breaks, fill = "white", color = "black") + 
-  geom_line(data = df_hazard, aes(x = dist, y = y_val, colour = Legende), 
-            size = 1) +
-  geom_line(data = df_gemiddelde_hr, aes(x = dist, y = lineval), size = 1, 
-            linetype = "dashed") +
-  labs(title = "Hazard-rate model", x = "Afstand (m)", y = "Detectiekans") +
-  theme(legend.position = c(1, 1),
-        legend.justification = c(1, 1),
-        legend.background = element_rect(fill = "white", color = "black"))
-```
-
-```{r}
-# Re-create the histogram: Half-normal
-
-# Detection probability for each fitted value & Nhat estimate
-selected <- rep(TRUE, nrow(hn_model$ddf$ds$aux$ddfobj$xmat))
-if (length(hn_model$ddf$fitted) == 1) {
-  pdot <- rep(hn_model$ddf$fitted, sum(as.numeric(selected)))
-} else {
-  pdot <- hn_model$ddf$fitted[selected]
-  Nhat <- sum(1 / pdot)
-}
-
-# Create a dummy histogram
-# dist_data is the data.frame object of the distance data
-# Right-truncating here at 300 m
-# If you inspect the internal functions of the mrds package, you will find how 
-# the number of histogram breaks is calculated. In our case, the value is 15
-n_breaks <- 15
-trunc <- 300
-breaks <- seq(0, trunc, trunc / n_breaks)
-hist_hn <- hist(dist_data[dist_data$distance <= trunc,]$distance, 
-                breaks = breaks, plot = FALSE)
-
-# Calculate expected counts for each distance value for point transects
-nc <- length(breaks) - 1
-expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2), 
-  ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
-
-# Re-scale the counts
-hist_hn$counts <- hist_hn$counts / expected.counts
-
-# Calculate the fitted average detection probability
-ddfobj <- hn_model$ddf$ds$aux$ddfobj
-finebr <- seq(0, trunc, length.out = 101)
-xgrid <- NULL
-linevalues <- NULL
-newdat <- ddfobj$xmat
-for (i in 1:(length(finebr) - 1)) {
-  x <- (finebr[i] + finebr[i + 1]) / 2
-  xgrid <- c(xgrid, x)
-  newdat$distance <- rep(x, nrow(newdat))
-
-  detfct.values <- detfct(newdat$distance, ddfobj, select = selected,
-                          width = trunc)
-  linevalues <- c(linevalues, sum(detfct.values/pdot)/sum(1/pdot))
-}
-
-df_gemiddelde_hn <- data.frame(dist = distances, lineval = linevalues)
-
-# Use the ggplot2 package to plot the histogram as a barplot and overlay the 
-# detection functions
-hist_df_hn <- data.frame(mids = hist_hn$mids, counts = hist_hn$counts)
-
-ggplot(hist_df_hn) + 
-  geom_bar(aes(x = mids, y = counts), stat = "identity",
-           width = trunc / n_breaks, fill = "white", color = "black") + 
-  geom_line(data = df_halfnorm, aes(x = dist, y = y_val, colour = Legende), 
-            size = 1) +
-  geom_line(data = df_gemiddelde_hn, aes(x = dist, y = lineval), size = 1, 
-            linetype = "dashed") +
-  labs(title = "Half-normal model", x = "Afstand (m)", y = "Detectiekans") +
-  theme(legend.position = c(1, 1),
-        legend.justification = c(1, 1),
-        legend.background = element_rect(fill = "white", color = "black"))
+plot_detection_curve(ds_scen1_hn5, design_mat = design_plot, 
+                     labels = labels_plot) +
+  labs(title = "Half-normal model")
 ```
 
 
@@ -3674,7 +3440,7 @@ rbind(df_results_hr5, df_results_hn5) %>%
 
 ### Discussie
 
-De volgende figuren tonen het aantal broedparen per 100 ha. Puntschattingen zijn steeds aangegeven; enkel in het geval van distance sampling hebben we confidence limits (95 %). Aantal territoria is berekend als het aantal clusters (via **territoria** package) per circeloppervlakte en dan omgezet naar hectare. Bij distance sampling hebben we ook de clusters gebruikt, maar hebben we rekening gehouden met detectiekans. De schattingen worden dan omgezet naar 100 ha o.b.v. de oppervlakte van de regio's en niet o.b.v. de cirkeloppervlakte. Bij het gemiddelde aantal per plot nemen we som van alle gemiddelde aantallen broedparen per plot waarbij we het gemiddelde nemen over de telperiodes en bij het maximum het maximum aantal over de telperiodes per plot. Daarna wordt dit aantal berekend per circeloppervlakte en dan omgezet naar 100 hectare.
+De volgende figuren tonen het aantal broedparen per 100 ha. Puntschattingen zijn steeds aangegeven; enkel in het geval van distance sampling hebben we confidence limits (95 %). Aantal territoria is berekend als het aantal clusters (via **territoria** package) per cirkelervlakte en dan omgezet naar hectare. Bij distance sampling hebben we ook de clusters gebruikt, maar hebben we rekening gehouden met detectiekans. De schattingen worden dan omgezet naar 100 ha o.b.v. de oppervlakte van de regio's en niet o.b.v. de cirkeloppervlakte. Bij het gemiddelde aantal per plot nemen we som van alle gemiddelde aantallen broedparen per plot waarbij we het gemiddelde nemen over de telperiodes en bij het maximum het maximum aantal over de telperiodes per plot. Daarna wordt dit aantal berekend per cirkelervlakte en dan omgezet naar 100 hectare.
 
 ```{r, fig.height=7, fig.width=9}
 p1 <- territoria_per_plot2 %>%
@@ -4273,7 +4039,7 @@ obs_table <- dist_df %>%
 ```
 
 
-### Model fit
+### Modellen fitten
 
 **1. Bereken detectiekans**  
 We fitten half-normal en hazard-rate key functions waarbij we alle combinaties van covariaten beschouwen en alle combinaties van interacties.
@@ -4416,8 +4182,6 @@ breaks <- seq(0, 300, 300 / 15)
 par(mfrow = c(1, 2))
 gof_ds(dens_jaren_hr19)
 plot(dens_jaren_hr19, pdf = TRUE, showpoints = FALSE, breaks = breaks)
-par(mfrow = c(1, 1))
-plot(dens_jaren_hr19, showpoints = FALSE, breaks = breaks)
 ```
 
 We zien een goede algemene fit. We kunnen dit ook visualiseren voor elke categorie.
@@ -4437,6 +4201,38 @@ for (j in as.character(2018:2022)) {
   }
 }
 par(mfrow = c(1, 1))
+```
+
+We plotten de detectiecurve. De design matrix ziet er als volgt uit: 
+
+```{r}
+design_plot <- matrix(rep(0, 10 * 10), ncol = 10, byrow = TRUE)
+design_plot[, 1] <- 1
+design_plot[c(2, 7), 2] <- 1
+design_plot[c(3, 8), 3] <- 1
+design_plot[c(4, 9), 4] <- 1
+design_plot[c(5, 10), 5] <- 1
+design_plot[6:10, 6] <- 1
+design_plot[7, 7] <- 1
+design_plot[8, 8] <- 1
+design_plot[9, 9] <- 1
+design_plot[10, 10] <- 1
+
+labels_plot <- paste(rep(c("binnen", "buiten"), each = 5), 
+                     rep(2018:2022, 2), sep = " - ")
+
+design_plot %>%
+  data.frame() %>%
+  `rownames<-`(labels_plot) %>%
+  `colnames<-`(names(dens_jaren_hr19$ddf$ds$aux$ddfobj$scale$parameters)) %>%
+  kable()
+```
+
+En de detectiecurve:
+
+```{r}
+plot_detection_curve(dens_jaren_hr19, design_mat = design_plot, 
+                     labels = labels_plot)
 ```
 
 
