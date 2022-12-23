@@ -1,31 +1,78 @@
-# Scaling factor needed for correct plotting
-# From mrds:::scalevalue
+#'  Plot detection functions in ggplot
+#'
+#' Various functions used to specify key and adjustment functions for
+#' detection functions from mrds package.
+#' Final function to plot the detection function with ggplot
+#'
+#' \code{scalevalue} for either detection function it computes the scale with
+#' the log link using the parameters and the covariate design matrix.
+#' From mrds:::scalevalue
+#'
+#' \code{keyfct.hz} calculates the detection probability according to a
+#' hazard rate model.
+#' From mrds:::keyfct.hz
+#'
+#' \code{keyfct.hn} calculates the detection probability according to a
+#' half normal model.
+#' From mrds:::keyfct.hn
+#'
+#' \code{plot_detection_curve} will create a bar graph of distances with
+#' superimposed detection curves and average fitting curve according to a
+#' dsmodel. In a multicovariate model, a design matrix and labels can be passed
+#' to create detection functions for each category
+#'
+#' scalevalue(key.scale, z)
+#'
+#' keyfct.hn(distance, key.scale)
+#'
+#' keyfct.hz(distance, key.scale, key.shape)
+#'
+#' plot_detection_curve(dist_model, design_mat = NULL, labels = NULL,
+#'                      n_breaks, plot_average_fit = TRUE)
+#'
+#' @param distance  vector of distances
+#' @param z design matrix for scale function
+#' @param key.scale vector of scale values
+#' @param key.shape vector of shape values
+#' @param dist_model dsmodel
+#' @param design_mat design matrix for plot function
+#' @param labels vector of strings used for labeling the plotting categories
+#' @param n_breaks number of breaks for the bar graph
+#' @param plot_average_fit logical used to indicate whether the fitted average
+#' detection curve should be plotted
+#'
+#' @return
+#' For \code{scalevalue}, vector of the scale parameters
+#' For \code{keyfct.*}, vector of key function evaluations
+#' For \code{plot_detection_curve}, ggplot object
+#'
+#' @examples
+#' plot_detection_curve(dist_model, n_breaks = 20)
+#' plot_detection_curve(dist_model, n_breaks = 20, plot_average_fit = FALSE)
+#' plot_detection_curve(dist_model, design_mat = plot_matrix,
+#'                      labels = plot_labels, n_breaks = 15)
+#' plot_detection_curve(dist_model, design_mat = plot_matrix,
+#'                      labels = plot_labels, n_breaks = 20,
+#'                      plot_average_fit = FALSE)
+
+
 scalevalue <- function(key.scale, z) {
   return(exp(as.matrix(z) %*% key.scale))
 }
 
-# This function calculates the detection probability according to a hazard rate
-# model from mrds:::keyfct.hz
+
 keyfct.hz <- function(distance, key.scale, key_shape) {
   return(1 - exp(-(distance/key.scale)^(-key_shape)))
 }
 
-# This function calculates the detection probability according to a hazard rate
-# model from mrds:::keyfct.hn
+
 keyfct.hn <- function(distance, key.scale) {
   return(exp( -(( distance / (sqrt(2) * key.scale) )^2) ))
 }
 
-# from mrds:::detfct
-bindata <- function(x, r, breaks) {
-  return(hist(r[r >= x[1] & r <= x[2]], breaks = breaks,
-              plot = FALSE)$counts)}
-sumit <- function(x, n, wt) {
-  return(sum(x / (wt * n)))}
 
 plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
-                                 trunc = 300, n_breaks = 15,
-                                 plot_average_fit = TRUE) {
+                                 n_breaks = 15, plot_average_fit = TRUE) {
   require(mrds)
   require(tidyverse)
 
@@ -34,7 +81,8 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
   }
 
   # Vector of distances used to re-create the detection function (from 0 out to
-  # truncation distance, default 300 m)
+  # truncation distance)
+  trunc <- dsmodelhn1$ddf$meta.data$width
   distances <- seq(0, trunc, length.out = 100)
 
 
@@ -132,24 +180,18 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
   # dist_data is the data.frame object of the distance data
   dist_data <- dist_model$ddf$data
 
-  # Right-truncating default at 300 m
+  # Right-truncating
   # If you inspect the internal functions of the mrds package, you will find how
   # the number of histogram breaks is calculated. In our case, it is a variable
-  # of the function, the default value is 15
+  # of the function
   breaks <- seq(0, trunc, trunc / n_breaks)
   dummy_hist <- hist(dist_data[dist_data$distance <= trunc,]$distance,
                      breaks = breaks, plot = FALSE)
 
-  # Calculate expected counts for each distance
-  if (dist_model$ddf$meta.data$point) {
-    nc <- length(breaks) - 1
-    expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2),
-      ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
-  } else {
-    expected.counts <- apply(t(as.matrix(c(0, trunc))), 1, bindata,
-      r = (0:1000) * trunc / 1001, breaks = breaks)
-    expected.counts <- apply(expected.counts, 1, sumit, n = 1001, wt = pdot)
-  }
+  # Calculate expected counts for each distance (point transect only)
+  nc <- length(breaks) - 1
+  expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2),
+    ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
 
   # Re-scale the counts
   dummy_hist$counts <- dummy_hist$counts / expected.counts
