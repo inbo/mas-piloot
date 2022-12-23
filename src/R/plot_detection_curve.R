@@ -85,8 +85,9 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
   trunc <- dsmodelhn1$ddf$meta.data$width
   distances <- seq(0, trunc, length.out = 100)
 
-
+  #####
   # Calculate detection curves for different covariate combinations
+  #####
 
   if (!dist_model$ddf$ds$aux$ddfobj$intercept.only & !is.null(design_mat)) {
 
@@ -164,8 +165,9 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
     }
   }
 
-
+  #####
   # Re-create the histogram
+  #####
 
   # Detection probability for each fitted value & Nhat estimate
   selected <- rep(TRUE, nrow(dist_model$ddf$ds$aux$ddfobj$xmat))
@@ -196,7 +198,10 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
   # Re-scale the counts
   dummy_hist$counts <- dummy_hist$counts / expected.counts
 
+  #####
   # Calculate the fitted average detection probability
+  #####
+
   ddfobj <- dist_model$ddf$ds$aux$ddfobj
   finebr <- seq(0, trunc, length.out = 101)
   xgrid <- NULL
@@ -214,11 +219,17 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
 
   df_gemiddelde <- data.frame(dist = distances, lineval = linevalues)
 
+  #####
+  # Make final plot with ggplot()
+  #####
+
   # Use the ggplot2 package to plot the histogram as a barplot and overlay the
   # detection functions
   hist_df <- data.frame(mids = dummy_hist$mids, counts = dummy_hist$counts)
 
+  # Plot with covariates and design matrix
   if (!dist_model$ddf$ds$aux$ddfobj$intercept.only & !is.null(design_mat)) {
+  # Plot with average fitting line
     if (plot_average_fit) {
       out <- ggplot(hist_df) +
         geom_bar(aes(x = mids, y = counts), stat = "identity",
@@ -232,6 +243,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
         theme(legend.position = c(1, 1),
               legend.justification = c(1, 1),
               legend.background = element_rect(fill = "white", color = "black"))
+    # Plot without average fitting line
     } else {
       out <- ggplot(hist_df) +
         geom_bar(aes(x = mids, y = counts), stat = "identity",
@@ -244,7 +256,10 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
               legend.justification = c(1, 1),
               legend.background = element_rect(fill = "white", color = "black"))
     }
+
+  # Plot without covariates/design matrix
   } else {
+  # Plot average fit
     if (plot_average_fit) {
       out <- ggplot(hist_df) +
         geom_bar(aes(x = mids, y = counts), stat = "identity",
@@ -256,6 +271,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
         theme(legend.position = c(1, 1),
               legend.justification = c(1, 1),
               legend.background = element_rect(fill = "white", color = "black"))
+    # Plot bar graph
     } else {
       out <- ggplot(hist_df) +
         geom_bar(aes(x = mids, y = counts), stat = "identity",
