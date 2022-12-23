@@ -39,7 +39,7 @@
 #' @param labels vector of strings used for labeling the plotting categories
 #' @param n_breaks number of breaks for the bar graph
 #' @param plot_average_fit logical used to indicate whether the fitted average
-#' detection curve should be plotted
+#' detection curve should be plotted (default is TRUE)
 #'
 #' @return
 #' For \code{scalevalue}, vector of the scale parameters
