@@ -1068,7 +1068,7 @@ summary_hr1 <- summary(dsmodelhr1)
 summary_hr1$ds$coeff$key.scale %>%
   kable(digits = 2)
 
-plot_detection_curve(dsmodelhr1)
+plot_detection_curve(dsmodelhr1, n_breaks = 15)
 ```
 
 De schattingen van abundantie (totaal aantal broedparen voor de volledige regio) en voor densiteit (aantal broedparen per 100 ha):
@@ -3315,11 +3315,11 @@ labels_plot <- c("De Moeren - binnen", "De Moeren - buiten",
                  "Oostelijke leemstreek - buiten")
 
 plot_detection_curve(ds_scen1_hr5, design_mat = design_plot, 
-                     labels = labels_plot) +
+                     labels = labels_plot, n_breaks = 15) +
   labs(title = "Hazard-rate model")
 
 plot_detection_curve(ds_scen1_hn5, design_mat = design_plot, 
-                     labels = labels_plot) +
+                     labels = labels_plot, n_breaks = 15) +
   labs(title = "Half-normal model")
 ```
 
@@ -4232,7 +4232,7 @@ En de detectiecurve:
 
 ```{r}
 plot_detection_curve(dens_jaren_hr19, design_mat = design_plot, 
-                     labels = labels_plot)
+                     labels = labels_plot, n_breaks = 15)
 ```
 
 
