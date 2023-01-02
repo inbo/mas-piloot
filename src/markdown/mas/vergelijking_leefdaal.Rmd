@@ -26,6 +26,7 @@ library(sf)
 library(terra)
 library(mapview)
 library(leafem)
+library(inboggvegan)
 mbag_dir <- here()
 ```
 
@@ -912,32 +913,11 @@ perc_var(pca_opp$sdev) %>%
 Lovenjoel ligt dichter bij Zavelberg langs PC1 dan Kortenberg.
 
 ```{r}
-pca_opp$x %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
-    geom_point(size = 3) +
-    scale_y_continuous(limits = c(-3, 3)) +
-    scale_x_continuous(limits = c(-3, 3)) +
-    geom_text(aes(label = deelgebied), vjust = -1) +
-    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
-              round(PC2, digits = 2), ")")), vjust = 1.5) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "")
-```
-
-```{r}
-pca_opp$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-1, 1)) +
-    scale_x_continuous(limits = c(-1, 1))
+ggbiplot_vegan(pca_opp) +
+  geom_text(aes(label = row.names(pca_opp$x)), vjust = -1) +
+  geom_text(aes(label = paste0("(", round(pca_opp$x[,"PC1"], digits = 2), ", ", 
+                               round(pca_opp$x[,"PC2"], digits = 2), ")")), 
+            vjust = 1.5)
 ```
 
 Deze resultaten zijn in overeenstemming met onze eerdere conclusies. In \@ref(oppervlakte) zagen we dat Zavelberg en Lovenjoel groter zijn dan Kortenberg, terwijl we in \@ref(perceel) zagen dat de mediaan van de perceelgroottes kleiner zijn in Lovenjoel en Zavelberg dan Kortenberg. Dat maakt Lovenjoel meer gelijkaardig aan Zavelberg dan Kortenberg. We hebben toen echter geen voordeel gegeven aan Lovenjoel t.o.v. Kortenberg omdat de verschillen dermate klein zijn.  
@@ -973,33 +953,15 @@ perc_var(pca_landgebruik$sdev) %>%
 Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
 
 ```{r}
-pca_landgebruik$x %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
-    geom_point(size = 3) +
-    scale_y_continuous(limits = c(-4, 4)) +
-    scale_x_continuous(limits = c(-4, 4)) +
-    geom_text(aes(label = deelgebied), vjust = -1) +
-    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
-              round(PC2, digits = 2), ")")), vjust = 1.5) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "")
+ggbiplot_vegan(pca_landgebruik) +
+  geom_text(aes(label = row.names(pca_landgebruik$x)), vjust = -1) +
+  geom_text(aes(label = paste0("(", round(pca_landgebruik$x[,"PC1"], 
+                                          digits = 2), ", ", 
+                               round(pca_landgebruik$x[,"PC2"], 
+                                     digits = 2), ")")), 
+            vjust = 1.5)
 ```
 
-```{r}
-pca_landgebruik$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-1, 1)) +
-    scale_x_continuous(limits = c(-1, 1))
-```
 
 Deze resultaten zijn in overeenstemming met onze eerdere conclusies in \@ref(landgebruik). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is. Bovendien zien we dat Akker sterk met PC1 is gecorreleerd wat we toen ook als pro voor Kortenberg zagen.
 
@@ -1026,32 +988,13 @@ perc_var(pca_hoofdteelten$sdev) %>%
 Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
 
 ```{r}
-pca_hoofdteelten$x %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
-    geom_point(size = 3) +
-    scale_y_continuous(limits = c(-6, 6)) +
-    scale_x_continuous(limits = c(-6, 6)) +
-    geom_text(aes(label = deelgebied), vjust = -1) +
-    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
-              round(PC2, digits = 2), ")")), vjust = 1.5) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "")
-```
-
-```{r}
-pca_hoofdteelten$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-0.3, 0.3)) +
-    scale_x_continuous(limits = c(-0.7, 0.25))
+ggbiplot_vegan(pca_hoofdteelten) +
+  geom_text(aes(label = row.names(pca_hoofdteelten$x)), vjust = -1) +
+  geom_text(aes(label = paste0("(", round(pca_hoofdteelten$x[,"PC1"], 
+                                          digits = 2), ", ", 
+                               round(pca_hoofdteelten$x[,"PC2"], 
+                                     digits = 2), ")")), 
+            vjust = 1.5)
 ```
 
 Deze resultaten zijn in overeenstemming met onze eerdere conclusies in \@ref(teelt). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is.
@@ -1079,32 +1022,13 @@ perc_var(pca_openheid$sdev) %>%
 Kortenberg ligt dichter bij Zavelberg langs PC1 dan Lovenjoel.
 
 ```{r}
-pca_openheid$x %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
-    geom_point(size = 3) +
-    scale_y_continuous(limits = c(-3, 3)) +
-    scale_x_continuous(limits = c(-3, 3)) +
-    geom_text(aes(label = deelgebied), vjust = -1) +
-    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
-              round(PC2, digits = 2), ")")), vjust = 1.5) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "")
-```
-
-```{r}
-pca_openheid$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-1, 1)) +
-    scale_x_continuous(limits = c(-1, 1))
+ggbiplot_vegan(pca_openheid) +
+  geom_text(aes(label = row.names(pca_openheid$x)), vjust = -1) +
+  geom_text(aes(label = paste0("(", round(pca_openheid$x[,"PC1"], digits = 2), 
+                               ", ", 
+                               round(pca_openheid$x[,"PC2"], digits = 2), 
+                               ")")), 
+            vjust = 1.5)
 ```
 
 Deze resultaten zijn in overeenstemming met onze conclusie in \@ref(openheid). Daar besloten we dat Kortenberg veel gelijkaardiger is aan Zavelberg in termen van openheid van het landschap dan Lovenjoel.
@@ -1132,19 +1056,11 @@ perc_var(pca_fit$sdev) %>%
 Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
 
 ```{r}
-pca_fit$x %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
-    geom_point(size = 3) +
-    scale_y_continuous(limits = c(-7.5, 7.5)) +
-    scale_x_continuous(limits = c(-7.5, 7.5)) +
-    geom_text(aes(label = deelgebied), vjust = -1) +
-    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
-              round(PC2, digits = 2), ")")), vjust = 1.5) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "")
+ggbiplot_vegan(pca_fit) +
+  geom_text(aes(label = row.names(pca_fit$x)), vjust = -1) +
+  geom_text(aes(label = paste0("(", round(pca_fit$x[,"PC1"], digits = 2), ", ", 
+                               round(pca_fit$x[,"PC2"], digits = 2), ")")), 
+            vjust = 1.5)
 ```
 
 Als we de Euclidische afstand tussen de deelgebieden berekenen, ligt Kortenberg iets dichter. 
@@ -1161,20 +1077,7 @@ pca_fit$x %>%
   kable()
 ```
 
-```{r}
-pca_fit$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-0.25, 0.25)) +
-    scale_x_continuous(limits = c(-0.5, 0.25))
-```
-
-De vorige figuur is niet overzichtelijk. De volgende tabellen geven de 25 variabelen met de sterkste correlaties met resp. PC1 en PC2.
+De volgende tabellen geven de 25 variabelen met de sterkste correlaties met resp. PC1 en PC2.
 
 ```{r}
 pca_fit$rotation %>% 

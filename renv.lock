@@ -181,6 +181,16 @@
         "lattice"
       ]
     },
+    "MatrixModels": {
+      "Package": "MatrixModels",
+      "Version": "0.5-1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "963ab8fbaf980a5b081ed40419081439",
+      "Requirements": [
+        "Matrix"
+      ]
+    },
     "R6": {
       "Package": "R6",
       "Version": "2.5.1",
@@ -298,6 +308,14 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "7c6fae63a8843588a1462d74779c4b8b",
+      "Requirements": []
+    },
+    "SparseM": {
+      "Package": "SparseM",
+      "Version": "1.81",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "2042cd9759cc89a453c4aefef0ce9aae",
       "Requirements": []
     },
     "StanHeaders": {
@@ -648,6 +666,33 @@
         "R6",
         "processx"
       ]
+    },
+    "car": {
+      "Package": "car",
+      "Version": "3.1-1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "0bd175a135f51af0545d4ed4f5632026",
+      "Requirements": [
+        "MASS",
+        "abind",
+        "carData",
+        "lme4",
+        "mgcv",
+        "nlme",
+        "nnet",
+        "pbkrtest",
+        "quantreg",
+        "scales"
+      ]
+    },
+    "carData": {
+      "Package": "carData",
+      "Version": "3.0-5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "ac6cdb8552c61bd36b0e54d07cf2aab7",
+      "Requirements": []
     },
     "cellranger": {
       "Package": "cellranger",
@@ -1655,6 +1700,27 @@
         "rlang"
       ]
     },
+    "inboggvegan": {
+      "Package": "inboggvegan",
+      "Version": "0.5.0",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "inbo",
+      "RemoteRepo": "inboggvegan",
+      "RemoteRef": "master",
+      "RemoteSha": "446687ba7d49f7c21fbb6f4529067580e11aff81",
+      "Hash": "2013162e8de9dcd9a8ef636566fc74c8",
+      "Requirements": [
+        "car",
+        "dplyr",
+        "ggplot2",
+        "plyr",
+        "reshape2",
+        "scales",
+        "vegan"
+      ]
+    },
     "inbospatial": {
       "Package": "inbospatial",
       "Version": "0.0.2",
@@ -2030,8 +2096,8 @@
       "Repository": "https://inbo.r-universe.dev",
       "RemoteUrl": "https://github.com/tidyverse/lubridate",
       "RemoteRef": "HEAD",
-      "RemoteSha": "c4714046ec412e669906ab8d1cd9a8e4fb125e13",
-      "Hash": "c00dc2b6d235358d3b876e5d3cd2906b",
+      "RemoteSha": "be024010ededa0d09cffe6e323777e3ab266f419",
+      "Hash": "16c7ce1bc02b20b0a2371d545e315812",
       "Requirements": [
         "cpp11",
         "generics"
@@ -2355,6 +2421,31 @@
       "Hash": "11359a5bb73622ab3f4136bf57108b64",
       "Requirements": []
     },
+    "pbkrtest": {
+      "Package": "pbkrtest",
+      "Version": "0.5.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "b304ff5955f37b48bd30518faf582929",
+      "Requirements": [
+        "MASS",
+        "Matrix",
+        "broom",
+        "dplyr",
+        "knitr",
+        "lme4",
+        "magrittr",
+        "numDeriv"
+      ]
+    },
+    "permute": {
+      "Package": "permute",
+      "Version": "0.9-7",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "abf0ca85c1c752e0d04f46334e635046",
+      "Requirements": []
+    },
     "pillar": {
       "Package": "pillar",
       "Version": "1.8.1",
@@ -2627,6 +2718,20 @@
         "RApiSerialize",
         "Rcpp",
         "stringfish"
+      ]
+    },
+    "quantreg": {
+      "Package": "quantreg",
+      "Version": "5.94",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "b8b2b861526c344a7e16e5991fa5a4ab",
+      "Requirements": [
+        "MASS",
+        "Matrix",
+        "MatrixModels",
+        "SparseM",
+        "survival"
       ]
     },
     "rapidjsonr": {
@@ -3255,7 +3360,7 @@
       "Repository": "https://ropensci.r-universe.dev",
       "RemoteUrl": "https://github.com/ropensci/tarchetypes",
       "RemoteRef": "main",
-      "RemoteSha": "441948ced3a9b5b97f9b43fee610b7593fbc9b53",
+      "RemoteSha": "4f75effd39342dd863fb6970fcbf54dcf92cbb13",
       "Hash": "e9acaa614fb0940956b59a5219fc253a",
       "Requirements": [
         "digest",
@@ -3557,6 +3662,20 @@
         "cli",
         "glue",
         "rlang"
+      ]
+    },
+    "vegan": {
+      "Package": "vegan",
+      "Version": "2.6-4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "659fe7589b8e0b16baa49043a61a0ce0",
+      "Requirements": [
+        "MASS",
+        "cluster",
+        "lattice",
+        "mgcv",
+        "permute"
       ]
     },
     "viridis": {
