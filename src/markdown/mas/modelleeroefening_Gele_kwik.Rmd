@@ -41,10 +41,14 @@ library(brms)
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
+source(here("src", "R", "plot_detection_curve.R"))
+mbag_dir <- here()
 ```
 
 
 # Inlezen data{#inlezen-data}
+
+We selecteren eerst de MAS-data binnen de telrondes.
 
 ```{r ronde-intervallen}
 r1_start <- "04-01"
@@ -57,7 +61,7 @@ r4_start <- "06-21"
 r4_stop <- "07-15"
 ```
 
-```{r inlezen-mas-data}
+```{r inlezen-mas-waarnemingen-2018-2022}
 mas <- read_sf(
   here("data/mas/20220906_qgis_export_sovon_wfs.gpkg")) %>%
   mutate(
@@ -78,63 +82,27 @@ mas <- read_sf(
     ))
 ```
 
-CRS moet aangepast worden naar Lambert 72.
+De CRS moet aangepast worden naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
 
-```{r, project-crs}
-# Belgian Lambert 72
-proj_crs <- 31370
+```{r mas-waarnemingen-conversie-31370}
+Sys.setenv("PROJ_NETWORK" = "ON")
+sf_proj_network(TRUE)
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+glimpse(pipelines)
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# If the grids are installed, this should match the first line of the pipelines object.
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% pull(definition)
 
-# Herbereken x en y-coördinaten in Lambert 72
-coordinates <- mas %>% 
-  st_transform(crs = proj_crs) %>%
-  st_coordinates() %>%
-  as_tibble() %>%
-  rename(x_coord = X, y_coord = Y)
-
-mas <- mas %>% 
-  st_transform(crs = proj_crs) %>%
-  select(-c(x_coord, y_coord)) %>%
-  cbind(coordinates)
+mas_31370_pipeline1 <- 
+  st_transform(st_geometry(mas), "EPSG:31370",
+               pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(mas), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf
 ```
 
-```{r design2022}
-design2022 <- read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  select(plotnaam = definitief_punt,
-         regio,
-         stratum) %>%
-  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
-         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
-         stratum = gsub("L\\s{1}", "L\\\n", stratum))
-```
-
-```{r design-2018-2022}
-bezoekstippen_avimap_2021 <- read_sf(
-  here("data", "mas",
-       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__bezoekstippen.shp")
-)
-
-plot_per_jaar <- bezoekstippen_avimap_2021 %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam, jaar)
-
-telpunten_avimap_2021 <- read_sf(
-  here("data", "mas",
-       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
-) %>%
-  rename(teller_2021 = teller) %>%
-  mutate(
-    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
-    type_teller_2021 = case_when(
-      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
-        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
-      is.na(teller_2021) &
-        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
-      TRUE ~ "vrijwilliger")) %>%
-  select(-st_x, -st_y)
-
+```{r inlezen-polygoon-lagen}
 perimeters <- read_sf(
   here("data", "processed", "piloot_perimeters.gpkg"))
 
@@ -149,101 +117,189 @@ vlaanderen <- get_feature_wfs(
 sbp_akkervogels <- tar_read(sbp_akkervogels,
                             store = targets_store)
 
-design_2018_2021 <- add_openheid_landschap_to_frame(
-  path = here("data", "dem",
-    "openness300m_chm_res25_c300_mean_vlaanderen.tif"),
-  punten_sf = telpunten_avimap_2021,
+```
+
+
+We bepalen alle plot-jaar combinaties waarvoor er waarnemingen zijn.
+Het kan ook zijn dat een plot bezocht is, maar dat er geen waarnemingen van zijn.
+
+```{r plot-jaar-waarnemingen-2018-2022}
+plot_jaar_met_waarnemingen <- mas_31370_pipeline1 %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
+```
+
+Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden.
+Voor 2018-2021 moeten we er _voorlopig_ vanuit gaan dat als er geen waarnemingen zijn voor een bepaald telpunt, het telpunt niet geteld werd.
+
+<!--De plot-jaar lijsten voor 2018-2021 opvragen die bezocht werden zodat we nullen/afwezigheden correct kunnen toevoegen-->
+
+We stellen nu eerst een lijst samen van plot - jaar combinaties die bezocht zijn.
+Hiervoor moeten we eerst het design inlezen van 2022.
+
+```{r design_2022}
+design2022_raw <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370)
+
+plot_bezocht_2022 <- design2022_raw %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
+```
+
+Vervolgens samenvoegen met 2018-2021
+
+```{r plot-jaar-bezocht-2018-2022}
+# veronderstel dat bezocht gelijk is aan die met waarnemingen voor 2018-2021
+plot_jaar_bezocht <- plot_jaar_met_waarnemingen %>%
+  filter(jaar < 2022) %>%
+  rbind(plot_bezocht_2022)
+```
+
+Zijn er bezochte plots waarvan er geen waarnemingen zijn?
+
+```{r bezocht-zonder-waarnemingen}
+pjb <- plot_jaar_bezocht %>%
+  anti_join(plot_jaar_met_waarnemingen)
+
+pjb %>%
+  kable()
+```
+
+Ja, in `r nrow(pjb)` telpunten werd niets waargenomen. Dus het is aannemelijk dat dit ook in de eerdere jaren soms het geval zal geweest zijn.
+
+We voegen nu eerst de locatie van de telpunten toe aan `plot_jaar_bezocht`.
+De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON.
+Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn.
+Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest).
+Het kan ook zijn dat het wel bezocht is geweest, maar dat er geen waarnemingen zijn.
+
+```{r telpunten-2018-2021}
+telpunten_2018_2021 <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
+) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger"))
+
+telpunten_2018_2021_amersfoort <- telpunten_2018_2021 %>%
+  st_drop_geometry() %>%
+  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
+
+telpunten_2018_2021 <- st_transform(
+  st_geometry(telpunten_2018_2021_amersfoort), "EPSG:31370",
+  pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(telpunten_2018_2021), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf %>%
+  mutate(regio = gsub("Vlaanderen - ", "", regio),
+         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio),
+         regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio))
+```
+
+```{r telpunten-2018-2022-locaties}
+telpunten_2018_2021_geom_only <- telpunten_2018_2021 %>%
+  select(plotnaam = naam, regio)
+
+telpunten_2022_geom_only <- design2022_raw %>%
+  select(plotnaam, regio)
+
+# locaties 2022 zijn verkeerd in design_2022 voor VL plots
+telpunten_geom_only <- bind_rows(
+  telpunten_2018_2021_geom_only,
+  telpunten_2022_geom_only %>% filter(!grepl("VL", .$plotnaam))
+)
+```
+
+Nu voegen we de geometry toe aan de plot - jaar combinaties via een inner join.
+Opgepast! Er zijn een aantal telpunten die in geen enkel jaar werden bezocht. Deze worden in deze stap verwijderd.
+Het kan ook zijn dat er hier een aantal onterecht verwijderd worden (wel bezocht, maar geen waarnemingen).
+Zoals eerder aangegeven in commentaar moeten we dit navragen.
+
+```{r toevoegen-geoms}
+plot_jaar_bezocht_sf <- telpunten_geom_only %>%
+  inner_join(plot_jaar_bezocht)
+```
+
+Tot slot voegen we aan `plot_jaar_bezocht_sf` de strata toe waartoe ze behoren.
+We gebruiken hiervoor dezelfde code als werd gebruikt in het `targets` project voor het trekken van de pilootsteekproef 2022.
+
+```{r toevoegen-strata}
+telpunten_strata <- add_openheid_landschap_to_frame(
+  path = path_to_openheid_landschap(),
+  punten_sf = plot_jaar_bezocht_sf %>% distinct(plotnaam, regio, geometry),
   gebied = vlaanderen,
   cutlevels = c(1.25, 1.35, 1.51),
   class_labels = c("GL", "HGL", "HOL", "OL")) %>%
-  select(plotnaam = naam, regio, openheid = openheid_klasse) %>%
+  select(plotnaam, regio, openheid = openheid_klasse) %>%
   mutate(sbp = st_intersects(.,
                              st_union(sbp_akkervogels),
                              sparse = FALSE) %>%
            as.logical(),
          sbp = ifelse(sbp, "binnen", "buiten")
   ) %>%
-  st_drop_geometry() %>%
-  mutate(stratum = paste0(openheid, "\n", sbp, " plan"),
-         regio = gsub("Vlaanderen - ", "", regio),
-         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio))
- 
-plotlijst_2018_2022 <- mas %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam) %>%
-  arrange(plotnaam)
+  mutate(stratum = paste0(openheid, "\n", sbp, " plan"))
 
-design_2018_2022 <- bind_rows(
-  design_2018_2021,
-  design2022) %>%
-  distinct() %>%
-  arrange(plotnaam)
-# er zitten duplos in (zie volgende chunk)
+design_2018_2022_sf <- plot_jaar_bezocht_sf %>%
+  st_join(telpunten_strata %>% select(-plotnaam, -regio)) %>%
+  filter(regio %in% c("Oostelijke leemstreek", "De Moeren"))
 ```
 
-```{r probleemgevallen, eval=FALSE}
-# probleemgevallen met verschillende classificatie
-is_duplo <- duplicated(design_2018_2022$plotnaam)
-duplo_plotnaam <- design_2018_2022 %>%
-  select(plotnaam) %>%
-  filter(is_duplo)
-design_2018_2022 %>%
-  inner_join(duplo_plotnaam) %>%
-  View()
+Hebben we nog mismatches?
 
-# volgens bestand buiten plan, maar lijkt niet te kloppen
-# iets mis in targets analyse pipeline?
-avimap <- telpunten_avimap_2021 %>%
-  filter(naam == "VL0003")
-
-read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  filter(definitief_punt == "VL0003") %>%
-  st_as_sf(coords = c("X", "Y"), crs = proj_crs) %>%
-  mapview::mapview()  +
-  mapview::mapview(sbp_akkervogels, col.regions = "yellow") +
-  mapview::mapview(avimap)
-
-read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  inner_join(duplo_plotnaam, by = c("definitief_punt" = "plotnaam")) %>%
-  st_as_sf(coords = c("X", "Y"), crs = proj_crs) %>%
-  mapview::mapview()  +
-  mapview::mapview(sbp_akkervogels, col.regions = "yellow")
+```{r probleemgevallen}
+# probleemgevallen met verschillende classificatie?
+probleemgevallen <- design_2018_2022_sf %>%
+  group_by(plotnaam) %>%
+  filter(!all(first(openheid) == last(openheid)) |
+         !all(first(sbp) == last(sbp)) |
+         !all(first(regio) == last(regio))) %>%
+  group_by(plotnaam, regio, openheid, sbp, jaar < 2022) %>%
+  summarize()
+probleemgevallen
 ```
 
-```{r omzeilen-probleemgevallen}
-# probleemgevallen voorlopig omzeilen
+We hebben geen mismatches meer. We moeten wel nog enkele aanpassingen doen zodat we de rest van het script probleemloos kunnen runnen:
 
-# Voeg jaren toe aan plots
-design_2018_2021_jaar <- design_2018_2021 %>%
-  inner_join(plot_per_jaar, by = "plotnaam")
-design2022_jaar <- design2022 %>%
-  mutate(jaar = 2022)
+```{r}
+design_2018_2022 <- design_2018_2022_sf %>%
+  st_drop_geometry() %>%
+  mutate(openheid = as.character(openheid))
+```
 
-# Voeg 2018-2021 en 2022 samen
-design_2018_2022 <- bind_rows(
-  design_2018_2021_jaar,
-  design2022_jaar %>%
-    filter(!grepl("^VL", plotnaam))) %>%
-  distinct() %>%
-  arrange(plotnaam, jaar)
+Controle op ontbrekende gegevens:
+
+```{r}
+stopifnot(all(complete.cases(design_2018_2022)))
 ```
 
 ```{r overzicht-data, eval=FALSE}
-head(mas)
-summary(mas)
-glimpse(mas)
+head(mas_31370_pipeline1)
+summary(mas_31370_pipeline1)
+glimpse(mas_31370_pipeline1)
 ```
 
-Dubbeltellingen zijn eruit (soort gezien op meerdere teldagen binnen eenzelfde telperiode): in dat geval de laatste teldag genomen.
+Voor de waarnemingen verwijderen we ook dubbeltellingen. Indien de soort gezien was op meerdere teldagen binnen eenzelfde telperiode, wordt de laatste teldag genomen.
 
 ```{r check-dubbeltelling}
-dubbels <- mas %>%
+dubbels <- mas_31370_pipeline1 %>%
   st_drop_geometry() %>%
   group_by(plotid, jaar, periode_in_jaar, soortnr) %>%
   summarize(aantal_teldagen = n_distinct(doy),
@@ -251,14 +307,34 @@ dubbels <- mas %>%
   filter(aantal_teldagen > 1)
 # kan zowel zelfde waarnemer als andere waarnemer zijn
 
-mas_clean <- mas %>%
+mas_clean <- mas_31370_pipeline1 %>%
   semi_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")) %>%
   group_by(plotid, jaar, periode_in_jaar) %>%
   filter(doy == max(doy)) %>%
   ungroup() %>%
-  bind_rows(mas %>%
+  bind_rows(mas_31370_pipeline1 %>%
               anti_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")))
 ```
+
+Controle afstanden:
+
+```{r sanity-check-on-distances}
+mas_controle_afstand <- mas_clean %>%
+  select(plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
+  inner_join(design_2018_2022_sf %>% as_tibble(),
+             by = "plotnaam", suffix = c(".stip", ".telpunt")) %>%
+  mutate(calc_distance = st_distance(.$geometry.stip, .$geometry.telpunt,
+            by_element = TRUE),
+         calc_distance = units::drop_units(calc_distance)) %>%
+  mutate(
+    abs_verschil = abs(calc_distance - distance2plot),
+    verschil = ifelse(abs_verschil < 1, 
+                           "minder dan 1 m", "meer dan 1 m"))
+
+stopifnot(all(mas_controle_afstand$abs_verschil < 1.5))
+```
+
+ok!
 
 
 # Gele kwikstaart 2022{#gele-kwik-2022}
@@ -268,16 +344,20 @@ We starten met een beperkte dataset om het aantal broedparen van de Gele kwiksta
 We selecteren de data voor Gele kwikstaart van 2022 met broedcode > 0. Opmerking: wat met *Gele kwikstaart (spec)*?
 
 ```{r selectie-gelekwik-2022}
+design_2022 <- design_2018_2022 %>%
+  filter(jaar == 2022) %>%
+  select(-jaar)
+
 # Selecteer tellingen van Gele kwikstaart in 2022 in de twee regios
 # met broedcode > 0 en binnen telrondes
 gele_kwik_2022_presences <- mas_clean %>% 
   st_drop_geometry() %>%
   filter(naam == "Gele Kwikstaart", jaar == 2022, 
          !is.na(periode_in_jaar), wrntype > 0L) %>%  
-  inner_join(design2022, by = "plotnaam") # Moeren en Leemstreek
+  inner_join(design_2022, by = "plotnaam") # Moeren en Leemstreek
 
 # Totale lijst van bezochte plots in 2022
-bezoekenlijst_2022 <- design2022 %>% 
+bezoekenlijst_2022 <- design_2022 %>% 
   expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # voeg telperiodes toe
   filter(!is.na(periode_in_jaar))
 
@@ -306,8 +386,6 @@ gele_kwik_2022 %>%
   kable()
 ```
 
-We zien dat de gemiddeldes en de variantie ongeveer gelijk zijn zodat we mogelijks geen overdispersie hebben.  
-  
 Aantal tellingen per categorie:
 
 ```{r tellingen-aantallen-nodist}
@@ -521,7 +599,7 @@ hyp1
 plot(hyp1)
 ```
 
-De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal broedparen Gele kwikstaart in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is -0.47. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder broedparen Gele kwikstaart in de Oostelijke leemstreek dan in De Moeren.
+De evidence ratio is groot wat er op duidt dat er gemiddeld gezien een significant hoger aantal broedparen Gele kwikstaart in De Moeren aanwezig zijn. De evidence ratio is de verhouding tussen posterior probability a < b t.o.v. posterior probability a > b. De schatting is `r round(hyp1$hypothesis$Estimate, digits = 3)`. Dit is een verschil in de log-schaal, dus als we dit exponentiëren bekomen we 0.63 keer minder broedparen Gele kwikstaart in de Oostelijke leemstreek dan in De Moeren.
 
 Het toevoegen van een interactie `regio:periode_in_jaar` blijkt geen meerwaarde voor het model:
 
@@ -563,7 +641,7 @@ if (!file.exists(paste0(model_path, "fit_brmpois2.rds"))) {
 }
 
 # Comparison among models
-comparisons <- loo_compare(fit_brmpois1, fit_brmpois2, 
+comparisons2 <- loo_compare(fit_brmpois1, fit_brmpois2, 
                            criterion = "kfold")[, c(1, 2)] %>%
                 as.data.frame() %>%
                 mutate(model = c("Poisson: no interaction", 
@@ -575,7 +653,7 @@ rbind(fit_brmpois1$criteria$kfold$estimates[, "Estimate"],
   ) %>%
   as.data.frame() %>%
   mutate(model = c("Poisson: no interaction", "Poisson: interaction")) %>%
-  full_join(comparisons, by = "model") %>%
+  full_join(comparisons2, by = "model") %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
   select(model, everything()) %>%
@@ -654,7 +732,7 @@ tibble(model = c("Poisson", "Negative binomial", "Zero-inflated Poisson",
   kable(digits = 3)
 ```
 
-Het Poisson model is opnieuw het simpelste model met de beste fit. We controleren voor overdispersie (waarom hier onderdispersie?):
+Het Poisson model is opnieuw het simpelste model met relatief de beste fit. We controleren voor overdispersie (waarom hier onderdispersie?):
 
 ```{r}
 plot(dispersion_check(inlapois1))
@@ -983,14 +1061,14 @@ summarize_ds_models(dsmodelunif1,
 
 **Resultaten en visualisatie**
 
-Op basis van deze redenering kiezen we voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende detectiekans:
+Op basis van deze redenering kiezen we voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende scale parameter:
 
 ```{r final-model-summary-ds}
 summary_hr1 <- summary(dsmodelhr1)
 summary_hr1$ds$coeff$key.scale %>%
   kable(digits = 2)
 
-plot(dsmodelhr1)
+plot_detection_curve(dsmodelhr1, n_breaks = 15)
 ```
 
 De schattingen van abundantie (totaal aantal broedparen voor de volledige regio) en voor densiteit (aantal broedparen per 100 ha):
@@ -1199,7 +1277,7 @@ plot(dsmodelhr1_binned, pdf = TRUE,
 par(mfrow = c(1, 1))
 ```
 
-Op basis van model fit kiezen we opnieuw voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende detectiekans die gelijkaardig is als voordien:
+Op basis van model fit kiezen we opnieuw voor model 7 met de Hazard-rate functie en zonder covariaten. Dit model geeft de volgende scale parameter die gelijkaardig is als voordien:
 
 ```{r final-model-summary-ds-binned}
 summary_hr1_binned <- summary(dsmodelhr1_binned)
@@ -1345,7 +1423,7 @@ dsmodelhr11 <- ds(data = gele_kwik_2022_ds, key = "hr",
                  convert_units = conversion_factor)
 ```
 
-We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC’s kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. We kiezen we voor model 20 met de Hazard-rate functie waarbij de detectiekans afhankelijk is van soortbeschermingsplan per regio. 
+We vergelijken de AIC van de verschillende modellen. Als het verschil tussen AIC’s kleiner is dan 2, kiezen we het eenvoudigste van deze modellen. Nog altijd is het Hazard-rate model zonder variabelen het best. 
 
 ```{r}
 summarize_ds_models(dsmodelunif1, 
@@ -1358,99 +1436,7 @@ summarize_ds_models(dsmodelunif1,
   kable()
 ```
 
-Model fit:
 
-```{r}
-par(mfrow = c(1, 2))
-gof_ds(dsmodelhr8, main = "dsmodelhr8")
-  
-  plot(dsmodelhr8, pdf = TRUE, 
-       main = paste0("dsmodelhr8", " - ", "AIC: ",
-                     as.character(round(summary(dsmodelhr8)$ds$aic, digits = 2))
-                     )
-       )
-par(mfrow = c(1, 1))
-```
-
-Resultaten:
-
-```{r}
-summary_hr8 <- summary(dsmodelhr8)
-summary_hr8$ds$coeff$key.scale %>%
-  kable(digits = 2)
-
-plot(dsmodelhr8)
-```
-
-Visualisatie:
-
-```{r}
-summary_results_hr8 <- bind_rows(
-  summary_hr8$dht$clusters$D %>%
-    mutate(variable = "density",
-           type = "clusters"),
-  summary_hr8$dht$clusters$N %>%
-    mutate(variable = "abundance",
-           type = "clusters"),
-  summary_hr8$dht$individuals$D %>%
-    mutate(variable = "density",
-           type = "individuals"),
-  summary_hr8$dht$individuals$N %>%
-    mutate(variable = "abundance",
-           type = "individuals")
-  ) %>%
-  as_tibble() %>%
-  separate(Label, c("regio", "periode_in_jaar"), sep = " - ") %>%
-  filter(!is.na(periode_in_jaar))
-
-summary_results_hr8 %>%
-  filter(type == "individuals") %>%
-  mutate(variable = recode_factor(variable, 
-            abundance = "Totaal aantal broedparen Gele kwikstaart",
-            density = "Aantal broedparen Gele kwikstaart per 100 ha")) %>%
-  ggplot(aes(x = regio, y = Estimate)) + 
-  geom_pointrange(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar),
-                  position = position_dodge(width = 0.5)) + 
-  facet_wrap(~variable, scales = "free_y") +
-  labs(x = "", y = "")
-```
-
-Vergelijken met vorig model:
-
-```{r}
-# Detectiekans null model
-dist_model_hr1 <- summary_results %>%
-  filter(type == "individuals", variable == "density") %>%
-  ggplot(aes(x = regio, y = Estimate)) + 
-    geom_point(aes(colour = periode_in_jaar), size = 4, 
-               position = position_dodge(width = 0.5)) +
-    geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
-                  width = 0.25, position = position_dodge(width = 0.5)) + 
-    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
-    labs(x = "", y = "Aantal broedparen Gele kwikstaart per 100 ha", 
-         title = "P(detectie) ~ 1") +
-    theme(legend.position = "bottom")
-
-# Detectiekans afhankelijk van sbp per regio
-dist_model_hr8 <- summary_results_hr8 %>%
-  filter(type == "individuals", variable == "density") %>%
-  ggplot(aes(x = regio, y = Estimate)) + 
-    geom_point(aes(colour = periode_in_jaar), size = 4, 
-               position = position_dodge(width = 0.5)) +
-    geom_errorbar(aes(ymin = lcl, ymax = ucl, colour = periode_in_jaar), 
-                  width = 0.25, position = position_dodge(width = 0.5)) + 
-    scale_y_continuous(breaks = seq(0, 11, 1), limits = c(0, 11)) +
-    labs(x = "", y = "", 
-         title = "P(detectie) ~ sbp + regio + sbp:regio") +
-    theme(legend.position = "bottom")
-
-
-grid.arrange(dist_model_hr1, dist_model_hr8, ncol = 2)
-```
-
-We zien kleine verschillen. Vooral in De Moeren wel iets lager met covariaten.
-  
- 
 **Spelen met sampling effort**   
 Krijgen we dezelfde resultaten als we geen rekening houden met telperiode en effort = 4 zetten?
 
@@ -1461,32 +1447,32 @@ gele_kwik_2022_ds_new <- gele_kwik_2022_ds %>%
          Region.Label = regio)
   
 # Fit model
-dsmodelhr8_new <- ds(data = gele_kwik_2022_ds_new, key = "hr", 
+dsmodelhr1_new <- ds(data = gele_kwik_2022_ds_new, key = "hr", 
                  formula = ~ regio + sbp + regio:sbp,
                  adjustment = NULL, truncation = 300, transect = "point", 
                  dht_group = FALSE,
                  convert_units = conversion_factor)
 
 # Samenvatting model
-summary_hr8_new <- summary(dsmodelhr8_new)
+summary_hr1_new <- summary(dsmodelhr1_new)
 
-summary_results_hr8_new <- bind_rows(
-  summary_hr8_new$dht$clusters$D %>%
+summary_results_hr1_new <- bind_rows(
+  summary_hr1_new$dht$clusters$D %>%
     mutate(variable = "density",
            type = "clusters"),
-  summary_hr8_new$dht$clusters$N %>%
+  summary_hr1_new$dht$clusters$N %>%
     mutate(variable = "abundance",
            type = "clusters"),
-  summary_hr8_new$dht$individuals$D %>%
+  summary_hr1_new$dht$individuals$D %>%
     mutate(variable = "density",
            type = "individuals"),
-  summary_hr8_new$dht$individuals$N %>%
+  summary_hr1_new$dht$individuals$N %>%
     mutate(variable = "abundance",
            type = "individuals")
   )
 
 # Effort = 1 model
-dist_model_hr8 <- summary_results_hr8 %>%
+dist_model_hr1 <- summary_results %>%
   filter(type == "individuals", variable == "density") %>%
   ggplot(aes(x = regio, y = Estimate)) + 
     geom_point(aes(colour = periode_in_jaar), size = 4, 
@@ -1499,7 +1485,7 @@ dist_model_hr8 <- summary_results_hr8 %>%
     theme(legend.position = "bottom")
 
 # Effort = 4 model
-dist_model_hr8_new <- summary_results_hr8_new %>%
+dist_model_hr1_new <- summary_results_hr1_new %>%
   filter(type == "individuals", 
          variable == "density",
          Label != "Total") %>%
@@ -1514,7 +1500,7 @@ dist_model_hr8_new <- summary_results_hr8_new %>%
     theme(legend.position = "bottom")
 
 
-grid.arrange(dist_model_hr8, dist_model_hr8_new, ncol = 2)
+grid.arrange(dist_model_hr1, dist_model_hr1_new, ncol = 2)
 ```
 
 Ja dit lijkt goed overeen te komen.
@@ -1531,39 +1517,39 @@ gele_kwik_2022_ds_presence <- gele_kwik_2022_ds_new %>%
 # Maak dataframes met regio (stratum) info en plot info
 reg_table <- reg_tab %>%
   rename(Region.Label = regio)
-samp_table <- design2022 %>%
+samp_table <- design_2022 %>%
   select(-c(stratum, openheid, sbp)) %>%
   rename(Sample.Label = plotnaam, 
          Region.Label = regio) %>%
   mutate(Effort = 4)
 
 # Fit model  
-dsmodelhr8_presence <- ds(data = gele_kwik_2022_ds_presence, key = "hr", 
+dsmodelhr1_presence <- ds(data = gele_kwik_2022_ds_presence, key = "hr", 
                  formula = ~ regio + sbp + regio:sbp,
                  adjustment = NULL, truncation = 300, transect = "point", 
                  dht_group = FALSE, convert_units = conversion_factor,
                  region_table = reg_table, sample_table = samp_table)
 
 # Samenvatting model
-summary_results_hr8_presence <- summary(dsmodelhr8_presence)
+summary_results_hr1_presence <- summary(dsmodelhr1_presence)
 
-summary_results_hr8_presence <- bind_rows(
-  summary_results_hr8_presence$dht$clusters$D %>%
+summary_results_hr1_presence <- bind_rows(
+  summary_results_hr1_presence$dht$clusters$D %>%
     mutate(variable = "density",
            type = "clusters"),
-  summary_results_hr8_presence$dht$clusters$N %>%
+  summary_results_hr1_presence$dht$clusters$N %>%
     mutate(variable = "abundance",
            type = "clusters"),
-  summary_results_hr8_presence$dht$individuals$D %>%
+  summary_results_hr1_presence$dht$individuals$D %>%
     mutate(variable = "density",
            type = "individuals"),
-  summary_results_hr8_presence$dht$individuals$N %>%
+  summary_results_hr1_presence$dht$individuals$N %>%
     mutate(variable = "abundance",
            type = "individuals")
   )
 
 # Model vanuit presence data
-dist_model_hr8_presence <- summary_results_hr8_presence %>%
+dist_model_hr1_presence <- summary_results_hr1_presence %>%
   filter(type == "individuals", variable == "density", Label != "Total") %>%
   ggplot(aes(x = Label, y = Estimate)) + 
     geom_point(aes(colour = Label), size = 4, 
@@ -1576,7 +1562,7 @@ dist_model_hr8_presence <- summary_results_hr8_presence %>%
     theme(legend.position = "bottom")
 
 # Model vanuit presence-absence data
-dist_model_hr8_new <- summary_results_hr8_new %>%
+dist_model_hr1_new <- summary_results_hr1_new %>%
   filter(type == "individuals", 
          variable == "density",
          Label != "Total") %>%
@@ -1591,7 +1577,7 @@ dist_model_hr8_new <- summary_results_hr8_new %>%
     theme(legend.position = "bottom")
 
 
-grid.arrange(dist_model_hr8_presence, dist_model_hr8_new, ncol = 2)
+grid.arrange(dist_model_hr1_presence, dist_model_hr1_new, ncol = 2)
 ```
 
 We hebben exact dezelfde resultaten.
@@ -1847,7 +1833,7 @@ um_model_hr18 <- distsamp(formula = ~regio + sbp~sbp + openheid,
          unitsOut = "kmsq")
 ```
 
-Het half-normal model waarbij detectiekans verschilt per soortbeschermingsplan en densiteit verschilt per regio, soortbeschermingsplan en openheid landschap scoort het best (eenvoudigst model met verschil in AIC < 2)
+Het half-normal model waarbij detectiekans verschilt per soortbeschermingsplan en regio en densiteit verschilt per soortbeschermingsplan en openheid landschap scoort het best (eenvoudigst model met verschil in AIC < 2)
 
 ```{r}
 fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
@@ -1871,51 +1857,27 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
 modSel(fm_list)
 ```
 
-Detectiekans verschilt per soortbeschermingsplan, maar we testen ook nog enkele combinaties voor densiteit.
+Is het nuttig om een interactie toe te voegen?
 
 ```{r, cache=TRUE}
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per regio
-um_model_hn19 <- distsamp(formula = ~sbp~regio, 
+um_model_hn19 <- distsamp(formula = ~regio * sbp~sbp * openheid,
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
-um_model_hr19 <- distsamp(formula = ~sbp~regio, 
+um_model_hr19 <- distsamp(formula = ~regio * sbp~sbp * openheid,
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per soortbeschermingsplan
-um_model_hn20 <- distsamp(formula = ~sbp~sbp, 
+um_model_hn20 <- distsamp(formula = ~regio * sbp~sbp + openheid,
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
-um_model_hr20 <- distsamp(formula = ~sbp~sbp, 
+um_model_hr20 <- distsamp(formula = ~regio * sbp~sbp + openheid, 
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per openheid landschap
-um_model_hn21 <- distsamp(formula = ~sbp~openheid, 
+um_model_hn21 <- distsamp(formula = ~regio + sbp~sbp * openheid, 
                           data = umf, keyfun = "halfnorm", output = "density",
          unitsOut = "kmsq")
-um_model_hr21 <- distsamp(formula = ~sbp~openheid, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per regio en soortbeschermingsplan
-um_model_hn22 <- distsamp(formula = ~sbp~regio + sbp, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr22 <- distsamp(formula = ~sbp~regio + sbp, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per regio en openheid landschap
-um_model_hn23 <- distsamp(formula = ~sbp~regio + openheid, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr23 <- distsamp(formula = ~sbp~regio + openheid, 
+um_model_hr21 <- distsamp(formula = ~regio + sbp~sbp * openheid, 
                           data = umf, keyfun = "hazard", output = "density",
          unitsOut = "kmsq")
 ```
@@ -1933,8 +1895,7 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
                    hn16 = um_model_hn16, hn17 = um_model_hn17,
                    hn18 = um_model_hn18,
                    hn19 = um_model_hn19, hn20 = um_model_hn20,
-                   hn21 = um_model_hn21, hn22 = um_model_hn22,
-                   hn23 = um_model_hn23,
+                   hn21 = um_model_hn21,
                    hr1 = um_model_hr1, hr2 = um_model_hr2, hr3 = um_model_hr3,
                    hr4 = um_model_hr4, hr5 = um_model_hr5, hr6 = um_model_hr6,
                    hr7 = um_model_hr7, hr8 = um_model_hr8, hr9 = um_model_hr9, 
@@ -1945,104 +1906,10 @@ fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
                    hr16 = um_model_hr16, hr17 = um_model_hr17,
                    hr18 = um_model_hr18,
                    hr19 = um_model_hr19, hr20 = um_model_hr20,
-                   hr21 = um_model_hr21, hr22 = um_model_hr22,
-                   hr23 = um_model_hr23)
+                   hr21 = um_model_hr21)
 modSel(fm_list)
 ```
 
-Als laatste testen we of we het model eenvoudiger kan of als er interacties kunnen toegevoegd worden.
-
-```{r, cache=TRUE}
-# Densiteit verschilt per openheid landschap
-um_model_hn24 <- distsamp(formula = ~1~openheid, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr24 <- distsamp(formula = ~1~openheid, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan
-um_model_hn25 <- distsamp(formula = ~sbp~1, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr25 <- distsamp(formula = ~sbp~1, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan in interactie met 
-# openheid landschap
-# Densiteit verschilt per soortbeschermingsplan in interactie met 
-# openheid landschap
-um_model_hn26 <- distsamp(formula = ~sbp*openheid~sbp*openheid, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr26 <- distsamp(formula = ~sbp*openheid~sbp*openheid, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan in interactie met regio
-# Densiteit verschilt per openheid landschap in interactie met regio
-um_model_hn27 <- distsamp(formula = ~sbp*regio~openheid*regio, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr27 <- distsamp(formula = ~sbp*regio~openheid*regio, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan
-# Densiteit verschilt per openheid landschap in interactie met regio
-um_model_hn28 <- distsamp(formula = ~sbp~openheid*regio, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr28 <- distsamp(formula = ~sbp~openheid*regio, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-
-# Detectiekans verschilt per soortbeschermingsplan in interactie met regio
-# Densiteit verschilt per openheid landschap
-um_model_hn29 <- distsamp(formula = ~sbp*regio~openheid, 
-                          data = umf, keyfun = "halfnorm", output = "density",
-         unitsOut = "kmsq")
-um_model_hr29 <- distsamp(formula = ~sbp*regio~openheid, 
-                          data = umf, keyfun = "hazard", output = "density",
-         unitsOut = "kmsq")
-```
-
-Model 21 blijft het eenvoudigste model binnen een AIC verschil van 2.
-
-```{r}
-fm_list <- fitList(hn1 = um_model_hn1, hn2 = um_model_hn2, hn3 = um_model_hn3,
-                   hn4 = um_model_hn4, hn5 = um_model_hn5, hn6 = um_model_hn6,
-                   hn7 = um_model_hn7, hn8 = um_model_hn8, hn9 = um_model_hn9, 
-                   hn10 = um_model_hn10,
-                   hn11 = um_model_hn11, hn12 = um_model_hn12, 
-                   hn13 = um_model_hn13,
-                   hn14 = um_model_hn14, hn15 = um_model_hn15,
-                   hn16 = um_model_hn16, hn17 = um_model_hn17,
-                   hn18 = um_model_hn18,
-                   hn19 = um_model_hn19, hn20 = um_model_hn20,
-                   hn21 = um_model_hn21, hn22 = um_model_hn22,
-                   hn23 = um_model_hn23,
-                   hn24 = um_model_hn24, hn25 = um_model_hn25,
-                   hn26 = um_model_hn26, hn27 = um_model_hn27,
-                   hn28 = um_model_hn28, hn29 = um_model_hn29,
-                   hr1 = um_model_hr1, hr2 = um_model_hr2, hr3 = um_model_hr3,
-                   hr4 = um_model_hr4, hr5 = um_model_hr5, hr6 = um_model_hr6,
-                   hr7 = um_model_hr7, hr8 = um_model_hr8, hr9 = um_model_hr9, 
-                   hr10 = um_model_hr10,
-                   hr11 = um_model_hr11, hr12 = um_model_hr12, 
-                   hr13 = um_model_hr13,
-                   hr14 = um_model_hr14, hr15 = um_model_hr15,
-                   hr16 = um_model_hr16, hr17 = um_model_hr17,
-                   hr18 = um_model_hr18,
-                   hr19 = um_model_hr19, hr20 = um_model_hr20,
-                   hr21 = um_model_hr21, hr22 = um_model_hr22,
-                   hr23 = um_model_hr23,
-                   hr24 = um_model_hr24, hr25 = um_model_hr25,
-                   hr26 = um_model_hr26, hr27 = um_model_hr27,
-                   hr28 = um_model_hr28, hr29 = um_model_hr29)
-modSel(fm_list)
-```
 
 **Resultaten en visualisatie**
 
@@ -2053,23 +1920,37 @@ Het finaal model geeft:
 um_model_hn21
 
 # Densiteit
-# Half-open landschap
-backTransform(linearComb(um_model_hn21["state"], c(1, 0)))
+# Half-open landschap binnen sbp
+backTransform(linearComb(um_model_hn21["state"], c(1, 0, 0, 0)))
 
-# Open landschap
-backTransform(linearComb(um_model_hn21["state"], c(1, 1)))
+# Open landschap binnen sbp
+backTransform(linearComb(um_model_hn21["state"], c(1, 0, 1, 0)))
+
+# Half-open landschap buiten sbp
+backTransform(linearComb(um_model_hn21["state"], c(1, 1, 0, 0)))
+
+# Open landschap buiten sbp
+backTransform(linearComb(um_model_hn21["state"], c(1, 1, 1, 1)))
 
 # Detectiekans
-# Binnen soortbeschermingsplan
-backTransform(linearComb(um_model_hn21["det"], c(1, 0)))
+# Binnen soortbeschermingsplan De Moeren
+backTransform(linearComb(um_model_hn21["det"], c(1, 0, 0)))
 
-# Buiten soortbeschermingsplan
-backTransform(linearComb(um_model_hn21["det"], c(1, 1)))
+# Binnen soortbeschermingsplan Oostelijke leemstreek
+backTransform(linearComb(um_model_hn21["det"], c(1, 1, 0)))
+
+# Buiten soortbeschermingsplan De Moeren
+backTransform(linearComb(um_model_hn21["det"], c(1, 0, 1)))
+
+# Buiten soortbeschermingsplan Oostelijke leemstreek
+backTransform(linearComb(um_model_hn21["det"], c(1, 1, 1)))
 
 # Predicties
-new_df_dens <- expand.grid(regio = unique(covs_unmarked$regio),
-                           openheid = unique(covs_unmarked$openheid))
-new_df_detect <- data.frame(sbp = c("buiten", "binnen"))
+new_df_dens <- expand.grid(sbp = c("buiten", "binnen"),
+                           openheid = unique(covs_unmarked$openheid),
+                           regio = unique(covs_unmarked$regio))
+new_df_detect <- expand.grid(sbp = c("buiten", "binnen"),
+                           regio = unique(covs_unmarked$regio))
 
 Elambda <- predict(um_model_hn21, type = "state", newdata = new_df_dens,
     appendData = TRUE)
@@ -2077,25 +1958,30 @@ Esigma <- predict(um_model_hn21, type = "det", newdata = new_df_detect,
     appendData = TRUE)
 ```
 
-We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten de soortbeschermingsplans:
+We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten soortbeschermingsplan per regio:
 
 ```{r}
 # Detection function
-plot(function(x) gxhn(x, sigma = 107.02456), 0, 300, xlab = "Afstand (m)",
+plot(function(x) gxhn(x, sigma = 95.48460), 0, 300, xlab = "Afstand (m)",
     ylab = "Detection probability", las = 1, col = "blue")
-plot(function(x) gxhn(x, sigma = 92.08468), 0, 300, add = TRUE, col = "green")
-legend('topright', c("Binnen sbp", "Buiten sbp"),
-    col = c("blue", "green"), lty = 1)
+plot(function(x) gxhn(x, sigma = 108.52155), 0, 300, add = TRUE, col = "green")
+plot(function(x) gxhn(x, sigma = 92.44877), 0, 300, add = TRUE, col = "brown")
+plot(function(x) gxhn(x, sigma = 105.07122), 0, 300, add = TRUE, col = "orange")
+legend('topright', c("Buiten sbp - De Moeren", "Binnen sbp - De Moeren",
+                     "Buiten sbp - Oostelijke leemstreek", 
+                     "Binnen sbp - Oostelijke leemstreek"),
+    col = c("blue", "green", "brown", "orange"), lty = 1)
 ```
 
 De schatting van de densiteiten:
 
 ```{r}
 Elambda %>%
- ggplot(aes(x = openheid, y = Predicted)) + 
+ mutate(categorie = paste(sbp, openheid, sep = " - ")) %>%
+ ggplot(aes(x = categorie, y = Predicted)) + 
   geom_pointrange(aes(ymin = lower, ymax = upper, colour = regio),
                   position = position_dodge(width = 0.5)) +
-  labs(colour =  "Regio", x = "Openheid landschap", 
+  labs(colour =  "Regio", x = "", 
        y = "Aantal broedparen Gele kwikstaart per 100 ha") +
   scale_y_continuous(limits = c(0, NA))
 ```
@@ -2106,7 +1992,7 @@ Elambda %>%
 Dit geeft echter een vreemd resultaat aangezien er in De Moeren geen plots in HOL zijn.
 
 ```{r}
-design2022 %>% count(regio, openheid) %>%
+design_2022 %>% count(regio, openheid) %>%
   rename("aantal plots" = n) %>%
   kable()
 ```
@@ -2114,24 +2000,9 @@ design2022 %>% count(regio, openheid) %>%
 <span style="color: red;">
 Hoe kunnen we hiermee rekening houden? Interactie met regio werkt niet.
 </span>
-
-```{r}
-# Maak predicties o.b.v. interactiemodel
-Elambda_interaction <- predict(um_model_hn28, type = "state", 
-                               newdata = new_df_dens, appendData = TRUE)
-
-# Visualiseer
-Elambda_interaction %>%
- ggplot(aes(x = openheid, y = Predicted)) + 
-  geom_pointrange(aes(ymin = lower, ymax = upper, colour = regio),
-                  position = position_dodge(width = 0.5)) +
-  labs(colour =  "Regio", x = "Openheid landschap", 
-       y = "Aantal broedparen Gele kwikstaart per 100 ha",
-       title = "Densiteit afhankelijk van interactie regio en openheid") +
-  scale_y_continuous(limits = c(0, NA))
-```
-
-We hebben geen rekening gehouden met de telperiodes. De functie `gdistsamp()` fit een meer complex model maar op welke manier hier dan met herhaalde tellingen wordt rekening gehouden is me momenteel niet duidelijk. Bovendien kan de " probability of being available for detection" geschat worden en kan een negatief binomiaal verdeling getest worden.
+  
+  
+We hebben geen rekening gehouden met de telperiodes. De functie `gdistsamp()` fit een meer complex model maar op welke manier hier dan met herhaalde tellingen wordt rekening gehouden is me momenteel niet duidelijk. Bovendien kan de "probability of being available for detection" geschat worden en kan een negatief binomiaal verdeling getest worden.
 
 Voor de datapreparatie voegen we nu de optie `occasionCol`toe.
 
@@ -2159,10 +2030,10 @@ um_model_GDS <- gdistsamp(~1, ~1, ~1, data = umf2, keyfun = "halfnorm",
                   output = "density", unitsOut = "kmsq", mixture = "P")
 um_model_GDS2 <- gdistsamp(~1, ~1, ~1, data = umf2, keyfun = "halfnorm", 
                    output = "density", unitsOut = "kmsq", mixture = "NB")
-um_model_GDS3 <- gdistsamp(~openheid, ~1, ~sbp, data = umf2, 
+um_model_GDS3 <- gdistsamp(~sbp * openheid, ~1, ~regio + sbp, data = umf2, 
                            keyfun = "halfnorm", output = "density", 
                            unitsOut = "kmsq", mixture = "P")
-um_model_GDS4 <- gdistsamp(~openheid, ~1, ~sbp, data = umf2, 
+um_model_GDS4 <- gdistsamp(~sbp * openheid, ~1, ~regio + sbp, data = umf2, 
                            keyfun = "halfnorm", output = "density", 
                            unitsOut = "kmsq", mixture = "NB")
 ```
@@ -2179,18 +2050,30 @@ modSel(fm_list2)
 um_model_GDS4
 
 # Densiteit
-# Half-open landschap
-backTransform(linearComb(um_model_GDS4["lambda"], c(1, 0)))
+# Half-open landschap binnen sbp
+backTransform(linearComb(um_model_GDS4["lambda"], c(1, 0, 0, 0)))
 
-# Open landschap
-backTransform(linearComb(um_model_GDS4["lambda"], c(1, 1)))
+# Open landschap binnen sbp
+backTransform(linearComb(um_model_GDS4["lambda"], c(1, 0, 1, 0)))
+
+# Half-open landschap buiten sbp
+backTransform(linearComb(um_model_GDS4["lambda"], c(1, 1, 0, 0)))
+
+# Open landschap buiten sbp
+backTransform(linearComb(um_model_GDS4["lambda"], c(1, 1, 1, 1)))
 
 # Detectiekans
-# Binnen soortbeschermingsplan
-backTransform(linearComb(um_model_GDS4["det"], c(1, 0)))
+# Binnen soortbeschermingsplan De Moeren
+backTransform(linearComb(um_model_GDS4["det"], c(1, 0, 0)))
 
-# Buiten soortbeschermingsplan
-backTransform(linearComb(um_model_GDS4["det"], c(1, 1)))
+# Binnen soortbeschermingsplan Oostelijke leemstreek
+backTransform(linearComb(um_model_GDS4["det"], c(1, 1, 0)))
+
+# Buiten soortbeschermingsplan De Moeren
+backTransform(linearComb(um_model_GDS4["det"], c(1, 0, 1)))
+
+# Buiten soortbeschermingsplan Oostelijke leemstreek
+backTransform(linearComb(um_model_GDS4["det"], c(1, 1, 1)))
 
 # Predicties
 Elambda2 <- predict(um_model_GDS4, type = "lambda", newdata = new_df_dens,
@@ -2203,21 +2086,26 @@ We kunnen visualiseren hoe de detectiefunctie verschilt binnen en buiten de soor
 
 ```{r}
 # Detection function
-plot(function(x) gxhn(x, sigma = 107.21133), 0, 300, xlab = "Afstand (m)",
+plot(function(x) gxhn(x, sigma = 99.16160), 0, 300, xlab = "Afstand (m)",
     ylab = "Detection probability", las = 1, col = "blue")
-plot(function(x) gxhn(x, sigma = 91.76288), 0, 300, add = TRUE, col = "green")
-legend('topright', c("Binnen sbp", "Buiten sbp"),
-    col = c("blue", "green"), lty = 1)
+plot(function(x) gxhn(x, sigma = 112.61232), 0, 300, add = TRUE, col = "green")
+plot(function(x) gxhn(x, sigma = 91.62027), 0, 300, add = TRUE, col = "brown")
+plot(function(x) gxhn(x, sigma = 104.04805), 0, 300, add = TRUE, col = "orange")
+legend('topright', c("Buiten sbp - De Moeren", "Binnen sbp - De Moeren",
+                     "Buiten sbp - Oostelijke leemstreek", 
+                     "Binnen sbp - Oostelijke leemstreek"),
+    col = c("blue", "green", "brown", "orange"), lty = 1)
 ```
 
 De schatting van de densiteiten:
 
 ```{r}
 Elambda2 %>%
- ggplot(aes(x = openheid, y = Predicted)) + 
+ mutate(categorie = paste(sbp, openheid, sep = " - ")) %>%
+ ggplot(aes(x = categorie, y = Predicted)) + 
   geom_pointrange(aes(ymin = lower, ymax = upper, colour = regio),
                   position = position_dodge(width = 0.5)) +
-  labs(colour =  "Regio", x = "Openheid landschap", 
+  labs(colour =  "Regio", x = "", 
        y = "Aantal broedparen Gele kwikstaart per 100 ha") +
   scale_y_continuous(limits = c(0, NA))
 ```
@@ -2226,7 +2114,7 @@ Dit geeft nog steeds vreemde resultaten. We voeren een klassieke GLMM uit zoals 
 
 ```{r}
 # Voeg openheid landschap toe als variabele
-brmpois_openheid1 <- brm(bf(aantal ~ regio + periode_in_jaar + openheid + 
+brmpois_openheid1 <- brm(bf(aantal ~ regio + periode_in_jaar + sbp * openheid + 
                               (1 | plotnaam)), 
                         data = gele_kwik_2022, family = poisson(), 
                         chains = nchains, warmup = burnin, iter = niter, 
@@ -2337,6 +2225,7 @@ newdata_interaction %>%
 <span style="color: red;">
 Waarom werkt een interactie niet in **unmarked**??
 </span>
+
 
 ### Hierarchical distance sampling in STAN{#HDS_STAN}
 
@@ -2464,7 +2353,7 @@ gele_kwik_2022_ds %>% mutate(dist_bin = case_when(
   select(-c(`1`, `2`, `3`, `NA`)) %>%
   cbind(predicted = summary(stan_dist, pars = c("n"))$summary[, "mean"]) %>%
   as_tibble() %>%
-  full_join(design2022, by = c("Sample.Label" = "plotnaam")) %>%
+  full_join(design_2022, by = c("Sample.Label" = "plotnaam")) %>%
   group_by(regio ) %>%
   summarise(aantal = sum(predicted))
 ```
@@ -2531,7 +2420,7 @@ Deze strategie werkt enkel voor honkvaste soorten! Bovendien is de keuze van de 
 gele_kwik_2022_territoria <- mas_clean %>%
   filter(naam == "Gele Kwikstaart", jaar == 2022, 
          !is.na(periode_in_jaar), wrntype > 0L) %>%  
-  inner_join(design2022, by = "plotnaam") # Moeren en Leemstreek
+  inner_join(design_2022, by = "plotnaam") # Moeren en Leemstreek
 
 # Selecteer coördinaten van broedkoppels waarvan er > 1 per telling
 # (zelfde plot zelfde telperiode) werden gezien
@@ -2539,7 +2428,7 @@ broedkoppels <- gele_kwik_2022_territoria %>%
   group_by(plotnaam, periode_in_jaar) %>%
   mutate(group_id = cur_group_id()) %>% 
   expand(nesting(group_id), nesting(group_id2 = group_id)) %>%
-  filter(st_geometry_type(geom) == "MULTIPOINT") %>%
+  filter(st_geometry_type(geometry) == "MULTIPOINT") %>%
   st_cast(to = "POINT")
 
 # Bereken paarsgewijze afstanden van broedkoppels per telling 
@@ -2684,7 +2573,7 @@ plot_terr <- gele_kwik_2022 %>%
   
   # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
   # alle plots (som)
-  inner_join(design2022, by = "plotnaam") %>%
+  inner_join(design_2022, by = "plotnaam") %>%
   select(plotnaam, gemiddelde, maximum, regio) %>%
   group_by(regio) %>%
   summarise(tot_gemiddelde = sum(gemiddelde),
@@ -2715,7 +2604,7 @@ plot_terr <- gele_kwik_2022 %>%
         "territoria" = "Aantal territoria")
       ))
 
-grid.arrange(GLMM_model, dist_model_hr8, plot_terr, 
+grid.arrange(GLMM_model, dist_model_hr1, plot_terr, 
              layout_matrix = rbind(c(1, 2), c(3)))
 ```
 
@@ -2842,7 +2731,7 @@ plot_terr2 <- gele_kwik_2022 %>%
   
   # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
   # alle plots (som)
-  inner_join(design2022, by = "plotnaam") %>%
+  inner_join(design_2022, by = "plotnaam") %>%
   select(plotnaam, gemiddelde, maximum, regio) %>%
   group_by(regio) %>%
   summarise(tot_gemiddelde = sum(gemiddelde),
@@ -2873,7 +2762,7 @@ plot_terr2 <- gele_kwik_2022 %>%
         "territoria" = "Aantal territoria")
       ))
 
-grid.arrange(GLMM_model, dist_model_hr8, plot_terr2, 
+grid.arrange(GLMM_model, dist_model_hr1, plot_terr2, 
              layout_matrix = rbind(c(1, 2), c(3)))
 ```
 
@@ -2957,7 +2846,7 @@ In dit scenario clusteren we waarnemingen tot broedparen met **territoria**. Daa
 
 ### Data voorbereiden
 
-In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten van waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten en `Region.Label` is een label voor elke regio (zelfde als `regio`-kolom). We hebben ook een dataframe die we als optie `region_table` meegeven met `Region.Label` en `Area` en een dataframe die we als optie `sample_table` meegeven met `Sample.Label`, `Region.Label` en `Effort`. `Effort` is het aantal keer dat een plot is bezocht (overal 1). Deze laatste tabel bevat alle plotnamen, ook deze waar geen Gele kwikstaart werd gezien.
+In de output van **territoria** krijgen we de centroide van de clusters (gemiddelde coordinaten van waarnemingen per cluster). Om niet te veel te moeten joinen berekenen we deze coordinaten opnieuw met de **sf** package. We maken een kolom `Sample.Label` met de het id van de plot, `size` is het aantal broedparen per cluster (overal 1), `regio`, `sbp` en `openheid` zijn covariaten en `Region.Label` is een label voor elke regio (zelfde als `regio`-kolom). We hebben ook een dataframe die we als optie `region_table` meegeven met `Region.Label` en `Area` en een dataframe die we als optie `sample_table` meegeven met `Sample.Label`, `Region.Label` en `Effort`. `Effort` is het aantal keer dat een plot is bezocht (overal 1). Deze laatste tabel bevat alle plotnamen, ook deze waar geen Gele kwikstaart werd gezien. We gebruiken enkel afstanden <= 300 m
 
 ```{r}
 # Voeg clusters toe aan presence data
@@ -2994,9 +2883,10 @@ df_dist_terr_presence2 <- left_join(df_dist_terr_presence %>% as.data.frame(),
   rename(geometry = geometry.x) %>%
   st_sf(sf_column_name = "geometry")
 
-# Voeg regio label toe
+# Voeg regio label toe en filter op distance
 df_dist_terr <- df_dist_terr_presence2 %>%
-  mutate(Region.Label = regio)
+  mutate(Region.Label = regio) %>%
+  filter(distance <= 300)
 
 
 # Sample table
@@ -3042,128 +2932,6 @@ df_dist_terr %>%
     facet_wrap(~regio) +
     labs(y = "Aantal", x = "Afstand (m)")
 ```
-
-We zien plots enkele afstanden > 300 m. Dit zou niet mogen kunnen. We kijken even naar clusters die bestaan uit 1 waarneming. Hierbij zijn de coördinaten van de centroide gelijk aan de coördinaten van de originele waarneming.
-
-```{r}
-# Dataset met oorspronkelijke afstanden
-original_dist <- sp::merge(gele_kwik_2022_territoria, df_territoria2, 
-                           by = intersect("oid", "oid")) %>%
-  group_by(cluster) %>%
-  mutate(n = n()) %>%
-  filter(n == 1) %>%
-  rename(origi_distance = distance2plot) %>%
-  arrange(cluster)
-
-# Welke clusters bestaan uit 1 waarneming?
-single_clusts <- original_dist$cluster
-
-# Dataset met herberekende afstanden (centroid tot telpunt)
-new_dist <- df_dist_terr %>%
-  filter(cluster %in% single_clusts) %>%
-  rename(new_distance = distance) %>%
-  arrange(cluster)
-
-# Join oorspronkelijke en nieuwe datasets
-full_df <- original_dist %>% 
-  st_join(new_dist)
-
-# Zoek punten waarbij oorspronkelijke en nieuwe afstanden niet overeenkomen
-intersect <- full_df %>%
-  filter(!(origi_distance %in% c(floor(new_distance), ceiling(new_distance))))
-
-# Vergelijk oorspronkelijke en nieuwe afstanden (mismatches in blauw)
-full_df %>%
-  ggplot(aes(x = origi_distance, y = new_distance)) +
-    geom_abline(intercept = 0, slope = 1, colour = "red") + 
-    geom_point() +
-    geom_point(data = intersect, aes(x = origi_distance, y = new_distance), 
-               colour = "blue")
-```
-
-We zien dat voor sommige clusters de herberekende afstanden niet gelijk zijn aan de afstanden in de originele dataset (kolom `distance2plot`). Waarom?
-
-```{r}
-intersect %>% 
-  group_by(regio.x, sbp.x, openheid.x) %>%
-  st_drop_geometry() %>%
-  summarise(aantal_broedparen = sum(aantal.x)) %>%
-  group_by(regio.x) %>%
-  mutate(aantal_broedparen_per_regio = sum(aantal_broedparen)) %>%
-  kable()
-```
-
-We zien geen verband met regio, sbp of openheid. We plotten enkele clusters die mismatchen. In blauw zien we dat de herberekende afstanden voor elke cluster mooi door het telpunt gaan. Dit is niet voor de originele afstanden (rood):
-
-```{r}
-plot_circles <- function(plot) {
-  
-  data_origi <- original_dist %>% 
-    filter(plotnaam == plot) 
-  buffer_origi <- data_origi %>% 
-    st_buffer(data_origi$origi_distance)
-  
-  data_new <- new_dist %>% 
-   filter(Sample.Label == plot)
-  buffer_new <- data_new %>% 
-    st_buffer(data_new$new_distance)
-  
-  ggplot() +
-    geom_sf(data = data_origi,
-            colour = "red", size = 5) +
-    geom_sf(data = buffer_origi,
-            colour = "red", fill = alpha("white", 0)) +
-    geom_sf_text(data = data_origi,
-                 label = "original distance", colour = "red", 
-                 nudge_x = c(0, 0),
-                 nudge_y = c(50, 50)) +
-    
-    geom_sf(data = data_new,
-            colour = "blue", size = 3) +
-    geom_sf(data = buffer_new,
-            colour = "blue", fill = alpha("white", 0)) +
-    geom_sf_text(data = data_new,
-            label = "new distance", colour = "blue", 
-            nudge_x = c(0, 0),
-            nudge_y = c(75, 75)) +
-    
-    geom_sf(data = telpunt_coord %>% 
-              filter(definitief_punt == plot),
-            colour = "darkgreen", size = 5) +
-    geom_sf(data = telpunt_coord %>% 
-              filter(definitief_punt == plot) %>% 
-              st_buffer(300),
-          colour = "darkgreen", fill = alpha("white", 0)) +
-    geom_sf_text(data = telpunt_coord %>% 
-              filter(definitief_punt == plot),
-            label = "telpunt (300 m buffer)", colour = "darkgreen", 
-            nudge_x = 100,
-            nudge_y = -10) +
-    
-    coord_sf(datum = proj_crs) +
-    labs(title = paste0("plot: ", plot))
-}
-
-
-plot_circles("DM_222.6")
-plot_circles("DM_137.2")
-plot_circles("Ol_4680")
-```
-
-We zien ook geen spatiale trend in de waarnemingen waarvoor we een mismatch hebben:
-
-```{r}
-intersect_ids <- intersect$cluster.x
-full_df <- full_df %>% 
-  mutate(correct = ifelse(cluster.x %in% intersect_ids, "fout", "correct"))
-
-mapview(telpunt_coord, legend = FALSE, col.regions = "green") +
-mapview(telpunt_coord %>% st_buffer(300), 
-        legend = FALSE, col.regions = "green", alpha.region = 0.1) +
-mapview(full_df, zcol = "correct")
-```
-
-**Conclusie:** We hebben de exacte coördinaten van de clusters en de telpunten dus we gaan er van uit dat de herberekende afstanden correct zijn. Voorlopig hebben we geen verklaring. Bij SOVON terugkoppelen hoe die afstanden worden berekend (automatisch in app?). Een mogelijkheid is wel dat de teller niet exact op het telpunt staat wanneer hij waarnemingen ingeeft waardoor de berekende afstanden in de app nu niet overeenkomen met de afstand tussen het theoretische telpunt en de waarnemingen. Soms zijn de mismatches wel groot (> 100 m), en vele gevallen is er geen mismatch. De mismatches zijn ook aanwezig bij verschillende tellers. Het blijft dus onduidelijk wat er aan de hand is.
 
 
 ### Model fit en selectie
@@ -3392,7 +3160,9 @@ summarize_ds_models(ds_scen1_unif1,
   kable()
 ```
 
-De modellen waarbij de detectiekans afhankelijk is van regio en soortbeschermingsplan scoren het best. 
+Het Hazard-rate model waarbij de detectiekans afhankelijk is van soortbeschermingsplan is het best.  
+  
+Als oefening gaan we verder met de modellen waarbij de detectiekans afhankelijk is van regio en soortbeschermingsplan.
 
 $$
 \sigma(\mathbf{z}) = \exp{\left( \beta_0 + \beta_1 z_{regio} + \beta_2 z_{sbp} \right)}
@@ -3534,258 +3304,23 @@ Kunnen we deze plots repliceren in `ggplot()`? Herschaling onduidelijk. Combinat
 https://groups.google.com/g/distance-sampling/c/Xf9KnmPdXuo/m/7PhjBe3YAAAJ  
 https://rdrr.io/cran/mrds/src/R/plot.ds.R  
   
-We hebben een aantal functies nodig van het **mrds** package:
+We hebben dit in een functie gegoten in plot_detection_curve.R. Indien we parameters willen combineren, moeten we een designmatrix meegeven en labels per categorie.
 
 ```{r}
-# Scaling factor needed for correct plotting
-# From mrds:::scalevalue
-scalevalue <- function(key.scale, z) {
-  return(exp(as.matrix(z) %*% key.scale))
-  }
+design_plot <- matrix(c(1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1), 
+                      ncol = 3, byrow = TRUE)
 
-# This function calculates the detection probability according to a hazard rate 
-# model from mrds:::keyfct.hz
-keyfct.hz <- function(distance, key.scale, key_shape) {
-  return(1 - exp(-(distance/key.scale)^(-key_shape)))
-  }
+labels_plot <- c("De Moeren - binnen", "De Moeren - buiten", 
+                 "Oostelijke leemstreek - binnen", 
+                 "Oostelijke leemstreek - buiten")
 
-# This function calculates the detection probability according to a hazard rate 
-# model from mrds:::keyfct.hn
-keyfct.hn <- function(distance, key.scale) {
-  return(exp( -(( distance / (sqrt(2) * key.scale) )^2) ))
-}
+plot_detection_curve(ds_scen1_hr5, design_mat = design_plot, 
+                     labels = labels_plot, n_breaks = 15) +
+  labs(title = "Hazard-rate model")
 
-# from mrds:::detfct
-bindata <- function(x, r, breaks) {
-  return(hist(r[r >= x[1] & r <= x[2]], breaks = breaks, plot = FALSE)$counts)
-}
-
-sumit <- function(x, n, wt) {
-  return(sum(x/(wt * n)))
-}
-```
-
-We berekenen detectiekansen:
-
-```{r}
-dist_data <- df_dist_terr
-hr_model <- ds_scen1_hr5
-hn_model <- ds_scen1_hn5
-
-# Vector of distances used to re-create the detection function (from 0 out to 
-# truncation distance of 300 m)
-distances <- seq(0 ,300, length.out = 100)
-
-# The models have two dichotomous factor variables that only affect the scale 
-# (not the shape) of the detection function:
-
-# Shape parameter
-key_shape_hr <- scalevalue(hr_model$ddf$ds$aux$ddfobj$shape$parameters, 
-                           matrix(1, nrow = 100, 1))
-
-# Scale parameter - Hazard-rate
-# Factor = 0: De Moeren - binnen
-mat0 <- matrix(1, nrow = 100, ncol = 3)
-mat0[, 2:3] <- 0
-key.scale0 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
-
-# Factor = 1: De Moeren - buiten
-mat1 <- matrix(1, nrow = 100, ncol = 3)
-mat1[, 2] <- 0
-key.scale1 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
-
-# Factor = 2: Oostelijke leemstreek - binnen
-mat2 <- matrix(1, nrow = 100, ncol = 3)
-mat2[, 3] <- 0
-key.scale2 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
-
-# Factor = 3: Oostelijke leemstreek - buiten
-mat3 <- matrix(1, nrow = 100, ncol = 3)
-key.scale3 <- scalevalue(hr_model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
-
-# Calculate detection probability values
-y.val0 <- keyfct.hz(distances, key.scale0, key_shape_hr)
-y.val1 <- keyfct.hz(distances, key.scale1, key_shape_hr)
-y.val2 <- keyfct.hz(distances, key.scale2, key_shape_hr)
-y.val3 <- keyfct.hz(distances, key.scale3, key_shape_hr)
-
-df_hazard <- rbind(data.frame(dist = distances, y_val = y.val0, 
-                   Legende = "De Moeren - binnen"),
-               data.frame(dist = distances, y_val = y.val1, 
-                   Legende = "De Moeren - buiten"),
-               data.frame(dist = distances, y_val = y.val2, 
-                   Legende = "Oostelijke leemstreek - binnen"),
-               data.frame(dist = distances, y_val = y.val3, 
-                   Legende = "Oostelijke leemstreek - buiten"))
-
-# Scale parameter - Half-normal
-# Factor = 0: De Moeren - binnen
-mat0 <- matrix(1, nrow = 100, ncol = 3)
-mat0[, 2:3] <- 0
-key.scale0 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat0)
-
-# Factor = 1: De Moeren - buiten
-mat1 <- matrix(1, nrow = 100, ncol = 3)
-mat1[, 2] <- 0
-key.scale1 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat1)
-
-# Factor = 2: Oostelijke leemstreek - binnen
-mat2 <- matrix(1, nrow = 100, ncol = 3)
-mat2[, 3] <- 0
-key.scale2 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat2)
-
-# Factor = 3: Oostelijke leemstreek - buiten
-mat3 <- matrix(1, nrow = 100, ncol = 3)
-key.scale3 <- scalevalue(hn_model$ddf$ds$aux$ddfobj$scale$parameters, mat3)
-
-# Calculate detection probability values
-y.val0 <- keyfct.hn(distances, key.scale0)
-y.val1 <- keyfct.hn(distances, key.scale1)
-y.val2 <- keyfct.hn(distances, key.scale2)
-y.val3 <- keyfct.hn(distances, key.scale3)
-
-df_halfnorm <- rbind(data.frame(dist = distances, y_val = y.val0, 
-                     Legende = "De Moeren - binnen"),
-                 data.frame(dist = distances, y_val = y.val1, 
-                     Legende = "De Moeren - buiten"),
-                 data.frame(dist = distances, y_val = y.val2, 
-                     Legende = "Oostelijke leemstreek - binnen"),
-                 data.frame(dist = distances, y_val = y.val3, 
-                     Legende = "Oostelijke leemstreek - buiten"))
-```
-
-Nu kunnen we beginnen plotten:
-
-```{r}
-# Re-create the histogram: Hazard-rate
-
-# Detection probability for each fitted value & Nhat estimate
-selected <- rep(TRUE, nrow(hr_model$ddf$ds$aux$ddfobj$xmat))
-if (length(hr_model$ddf$fitted) == 1) {
-  pdot <- rep(hr_model$ddf$fitted, sum(as.numeric(selected)))
-} else {
-  pdot <- hr_model$ddf$fitted[selected]
-  Nhat <- sum(1 / pdot)
-}
-
-# Create a dummy histogram
-# dist_data is the data.frame object of the distance data
-# Right-truncating here at 300 m
-# If you inspect the internal functions of the mrds package, you will find how 
-# the number of histogram breaks is calculated. In our case, the value is 15
-n_breaks <- 15
-trunc <- 300
-breaks <- seq(0, trunc, trunc / n_breaks)
-hist_hr <- hist(dist_data[dist_data$distance <= trunc,]$distance, 
-                breaks = breaks, plot = FALSE)
-
-# Calculate expected counts for each distance value for point transects
-nc <- length(breaks) - 1
-expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2), 
-  ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
-
-# Re-scale the counts
-hist_hr$counts <- hist_hr$counts / expected.counts
-
-# Calculate the fitted average detection probability
-ddfobj <- hr_model$ddf$ds$aux$ddfobj
-finebr <- seq(0, trunc, length.out = 101)
-xgrid <- NULL
-linevalues <- NULL
-newdat <- ddfobj$xmat
-for (i in 1:(length(finebr) - 1)) {
-  x <- (finebr[i] + finebr[i + 1]) / 2
-  xgrid <- c(xgrid, x)
-  newdat$distance <- rep(x, nrow(newdat))
-
-  detfct.values <- detfct(newdat$distance, ddfobj, select = selected,
-                          width = trunc)
-  linevalues <- c(linevalues, sum(detfct.values/pdot)/sum(1/pdot))
-}
-
-df_gemiddelde_hr <- data.frame(dist = distances, lineval = linevalues)
-
-# Use the ggplot2 package to plot the histogram as a barplot and overlay the 
-# detection functions
-hist_df_hr <- data.frame(mids = hist_hr$mids, counts = hist_hr$counts)
-
-ggplot(hist_df_hr) + 
-  geom_bar(aes(x = mids, y = counts), stat = "identity",
-           width = trunc / n_breaks, fill = "white", color = "black") + 
-  geom_line(data = df_hazard, aes(x = dist, y = y_val, colour = Legende), 
-            size = 1) +
-  geom_line(data = df_gemiddelde_hr, aes(x = dist, y = lineval), size = 1, 
-            linetype = "dashed") +
-  labs(title = "Hazard-rate model", x = "Afstand (m)", y = "Detectiekans") +
-  theme(legend.position = c(1, 1),
-        legend.justification = c(1, 1),
-        legend.background = element_rect(fill = "white", color = "black"))
-```
-
-```{r}
-# Re-create the histogram: Half-normal
-
-# Detection probability for each fitted value & Nhat estimate
-selected <- rep(TRUE, nrow(hn_model$ddf$ds$aux$ddfobj$xmat))
-if (length(hn_model$ddf$fitted) == 1) {
-  pdot <- rep(hn_model$ddf$fitted, sum(as.numeric(selected)))
-} else {
-  pdot <- hn_model$ddf$fitted[selected]
-  Nhat <- sum(1 / pdot)
-}
-
-# Create a dummy histogram
-# dist_data is the data.frame object of the distance data
-# Right-truncating here at 300 m
-# If you inspect the internal functions of the mrds package, you will find how 
-# the number of histogram breaks is calculated. In our case, the value is 15
-n_breaks <- 15
-trunc <- 300
-breaks <- seq(0, trunc, trunc / n_breaks)
-hist_hn <- hist(dist_data[dist_data$distance <= trunc,]$distance, 
-                breaks = breaks, plot = FALSE)
-
-# Calculate expected counts for each distance value for point transects
-nc <- length(breaks) - 1
-expected.counts <- -apply(matrix(c(breaks[2:(nc + 1)]^2, breaks[1:nc]^2), 
-  ncol = 2, nrow = nc), 1, diff) * (Nhat / breaks[nc + 1]^2)
-
-# Re-scale the counts
-hist_hn$counts <- hist_hn$counts / expected.counts
-
-# Calculate the fitted average detection probability
-ddfobj <- hn_model$ddf$ds$aux$ddfobj
-finebr <- seq(0, trunc, length.out = 101)
-xgrid <- NULL
-linevalues <- NULL
-newdat <- ddfobj$xmat
-for (i in 1:(length(finebr) - 1)) {
-  x <- (finebr[i] + finebr[i + 1]) / 2
-  xgrid <- c(xgrid, x)
-  newdat$distance <- rep(x, nrow(newdat))
-
-  detfct.values <- detfct(newdat$distance, ddfobj, select = selected,
-                          width = trunc)
-  linevalues <- c(linevalues, sum(detfct.values/pdot)/sum(1/pdot))
-}
-
-df_gemiddelde_hn <- data.frame(dist = distances, lineval = linevalues)
-
-# Use the ggplot2 package to plot the histogram as a barplot and overlay the 
-# detection functions
-hist_df_hn <- data.frame(mids = hist_hn$mids, counts = hist_hn$counts)
-
-ggplot(hist_df_hn) + 
-  geom_bar(aes(x = mids, y = counts), stat = "identity",
-           width = trunc / n_breaks, fill = "white", color = "black") + 
-  geom_line(data = df_halfnorm, aes(x = dist, y = y_val, colour = Legende), 
-            size = 1) +
-  geom_line(data = df_gemiddelde_hn, aes(x = dist, y = lineval), size = 1, 
-            linetype = "dashed") +
-  labs(title = "Half-normal model", x = "Afstand (m)", y = "Detectiekans") +
-  theme(legend.position = c(1, 1),
-        legend.justification = c(1, 1),
-        legend.background = element_rect(fill = "white", color = "black"))
+plot_detection_curve(ds_scen1_hn5, design_mat = design_plot, 
+                     labels = labels_plot, n_breaks = 15) +
+  labs(title = "Half-normal model")
 ```
 
 
@@ -3905,7 +3440,7 @@ rbind(df_results_hr5, df_results_hn5) %>%
 
 ### Discussie
 
-De volgende figuren tonen het aantal broedparen per 100 ha. Puntschattingen zijn steeds aangegeven; enkel in het geval van distance sampling hebben we confidence limits (95 %). Aantal territoria is berekend als het aantal clusters (via **territoria** package) per circeloppervlakte en dan omgezet naar hectare. Bij distance sampling hebben we ook de clusters gebruikt, maar hebben we rekening gehouden met detectiekans. De schattingen worden dan omgezet naar 100 ha o.b.v. de oppervlakte van de regio's en niet o.b.v. de cirkeloppervlakte. Bij het gemiddelde aantal per plot nemen we som van alle gemiddelde aantallen broedparen per plot waarbij we het gemiddelde nemen over de telperiodes en bij het maximum het maximum aantal over de telperiodes per plot. Daarna wordt dit aantal berekend per circeloppervlakte en dan omgezet naar 100 hectare.
+De volgende figuren tonen het aantal broedparen per 100 ha. Puntschattingen zijn steeds aangegeven; enkel in het geval van distance sampling hebben we confidence limits (95 %). Aantal territoria is berekend als het aantal clusters (via **territoria** package) per cirkelervlakte en dan omgezet naar hectare. Bij distance sampling hebben we ook de clusters gebruikt, maar hebben we rekening gehouden met detectiekans. De schattingen worden dan omgezet naar 100 ha o.b.v. de oppervlakte van de regio's en niet o.b.v. de cirkeloppervlakte. Bij het gemiddelde aantal per plot nemen we som van alle gemiddelde aantallen broedparen per plot waarbij we het gemiddelde nemen over de telperiodes en bij het maximum het maximum aantal over de telperiodes per plot. Daarna wordt dit aantal berekend per cirkelervlakte en dan omgezet naar 100 hectare.
 
 ```{r, fig.height=7, fig.width=9}
 p1 <- territoria_per_plot2 %>%
@@ -3914,7 +3449,7 @@ p1 <- territoria_per_plot2 %>%
     geom_bar(aes(fill = regio), stat = "identity") +
     geom_text(aes(label = round(Estimate, digits = 2)), vjust = -0.5,
               colour = "black") +
-    scale_y_continuous(limits = c(0, 14)) +
+    scale_y_continuous(limits = c(0, 20)) +
     labs(x = "", y = "Aantal broedparen Gele kwikstaart\nper 100 ha", 
          title = "Aantal territoria") +
   theme(legend.position = "")
@@ -3928,7 +3463,7 @@ p2 <- rbind(df_results_hr5, df_results_hn5) %>%
             position = position_dodge(width = 1.75), vjust = -0.25) +
     geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25,
                   position = position_dodge(width = 0.5)) +
-    scale_y_continuous(limits = c(0, 14)) +
+    scale_y_continuous(limits = c(0, 20)) +
     scale_colour_manual(values = c("orange", "purple")) +
     labs(x = "", y = "", title = "P(detectie) ~ regio + sbp")
 
@@ -3945,7 +3480,7 @@ p3 <- gele_kwik_2022 %>%
   
   # Join om regio's te krijgen, bereken dan het totaal aantal individuen over 
   # alle plots (som)
-  inner_join(design2022, by = "plotnaam") %>%
+  inner_join(design_2022, by = "plotnaam") %>%
   select(plotnaam, gemiddelde, maximum, regio) %>%
   group_by(regio) %>%
   summarise(tot_gemiddelde = sum(gemiddelde),
@@ -3988,7 +3523,7 @@ grid.arrange(p1, p2, p3, layout_matrix = rbind(c(1, 2), c(3)))
 
 # Gele kwikstaart 2018-2022{#gele-kwik}
 
-Nu kunnen we overgaan naar een dataset van Gele kwikstaart over de jaren heen (2018-2022). We selecteren de data voor Gele kwikstaart van 2018-2022 met broedcode > 0. Opmerking: wat met *Gele kwikstaart (spec)*?  
+Nu kunnen we overgaan naar een dataset van Gele kwikstaart over de jaren heen (2018-2022). We selecteren de data voor Gele kwikstaart van 2018-2022 met broedcode > 0 en afstanden <= 300 m. Opmerking: wat met *Gele kwikstaart (spec)*?  
   
 Er is een discrepantie in de variabelen van de plots tussen 2018-2021 en 2022 (zie \@ref(inlezen-data)). Daardoor zijn er in de volgende data geen plots die zowel in 2018-2021 en 2022 zijn bezocht. Bovendien zullen de resultaten voor 2022 nu dan ook verschillen van deze in \@ref(gele-kwik-2022).
 
@@ -3998,9 +3533,10 @@ design_langterm <- design_2018_2022 %>%
   filter(regio %in% c("De Moeren", "Oostelijke leemstreek"))
 
 # Selecteer tellingen van Gele kwikstaart in 2018-2022 in de twee regio's
-# met broedcode > 0 en binnen telrondes
+# met broedcode > 0, op minder dan 300 m en binnen telrondes
 gele_kwik_presences <- mas_clean %>%
-  filter(naam == "Gele Kwikstaart", !is.na(periode_in_jaar), wrntype > 0L) %>%  
+  filter(naam == "Gele Kwikstaart", !is.na(periode_in_jaar), wrntype > 0L,
+         distance2plot <= 300) %>%  
   inner_join(design_langterm, by = c("plotnaam", "jaar")) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "))
 
@@ -4179,7 +3715,7 @@ broedkoppel_lang <- gele_kwik_presences %>%
   group_by(plotnaam, periode_in_jaar, jaar) %>%
   mutate(group_id = cur_group_id()) %>%
   expand(nesting(group_id), nesting(group_id2 = group_id)) %>%
-  filter(st_geometry_type(geom) == "MULTIPOINT") %>%
+  filter(st_geometry_type(geometry) == "MULTIPOINT") %>%
   st_cast(to = "POINT")
 
 # Bereken paarsgewijze afstanden van broedkoppels per telling 
@@ -4313,7 +3849,6 @@ df_territoria_2022$cluster <- territoria_cluster(df_territoria_2022,
 df_territoria_lang <- rbind(df_territoria_2018, df_territoria_2019, 
                             df_territoria_2020, df_territoria_2021, 
                             df_territoria_2022) %>%
-  rename(geometry = geom) %>%
   st_as_sf()
 ```
 
@@ -4436,25 +3971,6 @@ dist_df <- inner_join(df_territoria_lang %>% as.data.frame(),
   st_sf(sf_column_name = "geometry")
 ```
 
-Inderdaad, er is een mismatch met de afstanden uit de app en de herberekende afstanden. We zien vooral mismatches in 2022 en de mismatches van vòòr 2022 zijn enkel van plot VL0075 of VL0073.
-
-```{r}
-dist_df %>%
-  mutate(mismatch = ifelse(distance2plot == floor(distance) |
-                           distance2plot == ceiling(distance),
-                           "no", "yes")) %>%
-  ggplot(aes(x = distance2plot, y = distance)) +
-    geom_abline(intercept = 0, slope = 1, colour = "black") + 
-    geom_point(aes(colour = mismatch)) +
-    labs(x = "Originele afstand (app SOVON)", 
-         y = "Herberekende afstand waarneming tot telpunt") +
-    scale_x_continuous(breaks = seq(0, 900, 100)) +
-    scale_y_continuous(breaks = seq(0, 900, 100)) +
-    facet_wrap(~jaar) +
-    theme(legend.position = c(1, 0),
-        legend.justification = c(1, 0))
-```
-
 In een tweede stap maken we de dataset klaar om de detectiecurve te fitten. We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `distance`: afstand tot waarnemer voor elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`. 
 
 ```{r}
@@ -4523,7 +4039,7 @@ obs_table <- dist_df %>%
 ```
 
 
-### Model fit
+### Modellen fitten
 
 **1. Bereken detectiekans**  
 We fitten half-normal en hazard-rate key functions waarbij we alle combinaties van covariaten beschouwen en alle combinaties van interacties.
@@ -4650,68 +4166,11 @@ summarize_ds_models(dens_jaren_hn0, dens_jaren_hr0, dens_jaren_hn1,
                     dens_jaren_hr16, dens_jaren_hn17, dens_jaren_hr17, 
                     dens_jaren_hn18, dens_jaren_hr18, dens_jaren_hn19, 
                     dens_jaren_hr19, dens_jaren_hn20, dens_jaren_hr20, 
-                    dens_jaren_hn21, dens_jaren_hr21, dens_jaren_hr24) %>%
+                    dens_jaren_hn21, dens_jaren_hr21, dens_jaren_hn24) %>%
   kable()
 ```
 
-We selecteren Hazard-rate model met variabelen jaar en sbp in interactie. Omdat we geen combinaties van interacties en variabelen niet in een interactie hebben gefit vergelijken we nog enkele modellen formules:
-
-- `~jaar * sbp + regio`  
-- `~jaar * sbp + regio`  
-- `~jaar * sbp + openheid`  
-- `~jaar * sbp + regio * openheid`  
-
-```{r}
-# Detectiekans
-detection_hr27 <- ddf(data = detection_df, method = "ds",
-        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio),
-        meta.data = list(width = 300, point = TRUE))
-detection_hr28 <- ddf(data = detection_df, method = "ds",
-        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + openheid),
-        meta.data = list(width = 300, point = TRUE))
-detection_hr29 <- ddf(data = detection_df, method = "ds",
-        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio + openheid),
-        meta.data = list(width = 300, point = TRUE))
-detection_hr30 <- ddf(data = detection_df, method = "ds",
-        dsmodel = ~mcds(key = "hr", formula = ~jaar * sbp + regio * openheid),
-        meta.data = list(width = 300, point = TRUE))
-
-# Densiteiten
-dens_schat_hr27 <- dht(model = detection_hr27, region.table = region_table, 
-    sample.table = sample_table, obs.table = obs_table,
-    options = list(group = FALSE, convert.units = conversion_factor))
-dens_schat_hr28 <- dht(model = detection_hr28, region.table = region_table, 
-    sample.table = sample_table, obs.table = obs_table,
-    options = list(group = FALSE, convert.units = conversion_factor))
-dens_schat_hr29 <- dht(model = detection_hr29, region.table = region_table, 
-    sample.table = sample_table, obs.table = obs_table,
-    options = list(group = FALSE, convert.units = conversion_factor))
-dens_schat_hr30 <- dht(model = detection_hr30, region.table = region_table, 
-    sample.table = sample_table, obs.table = obs_table,
-    options = list(group = FALSE, convert.units = conversion_factor))
-
-# Maak dsmodel voor later gebruik functies in Distance package
-dens_jaren_hr27 <- list(ddf = detection_hr27, dht = dens_schat_hr27)
-class(dens_jaren_hr27) <- "dsmodel"
-
-dens_jaren_hr28 <- list(ddf = detection_hr28, dht = dens_schat_hr28)
-class(dens_jaren_hr28) <- "dsmodel"
-
-dens_jaren_hr29 <- list(ddf = detection_hr29, dht = dens_schat_hr29)
-class(dens_jaren_hr29) <- "dsmodel"
-
-dens_jaren_hr30 <- list(ddf = detection_hr30, dht = dens_schat_hr30)
-class(dens_jaren_hr30) <- "dsmodel"
-```
-
-```{r}
-summarize_ds_models(dens_jaren_hr19, dens_jaren_hr27, dens_jaren_hr28, 
-                    dens_jaren_hr29, dens_jaren_hr30) %>%
-  kable()
-```
-
-We zien dat model 19 nog alijd het simpelste model is met een verschil in AIC’s kleiner dan 2.
-
+Het beste model heeft variabelen regio en jaar. Als oefening selecteren we het Hazard-rate model met variabelen jaar en sbp in interactie.
 
 ### Model fit
 
@@ -4723,8 +4182,6 @@ breaks <- seq(0, 300, 300 / 15)
 par(mfrow = c(1, 2))
 gof_ds(dens_jaren_hr19)
 plot(dens_jaren_hr19, pdf = TRUE, showpoints = FALSE, breaks = breaks)
-par(mfrow = c(1, 1))
-plot(dens_jaren_hr19, showpoints = FALSE, breaks = breaks)
 ```
 
 We zien een goede algemene fit. We kunnen dit ook visualiseren voor elke categorie.
@@ -4744,6 +4201,38 @@ for (j in as.character(2018:2022)) {
   }
 }
 par(mfrow = c(1, 1))
+```
+
+We plotten de detectiecurve. De design matrix ziet er als volgt uit: 
+
+```{r}
+design_plot <- matrix(rep(0, 10 * 10), ncol = 10, byrow = TRUE)
+design_plot[, 1] <- 1
+design_plot[c(2, 7), 2] <- 1
+design_plot[c(3, 8), 3] <- 1
+design_plot[c(4, 9), 4] <- 1
+design_plot[c(5, 10), 5] <- 1
+design_plot[6:10, 6] <- 1
+design_plot[7, 7] <- 1
+design_plot[8, 8] <- 1
+design_plot[9, 9] <- 1
+design_plot[10, 10] <- 1
+
+labels_plot <- paste(rep(c("binnen", "buiten"), each = 5), 
+                     rep(2018:2022, 2), sep = " - ")
+
+design_plot %>%
+  data.frame() %>%
+  `rownames<-`(labels_plot) %>%
+  `colnames<-`(names(dens_jaren_hr19$ddf$ds$aux$ddfobj$scale$parameters)) %>%
+  kable()
+```
+
+En de detectiecurve:
+
+```{r}
+plot_detection_curve(dens_jaren_hr19, design_mat = design_plot, 
+                     labels = labels_plot, n_breaks = 15)
 ```
 
 
@@ -4947,3 +4436,4 @@ Een ander probleem bij clustering is dat je detectiekans afhangt van het aantal 
 - Targets moeten gecontroleerd worden, fout in data/code?
 - Clusteren van individuen mogelijks geen goed idee. Gebruik van ruwe data met `Effort = 4` zal een onderschatting geven maar is een robuustere methode.
 - Voorlopig is het niet belangrijk om hypotheses te testen. We willen enkel een goede schatting van de abundantie met onzekerheid. Als later toch gevraagd wordt, kunnen we eventueel herberkeningen doen en abstracties zodat we van **effectclass** kunnen gebruikmaken.
+- Telperiode 1 niet gebruiken
