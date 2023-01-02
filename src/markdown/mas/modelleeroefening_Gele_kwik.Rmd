@@ -3139,6 +3139,8 @@ plot_circles <- function(plot) {
             label = "telpunt (300 m buffer)", colour = "darkgreen", 
             nudge_x = 100,
             nudge_y = -10) +
+    
+    coord_sf(datum = proj_crs) +
     labs(title = paste0("plot: ", plot))
 }
 
