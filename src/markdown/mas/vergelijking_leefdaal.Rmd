@@ -829,7 +829,23 @@ conclusie_df <- rbind(conclusie_df, c("openheid landschap", "+", "-",
 ## Multivariate data-analyse
 ### Data preparatie
 
-We willen een dataframe met de deelgebieden als rijen en de variabelen als kolommen. Als variabelen nemen we de totale oppervlakte van de deelgebieden, de proporties voor elk landgebruikstype, hoofdteelttype en type openheid landschap, en de mediaan van de perceelsgroottes per deelgebied.
+We willen een dataframe met de deelgebieden als rijen en de variabelen als kolommen. Als variabelen nemen we de totale oppervlakte van de deelgebieden, de proporties voor elk landgebruikstype, hoofdteelttype en type openheid landschap, en de mediaan van de perceelsgroottes per deelgebied.  
+Continue variabelen worden gecentreerd (trek gemiddelde af per kolom) en geschaald (deel door standaard deviatie per kolom): `scale()`. Voor compositionele data (kwantitatieve beschrijvingen van de delen van een geheel, i.e. proporties tussen 0 en 1 die sommeren tot 1) moeten de gegevens worden getransformeerd naar de gebruikelijke Euclidische geometrie. Hiervoor voeren we de gecentreerde log-ratio transformatie uit: `compositions::clr()`.  
+  
+Handige links:
+https://en.wikipedia.org/wiki/Compositional_data  
+http://file.statistik.tuwien.ac.at/filz/papers/2016Statistics.pdf  
+
+```{r}
+cent_log_ratio <- function(df) {
+  df %>%
+    select_if(is.numeric) %>%
+    compositions::clr() %>%
+    as_tibble() %>%
+    mutate(naam = df$naam) %>%
+    select(naam, everything())
+}
+```
 
 ```{r}
 # Oppervlakte
@@ -841,11 +857,11 @@ opp_leefdaal_df <- leefdaal %>%
   mutate(across(.cols = where(is.numeric), .fns = scale))
 
 # Landgebruiksamenstelling
-landgebruik_leefdaal_df <- landgebruik_leefdaal %>%
+landgebruik_leefdaal_df_unscaled <- landgebruik_leefdaal %>%
   pivot_wider(names_from = landgebruik_klasse, values_from = area_prop) %>%
   rename(Grasland_landgebruik = Grasland) %>%
-  arrange(naam) %>%
-  mutate(across(.cols = where(is.numeric), .fns = scales::rescale))
+  arrange(naam)
+landgebruik_leefdaal_df <- cent_log_ratio(landgebruik_leefdaal_df_unscaled)
 
 # Hoofdteelt
 hfdteelten_leefdaal_df <- hfdteelten_leefdaal  %>%
