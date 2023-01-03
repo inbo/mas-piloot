@@ -865,12 +865,12 @@ landgebruik_leefdaal_df_unscaled <- landgebruik_leefdaal %>%
 landgebruik_leefdaal_df <- cent_log_ratio(landgebruik_leefdaal_df_unscaled)
 
 # Hoofdteelt
-hfdteelten_leefdaal_df <- hfdteelten_leefdaal  %>%
+hfdteelten_leefdaal_df_unscaled <- hfdteelten_leefdaal  %>%
   select(naam, LBLHFDTLT, area_prop) %>%
   pivot_wider(names_from = LBLHFDTLT, values_from = area_prop) %>%
   rename(Grasland_teelt = Grasland) %>%
-  arrange(naam) %>%
-  mutate(across(.cols = where(is.numeric), .fns = scales::rescale))
+  arrange(naam)
+hfdteelten_leefdaal_df <- cent_log_ratio(hfdteelten_leefdaal_df_unscaled)
 
 # Perceelsgrootte
 percelen_leefdaal_df <- percelen_leefdaal %>%
@@ -883,10 +883,10 @@ percelen_leefdaal_df <- percelen_leefdaal %>%
   mutate(across(.cols = where(is.numeric), .fns = scale))
   
 # Openheid landschap
-openheid_leefdaal_df <- openheid_leefdaal %>%
+openheid_leefdaal_df_unscaled <- openheid_leefdaal %>%
   pivot_wider(names_from = openheid_klasse, values_from = area_prop) %>%
-  arrange(naam) %>%
-  mutate(across(.cols = where(is.numeric), .fns = scales::rescale))
+  arrange(naam)
+openheid_leefdaal_df <- cent_log_ratio(openheid_leefdaal_df_unscaled)
   
 # Complete dataset
 df_list <- list(opp_leefdaal_df, landgebruik_leefdaal_df, 
@@ -1063,7 +1063,7 @@ perc_var(pca_hoofdteelten$sdev) %>%
     geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
 ```
 
-Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
+Lovenjoel ligt dichter bij Zavelberg langs PC1 en Kortenberg ligt dichter bij Zavelberg langs PC2.
 
 ```{r}
 ggbiplot_vegan(pca_hoofdteelten) +
@@ -1075,8 +1075,68 @@ ggbiplot_vegan(pca_hoofdteelten) +
             vjust = 1.5)
 ```
 
-Deze resultaten zijn in overeenstemming met onze eerdere conclusies in \@ref(teelt). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is.
+Deze resultaten zijn anders dan onze eerdere conclusies in \@ref(teelt). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is.
 
+```{r}
+hoofdteelten_leefdaal_logratio <- hfdteelten_leefdaal  %>%
+  select(naam, LBLHFDTLT, area_prop) %>%
+  expand_grid(nesting(naam, LBLHFDTLT, area_prop), 
+              .name_repair = "unique") %>%
+  filter(`naam...1` == `naam...4`) %>%
+  select(naam = `naam...1`, teller_klasse = `LBLHFDTLT...2`,
+         teller_prop = `area_prop...3`, noemer_klasse = `LBLHFDTLT...5`,
+         noemer_prop = `area_prop...6`) %>%
+  mutate(ratio = teller_prop / noemer_prop,
+         log_ratio = log(ratio),
+         variables = paste(teller_klasse, noemer_klasse, sep = "/"))
+
+hoofdteelten_diff2 <- hoofdteelten_leefdaal_logratio %>%
+  select(naam, variables, log_ratio) %>%
+  group_by(variables) %>%
+  pivot_wider(names_from = naam, values_from = log_ratio) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    )
+
+hoofdteelten_diff2 %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot(aes(x = check)) +
+    geom_bar() +
+    scale_y_continuous(limits = c(0, 120)) +
+    labs(y = "aantal keer kleinste verschil in\nlog-ratio met Zavelberg", x = "", 
+         title = "hoofdteelten") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
+
+hoofdteelten_diff2 %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "log_ratio") %>%
+  group_by(naam) %>%
+  filter(log_ratio != Inf) %>%
+  mutate(som = sum(log_ratio)) %>%
+  select(naam, som) %>%
+  distinct() %>%
+  ggplot(aes(x = naam, y = som)) +
+    geom_bar(stat = "identity") +
+    scale_y_continuous(limits = c(0, 370)) +
+    labs(y = "verschil in log-ratio met Zavelberg", x = "", 
+         title = "hoofdteelten") +
+    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
+```
+
+Omdat we hier toch een voordeel van Lovenjoel t.o.v. Kortenberg zien, zullen we een correctie geven door een nieuwe rij toe te voegen met "+" voor Lovenjoel en "0" voor Kortenberg.
+
+```{r}
+conclusie_df <- rbind(conclusie_df, 
+                      c("hoofdteelten log-ratio", "0", "+", 
+                        "correctie na PCA o.b.v. relatieve data"))
+```
 
 #### Openheid landschap
 
@@ -1096,7 +1156,7 @@ perc_var(pca_openheid$sdev) %>%
     geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
 ```
 
-Kortenberg ligt dichter bij Zavelberg langs PC1 dan Lovenjoel.
+Kortenberg ligt dichter bij Zavelberg langs PC1 dan Lovenjoel, Lovenjoel licht dichter bij Zavelberg langs PC2.
 
 ```{r}
 ggbiplot_vegan(pca_openheid) +
@@ -1108,8 +1168,59 @@ ggbiplot_vegan(pca_openheid) +
             vjust = 1.5)
 ```
 
-Deze resultaten zijn in overeenstemming met onze conclusie in \@ref(openheid). Daar besloten we dat Kortenberg veel gelijkaardiger is aan Zavelberg in termen van openheid van het landschap dan Lovenjoel.
+Deze resultaten zijn in overeenstemming met onze conclusie in \@ref(openheid). Daar besloten we dat Kortenberg veel gelijkaardiger is aan Zavelberg in termen van openheid van het landschap dan Lovenjoel. Hier zien we dezelfde trend hoewel het verschil niet zo uitgesproken is als verwacht.
 
+```{r}
+openheid_leefdaal_logratio <- openheid_leefdaal %>% 
+  expand_grid(nesting(naam, openheid_klasse, area_prop), 
+              .name_repair = "unique") %>%
+  filter(`naam...1` == `naam...4`) %>%
+  select(naam = `naam...1`, teller_klasse = `openheid_klasse...2`,
+         teller_prop = `area_prop...3`, noemer_klasse = `openheid_klasse...5`,
+         noemer_prop = `area_prop...6`) %>%
+  mutate(ratio = teller_prop / noemer_prop,
+         log_ratio = log(ratio),
+         variables = paste(teller_klasse, noemer_klasse, sep = "/"))
+
+openheid_diff2 <- openheid_leefdaal_logratio %>%
+  select(naam, variables, log_ratio) %>%
+  group_by(variables) %>%
+  pivot_wider(names_from = naam, values_from = log_ratio) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    )
+
+openheid_diff2 %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot(aes(x = check)) +
+    geom_bar() +
+    scale_y_continuous(limits = c(0, 120)) +
+    labs(y = "aantal keer kleinste verschil in\nlog-ratio met Zavelberg", x = "", 
+         title = "openheid") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
+
+openheid_diff2 %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "log_ratio") %>%
+  group_by(naam) %>%
+  filter(log_ratio != Inf) %>%
+  mutate(som = sum(log_ratio)) %>%
+  select(naam, som) %>%
+  distinct() %>%
+  ggplot(aes(x = naam, y = som)) +
+    geom_bar(stat = "identity") +
+    scale_y_continuous(limits = c(0, 370)) +
+    labs(y = "verschil in log-ratio met Zavelberg", x = "", 
+         title = "openheid") +
+    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
+```
 
 ### PCA complete dataset
 
