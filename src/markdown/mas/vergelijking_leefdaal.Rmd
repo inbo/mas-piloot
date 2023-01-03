@@ -835,6 +835,7 @@ Continue variabelen worden gecentreerd (trek gemiddelde af per kolom) en geschaa
 Handige links:
 https://en.wikipedia.org/wiki/Compositional_data  
 http://file.statistik.tuwien.ac.at/filz/papers/2016Statistics.pdf  
+https://rss.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/1467-9876.00275  
 
 ```{r}
 cent_log_ratio <- function(df) {
@@ -958,7 +959,7 @@ pca_landgebruik <- prcomp(landgebruik_leefdaal_df %>%
                             column_to_rownames(var = "naam"))
 ```
 
-De eerste PC verklaart een kleine 2/3 en de tweede PC een dikke 1/3 van alle variatie in de data. 
+De eerste PC verklaart een ongeveer 3/4 en de tweede PC ongeveer 1/4 van alle variatie in de data. 
 
 ```{r}
 perc_var(pca_landgebruik$sdev) %>%
@@ -969,7 +970,8 @@ perc_var(pca_landgebruik$sdev) %>%
     geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
 ```
 
-Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
+Erkenning van compositionele data betekent dat we op de relatieve en niet op absolute groottes van de componenten moeten focussen, nl. verhoudingen van de componenten. Variabelen die dicht bij elkaar liggen op de biplot zullen een meer constante ratio hebben.  
+Lovenjoel ligt dichter bij Zavelberg langs PC1 en Kortenberg ligt dichter bij Zavelberg langs PC2. De log-ratio's zijn gelijkaardiger in Lovenjoel en Zavelberg dan Kortenberg en Zavelberg.
 
 ```{r}
 ggbiplot_vegan(pca_landgebruik) +
@@ -981,9 +983,67 @@ ggbiplot_vegan(pca_landgebruik) +
             vjust = 1.5)
 ```
 
+Deze resultaten zijn niet in overeenstemming met onze eerdere conclusies in \@ref(landgebruik). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is. Toen beschouwden we echter geen relatieve proporties, maar absolute aantallen. Inderdaad, als we kijken naar de verschillen in ratio's met Zavelberg zien we dat Lovenjoel vaker een kleiner verschil in log-ratio heeft met Zavelberg dan Kortenberg en dat de opgetelde verschillen ook kleiner zijn voor Lovenjoel.
 
-Deze resultaten zijn in overeenstemming met onze eerdere conclusies in \@ref(landgebruik). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is. Bovendien zien we dat Akker sterk met PC1 is gecorreleerd wat we toen ook als pro voor Kortenberg zagen.
+```{r}
+landgebruik_leefdaal_logratio <- landgebruik_leefdaal %>% 
+  expand_grid(nesting(naam, landgebruik_klasse, area_prop), 
+              .name_repair = "unique") %>%
+  filter(`naam...1` == `naam...4`) %>%
+  select(naam = `naam...1`, teller_klasse = `landgebruik_klasse...2`,
+         teller_prop = `area_prop...3`, noemer_klasse = `landgebruik_klasse...5`,
+         noemer_prop = `area_prop...6`) %>%
+  mutate(ratio = teller_prop / noemer_prop,
+         log_ratio = log(ratio),
+         variables = paste(teller_klasse, noemer_klasse, sep = "/"))
 
+landgebruik_diff2 <- landgebruik_leefdaal_logratio %>%
+  select(naam, variables, log_ratio) %>%
+  group_by(variables) %>%
+  pivot_wider(names_from = naam, values_from = log_ratio) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    )
+
+landgebruik_diff2 %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot(aes(x = check)) +
+    geom_bar() +
+    scale_y_continuous(limits = c(0, 120)) +
+    labs(y = "aantal keer kleinste verschil in\nlog-ratio met Zavelberg", x = "", 
+         title = "Landgebruik") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
+
+landgebruik_diff2 %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "log_ratio") %>%
+  group_by(naam) %>%
+  filter(log_ratio != Inf) %>%
+  mutate(som = sum(log_ratio)) %>%
+  select(naam, som) %>%
+  distinct() %>%
+  ggplot(aes(x = naam, y = som)) +
+    geom_bar(stat = "identity") +
+    scale_y_continuous(limits = c(0, 370)) +
+    labs(y = "verschil in log-ratio met Zavelberg", x = "", 
+         title = "Landgebruik") +
+    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
+```
+
+Omdat we hier toch een voordeel van Lovenjoel t.o.v. Kortenberg zien, zullen we een correctie geven door een nieuwe rij toe te voegen met "+" voor Lovenjoel en "-" voor Kortenberg.
+
+```{r}
+conclusie_df <- rbind(conclusie_df, 
+                      c("landgebruiksamenstelling log-ratio", "-", "+", 
+                        "correctie na PCA o.b.v. relatieve data"))
+```
 
 #### Hoofdteelt
 
