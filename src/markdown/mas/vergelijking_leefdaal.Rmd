@@ -838,10 +838,24 @@ http://file.statistik.tuwien.ac.at/filz/papers/2016Statistics.pdf
 https://rss.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/1467-9876.00275  
 
 ```{r}
-cent_log_ratio <- function(df) {
-  df %>%
+compostions_trans <- function(df, transformation) {
+  columnnames <- df %>%
     select_if(is.numeric) %>%
-    compositions::clr() %>%
+    names()
+      
+  if (transformation == "ilr") {
+    out <- df %>%
+      select_if(is.numeric) %>%
+      compositions::ilr()
+  } else if (transformation == "clr") {
+    out <- df %>%
+      select_if(is.numeric) %>%
+      compositions::clr()
+  } else {
+    stop("Transformation must be 'clr' or 'ilr'!")
+  }
+  
+  out %>%
     as_tibble() %>%
     mutate(naam = df$naam) %>%
     select(naam, everything())
@@ -862,7 +876,7 @@ landgebruik_leefdaal_df_unscaled <- landgebruik_leefdaal %>%
   pivot_wider(names_from = landgebruik_klasse, values_from = area_prop) %>%
   rename(Grasland_landgebruik = Grasland) %>%
   arrange(naam)
-landgebruik_leefdaal_df <- cent_log_ratio(landgebruik_leefdaal_df_unscaled)
+landgebruik_leefdaal_df <- compostions_trans(landgebruik_leefdaal_df_unscaled, "clr")
 
 # Hoofdteelt
 hfdteelten_leefdaal_df_unscaled <- hfdteelten_leefdaal  %>%
@@ -870,7 +884,7 @@ hfdteelten_leefdaal_df_unscaled <- hfdteelten_leefdaal  %>%
   pivot_wider(names_from = LBLHFDTLT, values_from = area_prop) %>%
   rename(Grasland_teelt = Grasland) %>%
   arrange(naam)
-hfdteelten_leefdaal_df <- cent_log_ratio(hfdteelten_leefdaal_df_unscaled)
+hfdteelten_leefdaal_df <- compostions_trans(hfdteelten_leefdaal_df_unscaled, "clr")
 
 # Perceelsgrootte
 percelen_leefdaal_df <- percelen_leefdaal %>%
@@ -886,7 +900,7 @@ percelen_leefdaal_df <- percelen_leefdaal %>%
 openheid_leefdaal_df_unscaled <- openheid_leefdaal %>%
   pivot_wider(names_from = openheid_klasse, values_from = area_prop) %>%
   arrange(naam)
-openheid_leefdaal_df <- cent_log_ratio(openheid_leefdaal_df_unscaled)
+openheid_leefdaal_df <- compostions_trans(openheid_leefdaal_df_unscaled, "clr")
   
 # Complete dataset
 df_list <- list(opp_leefdaal_df, landgebruik_leefdaal_df, 
@@ -970,8 +984,8 @@ perc_var(pca_landgebruik$sdev) %>%
     geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
 ```
 
-Erkenning van compositionele data betekent dat we op de relatieve en niet op absolute groottes van de componenten moeten focussen, nl. verhoudingen van de componenten. Variabelen die dicht bij elkaar liggen op de biplot zullen een meer constante ratio hebben.  
-Lovenjoel ligt dichter bij Zavelberg langs PC1 en Kortenberg ligt dichter bij Zavelberg langs PC2. De log-ratio's zijn gelijkaardiger in Lovenjoel en Zavelberg dan Kortenberg en Zavelberg.
+Erkenning van compositionele data betekent dat we op de relatieve en niet op absolute groottes van de componenten moeten focussen, nl. verhoudingen van de componenten. Variabelen die dicht bij elkaar liggen op de biplot zullen een meer constante ratio hebben. Hun proportie is gelijkaardig voor alle observaties (= deelgebieden).  
+Lovenjoel ligt dichter bij Zavelberg langs PC1 en Kortenberg ligt dichter bij Zavelberg langs PC2. De verhoudingen in de variabelen zijn gelijkaardiger in Lovenjoel en Zavelberg dan Kortenberg en Zavelberg.
 
 ```{r}
 ggbiplot_vegan(pca_landgebruik) +
