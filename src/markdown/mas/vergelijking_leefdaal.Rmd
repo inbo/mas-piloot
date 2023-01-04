@@ -1350,4 +1350,4 @@ rbind(data.frame(conclusie = conclusie_df$Kortenberg,
   kable()
 ```
 
-In de tabellen zien we geen duidelijk beste kandidaat als controlegebied. De finale beslissing zal afhangen van het belang dat aan elke categorie wordt toegekend. Als openheid van het landschap en verschillen in absolute proporties in landgebruik en hoofdteelten belangrijk zijn, lijkt Kortenberg de beste kandidaat. Als verschillen in relatieve proporties belangrijk zijn en ded aanwezigheid van MAS-punten, an Lovenjoel misschien even goed dienen als controlegebied.
+In de tabellen zien we geen duidelijk beste kandidaat als controlegebied. De finale beslissing zal afhangen van het belang dat aan elke categorie wordt toegekend. Als openheid van het landschap en verschillen in absolute proporties in landgebruik en hoofdteelten belangrijk zijn, lijkt Kortenberg de beste kandidaat. Als verschillen in relatieve proporties belangrijk zijn en de aanwezigheid van MAS-punten, an Lovenjoel misschien even goed dienen als controlegebied.
