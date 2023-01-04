@@ -833,9 +833,10 @@ conclusie_df <- rbind(conclusie_df, c("openheid landschap", "+", "-",
 ### Data preparatie
 
 We willen een dataframe met de deelgebieden als rijen en de variabelen als kolommen. Als variabelen nemen we de totale oppervlakte van de deelgebieden, de proporties voor elk landgebruikstype, hoofdteelttype en type openheid landschap, en de mediaan van de perceelsgroottes per deelgebied.  
-Continue variabelen worden gecentreerd (trek gemiddelde af per kolom) en geschaald (deel door standaard deviatie per kolom): `scale()`. Voor compositionele data (kwantitatieve beschrijvingen van de delen van een geheel, i.e. proporties tussen 0 en 1 die sommeren tot 1) moeten de gegevens worden getransformeerd naar de gebruikelijke Euclidische geometrie. Hiervoor voeren we de gecentreerde log-ratio transformatie uit: `compositions::clr()`.  
   
-Handige links:
+Continue variabelen worden gecentreerd (trek gemiddelde af per kolom) en geschaald (deel door standaard deviatie per kolom): `scale()`. Voor compositionele data (kwantitatieve beschrijvingen van de delen van een geheel, i.e. proporties tussen 0 en 1 die sommeren tot 1) moeten de gegevens worden getransformeerd naar de gebruikelijke Euclidische geometrie. Hiervoor voeren we de isometrische log-ratio transformatie uit: `compositions::clr()` met schaling $\sqrt\frac{D - 1}{D}$.  
+  
+Handige links:  
 https://en.wikipedia.org/wiki/Compositional_data  
 http://file.statistik.tuwien.ac.at/filz/papers/2016Statistics.pdf  
 https://rss.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/1467-9876.00275  
@@ -975,29 +976,6 @@ pca_landgebruik <- prcomp(landgebruik_leefdaal_df %>%
                             column_to_rownames(var = "naam"))
 ```
 
-```{r}
-# Consider the compositions
-x <- landgebruik_leefdaal_df_unscaled %>%
-      select_if(is.numeric)
-D <- ncol(x)
-n <- nrow(x)
-V <- matrix(nrow = D, ncol = n)
-
-for (l in seq_len(D)) {
-  # The ilr transformation of x(l) results in z(l)
-  df <- x %>%
-    select(l, everything()) %>%
-    compositions::ilr() %>%
-    as_tibble()
-  
-  # The first ilr variable z(l) explains all the relative information
-  # about the original compositional part x(l)
-  V[l,] <- svd(df)$v[1,]
-}
-
-```
-
-
 De eerste PC verklaart een ongeveer 3/4 en de tweede PC ongeveer 1/4 van alle variatie in de data. 
 
 ```{r}
@@ -1022,7 +1000,7 @@ ggbiplot_vegan(pca_landgebruik) +
             vjust = 1.5)
 ```
 
-Deze resultaten zijn niet in overeenstemming met onze eerdere conclusies in \@ref(landgebruik). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is. Toen beschouwden we echter geen relatieve proporties, maar absolute aantallen. Inderdaad, als we kijken naar de verschillen in ratio's met Zavelberg zien we dat Lovenjoel vaker een kleiner verschil in log-ratio heeft met Zavelberg dan Kortenberg en dat de opgetelde verschillen ook kleiner zijn voor Lovenjoel.
+Deze resultaten zijn niet in overeenstemming met onze eerdere conclusies in \@ref(landgebruik). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is. Toen beschouwden we echter geen relatieve proporties, maar wel de absolute. Inderdaad, als we kijken naar de verschillen in de ratio's van proporties met Zavelberg, zien we dat Lovenjoel vaker een kleiner verschil in log-ratio heeft met Zavelberg dan Kortenberg en dat de opgetelde verschillen ook kleiner zijn voor Lovenjoel.
 
 ```{r}
 landgebruik_leefdaal_logratio <- landgebruik_leefdaal %>% 
@@ -1076,12 +1054,12 @@ landgebruik_diff2 %>%
     geom_text(aes(label = round(som, digits = 3)), vjust = -1)
 ```
 
-Omdat we hier toch een voordeel van Lovenjoel t.o.v. Kortenberg zien, zullen we een correctie geven door een nieuwe rij toe te voegen met "+" voor Lovenjoel en "-" voor Kortenberg.
+Omdat we hier toch een voordeel van Lovenjoel t.o.v. Kortenberg zien, zullen we een correctie geven door een nieuwe rij toe te voegen met "+" voor Lovenjoel en "0" voor Kortenberg.
 
 ```{r}
 conclusie_df <- rbind(conclusie_df, 
-                      c("landgebruiksamenstelling log-ratio", "-", "+", 
-                        "correctie na PCA o.b.v. relatieve data"))
+                      c("landgebruiksamenstelling log-ratio", "0", "+", 
+                        "PCA o.b.v. relatieve data"))
 ```
 
 #### Hoofdteelt
@@ -1174,7 +1152,7 @@ Omdat we hier toch een voordeel van Lovenjoel t.o.v. Kortenberg zien, zullen we 
 ```{r}
 conclusie_df <- rbind(conclusie_df, 
                       c("hoofdteelten log-ratio", "0", "+", 
-                        "correctie na PCA o.b.v. relatieve data"))
+                        "PCA o.b.v. relatieve data"))
 ```
 
 #### Openheid landschap
@@ -1207,7 +1185,7 @@ ggbiplot_vegan(pca_openheid) +
             vjust = 1.5)
 ```
 
-Deze resultaten zijn in overeenstemming met onze conclusie in \@ref(openheid). Daar besloten we dat Kortenberg veel gelijkaardiger is aan Zavelberg in termen van openheid van het landschap dan Lovenjoel. Hier zien we dezelfde trend hoewel het verschil niet zo uitgesproken is als verwacht.
+Deze resultaten zijn in overeenstemming met onze conclusie in \@ref(openheid). Daar besloten we dat Kortenberg veel gelijkaardiger is aan Zavelberg in termen van openheid van het landschap dan Lovenjoel. Hier zien we dezelfde trend hoewel het verschil niet zo uitgesproken is als eerder.
 
 ```{r}
 openheid_leefdaal_logratio <- openheid_leefdaal %>% 
@@ -1261,6 +1239,12 @@ openheid_diff2 %>%
     geom_text(aes(label = round(som, digits = 3)), vjust = -1)
 ```
 
+```{r}
+conclusie_df <- rbind(conclusie_df, 
+                      c("openheid log-ratio", "+", "0", 
+                        "PCA o.b.v. relatieve data"))
+```
+
 ### PCA complete dataset
 
 We voeren nu ook een PCA uit op de dataset met alle variabelen samen.
@@ -1269,7 +1253,7 @@ We voeren nu ook een PCA uit op de dataset met alle variabelen samen.
 pca_fit <- prcomp(leefdaal_multivar)
 ```
 
-De eerste PC verklaart een kleine 2/3 van de variatie in de data en de tweede as een dikke 1/3.
+De eerste PC verklaart een dikke 2/3 van de variatie in de data en de tweede as een kleine 1/3.
 
 ```{r}
 perc_var(pca_fit$sdev) %>%
@@ -1280,7 +1264,7 @@ perc_var(pca_fit$sdev) %>%
     geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
 ```
 
-Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
+Lovenjoel ligt dichter bij Zavelberg langs PC1 en Kortenberg ligt dichter bij Zavelberg langs PC2. 
 
 ```{r}
 ggbiplot_vegan(pca_fit) +
@@ -1290,7 +1274,7 @@ ggbiplot_vegan(pca_fit) +
             vjust = 1.5)
 ```
 
-Als we de Euclidische afstand tussen de deelgebieden berekenen, ligt Kortenberg iets dichter. 
+Als we de Euclidische afstand tussen de deelgebieden berekenen, ligt Lovenjoel iets dichter. 
 
 ```{r}
 # calculate distances
@@ -1327,9 +1311,9 @@ pca_fit$rotation %>%
 
 ### Conclusie
 
-De resultaten van de multivariate data-analyses zijn grotendeels in overeenstemming met de eerdere resultaten o.b.v. exploratieve figuren. Enkel bij het samennemen van oppervlakte en perceelsgrootte hebben we beslist nog een correctie toe te voegen in voordeel van Lovenjoel, omdat de aparte variabelen geen belangrijk voordeel toonden maar er samen wel een voordeel duidelijk is.  
+De resultaten van de multivariate data-analyses o.b.v. absolute getallen zijn grotendeels in overeenstemming met de eerdere resultaten o.b.v. exploratieve figuren. Enkel bij het samennemen van oppervlakte en perceelsgrootte hebben we beslist nog een correctie toe te voegen in voordeel van Lovenjoel, omdat de aparte variabelen geen belangrijk voordeel toonden maar er samen wel een voordeel duidelijk is. Voor de compositionele variabelen was dit ook in overeenstemming (resultaten niet getoond), maar we besloten de finale multivariate analyses te doen op getransformeerde variabelen waarbij we kijken naar verhoudingen van de componenten in plaats van absolute waarden. We zien dat dit wel een verschil geeft met de eerdere exploratie.   
   
-Uit de analyse met alle variabelen samen, lijkt Kortenberg iets meer gelijkaardig aan Zavelberg dan Lovenjoel. In de uiteindelijke conclusie kunnen we nagaan of het besluit op basis van de conclusietabel (met "+", "-", "0") overeenkomt met deze analyses.
+Uit de analyse met alle variabelen samen, zonder tranformatie, lijkt Kortenberg iets meer gelijkaardig aan Zavelberg dan Lovenjoel (resultaten niet getoond). Wanneer we de naar relatieve verhoudingen kijken, zien we het omgekeerde. In de uiteindelijke conclusie kunnen we nagaan of het besluit op basis van de conclusietabel (met "+", "-", "0") overeenkomt met deze analyses.
 
 
 # Vergelijking o.b.v. expertise
@@ -1366,6 +1350,4 @@ rbind(data.frame(conclusie = conclusie_df$Kortenberg,
   kable()
 ```
 
-Uit de vorige tabellen kunnen we besluiten dat Kortenberg een betere kandidaat lijkt als controlegebied dan Lovenjoel. Ook uit de multivariate data-analyse bleek dat Kortenberg meer gelijkaardig is aan Zavelberg dan Lovenjoel op vlak van totale oppervlakte, landgebruik, hoofdteelten, perceelsgrootte en openheid van het landschap.  
-  
-De finale beslissing kan echter nog afhangen van het belang dat aan elke categorie wordt toegekend. Als de overeenkomst in oppervlakte, perceelsgrootte en de aanwezigheid van MAS-punten heel belangrijk is, kan Lovenjoel misschien even goed dienen als controlegebied. 
+In de tabellen zien we geen duidelijk beste kandidaat als controlegebied. De finale beslissing zal afhangen van het belang dat aan elke categorie wordt toegekend. Als openheid van het landschap en verschillen in absolute proporties in landgebruik en hoofdteelten belangrijk zijn, lijkt Kortenberg de beste kandidaat. Als verschillen in relatieve proporties belangrijk zijn en ded aanwezigheid van MAS-punten, an Lovenjoel misschien even goed dienen als controlegebied.
