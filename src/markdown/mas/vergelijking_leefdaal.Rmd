@@ -316,7 +316,10 @@ conclusie_df <- rbind(conclusie_df, c("oppervlakte", "0", "0",
 
 ## Landgebruiksamenstelling{#landgebruik}
 
-We beschouwen de rasterlaag van landgebruiksamenstelling van 2019. Voorlopig is de laag van 2022 nog niet beschikbaar (om de 3 jaar vernieuwing).
+We beschouwen de rasterlaag van landgebruiksamenstelling van 2019. Voorlopig is de laag van 2022 nog niet beschikbaar (om de 3 jaar vernieuwing). 
+  
+`Error in x$.self$finalize()` mag genegeerd worden:  
+https://stackoverflow.com/questions/65556253/r-raster-selffinalize-error-causing-failure
 
 ```{r}
 # Lees in landgebruik raster
