@@ -839,27 +839,23 @@ Handige links:
 https://en.wikipedia.org/wiki/Compositional_data  
 http://file.statistik.tuwien.ac.at/filz/papers/2016Statistics.pdf  
 https://rss.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/1467-9876.00275  
+https://stats.stackexchange.com/questions/259208/how-to-perform-isometric-log-ratio-transformation  
 
 ```{r}
-compostions_trans <- function(df, transformation) {
-  columnnames <- df %>%
+compostions_trans <- function(df, transformation = "clr") {
+  out <- df %>%
     select_if(is.numeric) %>%
-    names()
-      
+    compositions::clr() %>%
+    as_tibble()
+  
   if (transformation == "ilr") {
-    out <- df %>%
-      select_if(is.numeric) %>%
-      compositions::ilr()
-  } else if (transformation == "clr") {
-    out <- df %>%
-      select_if(is.numeric) %>%
-      compositions::clr()
-  } else {
-    stop("Transformation must be 'clr' or 'ilr'!")
+    D <- ncol(out)
+    factor <- sqrt((D - 1) / D)
+    out <- out %>%
+      mutate(across(.cols = everything(), .fns = function(i) i / factor))
   }
   
   out %>%
-    as_tibble() %>%
     mutate(naam = df$naam) %>%
     select(naam, everything())
 }
@@ -879,7 +875,8 @@ landgebruik_leefdaal_df_unscaled <- landgebruik_leefdaal %>%
   pivot_wider(names_from = landgebruik_klasse, values_from = area_prop) %>%
   rename(Grasland_landgebruik = Grasland) %>%
   arrange(naam)
-landgebruik_leefdaal_df <- compostions_trans(landgebruik_leefdaal_df_unscaled, "clr")
+landgebruik_leefdaal_df <- compostions_trans(landgebruik_leefdaal_df_unscaled, 
+                                             transformation = "ilr")
 
 # Hoofdteelt
 hfdteelten_leefdaal_df_unscaled <- hfdteelten_leefdaal  %>%
@@ -887,7 +884,8 @@ hfdteelten_leefdaal_df_unscaled <- hfdteelten_leefdaal  %>%
   pivot_wider(names_from = LBLHFDTLT, values_from = area_prop) %>%
   rename(Grasland_teelt = Grasland) %>%
   arrange(naam)
-hfdteelten_leefdaal_df <- compostions_trans(hfdteelten_leefdaal_df_unscaled, "clr")
+hfdteelten_leefdaal_df <- compostions_trans(hfdteelten_leefdaal_df_unscaled, 
+                                             transformation = "ilr")
 
 # Perceelsgrootte
 percelen_leefdaal_df <- percelen_leefdaal %>%
@@ -903,7 +901,8 @@ percelen_leefdaal_df <- percelen_leefdaal %>%
 openheid_leefdaal_df_unscaled <- openheid_leefdaal %>%
   pivot_wider(names_from = openheid_klasse, values_from = area_prop) %>%
   arrange(naam)
-openheid_leefdaal_df <- compostions_trans(openheid_leefdaal_df_unscaled, "clr")
+openheid_leefdaal_df <- compostions_trans(openheid_leefdaal_df_unscaled, 
+                                             transformation = "ilr")
   
 # Complete dataset
 df_list <- list(opp_leefdaal_df, landgebruik_leefdaal_df, 
@@ -975,6 +974,29 @@ conclusie_df <- rbind(conclusie_df,
 pca_landgebruik <- prcomp(landgebruik_leefdaal_df %>% 
                             column_to_rownames(var = "naam"))
 ```
+
+```{r}
+# Consider the compositions
+x <- landgebruik_leefdaal_df_unscaled %>%
+      select_if(is.numeric)
+D <- ncol(x)
+n <- nrow(x)
+V <- matrix(nrow = D, ncol = n)
+
+for (l in seq_len(D)) {
+  # The ilr transformation of x(l) results in z(l)
+  df <- x %>%
+    select(l, everything()) %>%
+    compositions::ilr() %>%
+    as_tibble()
+  
+  # The first ilr variable z(l) explains all the relative information
+  # about the original compositional part x(l)
+  V[l,] <- svd(df)$v[1,]
+}
+
+```
+
 
 De eerste PC verklaart een ongeveer 3/4 en de tweede PC ongeveer 1/4 van alle variatie in de data. 
 
