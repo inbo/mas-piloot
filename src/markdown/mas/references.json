@@ -1,0 +1,30 @@
+[
+    {
+        "author": [
+            {
+                "family": "Wiersma",
+                "given": "Popko"
+            },
+            {
+                "family": "Hakkert",
+                "given": "Jitty"
+            }
+        ],
+        "id": "wiersma2021",
+        "issued": {
+            "date-parts": [
+                [
+                    2021
+                ]
+            ]
+        },
+        "key": "UN9T38XS",
+        "libraryid": "1",
+        "number": "GKA-Rapport 2021-17",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Grauwe Kiekendief - Kenniscentrum Akkervogels",
+        "publisher-place": "Scheemda",
+        "title": "Trends van vogels van het agrarisch gebied van Flevoland in 2011-2021",
+        "type": "report"
+    }
+]
