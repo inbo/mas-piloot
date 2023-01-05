@@ -584,13 +584,14 @@ Voor elke waarneming van een broedgeval (of aanwijzing voor een broedpaar) hebbe
 ```{r}
 # Dupliceer rijen volgens aantal (elke rij is 1 individu)
 veldleeuwerik_presences2 <- 
-    tibble(
-      veldleeuwerik_presences[rep(seq_len(dim(veldleeuwerik_presences)[1]), 
-                    veldleeuwerik_presences$aantal), , 
-                    drop = FALSE], 
-      row.names = NULL
-    ) %>%
-    mutate(aantal = 1)
+  tibble(
+    veldleeuwerik_presences[rep(seq_len(dim(veldleeuwerik_presences)[1]), 
+                  veldleeuwerik_presences$aantal), , 
+                  drop = FALSE], 
+    row.names = NULL
+  ) %>%
+  mutate(aantal = 1) %>%
+  rowid_to_column("id") # Elke rij unieke id
 
 veldleeuwerik_presences2 %>% 
   st_drop_geometry() %>%
@@ -620,6 +621,44 @@ veldleeuwerik_presences2 %>%
 ## Inleiding {#inleiding-distance}
 
 ## Data preparatie {#preparatie-distance}
+
+```{r}
+veldleeuwerik_distance <- veldleeuwerik_presences2 %>%
+  select(object = id, distance = distance2plot, regio, jaar, sbp, openheid) %>%
+  mutate(jaar = as.character(jaar))
+```
+
+```{r}
+# Bereken oppervlaktes van de regio's
+areas <- perimeters %>% 
+  mutate(Area = as.numeric(st_area(geom)) / 1e6) %>%
+  select(regio = Naam, Area) %>%
+  st_drop_geometry()
+
+# Oppervlakte per stratum
+region_table <- design_2018_2022 %>%
+  distinct(regio, jaar) %>%
+  full_join(areas, by = "regio") %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - ")) %>%
+  select(Region.Label, Area)
+
+# Effort per sample en plot per stratum
+sample_table <- design_2018_2022 %>%
+  distinct(plotnaam, regio, jaar) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "),
+         Effort = 4) %>%
+  select(Sample.Label = plotnaam, Region.Label, Effort)
+
+# Waarnemingen per welke plots en strata
+obs_table <- veldleeuwerik_presences2 %>%
+  select(object = id, Region.Label, Sample.Label = plotnaam)
+```
+
+```{r}
+# Conversiefactor van meter naar 100 hectare
+conversion_factor <- convert_units("meter", NULL, "Square kilometer")
+```
+
 
 ## Model selectie {#selectie-distance}
 
