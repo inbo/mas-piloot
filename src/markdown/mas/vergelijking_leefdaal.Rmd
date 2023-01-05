@@ -26,6 +26,7 @@ library(sf)
 library(terra)
 library(mapview)
 library(leafem)
+library(inboggvegan)
 mbag_dir <- here()
 ```
 
@@ -315,7 +316,10 @@ conclusie_df <- rbind(conclusie_df, c("oppervlakte", "0", "0",
 
 ## Landgebruiksamenstelling{#landgebruik}
 
-We beschouwen de rasterlaag van landgebruiksamenstelling van 2019. Voorlopig is de laag van 2022 nog niet beschikbaar (om de 3 jaar vernieuwing).
+We beschouwen de rasterlaag van landgebruiksamenstelling van 2019. Voorlopig is de laag van 2022 nog niet beschikbaar (om de 3 jaar vernieuwing). 
+  
+`Error in x$.self$finalize()` mag genegeerd worden:  
+https://stackoverflow.com/questions/65556253/r-raster-selffinalize-error-causing-failure
 
 ```{r}
 # Lees in landgebruik raster
@@ -828,7 +832,35 @@ conclusie_df <- rbind(conclusie_df, c("openheid landschap", "+", "-",
 ## Multivariate data-analyse
 ### Data preparatie
 
-We willen een dataframe met de deelgebieden als rijen en de variabelen als kolommen. Als variabelen nemen we de totale oppervlakte van de deelgebieden, de proporties voor elk landgebruikstype, hoofdteelttype en type openheid landschap, en de mediaan van de perceelsgroottes per deelgebied.
+We willen een dataframe met de deelgebieden als rijen en de variabelen als kolommen. Als variabelen nemen we de totale oppervlakte van de deelgebieden, de proporties voor elk landgebruikstype, hoofdteelttype en type openheid landschap, en de mediaan van de perceelsgroottes per deelgebied.  
+  
+Continue variabelen worden gecentreerd (trek gemiddelde af per kolom) en geschaald (deel door standaard deviatie per kolom): `scale()`. Voor compositionele data (kwantitatieve beschrijvingen van de delen van een geheel, i.e. proporties tussen 0 en 1 die sommeren tot 1) moeten de gegevens worden getransformeerd naar de gebruikelijke Euclidische geometrie. Hiervoor voeren we de isometrische log-ratio transformatie uit: `compositions::clr()` met schaling $\sqrt\frac{D - 1}{D}$.  
+  
+Handige links:  
+https://en.wikipedia.org/wiki/Compositional_data  
+http://file.statistik.tuwien.ac.at/filz/papers/2016Statistics.pdf  
+https://rss.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/1467-9876.00275  
+https://stats.stackexchange.com/questions/259208/how-to-perform-isometric-log-ratio-transformation  
+
+```{r}
+compostions_trans <- function(df, transformation = "clr") {
+  out <- df %>%
+    select_if(is.numeric) %>%
+    compositions::clr() %>%
+    as_tibble()
+  
+  if (transformation == "ilr") {
+    D <- ncol(out)
+    factor <- sqrt((D - 1) / D)
+    out <- out %>%
+      mutate(across(.cols = everything(), .fns = function(i) i / factor))
+  }
+  
+  out %>%
+    mutate(naam = df$naam) %>%
+    select(naam, everything())
+}
+```
 
 ```{r}
 # Oppervlakte
@@ -836,20 +868,25 @@ opp_leefdaal_df <- leefdaal %>%
   mutate(oppervlakte = st_area(leefdaal)) %>%
   st_drop_geometry() %>%
   units::drop_units() %>%
-  arrange(naam)
+  arrange(naam) %>%
+  mutate(across(.cols = where(is.numeric), .fns = scale))
 
 # Landgebruiksamenstelling
-landgebruik_leefdaal_df <- landgebruik_leefdaal %>%
+landgebruik_leefdaal_df_unscaled <- landgebruik_leefdaal %>%
   pivot_wider(names_from = landgebruik_klasse, values_from = area_prop) %>%
   rename(Grasland_landgebruik = Grasland) %>%
   arrange(naam)
+landgebruik_leefdaal_df <- compostions_trans(landgebruik_leefdaal_df_unscaled, 
+                                             transformation = "ilr")
 
 # Hoofdteelt
-hfdteelten_leefdaal_df <- hfdteelten_leefdaal  %>%
+hfdteelten_leefdaal_df_unscaled <- hfdteelten_leefdaal  %>%
   select(naam, LBLHFDTLT, area_prop) %>%
   pivot_wider(names_from = LBLHFDTLT, values_from = area_prop) %>%
   rename(Grasland_teelt = Grasland) %>%
   arrange(naam)
+hfdteelten_leefdaal_df <- compostions_trans(hfdteelten_leefdaal_df_unscaled, 
+                                             transformation = "ilr")
 
 # Perceelsgrootte
 percelen_leefdaal_df <- percelen_leefdaal %>%
@@ -858,12 +895,15 @@ percelen_leefdaal_df <- percelen_leefdaal %>%
   units::drop_units() %>%
   group_by(naam) %>%
   summarise(perceelsgrootte = median(oppervlakte)) %>%
-  arrange(naam)
+  arrange(naam) %>%
+  mutate(across(.cols = where(is.numeric), .fns = scale))
   
 # Openheid landschap
-openheid_leefdaal_df <- openheid_leefdaal %>%
+openheid_leefdaal_df_unscaled <- openheid_leefdaal %>%
   pivot_wider(names_from = openheid_klasse, values_from = area_prop) %>%
   arrange(naam)
+openheid_leefdaal_df <- compostions_trans(openheid_leefdaal_df_unscaled, 
+                                             transformation = "ilr")
   
 # Complete dataset
 df_list <- list(opp_leefdaal_df, landgebruik_leefdaal_df, 
@@ -894,8 +934,7 @@ arrow_style <- arrow(
 #### Oppervlakte van gebied en perceelsgrootte
 
 ```{r}
-pca_opp <- prcomp(leefdaal_multivar %>% select(perceelsgrootte, oppervlakte), 
-                  center = TRUE, scale = TRUE)
+pca_opp <- prcomp(leefdaal_multivar %>% select(perceelsgrootte, oppervlakte))
 ```
 
 De eerste PC verklaart quasi alle variatie in de data. 
@@ -912,32 +951,11 @@ perc_var(pca_opp$sdev) %>%
 Lovenjoel ligt dichter bij Zavelberg langs PC1 dan Kortenberg.
 
 ```{r}
-pca_opp$x %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
-    geom_point(size = 3) +
-    scale_y_continuous(limits = c(-3, 3)) +
-    scale_x_continuous(limits = c(-3, 3)) +
-    geom_text(aes(label = deelgebied), vjust = -1) +
-    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
-              round(PC2, digits = 2), ")")), vjust = 1.5) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "")
-```
-
-```{r}
-pca_opp$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-1, 1)) +
-    scale_x_continuous(limits = c(-1, 1))
+ggbiplot_vegan(pca_opp) +
+  geom_text(aes(label = row.names(pca_opp$x)), vjust = -1) +
+  geom_text(aes(label = paste0("(", round(pca_opp$x[,"PC1"], digits = 2), ", ", 
+                               round(pca_opp$x[,"PC2"], digits = 2), ")")), 
+            vjust = 1.5)
 ```
 
 Deze resultaten zijn in overeenstemming met onze eerdere conclusies. In \@ref(oppervlakte) zagen we dat Zavelberg en Lovenjoel groter zijn dan Kortenberg, terwijl we in \@ref(perceel) zagen dat de mediaan van de perceelgroottes kleiner zijn in Lovenjoel en Zavelberg dan Kortenberg. Dat maakt Lovenjoel meer gelijkaardig aan Zavelberg dan Kortenberg. We hebben toen echter geen voordeel gegeven aan Lovenjoel t.o.v. Kortenberg omdat de verschillen dermate klein zijn.  
@@ -955,11 +973,10 @@ conclusie_df <- rbind(conclusie_df,
 
 ```{r}
 pca_landgebruik <- prcomp(landgebruik_leefdaal_df %>% 
-                            column_to_rownames(var = "naam"), 
-                          center = TRUE, scale = TRUE)
+                            column_to_rownames(var = "naam"))
 ```
 
-De eerste PC verklaart een kleine 2/3 en de tweede PC een dikke 1/3 van alle variatie in de data. 
+De eerste PC verklaart een ongeveer 3/4 en de tweede PC ongeveer 1/4 van alle variatie in de data. 
 
 ```{r}
 perc_var(pca_landgebruik$sdev) %>%
@@ -970,46 +987,86 @@ perc_var(pca_landgebruik$sdev) %>%
     geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
 ```
 
-Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
+Erkenning van compositionele data betekent dat we op de relatieve en niet op absolute groottes van de componenten moeten focussen, nl. verhoudingen van de componenten. Variabelen die dicht bij elkaar liggen op de biplot zullen een meer constante ratio hebben. Hun proportie is gelijkaardig voor alle observaties (= deelgebieden).  
+Lovenjoel ligt dichter bij Zavelberg langs PC1 en Kortenberg ligt dichter bij Zavelberg langs PC2. De verhoudingen in de variabelen zijn gelijkaardiger in Lovenjoel en Zavelberg dan Kortenberg en Zavelberg.
 
 ```{r}
-pca_landgebruik$x %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
-    geom_point(size = 3) +
-    scale_y_continuous(limits = c(-4, 4)) +
-    scale_x_continuous(limits = c(-4, 4)) +
-    geom_text(aes(label = deelgebied), vjust = -1) +
-    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
-              round(PC2, digits = 2), ")")), vjust = 1.5) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "")
+ggbiplot_vegan(pca_landgebruik) +
+  geom_text(aes(label = row.names(pca_landgebruik$x)), vjust = -1) +
+  geom_text(aes(label = paste0("(", round(pca_landgebruik$x[,"PC1"], 
+                                          digits = 2), ", ", 
+                               round(pca_landgebruik$x[,"PC2"], 
+                                     digits = 2), ")")), 
+            vjust = 1.5)
 ```
+
+Deze resultaten zijn niet in overeenstemming met onze eerdere conclusies in \@ref(landgebruik). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is. Toen beschouwden we echter geen relatieve proporties, maar wel de absolute. Inderdaad, als we kijken naar de verschillen in de ratio's van proporties met Zavelberg, zien we dat Lovenjoel vaker een kleiner verschil in log-ratio heeft met Zavelberg dan Kortenberg en dat de opgetelde verschillen ook kleiner zijn voor Lovenjoel.
 
 ```{r}
-pca_landgebruik$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-1, 1)) +
-    scale_x_continuous(limits = c(-1, 1))
+landgebruik_leefdaal_logratio <- landgebruik_leefdaal %>% 
+  expand_grid(nesting(naam, landgebruik_klasse, area_prop), 
+              .name_repair = "unique") %>%
+  filter(`naam...1` == `naam...4`) %>%
+  select(naam = `naam...1`, teller_klasse = `landgebruik_klasse...2`,
+         teller_prop = `area_prop...3`, noemer_klasse = `landgebruik_klasse...5`,
+         noemer_prop = `area_prop...6`) %>%
+  mutate(ratio = teller_prop / noemer_prop,
+         log_ratio = log(ratio),
+         variables = paste(teller_klasse, noemer_klasse, sep = "/"))
+
+landgebruik_diff2 <- landgebruik_leefdaal_logratio %>%
+  select(naam, variables, log_ratio) %>%
+  group_by(variables) %>%
+  pivot_wider(names_from = naam, values_from = log_ratio) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    )
+
+landgebruik_diff2 %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot(aes(x = check)) +
+    geom_bar() +
+    scale_y_continuous(limits = c(0, 120)) +
+    labs(y = "aantal keer kleinste verschil in\nlog-ratio met Zavelberg", x = "", 
+         title = "Landgebruik") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
+
+landgebruik_diff2 %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "log_ratio") %>%
+  group_by(naam) %>%
+  filter(log_ratio != Inf) %>%
+  mutate(som = sum(log_ratio)) %>%
+  select(naam, som) %>%
+  distinct() %>%
+  ggplot(aes(x = naam, y = som)) +
+    geom_bar(stat = "identity") +
+    scale_y_continuous(limits = c(0, 370)) +
+    labs(y = "verschil in log-ratio met Zavelberg", x = "", 
+         title = "Landgebruik") +
+    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
 ```
 
-Deze resultaten zijn in overeenstemming met onze eerdere conclusies in \@ref(landgebruik). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is. Bovendien zien we dat Akker sterk met PC1 is gecorreleerd wat we toen ook als pro voor Kortenberg zagen.
+Omdat we hier toch een voordeel van Lovenjoel t.o.v. Kortenberg zien, zullen we een correctie geven door een nieuwe rij toe te voegen met "+" voor Lovenjoel en "0" voor Kortenberg.
 
+```{r}
+conclusie_df <- rbind(conclusie_df, 
+                      c("landgebruiksamenstelling log-ratio", "0", "+", 
+                        "PCA o.b.v. relatieve data"))
+```
 
 #### Hoofdteelt
 
 ```{r}
 pca_hoofdteelten <- prcomp(hfdteelten_leefdaal_df %>% 
-                             column_to_rownames(var = "naam"), 
-                           center = TRUE, scale = TRUE)
+                             column_to_rownames(var = "naam"))
 ```
 
 De eerste PC verklaart een kleine 2/3 en de tweede PC een dikke 1/3 van alle variatie in de data. 
@@ -1023,46 +1080,86 @@ perc_var(pca_hoofdteelten$sdev) %>%
     geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
 ```
 
-Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
+Lovenjoel ligt dichter bij Zavelberg langs PC1 en Kortenberg ligt dichter bij Zavelberg langs PC2.
 
 ```{r}
-pca_hoofdteelten$x %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
-    geom_point(size = 3) +
-    scale_y_continuous(limits = c(-6, 6)) +
-    scale_x_continuous(limits = c(-6, 6)) +
-    geom_text(aes(label = deelgebied), vjust = -1) +
-    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
-              round(PC2, digits = 2), ")")), vjust = 1.5) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "")
+ggbiplot_vegan(pca_hoofdteelten) +
+  geom_text(aes(label = row.names(pca_hoofdteelten$x)), vjust = -1) +
+  geom_text(aes(label = paste0("(", round(pca_hoofdteelten$x[,"PC1"], 
+                                          digits = 2), ", ", 
+                               round(pca_hoofdteelten$x[,"PC2"], 
+                                     digits = 2), ")")), 
+            vjust = 1.5)
 ```
+
+Deze resultaten zijn anders dan onze eerdere conclusies in \@ref(teelt). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is.
 
 ```{r}
-pca_hoofdteelten$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-0.3, 0.3)) +
-    scale_x_continuous(limits = c(-0.7, 0.25))
+hoofdteelten_leefdaal_logratio <- hfdteelten_leefdaal  %>%
+  select(naam, LBLHFDTLT, area_prop) %>%
+  expand_grid(nesting(naam, LBLHFDTLT, area_prop), 
+              .name_repair = "unique") %>%
+  filter(`naam...1` == `naam...4`) %>%
+  select(naam = `naam...1`, teller_klasse = `LBLHFDTLT...2`,
+         teller_prop = `area_prop...3`, noemer_klasse = `LBLHFDTLT...5`,
+         noemer_prop = `area_prop...6`) %>%
+  mutate(ratio = teller_prop / noemer_prop,
+         log_ratio = log(ratio),
+         variables = paste(teller_klasse, noemer_klasse, sep = "/"))
+
+hoofdteelten_diff2 <- hoofdteelten_leefdaal_logratio %>%
+  select(naam, variables, log_ratio) %>%
+  group_by(variables) %>%
+  pivot_wider(names_from = naam, values_from = log_ratio) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    )
+
+hoofdteelten_diff2 %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot(aes(x = check)) +
+    geom_bar() +
+    scale_y_continuous(limits = c(0, 120)) +
+    labs(y = "aantal keer kleinste verschil in\nlog-ratio met Zavelberg", x = "", 
+         title = "hoofdteelten") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
+
+hoofdteelten_diff2 %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "log_ratio") %>%
+  group_by(naam) %>%
+  filter(log_ratio != Inf) %>%
+  mutate(som = sum(log_ratio)) %>%
+  select(naam, som) %>%
+  distinct() %>%
+  ggplot(aes(x = naam, y = som)) +
+    geom_bar(stat = "identity") +
+    scale_y_continuous(limits = c(0, 370)) +
+    labs(y = "verschil in log-ratio met Zavelberg", x = "", 
+         title = "hoofdteelten") +
+    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
 ```
 
-Deze resultaten zijn in overeenstemming met onze eerdere conclusies in \@ref(teelt). Daar besloten we dat Kortenberg iets meer gelijkaardig was aan Zavelberg dan Lovenjoel, maar dat er geen groot verschil is.
+Omdat we hier toch een voordeel van Lovenjoel t.o.v. Kortenberg zien, zullen we een correctie geven door een nieuwe rij toe te voegen met "+" voor Lovenjoel en "0" voor Kortenberg.
 
+```{r}
+conclusie_df <- rbind(conclusie_df, 
+                      c("hoofdteelten log-ratio", "0", "+", 
+                        "PCA o.b.v. relatieve data"))
+```
 
 #### Openheid landschap
 
 ```{r}
 pca_openheid <- prcomp(openheid_leefdaal_df %>% 
-                         column_to_rownames(var = "naam"), 
-                       center = TRUE, scale = TRUE)
+                         column_to_rownames(var = "naam"))
 ```
 
 De eerste PC verklaart quasi alle variatie in de data. 
@@ -1076,49 +1173,87 @@ perc_var(pca_openheid$sdev) %>%
     geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
 ```
 
-Kortenberg ligt dichter bij Zavelberg langs PC1 dan Lovenjoel.
+Kortenberg ligt dichter bij Zavelberg langs PC1 dan Lovenjoel, Lovenjoel licht dichter bij Zavelberg langs PC2.
 
 ```{r}
-pca_openheid$x %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
-    geom_point(size = 3) +
-    scale_y_continuous(limits = c(-3, 3)) +
-    scale_x_continuous(limits = c(-3, 3)) +
-    geom_text(aes(label = deelgebied), vjust = -1) +
-    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
-              round(PC2, digits = 2), ")")), vjust = 1.5) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "")
+ggbiplot_vegan(pca_openheid) +
+  geom_text(aes(label = row.names(pca_openheid$x)), vjust = -1) +
+  geom_text(aes(label = paste0("(", round(pca_openheid$x[,"PC1"], digits = 2), 
+                               ", ", 
+                               round(pca_openheid$x[,"PC2"], digits = 2), 
+                               ")")), 
+            vjust = 1.5)
+```
+
+Deze resultaten zijn in overeenstemming met onze conclusie in \@ref(openheid). Daar besloten we dat Kortenberg veel gelijkaardiger is aan Zavelberg in termen van openheid van het landschap dan Lovenjoel. Hier zien we dezelfde trend hoewel het verschil niet zo uitgesproken is als eerder.
+
+```{r}
+openheid_leefdaal_logratio <- openheid_leefdaal %>% 
+  expand_grid(nesting(naam, openheid_klasse, area_prop), 
+              .name_repair = "unique") %>%
+  filter(`naam...1` == `naam...4`) %>%
+  select(naam = `naam...1`, teller_klasse = `openheid_klasse...2`,
+         teller_prop = `area_prop...3`, noemer_klasse = `openheid_klasse...5`,
+         noemer_prop = `area_prop...6`) %>%
+  mutate(ratio = teller_prop / noemer_prop,
+         log_ratio = log(ratio),
+         variables = paste(teller_klasse, noemer_klasse, sep = "/"))
+
+openheid_diff2 <- openheid_leefdaal_logratio %>%
+  select(naam, variables, log_ratio) %>%
+  group_by(variables) %>%
+  pivot_wider(names_from = naam, values_from = log_ratio) %>%
+  mutate(diff_Kortenberg = abs(Kortenberg - Zavelberg),
+         diff_Lovenjoel = abs(Lovenjoel - Zavelberg)) %>%
+  select(-c(Kortenberg, Lovenjoel, Zavelberg)) %>%
+  ungroup() %>%
+  mutate(check = case_when(
+    diff_Kortenberg < diff_Lovenjoel ~ "Kortenberg",
+    diff_Kortenberg > diff_Lovenjoel ~ "Lovenjoel",
+    diff_Kortenberg == diff_Lovenjoel ~ "Kortenberg/Lovenjoel")
+    )
+
+openheid_diff2 %>%
+  mutate(check = reorder(check, check, FUN = "length",
+                         decreasing = TRUE)) %>%
+  ggplot(aes(x = check)) +
+    geom_bar() +
+    scale_y_continuous(limits = c(0, 120)) +
+    labs(y = "aantal keer kleinste verschil in\nlog-ratio met Zavelberg", x = "", 
+         title = "openheid") +
+    geom_text(aes(label = as.character(..count..)), stat = "count", vjust = -1)
+
+openheid_diff2 %>%
+  pivot_longer(cols = c(diff_Kortenberg, diff_Lovenjoel), names_to = "naam", 
+               names_prefix = "diff_", values_to = "log_ratio") %>%
+  group_by(naam) %>%
+  filter(log_ratio != Inf) %>%
+  mutate(som = sum(log_ratio)) %>%
+  select(naam, som) %>%
+  distinct() %>%
+  ggplot(aes(x = naam, y = som)) +
+    geom_bar(stat = "identity") +
+    scale_y_continuous(limits = c(0, 370)) +
+    labs(y = "verschil in log-ratio met Zavelberg", x = "", 
+         title = "openheid") +
+    geom_text(aes(label = round(som, digits = 3)), vjust = -1)
 ```
 
 ```{r}
-pca_openheid$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-1, 1)) +
-    scale_x_continuous(limits = c(-1, 1))
+conclusie_df <- rbind(conclusie_df, 
+                      c("openheid log-ratio", "+", "0", 
+                        "PCA o.b.v. relatieve data"))
 ```
-
-Deze resultaten zijn in overeenstemming met onze conclusie in \@ref(openheid). Daar besloten we dat Kortenberg veel gelijkaardiger is aan Zavelberg in termen van openheid van het landschap dan Lovenjoel.
-
 
 ### PCA complete dataset
 
 We voeren nu ook een PCA uit op de dataset met alle variabelen samen.
 
 ```{r}
-pca_fit <- prcomp(leefdaal_multivar, center = TRUE, scale = TRUE)
+pca_fit <- prcomp(leefdaal_multivar)
 ```
 
-De eerste PC verklaart een kleine 2/3 van de variatie in de data en de tweede as een dikke 1/3.
+De eerste PC verklaart een dikke 2/3 van de variatie in de data en de tweede as een kleine 1/3.
 
 ```{r}
 perc_var(pca_fit$sdev) %>%
@@ -1129,25 +1264,17 @@ perc_var(pca_fit$sdev) %>%
     geom_text(aes(label = round(proportie, digits = 3)), vjust = -0.5)
 ```
 
-Kortenberg ligt dichter bij Zavelberg langs PC1 en Lovenjoel ligt dichter bij Zavelberg langs PC2.
+Lovenjoel ligt dichter bij Zavelberg langs PC1 en Kortenberg ligt dichter bij Zavelberg langs PC2. 
 
 ```{r}
-pca_fit$x %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2, colour = deelgebied)) + 
-    geom_point(size = 3) +
-    scale_y_continuous(limits = c(-7.5, 7.5)) +
-    scale_x_continuous(limits = c(-7.5, 7.5)) +
-    geom_text(aes(label = deelgebied), vjust = -1) +
-    geom_text(aes(label = paste0("(", round(PC1, digits = 2), ", ", 
-              round(PC2, digits = 2), ")")), vjust = 1.5) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    theme(legend.position = "")
+ggbiplot_vegan(pca_fit) +
+  geom_text(aes(label = row.names(pca_fit$x)), vjust = -1) +
+  geom_text(aes(label = paste0("(", round(pca_fit$x[,"PC1"], digits = 2), ", ", 
+                               round(pca_fit$x[,"PC2"], digits = 2), ")")), 
+            vjust = 1.5)
 ```
 
-Als we de Euclidische afstand tussen de deelgebieden berekenen, ligt Kortenberg iets dichter. 
+Als we de Euclidische afstand tussen de deelgebieden berekenen, ligt Lovenjoel iets dichter. 
 
 ```{r}
 # calculate distances
@@ -1161,20 +1288,7 @@ pca_fit$x %>%
   kable()
 ```
 
-```{r}
-pca_fit$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column("deelgebied") %>%
-  ggplot(aes(PC1, PC2)) +
-    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_vline(xintercept = 0, colour = "grey", linetype = "dashed") +
-    geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-    geom_text(aes(label = deelgebied), hjust = 1, vjust = -0.5, nudge_x = -0.02) +
-    scale_y_continuous(limits = c(-0.25, 0.25)) +
-    scale_x_continuous(limits = c(-0.5, 0.25))
-```
-
-De vorige figuur is niet overzichtelijk. De volgende tabellen geven de 25 variabelen met de sterkste correlaties met resp. PC1 en PC2.
+De volgende tabellen geven de 25 variabelen met de sterkste correlaties met resp. PC1 en PC2.
 
 ```{r}
 pca_fit$rotation %>% 
@@ -1197,9 +1311,9 @@ pca_fit$rotation %>%
 
 ### Conclusie
 
-De resultaten van de multivariate data-analyses zijn grotendeels in overeenstemming met de eerdere resultaten o.b.v. exploratieve figuren. Enkel bij het samennemen van oppervlakte en perceelsgrootte hebben we beslist nog een correctie toe te voegen in voordeel van Lovenjoel, omdat de aparte variabelen geen belangrijk voordeel toonden maar er samen wel een voordeel duidelijk is.  
+De resultaten van de multivariate data-analyses o.b.v. absolute getallen zijn grotendeels in overeenstemming met de eerdere resultaten o.b.v. exploratieve figuren. Enkel bij het samennemen van oppervlakte en perceelsgrootte hebben we beslist nog een correctie toe te voegen in voordeel van Lovenjoel, omdat de aparte variabelen geen belangrijk voordeel toonden maar er samen wel een voordeel duidelijk is. Voor de compositionele variabelen was dit ook in overeenstemming (resultaten niet getoond), maar we besloten de finale multivariate analyses te doen op getransformeerde variabelen waarbij we kijken naar verhoudingen van de componenten in plaats van absolute waarden. We zien dat dit wel een verschil geeft met de eerdere exploratie.   
   
-Uit de analyse met alle variabelen samen, lijkt Kortenberg iets meer gelijkaardig aan Zavelberg dan Lovenjoel. In de uiteindelijke conclusie kunnen we nagaan of het besluit op basis van de conclusietabel (met "+", "-", "0") overeenkomt met deze analyses.
+Uit de analyse met alle variabelen samen, zonder tranformatie, lijkt Kortenberg iets meer gelijkaardig aan Zavelberg dan Lovenjoel (resultaten niet getoond). Wanneer we de naar relatieve verhoudingen kijken, zien we het omgekeerde. In de uiteindelijke conclusie kunnen we nagaan of het besluit op basis van de conclusietabel (met "+", "-", "0") overeenkomt met deze analyses.
 
 
 # Vergelijking o.b.v. expertise
@@ -1236,6 +1350,4 @@ rbind(data.frame(conclusie = conclusie_df$Kortenberg,
   kable()
 ```
 
-Uit de vorige tabellen kunnen we besluiten dat Kortenberg een betere kandidaat lijkt als controlegebied dan Lovenjoel. Ook uit de multivariate data-analyse bleek dat Kortenberg meer gelijkaardig is aan Zavelberg dan Lovenjoel op vlak van totale oppervlakte, landgebruik, hoofdteelten, perceelsgrootte en openheid van het landschap.  
-  
-De finale beslissing kan echter nog afhangen van het belang dat aan elke categorie wordt toegekend. Als de overeenkomst in oppervlakte, perceelsgrootte en de aanwezigheid van MAS-punten heel belangrijk is, kan Lovenjoel misschien even goed dienen als controlegebied. 
+In de tabellen zien we geen duidelijk beste kandidaat als controlegebied. De finale beslissing zal afhangen van het belang dat aan elke categorie wordt toegekend. Als openheid van het landschap en verschillen in absolute proporties in landgebruik en hoofdteelten belangrijk zijn, lijkt Kortenberg de beste kandidaat. Als verschillen in relatieve proporties belangrijk zijn en de aanwezigheid van MAS-punten, an Lovenjoel misschien even goed dienen als controlegebied.
