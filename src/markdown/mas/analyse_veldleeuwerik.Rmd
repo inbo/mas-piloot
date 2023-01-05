@@ -579,6 +579,42 @@ bezoekenlijst_2018_2022 %>%
 
 ## Afstanden {#exploratie-afstanden}
 
+Voor elke waarneming van een broedgeval (of aanwijzing voor een broedpaar) hebben we een afstand tussen 0 en 300 m. Deze hebben min of meer dezelfde verdeling in alle jaren en over alle regio's. De minima in De Moeren zijn wel opvallend hoog.
+
+```{r}
+# Dupliceer rijen volgens aantal (elke rij is 1 individu)
+veldleeuwerik_presences2 <- 
+    tibble(
+      veldleeuwerik_presences[rep(seq_len(dim(veldleeuwerik_presences)[1]), 
+                    veldleeuwerik_presences$aantal), , 
+                    drop = FALSE], 
+      row.names = NULL
+    ) %>%
+    mutate(aantal = 1)
+
+veldleeuwerik_presences2 %>% 
+  st_drop_geometry() %>%
+  group_by(regio, jaar) %>%
+  summarise(min = min(distance2plot, na.rm = TRUE), 
+            mediaan = median(distance2plot, na.rm = TRUE),
+            gemiddelde = mean(distance2plot, na.rm = TRUE),
+            max = max(distance2plot, na.rm = TRUE),
+            varantie = var(distance2plot, na.rm = TRUE)) %>%
+  kable(digits = 1)
+```
+
+```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
+veldleeuwerik_presences2 %>%
+  ggplot() +
+    geom_histogram(aes(x = distance2plot, fill = stratum), bins = 30) +
+    scale_y_continuous(breaks = scales::pretty_breaks()) +
+    facet_wrap(jaar~regio, scales = "free_y") +
+    labs(y = "Aantal broedparen", x = "Afstand (m)") +
+    theme(legend.position = "bottom",
+          legend.direction = "horizontal")
+```
+
+
 # Distance sampling {#distance-sampling}
 
 ## Inleiding {#inleiding-distance}
