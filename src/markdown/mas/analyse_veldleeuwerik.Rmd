@@ -2,14 +2,20 @@
 title: "Analyses Veldleeuwerik"
 author: "Ward Langeraert"
 date: "`r Sys.Date()`"
+
 output:
   bookdown::html_document2:
     code_folding: hide
     toc: true
     toc_float: true
     toc_collapsed: true
+    
 editor_options: 
   chunk_output_type: console
+  
+bibliography: references.json
+csl: https://raw.githubusercontent.com/citation-style-language/styles/master/research-institute-for-nature-and-forest.csl
+zotero: true
 ---
 
 ```{r setup, include=FALSE}
@@ -44,8 +50,7 @@ source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "plot_detection_curve.R"))
 ```
 
-
-# Inlezen data{#inlezen-data}
+# Inlezen data {#inlezen-data}
 
 We selecteren eerst de MAS-data binnen de telrondes.
 
@@ -81,7 +86,8 @@ mas <- read_sf(
     ))
 ```
 
-De CRS moet aangepast worden naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
+De CRS moet aangepast worden naar Lambert 72.
+Dit doen we via een specifieke pipeline, zie: <https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/>
 
 ```{r mas-waarnemingen-conversie-31370}
 Sys.setenv("PROJ_NETWORK" = "ON")
@@ -127,7 +133,7 @@ plot_jaar_met_waarnemingen <- mas_31370_pipeline1 %>%
 ```
 
 Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden.
-Voor 2018-2021 moeten we er _voorlopig_ vanuit gaan dat als er geen waarnemingen zijn voor een bepaald telpunt, het telpunt niet geteld werd.
+Voor 2018-2021 moeten we er *voorlopig* vanuit gaan dat als er geen waarnemingen zijn voor een bepaald telpunt, het telpunt niet geteld werd.
 
 <!--De plot-jaar lijsten voor 2018-2021 opvragen die bezocht werden zodat we nullen/afwezigheden correct kunnen toevoegen-->
 
@@ -173,7 +179,8 @@ pjb %>%
   kable()
 ```
 
-Ja, in `r nrow(pjb)` telpunten werd niets waargenomen. Dus het is aannemelijk dat dit ook in de eerdere jaren soms het geval zal geweest zijn.
+Ja, in `r nrow(pjb)` telpunten werd niets waargenomen.
+Dus het is aannemelijk dat dit ook in de eerdere jaren soms het geval zal geweest zijn.
 
 We voegen nu eerst de locatie van de telpunten toe aan `plot_jaar_bezocht`.
 De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON.
@@ -226,7 +233,9 @@ telpunten_geom_only <- bind_rows(
 ```
 
 Nu voegen we de geometry toe aan de plot - jaar combinaties via een inner join.
-Opgepast! Er zijn een aantal telpunten die in geen enkel jaar werden bezocht. Deze worden in deze stap verwijderd.
+Opgepast!
+Er zijn een aantal telpunten die in geen enkel jaar werden bezocht.
+Deze worden in deze stap verwijderd.
 Het kan ook zijn dat er hier een aantal onterecht verwijderd worden (wel bezocht, maar geen waarnemingen).
 Zoals eerder aangegeven in commentaar moeten we dit navragen.
 
@@ -260,7 +269,8 @@ design_2018_2022_sf <- plot_jaar_bezocht_sf %>%
   mutate(openheid = as.character(openheid))
 ```
 
-Voor de waarnemingen verwijderen we ook dubbeltellingen. Indien de soort gezien was op meerdere teldagen binnen eenzelfde telperiode, wordt de laatste teldag genomen.
+Voor de waarnemingen verwijderen we ook dubbeltellingen.
+Indien de soort gezien was op meerdere teldagen binnen eenzelfde telperiode, wordt de laatste teldag genomen.
 
 ```{r check-dubbeltelling}
 dubbels <- mas_31370_pipeline1 %>%
@@ -280,39 +290,81 @@ mas_clean <- mas_31370_pipeline1 %>%
               anti_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")))
 ```
 
+# Data selectie en preparatie {#selectie-prep-data}
 
-# Data selectie en preparatie{#selectie-prep-data}
-## Data selectie{#selectie-data}
+## Data selectie {#selectie-data}
 
+We zijn geïnteresseerd in broedparen van de Veldleeuwerik in De Moeren en de Oostelijke leemstreek. Daarvoor selecteren we alleen waarnemingen met broedcode 1 of hoger. In het Nederlandse onderzoek van @wiersma2021 beschouwen ze tevens enkel waarnemingen van binnen soortspecifieke datumgrenzen om niet-broedende individuen uit te sluiten. Deze data hebben wij voorlopig niet. Wel selecteren we enkel waarnemingen binnen de telrondes van vogels die tot op maximum 300 m afstand van het telpunt zijn gezien.
 
-## Data preparatie{#preparatie-data}
+```{r}
+# design 2018-2022 Oostelijke leemstreek en De Moeren
+design_2018_2022 <- design_2018_2022_sf %>%
+  st_drop_geometry()
 
+# Selecteer tellingen van Veldleeuwerik in 2018-2022 in de twee regio's
+# met broedcode > 0, op minder dan 300 m en binnen telrondes
+veldleeuwerik_presences <- mas_clean %>%
+  filter(naam == "Veldleeuwerik", !is.na(periode_in_jaar), wrntype > 0L,
+         distance2plot <= 300) %>%  
+  inner_join(design_2018_2022, by = c("plotnaam", "jaar")) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "))
+```
 
-# Data exploratie{#exploratie-data}
-## Tellingen{#exploratie-tellingen}
+In telperiodes 1-3 is het aantal waarnemingen van Veldleeuwerik ongeveer even groot. In telperiode 4 ligt dit iets lager. Tot we de data van de datumgrenzen hebben, houden we voorlopig alle telperiodes voor de analyses.
 
+```{r}
+veldleeuwerik_presences %>%
+  ggplot() + 
+  geom_bar(aes(x = periode_in_jaar, fill = factor(jaar))) +
+  labs(y = "Aantal waarnemingen van Veldleeuwerik", x = "Telperiode",
+       fill = "jaar") +
+  facet_wrap(~regio, scales = "free_y") +
+  theme(legend.position = "bottom")
+```
 
-## Verklarende variabelen{#exploratie-variabelen}
+## Data preparatie {#preparatie-data}
 
+We maken een tweede dataset waarbij we ook afwezigheden toevoegen door te joinen met de lijst van alle bezochte plots voor elke telperiode.
 
-## Afstanden{#exploratie-afstanden}
+```{r}
+# Totale lijst van bezochte plots in 2018-2022
+bezoekenlijst_2018_2022 <- design_2018_2022 %>% 
+  expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # voeg telperiodes toe
+  filter(!is.na(periode_in_jaar)) %>%
+  arrange(plotnaam, jaar, periode_in_jaar)
 
+# Voeg afwezigheden toe door te mergen met alle bezoeken
+veldleeuwerik_df <- veldleeuwerik_presences %>%
+  st_drop_geometry() %>%
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  summarise(aantal = sum(aantal)) %>% # som aantallen gespot per dag 
+  full_join(bezoekenlijst_2018_2022, by = c("plotnaam", "jaar", 
+                                            "periode_in_jaar")) %>%
+  replace(is.na(.), 0) %>%
+  arrange(plotnaam, jaar, periode_in_jaar) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "))
+```
 
-# Distance sampling{#distance-sampling}
-## Inleiding{#inleiding-distance}
+# Data exploratie {#exploratie-data}
 
+## Tellingen {#exploratie-tellingen}
 
-## Data preparatie{#preparatie-distance}
+## Verklarende variabelen {#exploratie-variabelen}
 
+## Afstanden {#exploratie-afstanden}
 
-## Model selectie{#selectie-distance}
+# Distance sampling {#distance-sampling}
 
+## Inleiding {#inleiding-distance}
 
-## Model fit{#fit-distance}
+## Data preparatie {#preparatie-distance}
 
+## Model selectie {#selectie-distance}
 
-## Resultaten{#resultaten-distance}
+## Model fit {#fit-distance}
 
+## Resultaten {#resultaten-distance}
 
-## Discussie{#discussie-distance}
+## Discussie {#discussie-distance}
 
+## Referenties
