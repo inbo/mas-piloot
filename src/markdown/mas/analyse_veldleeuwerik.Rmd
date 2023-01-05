@@ -281,3 +281,38 @@ mas_clean <- mas_31370_pipeline1 %>%
 ```
 
 
+# Data selectie en preparatie{#selectie-prep-data}
+## Data selectie{#selectie-data}
+
+
+## Data preparatie{#preparatie-data}
+
+
+# Data exploratie{#exploratie-data}
+## Tellingen{#exploratie-tellingen}
+
+
+## Verklarende variabelen{#exploratie-variabelen}
+
+
+## Afstanden{#exploratie-afstanden}
+
+
+# Distance sampling{#distance-sampling}
+## Inleiding{#inleiding-distance}
+
+
+## Data preparatie{#preparatie-distance}
+
+
+## Model selectie{#selectie-distance}
+
+
+## Model fit{#fit-distance}
+
+
+## Resultaten{#resultaten-distance}
+
+
+## Discussie{#discussie-distance}
+
