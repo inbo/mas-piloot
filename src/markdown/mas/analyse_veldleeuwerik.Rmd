@@ -349,6 +349,45 @@ veldleeuwerik_df <- veldleeuwerik_presences %>%
 
 ## Tellingen {#exploratie-tellingen}
 
+We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2022 waarbij er in elk jaar 4 telperiodes waren. Het aantal bezochte plots neemt over het algemeen toe over de jaren, behalve in De Moeren tussen 2019 en 2020. In De Moeren neemt het aantal waarnemingen ook toe met het aantal bezochte plots maar in De Oostelijke leemstreek is dit niet altijd het geval, namelijk van 2018 naar 2019 en 2021 naar 2022. Het aantal waargenomen broedparen is steeds gelijkaardig aan het aantal waarnemingen wat wil zeggen dat de meeste waarnemingen meestal om een enkel broedpaar (of een individu dat broedgedrag vertoont) gaat.
+
+```{r}
+plots_per_jaar <- bezoekenlijst_2018_2022 %>%
+  group_by(regio, jaar) %>%
+  summarise(aantal_plots = n_distinct(plotnaam))
+
+telperiodes_per_jaar <- bezoekenlijst_2018_2022 %>%
+  group_by(regio, jaar) %>%
+  summarise(aantal_telperiodes = n_distinct(periode_in_jaar))
+
+aantal_tabel <- veldleeuwerik_presences %>%
+  st_drop_geometry() %>%
+  group_by(regio, jaar) %>%
+  summarise(aantal_waarnemingen = n(), 
+            aantal_broedparen = sum(aantal),
+            .groups = "drop") %>%
+  full_join(plots_per_jaar, by = c("regio", "jaar")) %>%
+  full_join(telperiodes_per_jaar, by = c("regio", "jaar")) %>%
+  select(regio, jaar, aantal_telperiodes, aantal_plots, aantal_waarnemingen,
+         aantal_broedparen) 
+
+aantal_tabel %>%
+  kable()
+```
+
+```{r}
+aantal_tabel %>%
+  ggplot(aes(x = aantal_plots, y = aantal_waarnemingen)) +
+    geom_line() +
+    geom_label(aes(label = jaar), vjust = "inward", hjust = "inward",
+               alpha = 0.5) +
+    labs(x = "Aantal plots", y = "Aantal waarnemingen") +
+    facet_wrap(~regio, scales = "free")
+```
+
+
+## Aantallen {#exploratie-aantallen}
+
 ## Verklarende variabelen {#exploratie-variabelen}
 
 ## Afstanden {#exploratie-afstanden}
