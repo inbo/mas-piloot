@@ -82,7 +82,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
 
   # Vector of distances used to re-create the detection function (from 0 out to
   # truncation distance)
-  trunc <- dsmodelhn1$ddf$meta.data$width
+  trunc <- dist_model$ddf$meta.data$width
   distances <- seq(0, trunc, length.out = 100)
 
   #####
