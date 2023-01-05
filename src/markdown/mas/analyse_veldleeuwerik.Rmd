@@ -388,6 +388,51 @@ aantal_tabel %>%
 
 ## Aantallen {#exploratie-aantallen}
 
+Wanneer we naar de aantallen kijken, zien we veel afwezigheden in de dataset. Vooral in De Moeren, minder in de Oostelijke leemstreek behalve voor 2022.
+
+```{r}
+veldleeuwerik_df %>%
+  group_by(regio, jaar, periode_in_jaar) %>%
+  summarise(min = min(aantal), 
+            mediaan = median(aantal),
+            gemiddelde = mean(aantal),
+            max = max(aantal),
+            varantie = var(aantal)) %>%
+  kable()
+```
+
+```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
+veldleeuwerik_df %>%
+  group_by(regio, jaar, periode_in_jaar, aantal) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  ggplot(aes(x = factor(aantal), y = n, fill = periode_in_jaar)) +
+    geom_bar(stat = "identity", col = "black") +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank()) + 
+    facet_wrap(jaar~regio, scales = "free") +
+    labs(y = "", x = "Aantal broedparen Veldleeuwerik per plot",
+         fill = "telperiode") +
+    theme(legend.position = c(1, 0),
+          legend.justification = c(1, 0),
+          legend.direction = "horizontal")
+```
+
+De volgende figuur toont het aantal getelde broedparen Veldleeuwerik per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval. Vooral in De Moeren zien we variatie in het gemiddelde aantal broedparen over de telperiodes zoals we ook al in \@ref(selectie-data) opmerkten. Zowel in De Moeren als in de Oostelijke leemstreek lijkt het gemiddelde min of meer constant over de jaren met een daling in 2022. 
+
+```{r}
+veldleeuwerik_df %>%
+  ggplot(aes(x = jaar, y = aantal, colour = periode_in_jaar)) +
+  stat_sum(position = position_dodge(width = 0.5), alpha = 0.5) +
+  stat_summary(fun.data = mean_cl_boot,
+               position = position_dodge(width = 0.5),
+               fatten = 4, shape = "square") +
+  facet_wrap(~regio, scales = "free_y") +
+  labs(y = "Aantal broedparen Veldleeuwerik per plot", x = "Jaar",
+       colour = "telperiode") +
+  theme(legend.position = "bottom")
+```
+
+
 ## Verklarende variabelen {#exploratie-variabelen}
 
 ## Afstanden {#exploratie-afstanden}
