@@ -406,7 +406,7 @@ veldleeuwerik_df %>%
   group_by(regio, jaar, periode_in_jaar, aantal) %>%
   summarise(n = n(), .groups = "drop_last") %>%
   ggplot(aes(x = factor(aantal), y = n, fill = periode_in_jaar)) +
-    geom_bar(stat = "identity", col = "black") +
+    geom_bar(stat = "identity") +
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank()) + 
     facet_wrap(jaar~regio, scales = "free") +
@@ -434,6 +434,148 @@ veldleeuwerik_df %>%
 
 
 ## Verklarende variabelen {#exploratie-variabelen}
+### Openheid van het landschap
+
+In De Moeren bevinden zich geen plots in half-gesloten landschap en in de Oostelijke leemstreek slechts 1 plot. Het gaat om plot VL0582 die enkel in 2021 werd geteld. Hier werden geen Veldleeuwerikken geteld. Voor analyses waarbij we ook afwezigheden in beschouwing nemen, zouden we deze plot best verwijderen. In beide regio's is er vooral geteld in open landschap en minder in half-open landschap.
+
+```{r}
+design_openheid <- bezoekenlijst_2018_2022 %>%
+  expand(regio, jaar, openheid)
+  
+bezoekenlijst_2018_2022 %>%
+  select(-periode_in_jaar) %>%
+  distinct() %>%
+  group_by(regio, jaar, openheid) %>%
+  summarise(aantal_plots = n()) %>%
+  full_join(design_openheid, by = c("regio", "jaar", "openheid")) %>%
+  replace(is.na(.), 0) %>%
+  arrange(regio, jaar, openheid) %>%
+  kable()
+```
+
+```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
+bezoekenlijst_2018_2022 %>%
+  select(-periode_in_jaar) %>%
+  distinct() %>%
+  group_by(regio, jaar, openheid) %>%
+  summarise(aantal_plots = n()) %>%
+  ggplot(aes(x = openheid, y = aantal_plots, fill = factor(jaar))) +
+    geom_bar(stat = "identity") +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank()) + 
+    facet_wrap(jaar~regio, scales = "free_y") +
+    labs(y = "", x = "Aantal plots per categorie openheid landschap",
+         fill = "jaar") +
+    theme(legend.position = c(1, 0),
+          legend.justification = c(1, 0),
+          legend.direction = "horizontal")
+```
+
+Het gemiddeld aantal broedparen is steeds hoger in open landschap. Daar waren ook meer plots.
+
+```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
+veldleeuwerik_df %>%
+  ggplot(aes(x = openheid, y = aantal)) +
+  stat_sum(position = position_dodge(width = 0.5), alpha = 0.2) +
+  stat_summary(fun.data = mean_cl_boot,
+               position = position_dodge(width = 0.5),
+               fatten = 4, shape = "square") +
+  facet_wrap(jaar~regio, scales = "free_y") +
+  labs(y = "Aantal broedparen Veldleeuwerik per plot", 
+       x = "Openheid landschap") +
+  theme(legend.position = c(1, 0),
+        legend.justification = c(1, 0),
+        legend.direction = "horizontal")
+```
+
+### Soortbeschermingsplan
+
+De plots bevinden zich in beide regio's mestal binnen het soorbeschermingsplan. In 2022 is dit verschil kleiner.
+
+```{r}
+design_sbp <- bezoekenlijst_2018_2022 %>%
+  expand(regio, jaar, sbp)
+  
+bezoekenlijst_2018_2022 %>%
+  select(-periode_in_jaar) %>%
+  distinct() %>%
+  group_by(regio, jaar, sbp) %>%
+  summarise(aantal_plots = n()) %>%
+  full_join(design_sbp, by = c("regio", "jaar", "sbp")) %>%
+  replace(is.na(.), 0) %>%
+  arrange(regio, jaar, sbp) %>%
+  kable()
+```
+
+```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
+bezoekenlijst_2018_2022 %>%
+  select(-periode_in_jaar) %>%
+  distinct() %>%
+  group_by(regio, jaar, sbp) %>%
+  summarise(aantal_plots = n()) %>%
+  ggplot(aes(x = sbp, y = aantal_plots, fill = factor(jaar))) +
+    geom_bar(stat = "identity") +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank()) + 
+    facet_wrap(jaar~regio, scales = "free_y") +
+    labs(y = "", x = "Aantal plots binnen en buiten soortbeschermingsplan",
+         fill = "jaar") +
+    theme(legend.position = c(1, 0),
+          legend.justification = c(1, 0),
+          legend.direction = "horizontal")
+```
+
+Het gemiddeld aantal broedparen lijkt niet te veel te verschillen binnen of buiten het soortbeschermingsplan.
+
+```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
+veldleeuwerik_df %>%
+  ggplot(aes(x = sbp, y = aantal)) +
+  stat_sum(position = position_dodge(width = 0.5), alpha = 0.2) +
+  stat_summary(fun.data = mean_cl_boot,
+               position = position_dodge(width = 0.5),
+               fatten = 4, shape = "square") +
+  facet_wrap(jaar~regio, scales = "free_y") +
+  labs(y = "Aantal broedparen Veldleeuwerik per plot", 
+       x = "Soortbeschermingsplan") +
+  theme(legend.position = c(1, 0),
+        legend.justification = c(1, 0),
+        legend.direction = "horizontal")
+```
+
+### Interactie openheid en soortbeschermingsplan
+
+```{r}
+design_openheid <- bezoekenlijst_2018_2022 %>%
+  expand(regio, jaar, openheid, sbp)
+  
+bezoekenlijst_2018_2022 %>%
+  select(-periode_in_jaar) %>%
+  distinct() %>%
+  group_by(regio, jaar, openheid, sbp) %>%
+  summarise(aantal_plots = n()) %>%
+  full_join(design_openheid, by = c("regio", "jaar", "openheid", "sbp")) %>%
+  replace(is.na(.), 0) %>%
+  arrange(regio, jaar, openheid, sbp) %>%
+  kable()
+```
+
+```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
+bezoekenlijst_2018_2022 %>%
+  select(-periode_in_jaar) %>%
+  distinct() %>%
+  group_by(regio, jaar, openheid, sbp) %>%
+  summarise(aantal_plots = n()) %>%
+  ggplot(aes(x = openheid, y = aantal_plots, fill = sbp)) +
+    geom_bar(stat = "identity") +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank()) + 
+    facet_wrap(jaar~regio, scales = "free_y") +
+    labs(y = "", x = "Aantal plots per categorie",
+         fill = "sbp") +
+    theme(legend.position = c(1, 0),
+          legend.justification = c(1, 0),
+          legend.direction = "horizontal")
+```
 
 ## Afstanden {#exploratie-afstanden}
 
