@@ -13,7 +13,7 @@ output:
 editor_options: 
   chunk_output_type: console
   
-bibliography: references.json
+bibliography: [references.json, packages.bib]
 csl: https://raw.githubusercontent.com/citation-style-language/styles/master/research-institute-for-nature-and-forest.csl
 zotero: true
 ---
@@ -48,13 +48,13 @@ targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 mbag_dir <- here()
 source(here("src", "R", "wfs_wcs.R"))
 source(here("src", "R", "berekening_hulpvariabelen.R"))
+source(here("src", "R", "sim.pdata.R"))
 source(here("src", "R", "plot_detection_curve.R"))
 ```
 
 ```{r}
 knitr::write_bib(c("base", "Distance"), "packages.bib")
 ```
-
 
 # Inlezen data {#inlezen-data}
 
@@ -300,7 +300,11 @@ mas_clean <- mas_31370_pipeline1 %>%
 
 ## Data selectie {#selectie-data}
 
-We zijn geïnteresseerd in broedparen van de Veldleeuwerik in De Moeren en de Oostelijke leemstreek. Daarvoor selecteren we alleen waarnemingen met broedcode 1 of hoger. In het Nederlandse onderzoek van @wiersma2021 beschouwen ze tevens enkel waarnemingen van binnen soortspecifieke datumgrenzen om niet-broedende individuen uit te sluiten. Deze data hebben wij voorlopig niet. Wel selecteren we enkel waarnemingen binnen de telrondes van vogels die tot op maximum 300 m afstand van het telpunt zijn gezien.
+We zijn geïnteresseerd in broedparen van de Veldleeuwerik in De Moeren en de Oostelijke leemstreek.
+Daarvoor selecteren we alleen waarnemingen met broedcode 1 of hoger.
+In het Nederlandse onderzoek van @wiersma2021 beschouwen ze tevens enkel waarnemingen van binnen soortspecifieke datumgrenzen om niet-broedende individuen uit te sluiten.
+Deze data hebben wij voorlopig niet.
+Wel selecteren we enkel waarnemingen binnen de telrondes van vogels die tot op maximum 300 m afstand van het telpunt zijn gezien.
 
 ```{r}
 # design 2018-2022 Oostelijke leemstreek en De Moeren
@@ -316,7 +320,9 @@ veldleeuwerik_presences <- mas_clean %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "))
 ```
 
-In telperiodes 1-3 is het aantal waarnemingen van Veldleeuwerik ongeveer even groot. In telperiode 4 ligt dit iets lager. Tot we de data van de datumgrenzen hebben, houden we voorlopig alle telperiodes voor de analyses.
+In telperiodes 1-3 is het aantal waarnemingen van Veldleeuwerik ongeveer even groot.
+In telperiode 4 ligt dit iets lager.
+Tot we de data van de datumgrenzen hebben, houden we voorlopig alle telperiodes voor de analyses.
 
 ```{r}
 veldleeuwerik_presences %>%
@@ -328,7 +334,8 @@ veldleeuwerik_presences %>%
   theme(legend.position = "bottom")
 ```
 
-Slechts één plot bevind zich in half-gesloten landschap en in De Moeren maar 2 in half-open landschap. We verwijderen deze plots voor verdere analyses.
+Slechts één plot bevind zich in half-gesloten landschap en in De Moeren maar 2 in half-open landschap.
+We verwijderen deze plots voor verdere analyses.
 
 ```{r}
 # Totale lijst van bezochte plots in 2018-2022
@@ -378,7 +385,6 @@ bezoekenlijst_2018_2022 %>%
   kable()
 ```
 
-
 ## Data preparatie {#preparatie-data}
 
 We maken een tweede dataset waarbij we ook afwezigheden toevoegen door te joinen met de lijst van alle bezochte plots voor elke telperiode.
@@ -400,7 +406,10 @@ veldleeuwerik_df <- veldleeuwerik_presences %>%
 
 ## Tellingen {#exploratie-tellingen}
 
-We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2022 waarbij er in elk jaar 4 telperiodes waren. Het aantal bezochte plots neemt over het algemeen toe over de jaren, behalve in De Moeren tussen 2019 en 2020. In De Moeren neemt het aantal waarnemingen ook toe met het aantal bezochte plots maar in De Oostelijke leemstreek is dit niet altijd het geval, namelijk van 2018 naar 2019 en 2021 naar 2022. Het aantal waargenomen broedparen is steeds gelijkaardig aan het aantal waarnemingen wat wil zeggen dat de meeste waarnemingen meestal om een enkel broedpaar (of een individu dat broedgedrag vertoont) gaat.
+We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2022 waarbij er in elk jaar 4 telperiodes waren.
+Het aantal bezochte plots neemt over het algemeen toe over de jaren, behalve in De Moeren tussen 2019 en 2020.
+In De Moeren neemt het aantal waarnemingen ook toe met het aantal bezochte plots maar in De Oostelijke leemstreek is dit niet altijd het geval, namelijk van 2018 naar 2019 en 2021 naar 2022.
+Het aantal waargenomen broedparen is steeds gelijkaardig aan het aantal waarnemingen wat wil zeggen dat de meeste waarnemingen meestal om een enkel broedpaar (of een individu dat broedgedrag vertoont) gaat.
 
 ```{r}
 plots_per_jaar <- bezoekenlijst_2018_2022 %>%
@@ -436,10 +445,10 @@ aantal_tabel %>%
     facet_wrap(~regio, scales = "free")
 ```
 
-
 ## Aantallen {#exploratie-aantallen}
 
-Wanneer we naar de aantallen kijken, zien we veel afwezigheden in de dataset. Vooral in De Moeren, minder in de Oostelijke leemstreek behalve voor 2022.
+Wanneer we naar de aantallen kijken, zien we veel afwezigheden in de dataset.
+Vooral in De Moeren, minder in de Oostelijke leemstreek behalve voor 2022.
 
 ```{r}
 veldleeuwerik_df %>%
@@ -468,7 +477,9 @@ veldleeuwerik_df %>%
           legend.direction = "horizontal")
 ```
 
-De volgende figuur toont het aantal getelde broedparen Veldleeuwerik per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval. Vooral in De Moeren zien we variatie in het gemiddelde aantal broedparen over de telperiodes zoals we ook al in \@ref(selectie-data) opmerkten. Zowel in De Moeren als in de Oostelijke leemstreek lijkt het gemiddelde min of meer constant over de jaren met een daling in 2022. 
+De volgende figuur toont het aantal getelde broedparen Veldleeuwerik per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval.
+Vooral in De Moeren zien we variatie in het gemiddelde aantal broedparen over de telperiodes zoals we ook al in \@ref(selectie-data) opmerkten.
+Zowel in De Moeren als in de Oostelijke leemstreek lijkt het gemiddelde min of meer constant over de jaren met een daling in 2022.
 
 ```{r}
 veldleeuwerik_df %>%
@@ -483,11 +494,15 @@ veldleeuwerik_df %>%
   theme(legend.position = "bottom")
 ```
 
-
 ## Verklarende variabelen {#exploratie-variabelen}
+
 ### Openheid van het landschap
 
-In De Moeren bevinden zich geen plots in half-gesloten landschap en in de Oostelijke leemstreek slechts 1 plot. Het gaat om plot VL0582 die enkel in 2021 werd geteld. Hier werden geen Veldleeuwerikken geteld. Voor analyses waarbij we ook afwezigheden in beschouwing nemen, zouden we deze plot best verwijderen. In beide regio's is er vooral geteld in open landschap en minder in half-open landschap.
+In De Moeren bevinden zich geen plots in half-gesloten landschap en in de Oostelijke leemstreek slechts 1 plot.
+Het gaat om plot VL0582 die enkel in 2021 werd geteld.
+Hier werden geen Veldleeuwerikken geteld.
+Voor analyses waarbij we ook afwezigheden in beschouwing nemen, zouden we deze plot best verwijderen.
+In beide regio's is er vooral geteld in open landschap en minder in half-open landschap.
 
 ```{r}
 design_openheid <- bezoekenlijst_2018_2022 %>%
@@ -522,7 +537,8 @@ bezoekenlijst_2018_2022 %>%
           legend.direction = "horizontal")
 ```
 
-Het gemiddeld aantal broedparen is steeds hoger in open landschap. Daar waren ook meer plots.
+Het gemiddeld aantal broedparen is steeds hoger in open landschap.
+Daar waren ook meer plots.
 
 ```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
 veldleeuwerik_df %>%
@@ -541,7 +557,8 @@ veldleeuwerik_df %>%
 
 ### Soortbeschermingsplan
 
-De plots bevinden zich in beide regio's mestal binnen het soorbeschermingsplan. In 2022 is dit verschil kleiner.
+De plots bevinden zich in beide regio's mestal binnen het soorbeschermingsplan.
+In 2022 is dit verschil kleiner.
 
 ```{r}
 design_sbp <- bezoekenlijst_2018_2022 %>%
@@ -630,7 +647,9 @@ bezoekenlijst_2018_2022 %>%
 
 ## Afstanden {#exploratie-afstanden}
 
-Voor elke waarneming van een broedgeval (of aanwijzing voor een broedpaar) hebben we een afstand tussen 0 en 300 m. Deze hebben min of meer dezelfde verdeling in alle jaren en over alle regio's. De minima in De Moeren zijn wel opvallend hoog.
+Voor elke waarneming van een broedgeval (of aanwijzing voor een broedpaar) hebben we een afstand tussen 0 en 300 m.
+Deze hebben min of meer dezelfde verdeling in alle jaren en over alle regio's.
+De minima in De Moeren zijn wel opvallend hoog.
 
 ```{r}
 # Dupliceer rijen volgens aantal (elke rij is 1 individu)
@@ -666,14 +685,16 @@ veldleeuwerik_presences2 %>%
           legend.direction = "horizontal")
 ```
 
-
 # Distance sampling {#distance-sampling}
 
 ## Inleiding {#inleiding-distance}
 
+[@thomas2012; @buckland2015; @miller2019; @kéry2016; @buckland2001]
+
 ## Data preparatie {#preparatie-distance}
 
-De eerste dataset wordt gebruikt om de detectiecurve te fitten. We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `size`: aantal broedparen per waarneming; een kolom `distance`: afstand tot waarnemer voor elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`.
+De eerste dataset wordt gebruikt om de detectiecurve te fitten.
+We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `size`: aantal broedparen per waarneming; een kolom `distance`: afstand tot waarnemer voor elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`.
 
 ```{r}
 veldleeuwerik_distance <- veldleeuwerik_presences %>%
@@ -683,7 +704,8 @@ veldleeuwerik_distance <- veldleeuwerik_presences %>%
   mutate(jaar = as.character(jaar))
 ```
 
-Om abundanties te schatten, moeten we de oppervlakte van de regio's berekenen voor extrapolatie. We trekken een buffer van 300 m rond het steekproefkader: half-open landschap in De Moeren, en open en half-open landschap in de Oostelijke leemstreek.
+Om abundanties te schatten, moeten we de oppervlakte van de regio's berekenen voor extrapolatie.
+We trekken een buffer van 300 m rond het steekproefkader: half-open landschap in De Moeren, en open en half-open landschap in de Oostelijke leemstreek.
 
 ```{r}
 # Lees steekproefkader in
@@ -725,7 +747,10 @@ grid.arrange(p_moeren, p_leemstreek, table_area,
              layout_matrix = rbind(c(1, 2), c(1, 3)))
 ```
 
-We willen een schatting voor elke regio in elk jaar. We definieren dus de strata regio-jaar. We maken we dataframes om de abundanties en densiteiten te berekenen. `Region_table` met de oppervlaktes per stratum (regio-jaar), `sample_table` geeft aan welke plots in welke regio's voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata zitten.
+We willen een schatting voor elke regio in elk jaar.
+We definieren dus de strata regio-jaar.
+We maken we dataframes om de abundanties en densiteiten te berekenen.
+`Region_table` met de oppervlaktes per stratum (regio-jaar), `sample_table` geeft aan welke plots in welke regio's voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata zitten.
 
 ```{r}
 # Oppervlakte per stratum
@@ -754,16 +779,80 @@ obs_table <- veldleeuwerik_presences %>%
 ```
 
 Ten slotte zet de conversiefactor de afstanden om van meter naar vierkante kilometer.
- 
+
 ```{r}
 # Conversiefactor van meter naar 100 hectare
 conversion_factor <- convert_units("meter", NULL, "Square kilometer")
 ```
 
+## Model specificatie {#specificatie-distance}
 
-## Model selectie {#selectie-distance}
+We maken een model voor de probabiliteit dat een Veldleeuwerik wordt gedetecteerd gegeven we de afstand tot het individu weten.
+Dit model is de detectiefunctie en wordt genoteerd als $g(r;\boldsymbol \theta)$ met $r$ de radiale afstand van waarneming tot teller/telpunt en $\boldsymbol \theta$ een vector van parameters die geschat moeten worden.
+Het doel is de gemiddelde kans op detectie ($p$) te bepalen.
+Dit is het gemiddelde over afstand van 0 m tot de afknotafstand $w$, in ons geval $w = 300$.
+De term $\frac{2r}{w^2}$ is nodig om rekening te houden met de geometrie van de plot (cirkel).
 
-We fitten half-normal en hazard-rate key functions waarbij we alle combinaties van covariaten beschouwen en alle combinaties van interacties.
+$$
+p = \int_0^w\frac{2r}{w^2}g(r;\boldsymbol \theta)\,dr
+$$
+
+$p$ is dus de oppervlakte onder de detectiecurve.
+De volgende figuur toont een fictief voorbeeld van een histogram met afstanden van 0 tot 300 meter ($w = 300$).
+Het is duidelijk dat de er op grotere afstand minder waarnemingen zijn.
+Moest dit niet het geval zijn, zouden de afstanden uniform verdeeld zijn zoals de rode box.
+Alles zou gezien zijn en $p = 1$.
+Dit is hier dus niet het geval.
+De blauwe curve is een half-normale detectiecurve gefit op de data.
+De oppervlakte onder de curve binnen de box is de gemiddelde detectiekans (de geschatte fractie dieren die gezien zijn).
+De oppervlakte boven de curve binnen de box de geschatte fractie dieren die gemist zijn.
+Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over de telcirkel.
+We controleren er dus voor dat het moeilijker is om dieren te detecteren op grotere afstand, terwijl we er van uitgaan dat er in werkelijkheid evenveel zitten op grotere als op kleinere afstanden.
+
+```{r}
+# Simulate distance data for point transect
+set.seed(1234)
+dist_data <- sim.pdata(N = 1000, sigma = 120, B = 300)
+
+# Fit model
+ds_model <- ds(dist_data$d, key = "hn", truncation = 300, transect = "point", 
+               dht_group = FALSE, convert_units = conversion_factor)
+
+# Plot detection curve
+plot_detection_curve(ds_model) +
+  geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = 1),
+            colour = "red", fill = alpha("white", 0))
+```
+
+Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, jaar, sbp en openheid.
+De detectiekans wordt dan berekend conditioneel aan de waargenomen waarden van de covariaten.
+
+$$
+p(\mathbf{z_i}) = \int_0^w\frac{2r}{w^2}g(r, \mathbf{z_i};\boldsymbol \theta)\,dr
+$$
+
+Met $\mathbf{z_i}$ een vector van $J$ (hier $J=4$) covariaten geassocieerd met observatie $i$.
+We beschouwen ook interacties.
+
+De half-normal sleutelfunctie is van de vorm
+
+$$
+g(r, \mathbf{z};\boldsymbol \theta) = \exp{\left( -\frac{r^2}{2\sigma(\mathbf{z})^2} \right)}
+$$
+
+en de hazard-rate sleutelfunctie
+
+$$
+g(r, \mathbf{z};\boldsymbol \theta) = 1 - \exp{\left( \left( -\frac{r}{\sigma(\mathbf{z})}\right)^{-b} \right)}
+$$
+
+waarbij de scale parameter in beide gevallen gelijk is aan
+
+$$
+\sigma(\mathbf{z}) = \exp{\left( \beta_0 + \sum_{j = 1}^{J} \beta_j z_j \right)}
+$$
+
+De hazard-rate key function heeft naast de scale parameter ook nog de shape parameter $b$.
 
 ```{r}
 # We maken formules uit combinaties van alle variabelen
@@ -787,9 +876,10 @@ forms2 <- sapply(combos, function(x) {
 forms <- c(forms1, forms2)
 ```
 
-We fitten alle detectiefuncties met een for-loop. Niet alle interacties kunnen gefit worden omdat niet elke categorie van openheid en sbp in elke regio en/of jaar aanwezig is (opgevangen door `tryCatch()`). We beschouwen de half-normal en hazard-rate key functions.
+We fitten alle detectiefuncties met een for-loop.
+Niet alle interacties kunnen gefit worden omdat niet elke categorie van openheid en sbp in elke regio en/of jaar aanwezig is (opgevangen door `tryCatch()`).
 
-```{r}
+```{r, cache=TRUE}
 # Key functions
 keys <- c("hn", "hr")
 
@@ -850,6 +940,7 @@ for (i in seq_len(length(forms))) {
 }
 ```
 
+## Model selectie {#selectie-distance}
 
 ## Model fit {#fit-distance}
 
