@@ -38,6 +38,7 @@ library(targets)
 library(sf)
 library(terra)
 library(lubridate)
+library(mapview)
 
 # Data analysis
 library(Distance)
@@ -322,9 +323,7 @@ veldleeuwerik_presences %>%
   theme(legend.position = "bottom")
 ```
 
-## Data preparatie {#preparatie-data}
-
-We maken een tweede dataset waarbij we ook afwezigheden toevoegen door te joinen met de lijst van alle bezochte plots voor elke telperiode.
+Slechts één plot bevind zich in half-open landschap en in De Moeren maar 2 in half-gesloten landschap.
 
 ```{r}
 # Totale lijst van bezochte plots in 2018-2022
@@ -333,6 +332,25 @@ bezoekenlijst_2018_2022 <- design_2018_2022 %>%
   filter(!is.na(periode_in_jaar)) %>%
   arrange(plotnaam, jaar, periode_in_jaar)
 
+design <- bezoekenlijst_2018_2022 %>%
+  expand(regio, openheid)
+  
+bezoekenlijst_2018_2022 %>%
+  select(-c(jaar, periode_in_jaar)) %>%
+  distinct() %>%
+  group_by(regio, openheid) %>%
+  summarise(aantal_plots = n()) %>%
+  full_join(design, by = c("regio", "openheid")) %>%
+  replace(is.na(.), 0) %>%
+  arrange(regio, openheid) %>%
+  kable()
+```
+
+## Data preparatie {#preparatie-data}
+
+We maken een tweede dataset waarbij we ook afwezigheden toevoegen door te joinen met de lijst van alle bezochte plots voor elke telperiode.
+
+```{r}
 # Voeg afwezigheden toe door te mergen met alle bezoeken
 veldleeuwerik_df <- veldleeuwerik_presences %>%
   st_drop_geometry() %>%
@@ -622,11 +640,15 @@ veldleeuwerik_presences2 %>%
 
 ## Data preparatie {#preparatie-distance}
 
+De eerste dataset wordt gebruikt om de detectiecurve te fitten. We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `size`: aantal broedparen per waarneming; een kolom `distance`: afstand tot waarnemer voor elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`.
+
 ```{r}
-veldleeuwerik_distance <- veldleeuwerik_presences2 %>%
-  select(object = id, distance = distance2plot, regio, jaar, sbp, openheid) %>%
+veldleeuwerik_distance <- veldleeuwerik_presences %>%
+  select(object = oid, size = aantal, distance = distance2plot, 
+         regio, jaar, sbp, openheid) %>%
   mutate(jaar = as.character(jaar))
 ```
+
 
 ```{r}
 # Bereken oppervlaktes van de regio's
