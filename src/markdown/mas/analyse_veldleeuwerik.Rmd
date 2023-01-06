@@ -38,7 +38,7 @@ library(targets)
 library(sf)
 library(terra)
 library(lubridate)
-library(mapview)
+library(gridExtra)
 
 # Data analysis
 library(Distance)
@@ -323,7 +323,7 @@ veldleeuwerik_presences %>%
   theme(legend.position = "bottom")
 ```
 
-Slechts één plot bevind zich in half-open landschap en in De Moeren maar 2 in half-gesloten landschap.
+Slechts één plot bevind zich in half-gesloten landschap en in De Moeren maar 2 in half-open landschap. We verwijderen deze plots voor verdere analyses.
 
 ```{r}
 # Totale lijst van bezochte plots in 2018-2022
@@ -344,7 +344,35 @@ bezoekenlijst_2018_2022 %>%
   replace(is.na(.), 0) %>%
   arrange(regio, openheid) %>%
   kable()
+
+# Verwijder plots
+plot_to_remove <- bezoekenlijst_2018_2022 %>%
+  filter(openheid == "HGL" |
+         (regio == "De Moeren" & openheid == "HOL")) %>%
+  pull(plotnaam) %>%
+  unique()
+
+bezoekenlijst_2018_2022 <- bezoekenlijst_2018_2022 %>%
+  filter(!plotnaam %in% plot_to_remove)
+
+veldleeuwerik_presences <- veldleeuwerik_presences %>%
+  filter(!plotnaam %in% plot_to_remove)
 ```
+
+Controle:
+
+```{r}
+bezoekenlijst_2018_2022 %>%
+  select(-c(jaar, periode_in_jaar)) %>%
+  distinct() %>%
+  group_by(regio, openheid) %>%
+  summarise(aantal_plots = n()) %>%
+  full_join(design, by = c("regio", "openheid")) %>%
+  replace(is.na(.), 0) %>%
+  arrange(regio, openheid) %>%
+  kable()
+```
+
 
 ## Data preparatie {#preparatie-data}
 
@@ -649,14 +677,51 @@ veldleeuwerik_distance <- veldleeuwerik_presences %>%
   mutate(jaar = as.character(jaar))
 ```
 
+Om abundanties te schatten, moeten we de oppervlakte van de regio's berekenen voor extrapolatie. We trekken een buffer van 300 m rond het steekproefkader: half-open landschap in De Moeren, en open en half-open landschap in de Oostelijke leemstreek.
 
 ```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+# Selectie en buffer
+perimeters_strata <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  st_buffer(dist = 300) %>%
+  group_by(Naam) %>%
+  summarise(geometry = st_union(geometry)) %>%
+  ungroup()
+
+# Visualisatie
+p_moeren <- perimeters_strata %>%
+  filter(Naam == "De Moeren") %>%
+  ggplot() +
+    geom_sf() +
+    facet_grid(~Naam)
+
+p_leemstreek <- perimeters_strata %>%
+  filter(Naam == "Oostelijke leemstreek") %>%
+  ggplot() +
+    geom_sf() +
+    facet_grid(~Naam)
+
 # Bereken oppervlaktes van de regio's
-areas <- perimeters %>% 
-  mutate(Area = as.numeric(st_area(geom)) / 1e6) %>%
+areas <- perimeters_strata %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
   select(regio = Naam, Area) %>%
   st_drop_geometry()
+table_area <- areas %>%
+  rename(`oppervlakte (km²)` = Area) %>%
+  tableGrob(rows = NULL)
 
+# Plot
+grid.arrange(p_moeren, p_leemstreek, table_area, 
+             layout_matrix = rbind(c(1, 2), c(1, 3)))
+```
+
+We willen een schatting voor elke regio in elk jaar. We definieren dus de strata regio-jaar. We maken we dataframes om de abundanties en densiteiten te berekenen. `Region_table` met de oppervlaktes per stratum (regio-jaar), `sample_table` geeft aan welke plots in welke regio's voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata zitten.
+
+```{r}
 # Oppervlakte per stratum
 region_table <- design_2018_2022 %>%
   distinct(regio, jaar) %>%
@@ -665,10 +730,15 @@ region_table <- design_2018_2022 %>%
   select(Region.Label, Area)
 
 # Effort per sample en plot per stratum
+effort <- veldleeuwerik_presences %>%
+  pull(periode_in_jaar) %>%
+  unique() %>%
+  length()
+
 sample_table <- design_2018_2022 %>%
   distinct(plotnaam, regio, jaar) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "),
-         Effort = 4) %>%
+         Effort = effort) %>%
   select(Sample.Label = plotnaam, Region.Label, Effort)
 
 # Waarnemingen per welke plots en strata
@@ -676,6 +746,8 @@ obs_table <- veldleeuwerik_presences2 %>%
   select(object = id, Region.Label, Sample.Label = plotnaam)
 ```
 
+Ten slotte zet de conversiefactor de afstanden om van meter naar vierkante kilometer.
+ 
 ```{r}
 # Conversiefactor van meter naar 100 hectare
 conversion_factor <- convert_units("meter", NULL, "Square kilometer")
