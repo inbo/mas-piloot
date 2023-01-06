@@ -51,6 +51,11 @@ source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "plot_detection_curve.R"))
 ```
 
+```{r}
+knitr::write_bib(c("base", "Distance"), "packages.bib")
+```
+
+
 # Inlezen data {#inlezen-data}
 
 We selecteren eerst de MAS-data binnen de telrondes.
