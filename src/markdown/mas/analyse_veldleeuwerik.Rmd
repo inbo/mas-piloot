@@ -672,6 +672,7 @@ De eerste dataset wordt gebruikt om de detectiecurve te fitten. We hebben een ko
 
 ```{r}
 veldleeuwerik_distance <- veldleeuwerik_presences %>%
+  st_drop_geometry() %>%
   select(object = oid, size = aantal, distance = distance2plot, 
          regio, jaar, sbp, openheid) %>%
   mutate(jaar = as.character(jaar))
@@ -742,8 +743,9 @@ sample_table <- design_2018_2022 %>%
   select(Sample.Label = plotnaam, Region.Label, Effort)
 
 # Waarnemingen per welke plots en strata
-obs_table <- veldleeuwerik_presences2 %>%
-  select(object = id, Region.Label, Sample.Label = plotnaam)
+obs_table <- veldleeuwerik_presences %>%
+  st_drop_geometry() %>%
+  select(object = oid, Region.Label, Sample.Label = plotnaam)
 ```
 
 Ten slotte zet de conversiefactor de afstanden om van meter naar vierkante kilometer.
@@ -755,6 +757,94 @@ conversion_factor <- convert_units("meter", NULL, "Square kilometer")
 
 
 ## Model selectie {#selectie-distance}
+
+We fitten half-normal en hazard-rate key functions waarbij we alle combinaties van covariaten beschouwen en alle combinaties van interacties.
+
+```{r}
+# We maken formules uit combinaties van alle variabelen
+match_variables <- c("regio", "jaar", "sbp", "openheid")
+combos <- sapply(seq(length(match_variables)), function(i) {
+  as.list(as.data.frame(combn(x = match_variables, m = i)))
+})
+combos <- unlist(combos, recursive = FALSE)
+
+# Combinaties zonder interacties
+forms1 <- sapply(combos, function(x) {
+  as.formula(paste0("~", paste(x, collapse = "+")))
+  })
+
+# Combinaties interacties
+forms2 <- sapply(combos, function(x) {
+  as.formula(paste0("~", paste(x, collapse = "*")))
+  })[-c(1:4)]
+
+# Voeg combinaties samen
+forms <- c(forms1, forms2)
+```
+
+We fitten alle detectiefuncties met een for-loop. Niet alle interacties kunnen gefit worden omdat niet elke categorie van openheid en sbp in elke regio en/of jaar aanwezig is (opgevangen door `tryCatch()`). We beschouwen de half-normal en hazard-rate key functions.
+
+```{r}
+# Key functions
+keys <- c("hn", "hr")
+
+# Null models
+veldleeuwerik_dist_hn0 <- ds(data = veldleeuwerik_distance, key = "hn", 
+  truncation = 300, transect = "point", dht_group = FALSE,  
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
+
+veldleeuwerik_dist_hr0 <- ds(data = veldleeuwerik_distance, key = "hr", 
+  truncation = 300, transect = "point", dht_group = FALSE,  
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
+
+# Sla namen van de gefitte models op
+fitted_models <- c("detection_hn0", "detection_hr0")
+
+# Loop over formules en over key functions
+for (i in seq_len(length(forms))) {
+  f <- as.character(forms[i]) # f is de formule
+  
+  for (k in keys) {
+    # Vang warnings of errors op
+    tt <- tryCatch(
+      ds(data = veldleeuwerik_distance, key = k, formula = as.formula(f), 
+         adjustment = NULL, truncation = 300, transect = "point", 
+         dht_group = FALSE, convert_units = conversion_factor, 
+         region_table = region_table, sample_table = sample_table, 
+         obs_table = obs_table),
+      error = function(e) e, warning = function(w) w)
+    
+    # Naam voor model
+    mod_name <- paste0("veldleeuwerik_dist_", k, i)
+    
+    # Sla het model enkel op als er geen problemen zijn
+    if (is(tt, "warning")) {
+      print(paste0("Warning: Model '", mod_name, "' did not converge. ", 
+                   "Formula: '", f, "'. Key: '", k, "'."))
+    } else if (is(tt, "error")) {
+      print(paste0("Error: Model '", mod_name, "' not fitted. ", 
+                   "Formula: '", f, "'. Key: '", k, "'."))
+    } else {
+      det_model <- ds(data = veldleeuwerik_distance, key = k, 
+        formula = as.formula(f), adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+      
+      print(paste0("Model '", mod_name, "' fitted. ", 
+                   "Formula: '", f, "'. Key: '", k, "'."))
+      
+      # Sla gefitte model op
+      assign(mod_name, det_model)
+      # Sla naam van gefitte model op
+      fitted_models <- c(fitted_models, mod_name)
+    }
+  }
+}
+```
+
 
 ## Model fit {#fit-distance}
 
