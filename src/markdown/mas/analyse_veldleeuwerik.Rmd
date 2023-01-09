@@ -709,9 +709,9 @@ Dit is in tegenstelling tot hierarchical distance sampling (HDS), waarbij de foc
 HDS wordt hier verder niet besproken.
 De belangrijkste aannames van de CDS-methode zijn [@buckland2001, hoofdstuk 2]:
 
-1.  Dieren zijn uniform verdeeld over de ruimte (random plaatsing van steekproefeenheden met betrekking tot de verdeling van de dieren in de ruimte)
+1.  Dieren zijn uniform verdeeld over de ruimte (= random plaatsing van steekproefeenheden)
 2.  Detectiekans is een functie van afstand en is gelijk aan 1 op afstand 0
-3.  Individuen worden gedetecteerd op hun oorspronkelijke locatie
+3.  Individuen worden gedetecteerd op hun oorspronkelijke locatie (voorafgaand eventuele reactie op de waarnemer)
 4.  Afstanden worden foutloos gemeten
 
 Distance sampling is erg populair bij het tellen van vogels met behulp van punttransecten [@rosenstock2002; @buckland2001; @roodbergen2011].
@@ -969,11 +969,11 @@ for (i in seq_len(length(forms))) {
     mod_name <- paste0("veldleeuwerik_dist_", k, i)
     
     # Sla het model enkel op als er geen problemen zijn
-    if (is(tt, "warning")) {
-      print(paste0("Warning: Model '", mod_name, "' did not converge. ", 
-                   "Formula: '", f, "'. Key: '", k, "'."))
-    } else if (is(tt, "error")) {
+    if (is(tt, "error")) {
       print(paste0("Error: Model '", mod_name, "' not fitted. ", 
+                   "Formula: '", f, "'. Key: '", k, "'."))
+    } if (is(tt, "warning")) {
+      print(paste0("Warning: Model '", mod_name, "' did not converge. ", 
                    "Formula: '", f, "'. Key: '", k, "'."))
     } else {
       
@@ -1055,7 +1055,15 @@ test6 <- ds(data = veldleeuwerik_distance, key = "hr",
         convert_units = conversion_factor, region_table = region_table, 
         sample_table = sample_table, obs_table = obs_table)
 
-summarize_ds_models(veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr12, test1, test3, test4, test5, test6)
+test9 <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~sbp*jaar*openheid, adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE,
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+
+
+summarize_ds_models(veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr12, test1, test3, test4, test5, test6,
+                    test9)
 ```
 
 ## Model fit {#fit-distance}
@@ -1077,11 +1085,11 @@ plot(veldleeuwerik_dist_hn0, pdf = TRUE, showpoints = FALSE, breaks = breaks,
 par(mfrow = c(1, 1))
 
 par(mfrow = c(1, 2))
-gof_ds(test1, main = "test1")
+gof_ds(test6, main = "test6")
 
-plot(test1, pdf = TRUE, showpoints = FALSE, breaks = breaks,
-     main = paste0("test1", " - ", "AIC: ",
-                   as.character(round(summary(test1)$ds$aic, digits = 2))
+plot(test6, pdf = TRUE, showpoints = FALSE, breaks = breaks,
+     main = paste0("test6", " - ", "AIC: ",
+                   as.character(round(summary(test6)$ds$aic, digits = 2))
                    )
      )
 par(mfrow = c(1, 1))
@@ -1131,8 +1139,8 @@ plot_detection_curve(veldleeuwerik_dist_hn0, plot_average_fit = FALSE, n_breaks 
 
 
 plot_detection_curve(veldleeuwerik_dist_hn0, n_breaks = 60)
-plot_detection_curve(veldleeuwerik_dist_hr12, n_breaks = 60)
-plot_detection_curve(test1)
+plot_detection_curve(test6, n_breaks = 60)
+plot_detection_curve(test6)
 ```
 
 ```{r}
