@@ -875,6 +875,7 @@ plot_detection_curve(ds_model) +
 ```
 
 Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, jaar, sbp en openheid.
+Dit wordt ook wel multiple-covariate distance sampling (MCDS) genoemd.
 De detectiekans wordt dan berekend conditioneel aan de waargenomen waarden van de covariaten.
 
 $$
@@ -931,24 +932,28 @@ forms <- c(forms1, forms2)
 
 We fitten alle sleutelfuncties met de `ds()` functie in een for-loop.
 Niet alle interacties kunnen gefit worden omdat niet elke categorie van openheid en sbp in elke regio en/of jaar aanwezig is (opgevangen door `tryCatch()`).
+Om te hoge flexibiliteit van detectiefunctiemodellen te beperken, bijvoorbeeld in aanwezigheid van overdispersie [@buckland2015], beperken we het aantal aanpassingstermen in afwezigheid van covariaten tot maximaal 2.
+De `ds()` functie voegt zelf aanpassingstermen toe aan de sleutelfunctie om de fit te verbeteren tot er geen verbetering meer in AIC is.
 
 ```{r}
 # Key functions
 keys <- c("hn", "hr")
 
 # Null models
-veldleeuwerik_dist_hn0 <- ds(data = veldleeuwerik_distance, key = "hn", 
+veldleeuwerik_dist_hr12 <- ds(data = veldleeuwerik_distance, key = "hn", 
   truncation = 300, transect = "point", dht_group = FALSE,  
   convert_units = conversion_factor, region_table = region_table, 
-  sample_table = sample_table, obs_table = obs_table)
+  sample_table = sample_table, obs_table = obs_table, max_adjustments = 2,
+  monotonicity = "strict")
 
 veldleeuwerik_dist_hr0 <- ds(data = veldleeuwerik_distance, key = "hr", 
   truncation = 300, transect = "point", dht_group = FALSE,  
   convert_units = conversion_factor, region_table = region_table, 
-  sample_table = sample_table, obs_table = obs_table)
+  sample_table = sample_table, obs_table = obs_table, max_adjustments = 2,
+  monotonicity = "strict")
 
 # Sla namen van de gefitte models op
-fitted_models <- c("veldleeuwerik_dist_hn0", "veldleeuwerik_dist_hr0")
+fitted_models <- c("veldleeuwerik_dist_hr12", "veldleeuwerik_dist_hr0")
 model_path <- "./src/markdown/mas/distance_models/"
 
 # Loop over formules en over key functions
@@ -1008,7 +1013,7 @@ Als het verschil tussen AIC's kleiner is dan 2, kiezen we het eenvoudigste van d
 Modellen met vergelijkbare AIC's hebben vergelijkbare geschatte detectiekansen, dus in de praktijk is er weinig verschil in de keuze tussen deze modellen [@miller2019].
 
 ```{r, cache=TRUE}
-model_selection <- summarize_ds_models(veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr0, 
+model_selection <- summarize_ds_models(veldleeuwerik_dist_hr12, veldleeuwerik_dist_hr0, 
   veldleeuwerik_dist_hn1, veldleeuwerik_dist_hr1, veldleeuwerik_dist_hn2, 
   veldleeuwerik_dist_hr2, veldleeuwerik_dist_hn3, veldleeuwerik_dist_hr3, 
   veldleeuwerik_dist_hn4, veldleeuwerik_dist_hr4, veldleeuwerik_dist_hn5, 
@@ -1027,44 +1032,7 @@ model_selection %>%
   kable()
 ```
 
-```{r}
-test1 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*jaar + openheid, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-
-test3 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~openheid*jaar + regio, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-test4 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*jaar + openheid + sbp, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-test5 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*sbp + openheid + jaar, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-test6 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~sbp*jaar + openheid + regio, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-
-test9 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~sbp*jaar*openheid, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE,
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-
-
-summarize_ds_models(veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr12, test1, test3, test4, test5, test6,
-                    test9)
-```
+... verdere selectie met veldleeuwerik_dist_hr12
 
 ## Model fit {#fit-distance}
 
@@ -1074,25 +1042,24 @@ Om te controleren of ons model goed past bij de data ("goodness of fit") maken w
 breaks <- seq(0, 300, 300 / 15)
 
 par(mfrow = c(1, 2))
-gof_ds(veldleeuwerik_dist_hn0, main = "veldleeuwerik_dist_hn0")
+gof_ds(veldleeuwerik_dist_hr12, main = "veldleeuwerik_dist_hr12")
 
-plot(veldleeuwerik_dist_hn0, pdf = TRUE, showpoints = FALSE, breaks = breaks,
-     main = paste0("veldleeuwerik_dist_hn0", " - ", "AIC: ",
-                   as.character(round(summary(veldleeuwerik_dist_hn0)$ds$aic, digits = 2))
-                   )
-     )
-
-par(mfrow = c(1, 1))
-
-par(mfrow = c(1, 2))
-gof_ds(test6, main = "test6")
-
-plot(test6, pdf = TRUE, showpoints = FALSE, breaks = breaks,
-     main = paste0("test6", " - ", "AIC: ",
-                   as.character(round(summary(test6)$ds$aic, digits = 2))
+plot(veldleeuwerik_dist_hr12, pdf = TRUE, showpoints = FALSE, breaks = breaks,
+     main = paste0("veldleeuwerik_dist_hr12", " - ", "AIC: ",
+                   as.character(round(summary(veldleeuwerik_dist_hr12)$ds$aic, digits = 2))
                    )
      )
 par(mfrow = c(1, 1))
+```
+
+Cramér-von Mises test A significant result from either test gives evidence against the null hypothesis (that the data arose from the fitted model), suggesting that the model does not fit the data well. [@buckland2015]
+
+```{r}
+plot_detection_curve(veldleeuwerik_dist_hr12)
+```
+
+```{r}
+plot_detection_curve(veldleeuwerik_dist_hr12, plot_average_fit = FALSE, n_breaks = 60)
 ```
 
 ## Resultaten {#resultaten-distance}
@@ -1111,6 +1078,7 @@ Dan is de geschatte abundantie in het gesampelde gebied voor elk stratum $s$:
 $$
 \hat{N}_C(s) = \sum_{i=1}^n \frac{c_i(s)}{\hat{p}(\mathbf{z_i})}
 $$ Met $c_i(s)$ de clustergrootte in stratum $s$ voor waarneming $i$.
+
 Meestal is $c_i(s) = 1$, maar soms bestaat een waarneming uit meerdere individuen die gezien waren op dezelfde afstand op hetzelfde moment.
 De geschatte abundantie in het gesampelde gebied kan dan worden opgeschaald naar de totale oppervlakte van het stratum via:
 
@@ -1124,9 +1092,9 @@ Voor berekening van de confidence limits zie `?dht`.
 De confidence limits in de volgende resultaten zijn 95 % confidence intervallen.
 
 ```{r}
-cbind(veldleeuwerik_dist_hn0$ddf$data, 
-      det_prob = predict(veldleeuwerik_dist_hn0, se.fit = TRUE)$fitted, 
-      det_prob_se = predict(veldleeuwerik_dist_hn0, se.fit = TRUE)$se) %>%
+cbind(veldleeuwerik_dist_hr12$ddf$data, 
+      det_prob = predict(veldleeuwerik_dist_hr12, se.fit = TRUE)$fitted, 
+      det_prob_se = predict(veldleeuwerik_dist_hr12, se.fit = TRUE)$se) %>%
   select(regio, jaar, det_prob, det_prob_se) %>%
   distinct() %>%
   arrange(regio, jaar) %>%
@@ -1134,23 +1102,13 @@ cbind(veldleeuwerik_dist_hn0$ddf$data,
 ```
 
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_hn0)
-plot_detection_curve(veldleeuwerik_dist_hn0, plot_average_fit = FALSE, n_breaks = 60)
+summary_veldleeuwerik_dist <- summary(veldleeuwerik_dist_hr12)
 
-
-plot_detection_curve(veldleeuwerik_dist_hn0, n_breaks = 60)
-plot_detection_curve(test6, n_breaks = 60)
-plot_detection_curve(test6)
-```
-
-```{r}
-summary_veldleeuwerik_dist_hn0 <- summary(veldleeuwerik_dist_hn0)
-
-summary_results_veldleeuwerik_dist_hn0 <- bind_rows(
-  summary_veldleeuwerik_dist_hn0$dht$individuals$D %>%
+summary_results_veldleeuwerik_dist <- bind_rows(
+  summary_veldleeuwerik_dist$dht$individuals$D %>%
     mutate(variable = "density",
            type = "Aantal broedparen per 100 ha"),
-  summary_veldleeuwerik_dist_hn0$dht$individuals$N %>%
+  summary_veldleeuwerik_dist$dht$individuals$N %>%
     mutate(variable = "abundance",
            type = "Totaal aantal broedparen")
   ) %>%
@@ -1161,7 +1119,7 @@ summary_results_veldleeuwerik_dist_hn0 <- bind_rows(
 Abundanties:
 
 ```{r}
-summary_results_veldleeuwerik_dist_hn0 %>%
+summary_results_veldleeuwerik_dist %>%
   filter(variable == "abundance") %>%
   select(regio, jaar, schatting = Estimate, se, lcl, ucl) %>%
   arrange(regio, jaar) %>%
@@ -1171,7 +1129,7 @@ summary_results_veldleeuwerik_dist_hn0 %>%
 Densiteiten:
 
 ```{r}
-summary_results_veldleeuwerik_dist_hn0 %>%
+summary_results_veldleeuwerik_dist %>%
   filter(variable == "density") %>%
   select(regio, jaar, schatting = Estimate, se, lcl, ucl) %>%
   arrange(regio, jaar) %>%
@@ -1181,7 +1139,7 @@ summary_results_veldleeuwerik_dist_hn0 %>%
 We visualiseren de absolute verschillen in densiteit over de jaren.
 
 ```{r}
-summary_results_veldleeuwerik_dist_hn0 %>%
+summary_results_veldleeuwerik_dist %>%
   filter(variable == "density") %>%
   ggplot(aes(x = jaar, y = Estimate, colour = regio)) + 
     geom_point(size = 4) + 
@@ -1194,5 +1152,7 @@ summary_results_veldleeuwerik_dist_hn0 %>%
 ```
 
 ## Discussie {#discussie-distance}
+
+ook problemen SOVON, binning hielp niet en zorgde voor gelijkaardige resultaten...toch niet super slecht waarschijnlijk
 
 ## Referenties
