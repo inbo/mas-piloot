@@ -238,7 +238,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
                   size = 1) +
         geom_line(data = df_gemiddelde, aes(x = dist, y = lineval), size = 1,
                   linetype = "dashed") +
-        scale_y_continuous(breaks = seq(0, 1, 0.2)) +
+        scale_y_continuous(limits = c(0, NA)) +
         labs(x = "Afstand (m)", y = "Detectiekans") +
         theme(legend.position = c(1, 1),
               legend.justification = c(1, 1),
@@ -250,7 +250,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
                  width = trunc / n_breaks, fill = "white", color = "black") +
         geom_line(data = df_y_val, aes(x = dist, y = y_val, colour = Legende),
                   size = 1) +
-        scale_y_continuous(breaks = seq(0, 1, 0.2)) +
+        scale_y_continuous(limits = c(0, NA)) +
         labs(x = "Afstand (m)", y = "Detectiekans") +
         theme(legend.position = c(1, 1),
               legend.justification = c(1, 1),
@@ -266,7 +266,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
                  width = trunc / n_breaks, fill = "white", color = "black") +
         geom_line(data = df_gemiddelde, aes(x = dist, y = lineval), size = 1,
                   linetype = "dashed") +
-        scale_y_continuous(breaks = seq(0, 1, 0.2)) +
+        scale_y_continuous(limits = c(0, NA)) +
         labs(x = "Afstand (m)", y = "Detectiekans") +
         theme(legend.position = c(1, 1),
               legend.justification = c(1, 1),
@@ -276,7 +276,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
       out <- ggplot(hist_df) +
         geom_bar(aes(x = mids, y = counts), stat = "identity",
                  width = trunc / n_breaks, fill = "white", color = "black") +
-        scale_y_continuous(breaks = seq(0, 1, 0.2)) +
+        scale_y_continuous(limits = c(0, NA)) +
         labs(x = "Afstand (m)", y = "Detectiekans") +
         theme(legend.position = c(1, 1),
               legend.justification = c(1, 1),
