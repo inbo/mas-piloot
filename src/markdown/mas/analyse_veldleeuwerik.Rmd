@@ -53,7 +53,8 @@ source(here("src", "R", "plot_detection_curve.R"))
 ```
 
 ```{r}
-knitr::write_bib(c("base", "Distance"), "packages.bib")
+knitr::write_bib(c("base", "Distance"), here("src", "markdown", "mas", 
+                                             "packages.bib"))
 ```
 
 # Inlezen data {#inlezen-data}
@@ -689,11 +690,59 @@ veldleeuwerik_presences2 %>%
 
 ## Inleiding {#inleiding-distance}
 
-[@thomas2012; @buckland2015; @miller2019; @kéry2016; @buckland2001]
+Distance sampling is een techniek om de abundantie en/of densiteit van biologische populaties te schatten op basis van een steekproef uit de populatie.
+Het is namelijk in de praktijk quasi nooit mogelijk om elk individu te tellen.
+Dieren staan constant in beweging en interageren op allerlei manier met elkaar en hun omgeving.
+Afhankelijk van de eigenschappen van een soort en de omgeving kan de de detectiekans van een soort verschillen.
+Een idee over de detectiekans van een soort is bijgevolg van belang om een schatting van de volledige populatie te maken vanuit de steekproef.
+Een andere bekende techniek om abundanties te schatten is capture-recapture.
+Hierbij zit de informatie over de detectiekans in de vangstgeschiedenis van verschillende individuen.
+In distance sampling daarentegen zit informatie over detecteerbaarheid vervat in de detectieafstanden.
+Het onderliggende idee van beide benaderingen is dat, als we de detectiekans kunnen schatten voor de individuen die we detecteren, we ook kunnen schatten hoeveel er niet opgemerkt werden.
+Op basis van die schatting van detectiekans, kunnen we de waargenomen tellingen corrigeren voor individuen die op de bemonsterde plots zijn gemist.
+Het voordeel van distance sampling ten opzichte van capture-recapture is dat het niet vereist is dat individuen worden gemarkeerd en opnieuw worden gevangen/waargenomen in de loop van de tijd.
+Bovendien kan slechts een enkele steekproef van de populatie voldoende zijn [@buckland2015; @buckland2001].\
+
+Wanneer we het over distance sampling hebben in dit rapport, spreken we eigenlijk over conventional distance sampling (CDS).
+In CDS worden de data gebundeld voor het schatten van de detectiekans.
+Dit is in tegenstelling tot hierarchical distance sampling (HDS), waarbij de focus ligt op lokale populatiegroottes van de steekproefeenheden door het maken van expliciete modellen die de variatie in populatiegrootte tussen steekproefeenheden verklaren [@kéry2016].
+HDS wordt hier verder niet besproken.
+De belangrijkste aannames van de CDS-methode zijn [@buckland2001, hoofdstuk 2]:
+
+1.  Dieren zijn uniform verdeeld over de ruimte (random plaatsing van steekproefeenheden met betrekking tot de verdeling van de dieren in de ruimte)
+2.  Detectiekans is een functie van afstand en is gelijk aan 1 op afstand 0
+3.  Individuen worden gedetecteerd op hun oorspronkelijke locatie
+4.  Afstanden worden foutloos gemeten
+
+Distance sampling is erg populair bij het tellen van vogels met behulp van punttransecten [@rosenstock2002; @buckland2001; @roodbergen2011].
+Een punttransect is een cirkelvormige plot met radius $w$ waar een waarnemer vanuit een centraal punt de radiale afstand $r_i$ meet tot elk van de gedetecteerde individuen $i = 1, ..., n$ met $n$ het totaal aantal waarnemingen (Fig. \@ref(fig:chunk-name)).
+$w$ wordt ook wel de afknotafstand genoemd.
+
+```{r punttransect-plot, fig.cap = "Punttransect met radius $w$ en observatie op afstand $r_i$."}
+circle_fun <- function(center = c(0, 0), diameter = 600, npoints = 100) {
+  r <- diameter / 2
+  tt <- seq(0, 2 * pi, length.out = npoints)
+  xx <- center[1] + r * cos(tt)
+  yy <- center[2] + r * sin(tt)
+  return(data.frame(x = xx, y = yy))
+}
+
+ggplot(data = circle_fun()) +
+  geom_segment(aes(x = 0, y = 0, xend = 300, yend = 0)) +
+  geom_text(aes(x = 150, y = 0, label = "w"), nudge_y = 25) +
+  geom_point(aes(x = -100, y = 200), shape = "\U1F986", size = 10) +
+  geom_segment(aes(x = 0, y = 0, xend = -100, yend = 200)) +
+  geom_text(aes(x = -50, y = 100), label = "r[i]", nudge_y = 20, nudge_x = 20, parse = TRUE) +
+  geom_path(aes(x, y), colour = "red") + 
+  geom_point(aes(x = 0, y = 0), colour = "red", size = 2) +
+  labs(x = "", y = "") +
+  coord_fixed() +
+  theme_void()
+```
 
 ## Data preparatie {#preparatie-distance}
 
-De eerste dataset wordt gebruikt om de detectiecurve te fitten.
+De eerste dataset wordt gebruikt om de detectiecurve te fitten (zie verder).
 We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `size`: aantal broedparen per waarneming; een kolom `distance`: afstand tot waarnemer voor elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`.
 
 ```{r}
@@ -787,8 +836,9 @@ conversion_factor <- convert_units("meter", NULL, "Square kilometer")
 
 ## Model specificatie {#specificatie-distance}
 
-We voeren de distance sampling analyses uit met behulp van de **Distance** package [@R-Distance; @miller2019]. We maken een model voor de probabiliteit dat een Veldleeuwerik wordt gedetecteerd gegeven we de afstand tot het individu weten.
-Dit model is de detectiefunctie en wordt genoteerd als $g(r;\boldsymbol \theta)$ met $r$ de radiale afstand van waarneming tot teller/telpunt en $\boldsymbol \theta$ een vector van parameters die geschat moeten worden.
+We voeren de distance sampling analyses uit met behulp van de **Distance** package [@R-Distance; @miller2019].
+We maken een model voor de probabiliteit dat een Veldleeuwerik wordt gedetecteerd gegeven we de afstand tot het individu weten.
+Dit model is de detectiefunctie/-curve en wordt genoteerd als $g(r;\boldsymbol \theta)$ met $r$ de radiale afstand van waarneming tot teller/telpunt en $\boldsymbol \theta$ een vector van parameters die geschat moeten worden.
 Het doel is de gemiddelde kans op detectie ($p$) te bepalen.
 Dit is het gemiddelde over afstand van 0 m tot de afknotafstand $w$, in ons geval $w = 300$.
 De term $\frac{2r}{w^2}$ is nodig om rekening te houden met de geometrie van de plot (cirkel).
@@ -798,18 +848,17 @@ p = \int_0^w\frac{2r}{w^2}g(r;\boldsymbol \theta)\,dr
 $$
 
 $p$ is dus de oppervlakte onder de detectiecurve.
-De volgende figuur toont een fictief voorbeeld van een histogram met afstanden van 0 tot 300 meter ($w = 300$).
-Het is duidelijk dat de er op grotere afstand minder waarnemingen zijn.
-Moest dit niet het geval zijn, zouden de afstanden uniform verdeeld zijn zoals de rode box.
-Alles zou gezien zijn en $p = 1$.
-Dit is hier dus niet het geval.
+Figuur \@ref(fig:detectie-plot) toont een fictief voorbeeld van een histogram met afstanden van 0 tot 300 meter ($w = 300$).
+Hoe groter de afstand, hoe minder waarnemingen en dus lager de detectiekans.
+Moest het aantal waarnemingen niet afnemen over de afstand, zouden de afstanden uniform verdeeld zijn zoals de rode box.
+Alles zou gezien zijn en de detectiekans $p = 1$.
 De blauwe curve is een half-normale detectiecurve gefit op de data.
 De oppervlakte onder de curve binnen de box is de gemiddelde detectiekans (de geschatte fractie dieren die gezien zijn).
 De oppervlakte boven de curve binnen de box de geschatte fractie dieren die gemist zijn.
-Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over de telcirkel.
+Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over de telcirkel (zie verder).
 We controleren er dus voor dat het moeilijker is om dieren te detecteren op grotere afstand, terwijl we er van uitgaan dat er in werkelijkheid evenveel zitten op grotere als op kleinere afstanden.
 
-```{r}
+```{r detectie-plot, fig.cap = "Histogram en detectiecurve gefit op 1000 gesimuleerde datapunten uit de half-normale verdeling met parameter $\sigma = 120$ en afknotafstand 300 m. De oppervlakte onder de curve binnen de rode box is de geschatte detectiekans."}
 # Simulate distance data for point transect
 set.seed(1234)
 dist_data <- sim.pdata(N = 1000, sigma = 120, B = 300)
@@ -821,7 +870,8 @@ ds_model <- ds(dist_data$d, key = "hn", truncation = 300, transect = "point",
 # Plot detection curve
 plot_detection_curve(ds_model) +
   geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = 1),
-            colour = "red", fill = alpha("white", 0))
+            colour = "red", fill = alpha("white", 0)) +
+  geom_text(aes(x = 150, y = 0.6), label = expression(italic("g(r;"*theta*")")))
 ```
 
 Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, jaar, sbp en openheid.
@@ -832,7 +882,7 @@ p(\mathbf{z_i}) = \int_0^w\frac{2r}{w^2}g(r, \mathbf{z_i};\boldsymbol \theta)\,d
 $$
 
 Met $\mathbf{z_i}$ een vector van $J$ (hier $J=4$) covariaten geassocieerd met observatie $i$.
-We beschouwen ook interacties.
+We beschouwen ook alle tweewegsinteracties.
 
 De half-normal sleutelfunctie is van de vorm
 
@@ -869,17 +919,20 @@ forms1 <- sapply(combos, function(x) {
 
 # Combinaties interacties
 forms2 <- sapply(combos, function(x) {
+  if (length(x) == 2) {
   as.formula(paste0("~", paste(x, collapse = "*")))
-  })[-c(1:4)]
+  }
+  })
+forms2[sapply(forms2, is.null)] <- NULL
 
 # Voeg combinaties samen
 forms <- c(forms1, forms2)
 ```
 
-We fitten alle detectiefuncties met de `ds()` functie in een for-loop.
+We fitten alle sleutelfuncties met de `ds()` functie in een for-loop.
 Niet alle interacties kunnen gefit worden omdat niet elke categorie van openheid en sbp in elke regio en/of jaar aanwezig is (opgevangen door `tryCatch()`).
 
-```{r, cache=TRUE}
+```{r}
 # Key functions
 keys <- c("hn", "hr")
 
@@ -896,6 +949,7 @@ veldleeuwerik_dist_hr0 <- ds(data = veldleeuwerik_distance, key = "hr",
 
 # Sla namen van de gefitte models op
 fitted_models <- c("veldleeuwerik_dist_hn0", "veldleeuwerik_dist_hr0")
+model_path <- "./src/markdown/mas/distance_models/"
 
 # Loop over formules en over key functions
 for (i in seq_len(length(forms))) {
@@ -922,24 +976,30 @@ for (i in seq_len(length(forms))) {
       print(paste0("Error: Model '", mod_name, "' not fitted. ", 
                    "Formula: '", f, "'. Key: '", k, "'."))
     } else {
-      det_model <- ds(data = veldleeuwerik_distance, key = k, 
-        formula = as.formula(f), adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
       
-      print(paste0("Model '", mod_name, "' fitted. ", 
-                   "Formula: '", f, "'. Key: '", k, "'."))
+      if (file.exists(paste0(model_path, mod_name, ".rda"))) {
+        load(paste0(model_path, mod_name, ".rda"))
+      } else {
+        det_model <- ds(data = veldleeuwerik_distance, key = k, 
+          formula = as.formula(f), adjustment = NULL, truncation = 300, 
+          transect = "point", dht_group = FALSE, 
+          convert_units = conversion_factor, region_table = region_table, 
+          sample_table = sample_table, obs_table = obs_table)
       
-      # Sla gefitte model op
-      assign(mod_name, det_model)
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+        
+        # Sla gefitte model op
+        assign(mod_name, det_model)
+        save(mod_name, file = paste0(model_path, mod_name, ".rda"))
+      }
+      
       # Sla naam van gefitte model op
       fitted_models <- c(fitted_models, mod_name)
     }
   }
 }
 ```
-
 
 ## Model selectie {#selectie-distance}
 
@@ -998,10 +1058,9 @@ test6 <- ds(data = veldleeuwerik_distance, key = "hr",
 summarize_ds_models(veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr12, test1, test3, test4, test5, test6)
 ```
 
-
 ## Model fit {#fit-distance}
 
-Om te controleren of ons model goed past bij de data ("goodness of fit") maken we een Q-Q plot waarbij de cumulatieve distributiefunctie van de gefitte detectiefunction wordt vergeleken met de distributie van de data
+Om te controleren of ons model goed past bij de data ("goodness of fit") maken we een Q-Q plot waarbij de cumulatieve distributiefunctie van de gefitte detectiefunctie wordt vergeleken met de distributie van de data
 
 ```{r}
 breaks <- seq(0, 300, 300 / 15)
@@ -1028,8 +1087,33 @@ plot(test1, pdf = TRUE, showpoints = FALSE, breaks = breaks,
 par(mfrow = c(1, 1))
 ```
 
-
 ## Resultaten {#resultaten-distance}
+
+We hebben de studieregio in 2 strata opgesplits: De Moeren en de Oostelijke leemstreek.
+Beschouw $A(s)$ de totale oppervlakte van stratum $s$ tot waar we de abundantieschatting willen extrapoleren en $a(s)$ het gesampelde gebied.
+
+$$
+a(s) = \pi w^2 T
+$$
+
+Met $T$ het aantal plots ($n_p$) vermenigvuldigd met het aantal bezoeken (effort).
+In ons geval hebben we dus $a(s) = \pi 300^2 n_p 4$.
+Dan is de geschatte abundantie in het gesampelde gebied voor elk stratum $s$:
+
+$$
+\hat{N}_C(s) = \sum_{i=1}^n \frac{c_i(s)}{\hat{p}(\mathbf{z_i})}
+$$ Met $c_i(s)$ de clustergrootte in stratum $s$ voor waarneming $i$.
+Meestal is $c_i(s) = 1$, maar soms bestaat een waarneming uit meerdere individuen die gezien waren op dezelfde afstand op hetzelfde moment.
+De geschatte abundantie in het gesampelde gebied kan dan worden opgeschaald naar de totale oppervlakte van het stratum via:
+
+$$
+\hat{N}(s) = \frac{A(s)}{a(s)}\hat{N}_C(s)
+$$
+
+De geschatte densiteit in stratumm $s$ is dan $\hat{N}(s) / A(s)$.
+De abundanties kunnen ook opgeteld worden voor een totale schatting en een totale densiteit door de totale schatting te delen door de totale oppervlakte (som van oppervlaktes per stratum).
+Voor berekening van de confidence limits zie `?dht`.
+De confidence limits in de volgende resultaten zijn 95 % confidence intervallen.
 
 ```{r}
 cbind(veldleeuwerik_dist_hn0$ddf$data, 
@@ -1043,9 +1127,11 @@ cbind(veldleeuwerik_dist_hn0$ddf$data,
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_hn0)
+plot_detection_curve(veldleeuwerik_dist_hn0, plot_average_fit = FALSE, n_breaks = 60)
 
 
-
+plot_detection_curve(veldleeuwerik_dist_hn0, n_breaks = 60)
+plot_detection_curve(veldleeuwerik_dist_hr12, n_breaks = 60)
 plot_detection_curve(test1)
 ```
 
@@ -1084,7 +1170,7 @@ summary_results_veldleeuwerik_dist_hn0 %>%
   kable(digits = 3)
 ```
 
-We visualiseren de absolute verschillen in densiteit over de jaren. 
+We visualiseren de absolute verschillen in densiteit over de jaren.
 
 ```{r}
 summary_results_veldleeuwerik_dist_hn0 %>%
@@ -1098,7 +1184,6 @@ summary_results_veldleeuwerik_dist_hn0 %>%
          title = "Veldleeuwerik - densiteit") +
     theme(legend.position = "")
 ```
-
 
 ## Discussie {#discussie-distance}
 

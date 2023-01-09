@@ -258,5 +258,116 @@
         "publisher-place": "Oxford",
         "title": "Introduction to Distance Sampling: Estimating Abundance of Biological Populations",
         "type": "book"
+    },
+    {
+        "DOI": "10.1093/auk/119.1.46",
+        "ISSN": "1938-4254",
+        "URL": "http://dx.doi.org/10.1093/auk/119.1.46",
+        "author": [
+            {
+                "family": "Rosenstock",
+                "given": "Steven S."
+            },
+            {
+                "family": "Anderson",
+                "given": "David R."
+            },
+            {
+                "family": "Giesen",
+                "given": "Kenneth M."
+            },
+            {
+                "family": "Leukering",
+                "given": "Tony"
+            },
+            {
+                "family": "Carter",
+                "given": "Michael F."
+            }
+        ],
+        "container-title": "The Auk",
+        "editor": [
+            {
+                "family": "Thompson III",
+                "given": "F."
+            }
+        ],
+        "id": "rosenstock2002",
+        "is-referenced-by-count": "74",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2002,
+                    1,
+                    1
+                ]
+            ]
+        },
+        "language": "en",
+        "member": "286",
+        "page": "46-53",
+        "prefix": "10.1093",
+        "providerkey": "doi",
+        "publisher": "Oxford University Press (OUP)",
+        "reference-count": "44",
+        "references-count": "44",
+        "score": "1",
+        "source": "Crossref",
+        "subject": "Animal Science and Zoology",
+        "title": "Landbird Counting Techniques: Current Practices and an Alternative",
+        "type": "article-journal",
+        "volume": "119"
+    },
+    {
+        "author": [
+            {
+                "family": "Roodbergen",
+                "given": "Maja"
+            },
+            {
+                "family": "Scharenburg",
+                "given": "Kees",
+                "non-dropping-particle": "van"
+            },
+            {
+                "family": "Soldaat",
+                "given": "Leo"
+            },
+            {
+                "family": "Teunissen",
+                "given": "Wolf"
+            },
+            {
+                "family": "Koks",
+                "given": "Ben"
+            },
+            {
+                "family": "Leeuwen",
+                "given": "Merijn",
+                "non-dropping-particle": "van"
+            }
+        ],
+        "genre": "SOVON Onderzoeksrapport",
+        "id": "roodbergen2011",
+        "issue": "2011/08",
+        "issued": {
+            "date-parts": [
+                [
+                    2011
+                ]
+            ]
+        },
+        "key": "DV7Q67AR",
+        "language": "nl",
+        "libraryid": "1",
+        "number": "2011/08",
+        "page": "74",
+        "providerkey": "Zotero",
+        "publisher": "SOVON Vogelonderzoek",
+        "publisher-place": "Nijmegen, Nederland",
+        "source": "Zotero",
+        "title": "Achtergronddocument Meetnet Agrarische Soorten (MAS)",
+        "type": "report"
     }
 ]
