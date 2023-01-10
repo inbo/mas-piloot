@@ -977,13 +977,15 @@ for (i in seq_len(length(forms))) {
     if (is(tt, "error")) {
       print(paste0("Error: Model '", mod_name, "' not fitted. ", 
                    "Formula: '", f, "'. Key: '", k, "'."))
-    } if (is(tt, "warning")) {
+    } else if (is(tt, "warning")) {
       print(paste0("Warning: Model '", mod_name, "' did not converge. ", 
                    "Formula: '", f, "'. Key: '", k, "'."))
     } else {
       
       if (file.exists(paste0(model_path, mod_name, ".rda"))) {
         load(paste0(model_path, mod_name, ".rda"))
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
       } else {
         det_model <- ds(data = veldleeuwerik_distance, key = k, 
           formula = as.formula(f), adjustment = NULL, truncation = 300, 
