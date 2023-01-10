@@ -930,13 +930,14 @@ forms2 <- sapply(combos, function(x) {
   }
   })
 forms2[sapply(forms2, is.null)] <- NULL
+forms2 <- forms2[-3] # remove interaction regio openheid
 
 # Voeg combinaties samen
 forms <- c(forms1, forms2)
 ```
 
 We fitten alle sleutelfuncties met de `ds()` functie in een for-loop.
-Niet alle interacties kunnen gefit worden omdat niet elke categorie van openheid en sbp in elke regio en/of jaar aanwezig is (opgevangen door `tryCatch()`).
+De interactie regio met openheid kan niet gefit worden omdat HOL niet in De Moeren voorkomt.
 Om te hoge flexibiliteit van detectiefunctiemodellen te beperken, bijvoorbeeld in aanwezigheid van overdispersie [@buckland2015], beperken we het aantal aanpassingstermen in afwezigheid van covariaten tot maximaal 2.
 De `ds()` functie voegt zelf aanpassingstermen toe aan de sleutelfunctie om de fit te verbeteren tot er geen verbetering meer in AIC is.
 
@@ -1020,7 +1021,8 @@ Als het verschil tussen AIC's kleiner is dan 2, kiezen we het eenvoudigste van d
 Modellen met vergelijkbare AIC's hebben vergelijkbare geschatte detectiekansen, dus in de praktijk is er weinig verschil in de keuze tussen deze modellen [@miller2019].
 
 ```{r, cache=TRUE}
-model_selection <- summarize_ds_models(veldleeuwerik_dist_hr12, veldleeuwerik_dist_hr0, 
+model_selection <- summarize_ds_models(
+  veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr0, 
   veldleeuwerik_dist_hn1, veldleeuwerik_dist_hr1, veldleeuwerik_dist_hn2, 
   veldleeuwerik_dist_hr2, veldleeuwerik_dist_hn3, veldleeuwerik_dist_hr3, 
   veldleeuwerik_dist_hn4, veldleeuwerik_dist_hr4, veldleeuwerik_dist_hn5, 
@@ -1034,72 +1036,78 @@ model_selection <- summarize_ds_models(veldleeuwerik_dist_hr12, veldleeuwerik_di
   veldleeuwerik_dist_hn16, veldleeuwerik_dist_hr16, veldleeuwerik_dist_hn17, 
   veldleeuwerik_dist_hr17, veldleeuwerik_dist_hn19, veldleeuwerik_dist_hr19, 
   veldleeuwerik_dist_hn20, veldleeuwerik_dist_hr20, veldleeuwerik_dist_hn21, 
-  veldleeuwerik_dist_hr21) 
+  veldleeuwerik_dist_hr21
+  )
 model_selection %>%
   kable()
 ```
 
-Het model waarbij de detectiekans afhankelijk is van ... scoort het best.
-Op basis van dit model testen we nog enkele combinaties ...
+Het Hazard-rate model waarbij de detectiekans afhankelijk is van regio, jaar en openheid scoort het best.
+Op basis van dit model testen we nog enkele combinaties waarbij we interacties tussen elke combinatie van twee variabelen toevoegen (niet regio*openheid).
 
-```{r}
-test1 <- ds(data = veldleeuwerik_distance, key = "hr", 
+```{r, cache=TRUE}
+veldleeuwerik_dist_hr22 <- ds(data = veldleeuwerik_distance, key = "hr", 
         formula = ~regio*jaar + openheid, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         convert_units = conversion_factor, region_table = region_table, 
         sample_table = sample_table, obs_table = obs_table)
 
-test3 <- ds(data = veldleeuwerik_distance, key = "hr", 
+veldleeuwerik_dist_hr23 <- ds(data = veldleeuwerik_distance, key = "hr", 
         formula = ~openheid*jaar + regio, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         convert_units = conversion_factor, region_table = region_table, 
         sample_table = sample_table, obs_table = obs_table)
-test4 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*jaar + openheid + sbp, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-test5 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*sbp + openheid + jaar, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-test6 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~sbp*jaar + openheid + regio, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
 
-summarize_ds_models(veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr12, test1, test3, test4, test5, test6)
+summarize_ds_models(
+  veldleeuwerik_dist_hr12, veldleeuwerik_dist_hr15,
+  veldleeuwerik_dist_hr16, veldleeuwerik_dist_hr20,
+  veldleeuwerik_dist_hr22, veldleeuwerik_dist_hr23
+  )
 ```
+
+We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van regio, jaar en openheid met regio en jaar in interactie.
+
 
 ## Model fit {#fit-distance}
 
 Om te controleren of ons model goed past bij de data ("goodness of fit") maken we een Q-Q plot waarbij de cumulatieve distributiefunctie van de gefitte detectiefunctie (CDF) wordt vergeleken met de distributie van de data (EDF).
 De Cramér-von Mises kwantificeert de informatie van de Q-Q-plot door te testen of punten van de EDF en CDF uit dezelfde verdeling komen [@buckland2015; @miller2019].
+Voor studies met punttransecten geven kansdichtheidsfunctieplots ook een goed idee over model fit.
 
 ```{r}
-breaks <- seq(0, 300, 300 / 15)
-
 par(mfrow = c(1, 2))
-gof_ds(veldleeuwerik_dist_hr12, main = "veldleeuwerik_dist_hr12")
-
-plot(veldleeuwerik_dist_hr12, pdf = TRUE, showpoints = FALSE, breaks = breaks,
-     main = paste0("veldleeuwerik_dist_hr12", " - ", "AIC: ",
-                   as.character(round(summary(veldleeuwerik_dist_hr12)$ds$aic, digits = 2))
-                   )
-     )
+von_mises <- gof_ds(veldleeuwerik_dist_hr22)
+von_mises
+plot(veldleeuwerik_dist_hr22, pdf = TRUE, showpoints = FALSE)
 par(mfrow = c(1, 1))
 ```
 
-De visuele fit ziet er goed uit maar Cramér-von Mises test suggereert dat het model niet goed past bij de data (...).
+De visuele fit van de Q-Q-plot ziet er goed uit maar Cramér-von Mises test suggereert dat het model niet goed past bij de data ($W^2 =$ `r round(von_mises$dsgof$CvM$W, digits = 3)`, $p =$ `r round(von_mises$dsgof$CvM$p, digits = 3)`). Ook de kansdichtheidsfunctieplot toont geen ideale fit. Inderdaad, als we kijken naar de verdeling van de afstanden, zien we dat de detectiekans niet altijd afneemt over de afstand. Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_hr12)
+plot_detection_curve(veldleeuwerik_dist_hr22, plot_average_fit = FALSE, 
+                     n_breaks = 60)
+```
+
+Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
+
+```{r, cache=TRUE}
+veldleeuwerik_dist_hr22_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~regio*jaar + openheid, adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, 
+        cutpoints = c(0, 50, 100, 150, 200, 250, 300),
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+```
+
+De fit ziet er beter uit dan voordien.
+
+```{r}
+plot(veldleeuwerik_dist_hr22_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_hr12, plot_average_fit = FALSE, n_breaks = 60)
+veldleeuwerik_dist_model <- veldleeuwerik_dist_hr22_binned
 ```
 
 ## Resultaten {#resultaten-distance}
@@ -1143,20 +1151,27 @@ De onzekerheid werd berekend m.b.v. de standaard opties in de `ds()` functie.
 Zie @miller2019 en verwijzingen daarin voor meer informatie over de preciese berekeningen.
 De onzekerheid in de volgende resultaten zijn telkens 95 % betrouwbaarheidsintervallen.
 
-De detectiekansen en standard error worden gegeven door:
+De detectiekansen en standard errors zijn verschillend per regio, jaar en openheid van het landschap:
 
 ```{r}
-cbind(veldleeuwerik_dist_hr12$ddf$data, 
-      det_prob = predict(veldleeuwerik_dist_hr12, se.fit = TRUE)$fitted, 
-      det_prob_se = predict(veldleeuwerik_dist_hr12, se.fit = TRUE)$se) %>%
-  select(regio, jaar, det_prob, det_prob_se) %>%
+cbind(veldleeuwerik_dist_model$ddf$data, 
+      det_prob = predict(veldleeuwerik_dist_model, se.fit = TRUE)$fitted, 
+      det_prob_se = predict(veldleeuwerik_dist_model, se.fit = TRUE)$se) %>%
+  select(regio, jaar, openheid, det_prob, det_prob_se) %>%
   distinct() %>%
-  arrange(regio, jaar) %>%
+  arrange(regio, jaar, openheid) %>%
   kable()
 ```
 
+Visualisatie:
+
 ```{r}
-summary_veldleeuwerik_dist <- summary(veldleeuwerik_dist_hr12)
+plot_detection_curve(veldleeuwerik_dist_model, plot_average_fit = TRUE, 
+                     n_breaks = 6)
+```
+
+```{r}
+summary_veldleeuwerik_dist <- summary(veldleeuwerik_dist_model)
 
 summary_results_veldleeuwerik_dist <- bind_rows(
   summary_veldleeuwerik_dist$dht$individuals$D %>%
@@ -1170,7 +1185,7 @@ summary_results_veldleeuwerik_dist <- bind_rows(
   separate(Label, into = c("regio", "jaar"), sep = " - ")
 ```
 
-Abundanties:
+Per stratum (combinatie regio en jaar) krijgen we dan de abundanties:
 
 ```{r}
 summary_results_veldleeuwerik_dist %>%
@@ -1190,7 +1205,7 @@ summary_results_veldleeuwerik_dist %>%
   kable(digits = 3)
 ```
 
-We visualiseren de absolute verschillen in densiteit over de jaren.
+We visualiseren de densiteit over de jaren per regio.
 
 ```{r}
 summary_results_veldleeuwerik_dist %>%
@@ -1205,12 +1220,16 @@ summary_results_veldleeuwerik_dist %>%
     theme(legend.position = "")
 ```
 
+
 ## Discussie {#discussie-distance}
 
 @roodbergen2011 hadden voor de Veldleeuwerik gelijkaardige problemen om een passende detectiecurve te fitten.
 Zij stellen dat dit kan worden veroorzaakt doordat vogels zich verplaatsen als reactie op de waarnemer of het afronden van afstanden door waarnemers.
 Dit laatste is bij ons zeker niet het geval doordat waarnemers een punt aanduiden op de kaart via een app en niet manueel een afstand invoeren.
 Het probleem ligt dus waarschijnlijk in het gedrag van de soort ***... (opvliegen etc. ?? uitleg??...)***.
-@roodbergen2011 fitten daarom een detectiecurve m.b.v. afstandsintervallen ...
+@roodbergen2011 fitten daarom een detectiecurve m.b.v. afstandsintervallen.
+Wij groepeerden daarom de afstanden per 50 m. 
+Hoewel de fit er visueel beter uitzag, waren de densiteitsschattingen en hun onzekerheid quasi identiek aan de eerdere resultaten zonder groepering (resultaten niet getoond).
+
 
 ## Referenties
