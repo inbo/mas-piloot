@@ -701,7 +701,8 @@ In distance sampling daarentegen zit informatie over detecteerbaarheid vervat in
 Het onderliggende idee van beide benaderingen is dat, als we de detectiekans kunnen schatten voor de individuen die we detecteren, we ook kunnen schatten hoeveel er niet opgemerkt werden.
 Op basis van die schatting van detectiekans, kunnen we de waargenomen tellingen corrigeren voor individuen die op de bemonsterde plots zijn gemist.
 Het voordeel van distance sampling ten opzichte van capture-recapture is dat het niet vereist is dat individuen worden gemarkeerd en opnieuw worden gevangen/waargenomen in de loop van de tijd.
-Bovendien kan slechts een enkele steekproef van de populatie voldoende zijn [@buckland2015; @buckland2001].  
+Bovendien kan slechts een enkele steekproef van de populatie voldoende zijn [@buckland2015; @buckland2001].\
+
 Wanneer we het over distance sampling hebben in dit rapport, spreken we eigenlijk over conventional distance sampling (CDS).
 In CDS worden de data gebundeld voor het schatten van de detectiekans.
 Dit is in tegenstelling tot hierarchical distance sampling (HDS), waarbij de focus ligt op lokale populatiegroottes van de steekproefeenheden door het maken van expliciete modellen die de variatie in populatiegrootte tussen steekproefeenheden verklaren [@kéry2016].
@@ -944,7 +945,7 @@ De `ds()` functie voegt zelf aanpassingstermen toe aan de sleutelfunctie om de f
 keys <- c("hn", "hr")
 
 # Null models
-veldleeuwerik_dist_hr12 <- ds(data = veldleeuwerik_distance, key = "hn", 
+veldleeuwerik_dist_hn0 <- ds(data = veldleeuwerik_distance, key = "hn", 
   truncation = 300, transect = "point", dht_group = FALSE,  
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table, max_adjustments = 2,
@@ -985,9 +986,9 @@ for (i in seq_len(length(forms))) {
       print(paste0("Warning: Model '", mod_name, "' did not converge. ", 
                    "Formula: '", f, "'. Key: '", k, "'."))
     } else {
-      
-      if (file.exists(paste0(model_path, mod_name, ".rda"))) {
-        load(paste0(model_path, mod_name, ".rda"))
+      file <- paste0(model_path, mod_name, ".rds")
+      if (file.exists(file)) {
+        assign(mod_name, readRDS(file))
         print(paste0("Model '", mod_name, "' fitted. ", 
                      "Formula: '", f, "'. Key: '", k, "'."))
       } else {
@@ -1002,7 +1003,7 @@ for (i in seq_len(length(forms))) {
         
         # Sla gefitte model op
         assign(mod_name, det_model)
-        save(mod_name, file = paste0(model_path, mod_name, ".rda"))
+        saveRDS(det_model, file = file)
       }
       
       # Sla naam van gefitte model op
@@ -1038,7 +1039,8 @@ model_selection %>%
   kable()
 ```
 
-Het model waarbij de detectiekans afhankelijk is van ... scoort het best. Op basis van dit model testen we nog enkele combinaties ...
+Het model waarbij de detectiekans afhankelijk is van ... scoort het best.
+Op basis van dit model testen we nog enkele combinaties ...
 
 ```{r}
 test1 <- ds(data = veldleeuwerik_distance, key = "hr", 
@@ -1073,7 +1075,8 @@ summarize_ds_models(veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr12, test1, test
 
 ## Model fit {#fit-distance}
 
-Om te controleren of ons model goed past bij de data ("goodness of fit") maken we een Q-Q plot waarbij de cumulatieve distributiefunctie van de gefitte detectiefunctie wordt vergeleken met de distributie van de data
+Om te controleren of ons model goed past bij de data ("goodness of fit") maken we een Q-Q plot waarbij de cumulatieve distributiefunctie van de gefitte detectiefunctie (CDF) wordt vergeleken met de distributie van de data (EDF).
+De Cramér-von Mises kwantificeert de informatie van de Q-Q-plot door te testen of punten van de EDF en CDF uit dezelfde verdeling komen [@buckland2015; @miller2019].
 
 ```{r}
 breaks <- seq(0, 300, 300 / 15)
@@ -1089,8 +1092,7 @@ plot(veldleeuwerik_dist_hr12, pdf = TRUE, showpoints = FALSE, breaks = breaks,
 par(mfrow = c(1, 1))
 ```
 
-De fit ziet er goed uit maar Cramér-von Mises test A significant result from either test gives evidence against the null hypothesis (that the data arose from the fitted model), suggesting that the model does not fit the data well.
-[@buckland2015]
+De visuele fit ziet er goed uit maar Cramér-von Mises test suggereert dat het model niet goed past bij de data (...).
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_hr12)
@@ -1125,9 +1127,21 @@ $$
 $$
 
 De geschatte densiteit in stratumm $s$ is dan $\hat{N}(s) / A(s)$.
-De abundanties kunnen ook opgeteld worden voor een totale schatting en een totale densiteit door de totale schatting te delen door de totale oppervlakte (som van oppervlaktes per stratum).
-Voor berekening van de confidence limits zie `?dht`.
-De confidence limits in de volgende resultaten zijn 95 % confidence intervallen.
+De abundanties kunnen ook opgeteld worden voor een totale schatting $\hat{N}_C$.
+Een maat voor de gemiddelde detectiekans $\hat{P}_a$ is dan:
+
+$$
+\hat{P}_a = \frac{n}{\hat{N}_C}
+$$
+
+De onzekerheid op de abundantie- en densiteitsschattingen komt van twee origines:
+
+1.  Detectiefunctie: Onzekerheid in parameterschattingen ($\boldsymbol \theta$)
+2.  Trefkans: Bemonsteringsvariabiliteit als gevolg van verschillen in het aantal waarnemingen per transect
+
+De onzekerheid werd berekend m.b.v. de standaard opties in de `ds()` functie.
+Zie @miller2019 en verwijzingen daarin voor meer informatie over de preciese berekeningen.
+De onzekerheid in de volgende resultaten zijn telkens 95 % betrouwbaarheidsintervallen.
 
 ```{r}
 cbind(veldleeuwerik_dist_hr12$ddf$data, 
