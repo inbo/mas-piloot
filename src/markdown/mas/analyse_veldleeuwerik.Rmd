@@ -701,18 +701,22 @@ In distance sampling daarentegen zit informatie over detecteerbaarheid vervat in
 Het onderliggende idee van beide benaderingen is dat, als we de detectiekans kunnen schatten voor de individuen die we detecteren, we ook kunnen schatten hoeveel er niet opgemerkt werden.
 Op basis van die schatting van detectiekans, kunnen we de waargenomen tellingen corrigeren voor individuen die op de bemonsterde plots zijn gemist.
 Het voordeel van distance sampling ten opzichte van capture-recapture is dat het niet vereist is dat individuen worden gemarkeerd en opnieuw worden gevangen/waargenomen in de loop van de tijd.
-Bovendien kan slechts een enkele steekproef van de populatie voldoende zijn [@buckland2015; @buckland2001].\
-
+Bovendien kan slechts een enkele steekproef van de populatie voldoende zijn [@buckland2015; @buckland2001].  
 Wanneer we het over distance sampling hebben in dit rapport, spreken we eigenlijk over conventional distance sampling (CDS).
 In CDS worden de data gebundeld voor het schatten van de detectiekans.
 Dit is in tegenstelling tot hierarchical distance sampling (HDS), waarbij de focus ligt op lokale populatiegroottes van de steekproefeenheden door het maken van expliciete modellen die de variatie in populatiegrootte tussen steekproefeenheden verklaren [@kéry2016].
 HDS wordt hier verder niet besproken.
 De belangrijkste aannames van de CDS-methode zijn [@buckland2001, hoofdstuk 2]:
 
-1.  Dieren zijn uniform verdeeld over de ruimte (= random plaatsing van steekproefeenheden)
-2.  Detectiekans is een functie van afstand en is gelijk aan 1 op afstand 0
-3.  Individuen worden gedetecteerd op hun oorspronkelijke locatie (voorafgaand eventuele reactie op de waarnemer)
-4.  Afstanden worden foutloos gemeten
+1.  Dieren zijn uniform verdeeld over de ruimte (steekproefdesign)
+
+    (= random plaatsing van steekproefeenheden t.o.v. verdeling dieren)
+
+2.  Detectiekans is een functie van afstand en is gelijk aan 1 op afstand 0 (model)
+
+3.  Individuen worden gedetecteerd op hun oorspronkelijke locatie (model)
+
+4.  Afstanden worden foutloos gemeten (model)
 
 Distance sampling is erg populair bij het tellen van vogels met behulp van punttransecten [@rosenstock2002; @buckland2001; @roodbergen2011].
 Een punttransect is een cirkelvormige plot met radius $w$ waar een waarnemer vanuit een centraal punt de radiale afstand $r_i$ meet tot elk van de gedetecteerde individuen $i = 1, ..., n$ met $n$ het totaal aantal waarnemingen (Fig. \@ref(fig:chunk-name)).
@@ -858,7 +862,7 @@ De oppervlakte boven de curve binnen de box de geschatte fractie dieren die gemi
 Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over de telcirkel (zie verder).
 We controleren er dus voor dat het moeilijker is om dieren te detecteren op grotere afstand, terwijl we er van uitgaan dat er in werkelijkheid evenveel zitten op grotere als op kleinere afstanden.
 
-```{r detectie-plot, fig.cap = "Histogram en detectiecurve gefit op 1000 gesimuleerde datapunten uit de half-normale verdeling met parameter $\sigma = 120$ en afknotafstand 300 m. De oppervlakte onder de curve binnen de rode box is de geschatte detectiekans."}
+```{r detectie-plot, fig.cap = "Histogram en detectiecurve gefit op 1000 gesimuleerde datapunten uit de half-normale verdeling met parameter $\\sigma = 120$ en afknotafstand 300 m. De oppervlakte onder de curve binnen de rode box is de geschatte detectiekans."}
 # Simulate distance data for point transect
 set.seed(1234)
 dist_data <- sim.pdata(N = 1000, sigma = 120, B = 300)
@@ -1034,7 +1038,38 @@ model_selection %>%
   kable()
 ```
 
-... verdere selectie met veldleeuwerik_dist_hr12
+Het model waarbij de detectiekans afhankelijk is van ... scoort het best. Op basis van dit model testen we nog enkele combinaties ...
+
+```{r}
+test1 <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~regio*jaar + openheid, adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+
+test3 <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~openheid*jaar + regio, adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+test4 <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~regio*jaar + openheid + sbp, adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+test5 <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~regio*sbp + openheid + jaar, adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+test6 <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~sbp*jaar + openheid + regio, adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+
+summarize_ds_models(veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr12, test1, test3, test4, test5, test6)
+```
 
 ## Model fit {#fit-distance}
 
@@ -1054,7 +1089,8 @@ plot(veldleeuwerik_dist_hr12, pdf = TRUE, showpoints = FALSE, breaks = breaks,
 par(mfrow = c(1, 1))
 ```
 
-Cramér-von Mises test A significant result from either test gives evidence against the null hypothesis (that the data arose from the fitted model), suggesting that the model does not fit the data well. [@buckland2015]
+De fit ziet er goed uit maar Cramér-von Mises test A significant result from either test gives evidence against the null hypothesis (that the data arose from the fitted model), suggesting that the model does not fit the data well.
+[@buckland2015]
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_hr12)
