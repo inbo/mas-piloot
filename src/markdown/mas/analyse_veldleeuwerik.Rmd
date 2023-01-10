@@ -1143,6 +1143,8 @@ De onzekerheid werd berekend m.b.v. de standaard opties in de `ds()` functie.
 Zie @miller2019 en verwijzingen daarin voor meer informatie over de preciese berekeningen.
 De onzekerheid in de volgende resultaten zijn telkens 95 % betrouwbaarheidsintervallen.
 
+De detectiekansen en standard error worden gegeven door:
+
 ```{r}
 cbind(veldleeuwerik_dist_hr12$ddf$data, 
       det_prob = predict(veldleeuwerik_dist_hr12, se.fit = TRUE)$fitted, 
@@ -1205,6 +1207,10 @@ summary_results_veldleeuwerik_dist %>%
 
 ## Discussie {#discussie-distance}
 
-ook problemen SOVON, binning hielp niet en zorgde voor gelijkaardige resultaten...toch niet super slecht waarschijnlijk
+@roodbergen2011 hadden voor de Veldleeuwerik gelijkaardige problemen om een passende detectiecurve te fitten.
+Zij stellen dat dit kan worden veroorzaakt doordat vogels zich verplaatsen als reactie op de waarnemer of het afronden van afstanden door waarnemers.
+Dit laatste is bij ons zeker niet het geval doordat waarnemers een punt aanduiden op de kaart via een app en niet manueel een afstand invoeren.
+Het probleem ligt dus waarschijnlijk in het gedrag van de soort ***... (opvliegen etc. ?? uitleg??...)***.
+@roodbergen2011 fitten daarom een detectiecurve m.b.v. afstandsintervallen ...
 
 ## Referenties
