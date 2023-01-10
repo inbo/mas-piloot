@@ -1083,11 +1083,11 @@ veldleeuwerik_dist_hr21_binned <- ds(data = veldleeuwerik_distance, key = "hr",
 De fit ziet er beter uit dan voordien.
 
 ```{r}
-plot(veldleeuwerik_dist_hr22_binned, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_hr21_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
 ```{r}
-veldleeuwerik_dist_model <- veldleeuwerik_dist_hr22_binned
+veldleeuwerik_dist_model <- veldleeuwerik_dist_hr21_binned
 ```
 
 
@@ -1212,5 +1212,7 @@ Het probleem ligt dus waarschijnlijk in het gedrag van de soort ***... (opvliege
 Wij groepeerden daarom de afstanden per 50 m. 
 Hoewel de fit er visueel beter uitzag, waren de densiteitsschattingen en hun onzekerheid quasi identiek aan de eerdere resultaten zonder groepering (resultaten niet getoond).
 
+
+... vergelijking met max en gemiddelde over periodes ...
 
 ## Referenties
