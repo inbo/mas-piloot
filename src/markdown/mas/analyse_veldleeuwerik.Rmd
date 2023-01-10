@@ -941,7 +941,7 @@ De interactie regio met openheid kan niet gefit worden omdat HOL niet in De Moer
 Om te hoge flexibiliteit van detectiefunctiemodellen te beperken, bijvoorbeeld in aanwezigheid van overdispersie [@buckland2015], beperken we het aantal aanpassingstermen in afwezigheid van covariaten tot maximaal 2.
 De `ds()` functie voegt zelf aanpassingstermen toe aan de sleutelfunctie om de fit te verbeteren tot er geen verbetering meer in AIC is.
 
-```{r}
+```{r, cache=TRUE}
 # Key functions
 keys <- c("hn", "hr")
 
@@ -958,8 +958,7 @@ veldleeuwerik_dist_hr0 <- ds(data = veldleeuwerik_distance, key = "hr",
   sample_table = sample_table, obs_table = obs_table, max_adjustments = 2,
   monotonicity = "strict")
 
-# Sla namen van de gefitte models op
-fitted_models <- c("veldleeuwerik_dist_hr12", "veldleeuwerik_dist_hr0")
+# Sla de gefitte models op op deze locatie
 model_path <- "./src/markdown/mas/distance_models/"
 
 # Loop over formules en over key functions
@@ -967,48 +966,28 @@ for (i in seq_len(length(forms))) {
   f <- as.character(forms[i]) # f is de formule
   
   for (k in keys) {
-    # Vang warnings of errors op
-    tt <- tryCatch(
-      ds(data = veldleeuwerik_distance, key = k, formula = as.formula(f), 
-         adjustment = NULL, truncation = 300, transect = "point", 
-         dht_group = FALSE, convert_units = conversion_factor, 
-         region_table = region_table, sample_table = sample_table, 
-         obs_table = obs_table),
-      error = function(e) e, warning = function(w) w)
-    
     # Naam voor model
     mod_name <- paste0("veldleeuwerik_dist_", k, i)
+    file <- paste0(model_path, mod_name, ".rds")
     
-    # Sla het model enkel op als er geen problemen zijn
-    if (is(tt, "error")) {
-      print(paste0("Error: Model '", mod_name, "' not fitted. ", 
-                   "Formula: '", f, "'. Key: '", k, "'."))
-    } else if (is(tt, "warning")) {
-      print(paste0("Warning: Model '", mod_name, "' did not converge. ", 
+    # Sla model op als het nog niet bestaat en lees het in anderzijds
+    if (file.exists(file)) {
+      assign(mod_name, readRDS(file))
+      print(paste0("Model '", mod_name, "' fitted. ", 
                    "Formula: '", f, "'. Key: '", k, "'."))
     } else {
-      file <- paste0(model_path, mod_name, ".rds")
-      if (file.exists(file)) {
-        assign(mod_name, readRDS(file))
-        print(paste0("Model '", mod_name, "' fitted. ", 
-                     "Formula: '", f, "'. Key: '", k, "'."))
-      } else {
-        det_model <- ds(data = veldleeuwerik_distance, key = k, 
-          formula = as.formula(f), adjustment = NULL, truncation = 300, 
-          transect = "point", dht_group = FALSE, 
-          convert_units = conversion_factor, region_table = region_table, 
-          sample_table = sample_table, obs_table = obs_table)
+      det_model <- ds(data = veldleeuwerik_distance, key = k, 
+        formula = as.formula(f), adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+    
+      print(paste0("Model '", mod_name, "' fitted. ", 
+                   "Formula: '", f, "'. Key: '", k, "'."))
       
-        print(paste0("Model '", mod_name, "' fitted. ", 
-                     "Formula: '", f, "'. Key: '", k, "'."))
-        
-        # Sla gefitte model op
-        assign(mod_name, det_model)
-        saveRDS(det_model, file = file)
-      }
-      
-      # Sla naam van gefitte model op
-      fitted_models <- c(fitted_models, mod_name)
+      # Sla gefitte model op
+      assign(mod_name, det_model)
+      saveRDS(det_model, file = file)
     }
   }
 }
@@ -1034,9 +1013,9 @@ model_selection <- summarize_ds_models(
   veldleeuwerik_dist_hn13, veldleeuwerik_dist_hr13, veldleeuwerik_dist_hn14, 
   veldleeuwerik_dist_hr14, veldleeuwerik_dist_hn15, veldleeuwerik_dist_hr15, 
   veldleeuwerik_dist_hn16, veldleeuwerik_dist_hr16, veldleeuwerik_dist_hn17, 
-  veldleeuwerik_dist_hr17, veldleeuwerik_dist_hn19, veldleeuwerik_dist_hr19, 
-  veldleeuwerik_dist_hn20, veldleeuwerik_dist_hr20, veldleeuwerik_dist_hn21, 
-  veldleeuwerik_dist_hr21
+  veldleeuwerik_dist_hr17, veldleeuwerik_dist_hn18, veldleeuwerik_dist_hr18, 
+  veldleeuwerik_dist_hn19, veldleeuwerik_dist_hr19, veldleeuwerik_dist_hn20, 
+  veldleeuwerik_dist_hr20
   )
 model_selection %>%
   kable()
@@ -1046,13 +1025,13 @@ Het Hazard-rate model waarbij de detectiekans afhankelijk is van regio, jaar en 
 Op basis van dit model testen we nog enkele combinaties waarbij we interacties tussen elke combinatie van twee variabelen toevoegen (niet regio*openheid).
 
 ```{r, cache=TRUE}
-veldleeuwerik_dist_hr22 <- ds(data = veldleeuwerik_distance, key = "hr", 
+veldleeuwerik_dist_hr21 <- ds(data = veldleeuwerik_distance, key = "hr", 
         formula = ~regio*jaar + openheid, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         convert_units = conversion_factor, region_table = region_table, 
         sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_hr23 <- ds(data = veldleeuwerik_distance, key = "hr", 
+veldleeuwerik_dist_hr22 <- ds(data = veldleeuwerik_distance, key = "hr", 
         formula = ~openheid*jaar + regio, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         convert_units = conversion_factor, region_table = region_table, 
@@ -1060,9 +1039,10 @@ veldleeuwerik_dist_hr23 <- ds(data = veldleeuwerik_distance, key = "hr",
 
 summarize_ds_models(
   veldleeuwerik_dist_hr12, veldleeuwerik_dist_hr15,
-  veldleeuwerik_dist_hr16, veldleeuwerik_dist_hr20,
-  veldleeuwerik_dist_hr22, veldleeuwerik_dist_hr23
-  )
+  veldleeuwerik_dist_hr16, veldleeuwerik_dist_hr19,
+  veldleeuwerik_dist_hr21, veldleeuwerik_dist_hr22
+  ) %>%
+  kable()
 ```
 
 We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van regio, jaar en openheid met regio en jaar in interactie.
@@ -1076,23 +1056,23 @@ Voor studies met punttransecten geven kansdichtheidsfunctieplots ook een goed id
 
 ```{r}
 par(mfrow = c(1, 2))
-von_mises <- gof_ds(veldleeuwerik_dist_hr22)
+von_mises <- gof_ds(veldleeuwerik_dist_hr21)
 von_mises
-plot(veldleeuwerik_dist_hr22, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_hr21, pdf = TRUE, showpoints = FALSE)
 par(mfrow = c(1, 1))
 ```
 
 De visuele fit van de Q-Q-plot ziet er goed uit maar Cramér-von Mises test suggereert dat het model niet goed past bij de data ($W^2 =$ `r round(von_mises$dsgof$CvM$W, digits = 3)`, $p =$ `r round(von_mises$dsgof$CvM$p, digits = 3)`). Ook de kansdichtheidsfunctieplot toont geen ideale fit. Inderdaad, als we kijken naar de verdeling van de afstanden, zien we dat de detectiekans niet altijd afneemt over de afstand. Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_hr22, plot_average_fit = FALSE, 
+plot_detection_curve(veldleeuwerik_dist_hr21, plot_average_fit = FALSE, 
                      n_breaks = 60)
 ```
 
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
 
 ```{r, cache=TRUE}
-veldleeuwerik_dist_hr22_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
+veldleeuwerik_dist_hr21_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
         formula = ~regio*jaar + openheid, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         cutpoints = c(0, 50, 100, 150, 200, 250, 300),
@@ -1109,6 +1089,7 @@ plot(veldleeuwerik_dist_hr22_binned, pdf = TRUE, showpoints = FALSE)
 ```{r}
 veldleeuwerik_dist_model <- veldleeuwerik_dist_hr22_binned
 ```
+
 
 ## Resultaten {#resultaten-distance}
 
