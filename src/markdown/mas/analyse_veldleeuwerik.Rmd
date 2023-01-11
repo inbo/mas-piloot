@@ -709,8 +709,7 @@ Dit is in tegenstelling tot hierarchical distance sampling (HDS), waarbij de foc
 HDS wordt hier verder niet besproken.
 De belangrijkste aannames van de CDS-methode zijn [@buckland2001, hoofdstuk 2]:
 
-1.  Dieren zijn uniform verdeeld over de ruimte (steekproefdesign)
-
+1.  Dieren zijn uniform verdeeld over de ruimte (steekproefdesign)\
     (= random plaatsing van steekproefeenheden t.o.v. verdeling dieren)
 
 2.  Detectiekans is een functie van afstand en is gelijk aan 1 op afstand 0 (model)
@@ -720,10 +719,10 @@ De belangrijkste aannames van de CDS-methode zijn [@buckland2001, hoofdstuk 2]:
 4.  Afstanden worden foutloos gemeten (model)
 
 Distance sampling is erg populair bij het tellen van vogels met behulp van punttransecten [@rosenstock2002; @buckland2001; @roodbergen2011].
-Een punttransect is een cirkelvormige plot met radius $w$ waar een waarnemer vanuit een centraal punt de radiale afstand $r_i$ meet tot elk van de gedetecteerde individuen $i = 1, ..., n$ met $n$ het totaal aantal waarnemingen (Fig. \@ref(fig:chunk-name)).
+Een punttransect is een cirkelvormige plot met radius $w$ waar een waarnemer vanuit een centraal punt de radiale afstand $r_i$ meet tot elk van de gedetecteerde individuen $i = 1, ..., n$ met $n$ het totaal aantal waarnemingen (Fig. \@ref(fig:punttransect-plot)).
 $w$ wordt ook wel de afknotafstand genoemd.
 
-```{r punttransect-plot, fig.cap = "Punttransect met radius $w$ en observatie op afstand $r_i$."}
+```{r punttransect-plot, fig.cap = "Punttransect met radius $w$ en observatie $i$ op afstand $r$."}
 circle_fun <- function(center = c(0, 0), diameter = 600, npoints = 100) {
   r <- diameter / 2
   tt <- seq(0, 2 * pi, length.out = npoints)
@@ -748,7 +747,7 @@ ggplot(data = circle_fun()) +
 ## Data preparatie {#preparatie-distance}
 
 De eerste dataset wordt gebruikt om de detectiecurve te fitten (zie verder).
-We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `size`: aantal broedparen per waarneming; een kolom `distance`: afstand tot waarnemer voor elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`.
+We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `size`: aantal broedparen per waarneming; een kolom `distance`: afstand tot elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`.
 
 ```{r}
 veldleeuwerik_distance <- veldleeuwerik_presences %>%
@@ -759,7 +758,7 @@ veldleeuwerik_distance <- veldleeuwerik_presences %>%
 ```
 
 Om abundanties te schatten, moeten we de oppervlakte van de regio's berekenen voor extrapolatie.
-We trekken een buffer van 300 m rond het steekproefkader: half-open landschap in De Moeren, en open en half-open landschap in de Oostelijke leemstreek.
+We trekken een buffer van 300 m rond het steekproefkader: half-open landschap (HOL) in De Moeren, en open (OL) en half-open landschap in de Oostelijke leemstreek.
 
 ```{r}
 # Lees steekproefkader in
@@ -802,8 +801,8 @@ grid.arrange(p_moeren, p_leemstreek, table_area,
 ```
 
 We willen een schatting voor elke regio in elk jaar.
-We definieren dus de strata regio-jaar.
-We maken we dataframes om de abundanties en densiteiten te berekenen.
+We definiëren dus de strata regio-jaar.
+We maken daarom dataframes om de abundanties en densiteiten te berekenen.
 `Region_table` met de oppervlaktes per stratum (regio-jaar), `sample_table` geeft aan welke plots in welke regio's voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata zitten.
 
 ```{r}
@@ -832,7 +831,7 @@ obs_table <- veldleeuwerik_presences %>%
   select(object = oid, Region.Label, Sample.Label = plotnaam)
 ```
 
-Ten slotte zet de conversiefactor de afstanden om van meter naar vierkante kilometer.
+Ten slotte zet de conversiefactor de afstanden om van meter naar vierkante kilometer (= 100 ha).
 
 ```{r}
 # Conversiefactor van meter naar 100 hectare
@@ -863,7 +862,7 @@ De oppervlakte boven de curve binnen de box de geschatte fractie dieren die gemi
 Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over de telcirkel (zie verder).
 We controleren er dus voor dat het moeilijker is om dieren te detecteren op grotere afstand, terwijl we er van uitgaan dat er in werkelijkheid evenveel zitten op grotere als op kleinere afstanden.
 
-```{r detectie-plot, fig.cap = "Histogram en detectiecurve gefit op 1000 gesimuleerde datapunten uit de half-normale verdeling met parameter $\\sigma = 120$ en afknotafstand 300 m. De oppervlakte onder de curve binnen de rode box is de geschatte detectiekans."}
+```{r detectie-plot, fig.cap = "Histogram en detectiecurve gefit op 1000 gesimuleerde datapunten uit de half-normale verdeling met parameter $\\sigma = 120$ en afknotafstand 300 m. De oppervlakte onder de curve binnen de rode box is de gemiddelde detectiekans $p$."}
 # Simulate distance data for point transect
 set.seed(1234)
 dist_data <- sim.pdata(N = 1000, sigma = 120, B = 300)
@@ -888,7 +887,6 @@ p(\mathbf{z_i}) = \int_0^w\frac{2r}{w^2}g(r, \mathbf{z_i};\boldsymbol \theta)\,d
 $$
 
 Met $\mathbf{z_i}$ een vector van $J$ (hier $J=4$) covariaten geassocieerd met observatie $i$.
-We beschouwen ook alle tweewegsinteracties.
 
 De half-normal sleutelfunctie is van de vorm
 
@@ -937,9 +935,11 @@ forms <- c(forms1, forms2)
 ```
 
 We fitten alle sleutelfuncties met de `ds()` functie in een for-loop.
-De interactie regio met openheid kan niet gefit worden omdat HOL niet in De Moeren voorkomt.
-Om te hoge flexibiliteit van detectiefunctiemodellen te beperken, bijvoorbeeld in aanwezigheid van overdispersie [@buckland2015], beperken we het aantal aanpassingstermen in afwezigheid van covariaten tot maximaal 2.
+***uitleg afwezigheid covariaten***
+Om te hoge flexibiliteit van detectiefunctiemodellen te beperken, bijvoorbeeld in aangeraden in aanwezigheid van overdispersie [@buckland2015], beperken we het aantal aanpassingstermen in afwezigheid van covariaten tot maximaal 2.
 De `ds()` functie voegt zelf aanpassingstermen toe aan de sleutelfunctie om de fit te verbeteren tot er geen verbetering meer in AIC is.
+We beschouwen ook alle tweewegsinteracties.
+De interactie regio met openheid kan niet gefit worden omdat HOL niet in De Moeren voorkomt.
 
 ```{r, cache=TRUE}
 # Key functions
@@ -1022,7 +1022,7 @@ model_selection %>%
 ```
 
 Het Hazard-rate model waarbij de detectiekans afhankelijk is van regio, jaar en openheid scoort het best.
-Op basis van dit model testen we nog enkele combinaties waarbij we interacties tussen elke combinatie van twee variabelen toevoegen (niet regio*openheid).
+Op basis van dit model testen we nog enkele combinaties waarbij we interacties tussen elke combinatie van twee variabelen toevoegen (niet regio\*openheid).
 
 ```{r, cache=TRUE}
 veldleeuwerik_dist_hr21 <- ds(data = veldleeuwerik_distance, key = "hr", 
@@ -1047,11 +1047,10 @@ summarize_ds_models(
 
 We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van regio, jaar en openheid met regio en jaar in interactie.
 
-
 ## Model fit {#fit-distance}
 
 Om te controleren of ons model goed past bij de data ("goodness of fit") maken we een Q-Q plot waarbij de cumulatieve distributiefunctie van de gefitte detectiefunctie (CDF) wordt vergeleken met de distributie van de data (EDF).
-De Cramér-von Mises kwantificeert de informatie van de Q-Q-plot door te testen of punten van de EDF en CDF uit dezelfde verdeling komen [@buckland2015; @miller2019].
+De Cramér-von Mises test kwantificeert de informatie van de Q-Q-plot door te testen of punten van de EDF en CDF uit dezelfde verdeling komen [@buckland2015; @miller2019].
 Voor studies met punttransecten geven kansdichtheidsfunctieplots ook een goed idee over model fit.
 
 ```{r}
@@ -1062,7 +1061,10 @@ plot(veldleeuwerik_dist_hr21, pdf = TRUE, showpoints = FALSE)
 par(mfrow = c(1, 1))
 ```
 
-De visuele fit van de Q-Q-plot ziet er goed uit maar Cramér-von Mises test suggereert dat het model niet goed past bij de data ($W^2 =$ `r round(von_mises$dsgof$CvM$W, digits = 3)`, $p =$ `r round(von_mises$dsgof$CvM$p, digits = 3)`). Ook de kansdichtheidsfunctieplot toont geen ideale fit. Inderdaad, als we kijken naar de verdeling van de afstanden, zien we dat de detectiekans niet altijd afneemt over de afstand. Het is dus niet mogelijk om een detectiecurve perfect te fitten.
+De visuele fit van de Q-Q-plot ziet er goed uit maar Cramér-von Mises test suggereert dat het model niet goed past bij de data ($W^2 =$ `r round(von_mises$dsgof$CvM$W, digits = 3)`, $p =$ `r round(von_mises$dsgof$CvM$p, digits = 3)`).
+Ook de kansdichtheidsfunctieplot toont geen ideale fit.
+Inderdaad, als we kijken naar de verdeling van de afstanden, zien we dat de detectiekans niet altijd afneemt over de afstand.
+Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_hr21, plot_average_fit = FALSE, 
@@ -1086,14 +1088,16 @@ De fit ziet er beter uit dan voordien.
 plot(veldleeuwerik_dist_hr21_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
+We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van regio, jaar en openheid met regio en jaar in interactie als finale model.
+
 ```{r}
 veldleeuwerik_dist_model <- veldleeuwerik_dist_hr21_binned
 ```
 
-
 ## Resultaten {#resultaten-distance}
 
 We hebben de studieregio in 2 strata opgesplits: De Moeren en de Oostelijke leemstreek.
+***aanpassen, meerdere strata***
 Beschouw $A(s)$ de totale oppervlakte van stratum $s$ tot waar we de abundantieschatting willen extrapoleren en $a(s)$ het gesampelde gebied.
 
 $$
@@ -1136,14 +1140,15 @@ De detectiekansen en standard errors zijn verschillend per regio, jaar en openhe
 
 ```{r}
 cbind(veldleeuwerik_dist_model$ddf$data, 
-      det_prob = predict(veldleeuwerik_dist_model, se.fit = TRUE)$fitted, 
-      det_prob_se = predict(veldleeuwerik_dist_model, se.fit = TRUE)$se) %>%
+      "p(z)" = predict(veldleeuwerik_dist_model, se.fit = TRUE)$fitted, 
+      "standard error" = predict(veldleeuwerik_dist_model, se.fit = TRUE)$se) %>%
   select(regio, jaar, openheid, det_prob, det_prob_se) %>%
   distinct() %>%
   arrange(regio, jaar, openheid) %>%
   kable()
 ```
 
+***geef gemiddelde detectiekans***  
 Visualisatie:
 
 ```{r}
@@ -1201,7 +1206,6 @@ summary_results_veldleeuwerik_dist %>%
     theme(legend.position = "")
 ```
 
-
 ## Discussie {#discussie-distance}
 
 @roodbergen2011 hadden voor de Veldleeuwerik gelijkaardige problemen om een passende detectiecurve te fitten.
@@ -1209,9 +1213,8 @@ Zij stellen dat dit kan worden veroorzaakt doordat vogels zich verplaatsen als r
 Dit laatste is bij ons zeker niet het geval doordat waarnemers een punt aanduiden op de kaart via een app en niet manueel een afstand invoeren.
 Het probleem ligt dus waarschijnlijk in het gedrag van de soort ***... (opvliegen etc. ?? uitleg??...)***.
 @roodbergen2011 fitten daarom een detectiecurve m.b.v. afstandsintervallen.
-Wij groepeerden daarom de afstanden per 50 m. 
+Wij groepeerden daarom de afstanden per 50 m.
 Hoewel de fit er visueel beter uitzag, waren de densiteitsschattingen en hun onzekerheid quasi identiek aan de eerdere resultaten zonder groepering (resultaten niet getoond).
-
 
 ... vergelijking met max en gemiddelde over periodes ...
 
