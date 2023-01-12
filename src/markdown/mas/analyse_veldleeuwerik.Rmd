@@ -1295,17 +1295,17 @@ comparison_plots <- veldleeuwerik_df %>%
   
   # Deel door aantal plots om aantal broedkoppels per plot te krijgen
   full_join(plots_per_regiojaar, by = "Region.Label") %>%
-  mutate(tot_gemiddelde_plots = tot_gemiddelde / aantal_plots,
-         tot_max_plots = tot_max / aantal_plots) %>%
+  mutate(tot_gemiddelde_plots = (tot_gemiddelde / aantal_plots) / cirkelopp * 1e6,
+         tot_max_plots = (tot_max / aantal_plots) / cirkelopp * 1e6) %>%
   pivot_longer(cols = c("tot_gemiddelde_plots", "tot_max_plots"), 
                names_to = "categorie", values_to = "Estimate") %>%
   
   # Visualiseer
   ggplot(aes(x = jaar, y = Estimate)) + 
     geom_bar(aes(fill = regio), stat = "identity") + 
-    scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
-         name = "Aantal broedparen Veldleeuwerik per 100 ha")) +
-    labs(x = "", y = "Aantal broedparen Veldleeuwerik per plot") +
+    scale_y_continuous(sec.axis = sec_axis( ~. * cirkelopp / 1e6, 
+         name = "Aantal broedparen Veldleeuwerik per plot")) +
+    labs(x = "", y = "Aantal broedparen Veldleeuwerik per 100 ha") +
     theme(legend.position = "") +
     facet_wrap(regio~categorie, labeller = labeller(
       categorie = c(
@@ -1313,7 +1313,8 @@ comparison_plots <- veldleeuwerik_df %>%
         "tot_max_plots" = "Maximum aantal broedparen per plot")
       ), scales = "free_y")
 
-grid.arrange(dens_plot, comparison_plots, nrow = 2)
+dens_plot
+comparison_plots
 ```
 
 
