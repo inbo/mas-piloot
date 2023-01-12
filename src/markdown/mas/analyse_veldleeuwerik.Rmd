@@ -414,9 +414,9 @@ veldleeuwerik_df <- veldleeuwerik_presences %>%
 
 ## Tellingen {#exploratie-tellingen}
 
-We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2022 waarbij er in elk jaar 4 telperiodes waren.
+We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2022 waarbij er in elk jaar `r length(unique(veldleeuwerik_presences$periode_in_jaar))` telperiodes waren.
 Het aantal bezochte plots neemt over het algemeen toe over de jaren, behalve in De Moeren tussen 2019 en 2020.
-In De Moeren neemt het aantal waarnemingen ook toe met het aantal bezochte plots maar in De Oostelijke leemstreek is dit niet altijd het geval, namelijk van 2018 naar 2019 en 2021 naar 2022.
+Het aantal waarnemingen niet altijd toe met het aantal bezochte plots.
 Het aantal waargenomen broedparen is steeds gelijkaardig aan het aantal waarnemingen wat wil zeggen dat de meeste waarnemingen meestal om een enkel broedpaar (of een individu dat broedgedrag vertoont) gaat.
 
 ```{r}
@@ -486,7 +486,7 @@ veldleeuwerik_df %>%
 ```
 
 De volgende figuur toont het aantal getelde broedparen Veldleeuwerik per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval.
-Vooral in De Moeren zien we variatie in het gemiddelde aantal broedparen over de telperiodes zoals we ook al in \@ref(selectie-data) opmerkten.
+Vooral in De Moeren zien we variatie in het gemiddelde aantal broedparen over de telperiodes.
 Zowel in De Moeren als in de Oostelijke leemstreek lijkt het gemiddelde min of meer constant over de jaren met een daling in 2022.
 
 ```{r}
@@ -497,6 +497,21 @@ veldleeuwerik_df %>%
                position = position_dodge(width = 0.5),
                fatten = 4, shape = "square") +
   facet_wrap(~regio, scales = "free_y") +
+  labs(y = "Aantal broedparen Veldleeuwerik per plot", x = "Jaar",
+       colour = "telperiode") +
+  theme(legend.position = "bottom")
+```
+
+Deze daling heeft te maken met een aanpassing van het design in 2022 waarbij veel meer plots in controlegebieden (buiten sbp) zijn toegevoegd (zie verder).
+
+```{r}
+veldleeuwerik_df %>%
+  ggplot(aes(x = jaar, y = aantal, colour = periode_in_jaar)) +
+  stat_sum(position = position_dodge(width = 0.5), alpha = 0.5) +
+  stat_summary(fun.data = mean_cl_boot,
+               position = position_dodge(width = 0.5),
+               fatten = 4, shape = "square") +
+  facet_wrap(~regio+sbp, scales = "free_y") +
   labs(y = "Aantal broedparen Veldleeuwerik per plot", x = "Jaar",
        colour = "telperiode") +
   theme(legend.position = "bottom")
@@ -889,11 +904,15 @@ Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-ra
 Dit wordt ook wel multiple-covariate distance sampling (MCDS) genoemd.
 De detectiekans wordt dan berekend conditioneel aan de waargenomen waarden van de covariaten.
 
+```{r}
+match_variables <- c("regio", "jaar", "sbp", "openheid")
+```
+
 $$
 p(\mathbf{z_i}) = \int_0^w\frac{2r}{w^2}g(r, \mathbf{z_i};\boldsymbol \theta)\,dr
 $$
 
-Met $\mathbf{z_i}$ een vector van $J$ (hier $J=4$) covariaten geassocieerd met observatie $i$.
+Met $\mathbf{z_i}$ een vector van $J$ (hier $J=$ `r length(match_variables)`) covariaten geassocieerd met observatie $i$.
 
 De half-normal sleutelfunctie is van de vorm
 
@@ -917,7 +936,6 @@ De hazard-rate key function heeft naast de scale parameter ook nog de shape para
 
 ```{r}
 # We maken formules uit combinaties van alle variabelen
-match_variables <- c("regio", "jaar", "sbp", "openheid")
 combos <- sapply(seq(length(match_variables)), function(i) {
   as.list(as.data.frame(combn(x = match_variables, m = i)))
 })
@@ -941,12 +959,12 @@ forms2 <- forms2[-3] # remove interaction regio openheid
 forms <- c(forms1, forms2)
 ```
 
-We fitten alle sleutelfuncties met de `ds()` functie in een for-loop.
-***uitleg afwezigheid covariaten***
-Om te hoge flexibiliteit van detectiefunctiemodellen te beperken, bijvoorbeeld in aangeraden in aanwezigheid van overdispersie [@buckland2015], beperken we het aantal aanpassingstermen in afwezigheid van covariaten tot maximaal 2.
-De `ds()` functie voegt zelf aanpassingstermen toe aan de sleutelfunctie om de fit te verbeteren tot er geen verbetering meer in AIC is.
-We beschouwen ook alle tweewegsinteracties.
+We fitten beide sleutelfuncties met de `ds()` functie in een for-loop.
+We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen ook tweewegsinteracties tussen de covariaten.
 De interactie regio met openheid kan niet gefit worden omdat HOL niet in De Moeren voorkomt.
+In de twee modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data.
+Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken, bijvoorbeeld aangeraden in aanwezigheid van overdispersie [@buckland2015], beperken we het aantal aanpassingstermen tot maximaal 2.
+De `ds()` functie voegt zelf aanpassingstermen toe aan de sleutelfunctie om de fit te verbeteren tot er geen verbetering meer in AIC is.
 
 ```{r, cache=TRUE}
 # Key functions
@@ -1000,6 +1018,14 @@ for (i in seq_len(length(forms))) {
 }
 ```
 
+De volgende hazard-rate modellen konden niet gefit worden:
+
+- ~regio+jaar+openheid
+- ~regio+sbp+openheid
+- ~regio+jaar+sbp+openheid
+- ~regio*jaar
+- ~sbp*openheid
+
 ## Model selectie {#selectie-distance}
 
 We vergelijken de AIC van de verschillende modellen met de functie `summarize_ds_models()`.
@@ -1016,19 +1042,19 @@ model_selection <- summarize_ds_models(
   veldleeuwerik_dist_hn7, veldleeuwerik_dist_hr7, veldleeuwerik_dist_hn8, 
   veldleeuwerik_dist_hr8, veldleeuwerik_dist_hn9, veldleeuwerik_dist_hr9, 
   veldleeuwerik_dist_hn10, veldleeuwerik_dist_hr10, veldleeuwerik_dist_hn11, 
-  veldleeuwerik_dist_hr11, veldleeuwerik_dist_hn12, veldleeuwerik_dist_hr12,
-  veldleeuwerik_dist_hn13, veldleeuwerik_dist_hr13, veldleeuwerik_dist_hn14, 
-  veldleeuwerik_dist_hr14, veldleeuwerik_dist_hn15, veldleeuwerik_dist_hr15, 
-  veldleeuwerik_dist_hn16, veldleeuwerik_dist_hr16, veldleeuwerik_dist_hn17, 
+  veldleeuwerik_dist_hr11, veldleeuwerik_dist_hn12,
+  veldleeuwerik_dist_hn13, veldleeuwerik_dist_hn14, 
+  veldleeuwerik_dist_hr14, veldleeuwerik_dist_hn15, 
+  veldleeuwerik_dist_hn16, veldleeuwerik_dist_hn17, 
   veldleeuwerik_dist_hr17, veldleeuwerik_dist_hn18, veldleeuwerik_dist_hr18, 
-  veldleeuwerik_dist_hn19, veldleeuwerik_dist_hr19, veldleeuwerik_dist_hn20, 
-  veldleeuwerik_dist_hr20
+  veldleeuwerik_dist_hn19, veldleeuwerik_dist_hr19, 
+  veldleeuwerik_dist_hn20
   )
 model_selection %>%
   kable()
 ```
 
-Het Hazard-rate model waarbij de detectiekans afhankelijk is van regio, jaar en openheid scoort het best.
+Het Hazard-rate model waarbij de detectiekans afhankelijk is van jaar en openheid scoort het best.
 Op basis van dit model testen we nog enkele combinaties waarbij we interacties tussen elke combinatie van twee variabelen toevoegen (niet regio\*openheid).
 
 ```{r, cache=TRUE}
@@ -1039,20 +1065,32 @@ veldleeuwerik_dist_hr21 <- ds(data = veldleeuwerik_distance, key = "hr",
         sample_table = sample_table, obs_table = obs_table)
 
 veldleeuwerik_dist_hr22 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~openheid*jaar + regio, adjustment = NULL, truncation = 300, 
+        formula = ~sbp*jaar + openheid, adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+
+veldleeuwerik_dist_hr23 <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~jaar + openheid*sbp, adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor, region_table = region_table, 
+        sample_table = sample_table, obs_table = obs_table)
+
+veldleeuwerik_dist_hr24 <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~regio*jaar + openheid*sbp, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         convert_units = conversion_factor, region_table = region_table, 
         sample_table = sample_table, obs_table = obs_table)
 
 summarize_ds_models(
-  veldleeuwerik_dist_hr12, veldleeuwerik_dist_hr15,
-  veldleeuwerik_dist_hr16, veldleeuwerik_dist_hr19,
-  veldleeuwerik_dist_hr21, veldleeuwerik_dist_hr22
+  veldleeuwerik_dist_hr9, veldleeuwerik_dist_hr19,
+  veldleeuwerik_dist_hr21, veldleeuwerik_dist_hr22, veldleeuwerik_dist_hr23,
+  veldleeuwerik_dist_hr24
   ) %>%
   kable()
 ```
 
-We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van regio, jaar en openheid met regio en jaar in interactie.
+We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van sbp, jaar en openheid met sbp en jaar in interactie.
 
 ## Model fit {#fit-distance}
 
@@ -1062,27 +1100,27 @@ Voor studies met punttransecten geven kansdichtheidsfunctieplots ook een goed id
 
 ```{r}
 par(mfrow = c(1, 2))
-von_mises <- gof_ds(veldleeuwerik_dist_hr21)
+von_mises <- gof_ds(veldleeuwerik_dist_hr22)
 von_mises
-plot(veldleeuwerik_dist_hr21, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_hr22, pdf = TRUE, showpoints = FALSE)
 par(mfrow = c(1, 1))
 ```
 
 De visuele fit van de Q-Q-plot ziet er goed uit maar Cramér-von Mises test suggereert dat het model niet goed past bij de data ($W^2 =$ `r round(von_mises$dsgof$CvM$W, digits = 3)`, $p =$ `r round(von_mises$dsgof$CvM$p, digits = 3)`).
 Ook de kansdichtheidsfunctieplot toont geen ideale fit.
-Inderdaad, als we kijken naar de verdeling van de afstanden, zien we dat de detectiekans niet altijd afneemt over de afstand.
+Inderdaad, als we kijken naar de verdeling van de afstanden, zien we dat de detectiekans niet altijd afneemt over de afstand (zie \@ref(discussie-distance)).
 Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_hr21, plot_average_fit = FALSE, 
+plot_detection_curve(veldleeuwerik_dist_hr22, plot_average_fit = FALSE, 
                      n_breaks = 60)
 ```
 
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
 
 ```{r, cache=TRUE}
-veldleeuwerik_dist_hr21_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*jaar + openheid, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_hr22_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~sbp*jaar + openheid, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         cutpoints = c(0, 50, 100, 150, 200, 250, 300),
         convert_units = conversion_factor, region_table = region_table, 
@@ -1092,27 +1130,28 @@ veldleeuwerik_dist_hr21_binned <- ds(data = veldleeuwerik_distance, key = "hr",
 De fit ziet er beter uit dan voordien.
 
 ```{r}
-plot(veldleeuwerik_dist_hr21_binned, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_hr22_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
-We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van regio, jaar en openheid met regio en jaar in interactie als finale model.
+We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van sbp, jaar en openheid met sbp en jaar in interactie als finale model.
 
 ```{r}
-veldleeuwerik_dist_model <- veldleeuwerik_dist_hr21_binned
+veldleeuwerik_dist_model <- veldleeuwerik_dist_hr22_binned
+veldleeuwerik_covars <- c("sbp", "jaar", "openheid")
 ```
 
 ## Resultaten {#resultaten-distance}
 
-We hebben de studieregio in 2 strata opgesplits: De Moeren en de Oostelijke leemstreek.
-***aanpassen, meerdere strata***
+We hebben de studieregio in 2$\times$5 strata opgesplits: elk jaar voor De Moeren en de Oostelijke leemstreek.
 Beschouw $A(s)$ de totale oppervlakte van stratum $s$ tot waar we de abundantieschatting willen extrapoleren en $a(s)$ het gesampelde gebied.
+De oppervlakte zal niet wijzigen over dejaren maar enkel tussen de regio's.
 
 $$
 a(s) = \pi w^2 T
 $$
 
 Met $T$ het aantal plots ($n_p$) vermenigvuldigd met het aantal bezoeken (effort).
-In ons geval hebben we dus $a(s) = \pi 300^2 n_p 4$.
+In ons geval hebben we dus $a(s) = \pi 300^2 n_p$ `r effort`.
 Dan is de geschatte abundantie in het gesampelde gebied voor elk stratum $s$:
 
 $$
@@ -1149,14 +1188,14 @@ De detectiekansen en standard errors zijn verschillend per regio, jaar en openhe
 cbind(veldleeuwerik_dist_model$ddf$data, 
       "p(z)" = predict(veldleeuwerik_dist_model, se.fit = TRUE)$fitted, 
       "standard error" = predict(veldleeuwerik_dist_model, se.fit = TRUE)$se) %>%
-  select(regio, jaar, openheid, det_prob, det_prob_se) %>%
+  select(all_of(veldleeuwerik_covars), "p(z)", "standard error") %>%
   distinct() %>%
-  arrange(regio, jaar, openheid) %>%
+  arrange(!!!veldleeuwerik_covars) %>%
   kable()
 ```
 
-***geef gemiddelde detectiekans***  
-Visualisatie:
+***geef gemiddelde detectiekans*** $\hat{P}_a$
+Visualisatie: te veel om alle te tonen ...
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_model, plot_average_fit = TRUE, 
@@ -1201,7 +1240,7 @@ summary_results_veldleeuwerik_dist %>%
 We visualiseren de densiteit over de jaren per regio.
 
 ```{r}
-summary_results_veldleeuwerik_dist %>%
+dens_plot <- summary_results_veldleeuwerik_dist %>%
   filter(variable == "density") %>%
   ggplot(aes(x = jaar, y = Estimate, colour = regio)) + 
     geom_point(size = 4) + 
@@ -1211,6 +1250,7 @@ summary_results_veldleeuwerik_dist %>%
     labs(x = "", y = "Aantal broedparen per 100 ha", 
          title = "Veldleeuwerik - densiteit") +
     theme(legend.position = "")
+dens_plot
 ```
 
 ## Discussie {#discussie-distance}
@@ -1218,11 +1258,63 @@ summary_results_veldleeuwerik_dist %>%
 @roodbergen2011 hadden voor de Veldleeuwerik gelijkaardige problemen om een passende detectiecurve te fitten.
 Zij stellen dat dit kan worden veroorzaakt doordat vogels zich verplaatsen als reactie op de waarnemer of het afronden van afstanden door waarnemers.
 Dit laatste is bij ons zeker niet het geval doordat waarnemers een punt aanduiden op de kaart via een app en niet manueel een afstand invoeren.
-Het probleem ligt dus waarschijnlijk in het gedrag van de soort ***... (opvliegen etc. ?? uitleg??...)***.
-@roodbergen2011 fitten daarom een detectiecurve m.b.v. afstandsintervallen.
+Het probleem ligt dus waarschijnlijk in het gedrag van de soort.
+Veldleeuwerikken vliegen gemakkelijk op bij verstoring waardoor we minder waarnemingen zien op kleinere afstanden en dan weer een groter aantal zien rond ca. 75-100 m. 
+Bovendien is de soort nog gemakkelijk te horen op grotere afstand zonder exact de locatie te weten.
+Hierdoor zien we opnieuw een stijging rond 250 m.
+@roodbergen2011 fitten daarom voor deze soort een detectiecurve m.b.v. afstandsintervallen.
 Wij groepeerden daarom de afstanden per 50 m.
-Hoewel de fit er visueel beter uitzag, waren de densiteitsschattingen en hun onzekerheid quasi identiek aan de eerdere resultaten zonder groepering (resultaten niet getoond).
-
+Hoewel de fit er visueel beter uitzag, waren de densiteitsschattingen en hun onzekerheid quasi identiek aan de eerdere resultaten zonder groepering (resultaten niet getoond).  
+  
 ... vergelijking met max en gemiddelde over periodes ...
+
+```{r}
+# Bereken aantal plots per regio per jaar
+plots_per_regiojaar <- plots_per_jaar %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "))
+
+# Oppervlakte telcirkels
+cirkelopp <- pi * 300^2
+
+comparison_plots <- veldleeuwerik_df %>%
+  # Bepaal voor elke plot het gemiddeld aantal individuen en maximum over
+  # de telperiodes per jaar
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  mutate(totaal = sum(aantal)) %>%
+  group_by(plotnaam, jaar) %>%
+  mutate(gemiddelde = mean(totaal),
+            maximum = max(totaal)) %>%
+  ungroup() %>%
+  select(-c(periode_in_jaar, aantal, totaal)) %>%
+  distinct() %>%
+  
+  # Bereken dan het totaal aantal individuen over alle plots (som)
+  group_by(Region.Label) %>%
+  summarise(tot_gemiddelde = sum(gemiddelde),
+            tot_max = sum(maximum)) %>% 
+  
+  # Deel door aantal plots om aantal broedkoppels per plot te krijgen
+  full_join(plots_per_regiojaar, by = "Region.Label") %>%
+  mutate(tot_gemiddelde_plots = tot_gemiddelde / aantal_plots,
+         tot_max_plots = tot_max / aantal_plots) %>%
+  pivot_longer(cols = c("tot_gemiddelde_plots", "tot_max_plots"), 
+               names_to = "categorie", values_to = "Estimate") %>%
+  
+  # Visualiseer
+  ggplot(aes(x = jaar, y = Estimate)) + 
+    geom_bar(aes(fill = regio), stat = "identity") + 
+    scale_y_continuous(sec.axis = sec_axis( ~. / cirkelopp * 1e6, 
+         name = "Aantal broedparen Veldleeuwerik per 100 ha")) +
+    labs(x = "", y = "Aantal broedparen Veldleeuwerik per plot") +
+    theme(legend.position = "") +
+    facet_wrap(regio~categorie, labeller = labeller(
+      categorie = c(
+        "tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
+        "tot_max_plots" = "Maximum aantal broedparen per plot")
+      ), scales = "free_y")
+
+grid.arrange(dens_plot, comparison_plots, nrow = 2)
+```
+
 
 ## Referenties
