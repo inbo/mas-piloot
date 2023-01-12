@@ -369,5 +369,17 @@
         "source": "Zotero",
         "title": "Achtergronddocument Meetnet Agrarische Soorten (MAS)",
         "type": "report"
+    },
+    {
+        "URL": "https://stats.sovon.nl/stats/soort/9760",
+        "accessed": {
+            "date-parts": []
+        },
+        "id": "veldleeuwerikSovon",
+        "key": "QSPJJRJ3",
+        "libraryid": "1",
+        "providerkey": "Zotero",
+        "title": "Veldleeuwerik | Sovon Vogelonderzoek",
+        "type": "webpage"
     }
 ]
