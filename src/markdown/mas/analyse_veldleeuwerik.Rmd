@@ -1194,8 +1194,8 @@ cbind(veldleeuwerik_dist_model$ddf$data,
   kable()
 ```
 
-***geef gemiddelde detectiekans*** $\hat{P}_a$
-Visualisatie: te veel om alle te tonen ...
+De gemiddelde detectiekans $\hat{P}_a$ is gelijk aan `r round(veldleeuwerik_dist_model$dht$individuals$average.p, digits = 3)`
+Deze kunnen we als volgt visualiseren:
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_model, plot_average_fit = TRUE, 
