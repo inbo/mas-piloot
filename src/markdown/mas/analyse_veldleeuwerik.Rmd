@@ -1240,7 +1240,7 @@ summary_results_veldleeuwerik_dist %>%
 We visualiseren de densiteit over de jaren per regio.
 
 ```{r}
-dens_plot <- summary_results_veldleeuwerik_dist %>%
+summary_results_veldleeuwerik_dist %>%
   filter(variable == "density") %>%
   ggplot(aes(x = jaar, y = Estimate, colour = regio)) + 
     geom_point(size = 4) + 
@@ -1250,7 +1250,6 @@ dens_plot <- summary_results_veldleeuwerik_dist %>%
     labs(x = "", y = "Aantal broedparen per 100 ha", 
          title = "Veldleeuwerik - densiteit") +
     theme(legend.position = "")
-dens_plot
 ```
 
 ## Discussie {#discussie-distance}
@@ -1266,7 +1265,7 @@ Hierdoor zien we opnieuw een stijging rond 250 m.
 Wij groepeerden daarom de afstanden per 50 m.
 Hoewel de fit er visueel beter uitzag, waren de densiteitsschattingen en hun onzekerheid quasi identiek aan de eerdere resultaten zonder groepering (resultaten niet getoond).  
   
-... vergelijking met max en gemiddelde over periodes ...
+We kunnen deze resultaten vergelijken met andere technieken. Het gemiddelde en het maximum aantal en broedparen over de telperiodes. Opgeteld per jaar en per regio. Omgerekend naar densiteit door te delen door de bezochte oppervlakte. Voor het gemiddelde is ook met absensies rekening gehouden (maakt voor maximum niet uit). De gemiddeldes liggen lager, terwijl de maxima goed overeenkomen met de resultaten van distance sampling. In de volgende figuur zijn de gemiddeldes en maxima aangegeven door bar-plots en waarbij de resultaten van distance sampling erover zijn geplot. 
 
 ```{r}
 # Bereken aantal plots per regio per jaar
@@ -1276,7 +1275,11 @@ plots_per_regiojaar <- plots_per_jaar %>%
 # Oppervlakte telcirkels
 cirkelopp <- pi * 300^2
 
-comparison_plots <- veldleeuwerik_df %>%
+distance_plot_df <- summary_results_veldleeuwerik_dist %>%
+  filter(variable == "density") %>%
+  mutate(jaar = as.integer(jaar))
+
+veldleeuwerik_df %>%
   # Bepaal voor elke plot het gemiddeld aantal individuen en maximum over
   # de telperiodes per jaar
   group_by(plotnaam, jaar, periode_in_jaar) %>%
@@ -1303,8 +1306,9 @@ comparison_plots <- veldleeuwerik_df %>%
   # Visualiseer
   ggplot(aes(x = jaar, y = Estimate)) + 
     geom_bar(aes(fill = regio), stat = "identity") + 
-    scale_y_continuous(sec.axis = sec_axis( ~. * cirkelopp / 1e6, 
-         name = "Aantal broedparen Veldleeuwerik per plot")) +
+    geom_point(data = distance_plot_df, aes(x = jaar, y = Estimate), size = 4) + 
+    geom_errorbar(data = distance_plot_df, aes(ymin = lcl, ymax = ucl), 
+                  width = 0.25) +
     labs(x = "", y = "Aantal broedparen Veldleeuwerik per 100 ha") +
     theme(legend.position = "") +
     facet_wrap(regio~categorie, labeller = labeller(
@@ -1312,9 +1316,6 @@ comparison_plots <- veldleeuwerik_df %>%
         "tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
         "tot_max_plots" = "Maximum aantal broedparen per plot")
       ), scales = "free_y")
-
-dens_plot
-comparison_plots
 ```
 
 
