@@ -304,7 +304,7 @@ mas_clean <- mas_31370_pipeline1 %>%
 We zijn geïnteresseerd in broedparen van de Veldleeuwerik in De Moeren en de Oostelijke leemstreek.
 Daarvoor selecteren we alleen waarnemingen met broedcode 1 of hoger.
 In het Nederlandse onderzoek van @wiersma2021 beschouwen ze tevens enkel waarnemingen van binnen soortspecifieke datumgrenzen om niet-broedende individuen uit te sluiten.
-Deze data hebben wij voorlopig niet.
+Deze data hebben wij voorlopig niet (wel aanwezig op de [SOVON website](https://sovon.nl/)).
 Wel selecteren we enkel waarnemingen binnen de telrondes van vogels die tot op maximum 300 m afstand van het telpunt zijn gezien.
 
 ```{r}
@@ -323,7 +323,8 @@ veldleeuwerik_presences <- mas_clean %>%
 
 In telperiodes 1-3 is het aantal waarnemingen van Veldleeuwerik ongeveer even groot.
 In telperiode 4 ligt dit iets lager.
-Tot we de data van de datumgrenzen hebben, houden we voorlopig alle telperiodes voor de analyses.
+We zien inderdaad op de website van SOVON dat de datumgrenzen 1 april tot 15 juni gelden.
+We nemen telperiode 4 dus niet mee in de analyses.
 
 ```{r}
 veldleeuwerik_presences %>%
@@ -335,6 +336,11 @@ veldleeuwerik_presences %>%
   theme(legend.position = "bottom")
 ```
 
+```{r}
+veldleeuwerik_presences <- veldleeuwerik_presences %>%
+  filter(periode_in_jaar != "R4")
+```
+
 Slechts één plot bevind zich in half-gesloten landschap en in De Moeren maar 2 in half-open landschap.
 We verwijderen deze plots voor verdere analyses.
 
@@ -342,7 +348,8 @@ We verwijderen deze plots voor verdere analyses.
 # Totale lijst van bezochte plots in 2018-2022
 bezoekenlijst_2018_2022 <- design_2018_2022 %>% 
   expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # voeg telperiodes toe
-  filter(!is.na(periode_in_jaar)) %>%
+  filter(!is.na(periode_in_jaar),
+         periode_in_jaar != "R4") %>%
   arrange(plotnaam, jaar, periode_in_jaar)
 
 design <- bezoekenlijst_2018_2022 %>%
