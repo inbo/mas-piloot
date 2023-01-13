@@ -1,5 +1,5 @@
 ---
-title: "Analyses Veldleeuwerik"
+title: "Distance sampling Veldleeuwerik"
 author: "Ward Langeraert"
 date: "`r Sys.Date()`"
 
@@ -56,6 +56,19 @@ source(here("src", "R", "plot_detection_curve.R"))
 knitr::write_bib(c("base", "Distance"), here("src", "markdown", "mas", 
                                              "packages.bib"))
 ```
+
+# Doel {#doel}
+
+Een robuuste en reproduceerbare workflow creëren om de densiteit van akkervogels te schatten rekening houdend met de detectiekans.
+Omwille van het verschil in design tussen 2022 en de voorgaande jaren, zullen we densiteiten schatten voor twee datasets:
+
+1.  2022
+    -   schatting per stratum: regio, sbp, openheid
+    -   volledige dataset
+2.  2018-2022: 
+    -   schatting per stratum: jaar, regio
+    -   zou allemaal (grotendeels) OL en binnen sbp moeten zijn
+    -   voeg enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren
 
 # Inlezen data {#inlezen-data}
 
