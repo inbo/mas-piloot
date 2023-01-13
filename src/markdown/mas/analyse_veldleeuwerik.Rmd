@@ -1154,7 +1154,7 @@ veldleeuwerik_covars <- c("sbp", "jaar", "openheid")
 
 ## Resultaten {#resultaten-distance}
 
-We hebben de studieregio in 2\$\times\$5 strata opgesplits: elk jaar voor De Moeren en de Oostelijke leemstreek.
+We hebben de studieregio in $2\times5$ strata opgesplits: elk jaar voor De Moeren en de Oostelijke leemstreek.
 Beschouw $A(s)$ de totale oppervlakte van stratum $s$ tot waar we de abundantieschatting willen extrapoleren en $a(s)$ het gesampelde gebied.
 De oppervlakte zal niet wijzigen over dejaren maar enkel tussen de regio's.
 
