@@ -66,6 +66,15 @@ mapview(leefdaal_sf, zcol = "Naam", layer.name = "Deelgebied") %>%
   addStaticLabels(label = leefdaal_sf$Naam)
 ```
 
+We lezen ook de landbouwstreken in.
+
+```{r}
+landbouwstreken <- read_sf(here("data", "landbouwstreken", "Lbstrbel.shp")) %>%
+  st_transform(crs = 31370)
+
+mapview(landbouwstreken, zcol = "NAAM", layer.name = "Landbouwstreek")
+```
+
 
 # Data voorbereiden
 
@@ -92,6 +101,25 @@ Per categorie scoren we welk controlegebied het best lijkt op ons doelgebied (Za
   
 Deze scores zijn tot op een zekere hoogte subjectief, maar ze kunnen ons op het einde een overzicht bieden van de voor- en nadelen tussen de verschillende gebieden. De finale keuze moet wel nog steeds afhangen van een meer genuanceerde discussie. Sommige categoriën kunnen zwaarder doorwegen dan andere.
 
+
+# Vergelijking landbouwstreken
+
+```{r}
+test <- st_crop(landbouwstreken, leefdaal)
+mapview(test, zcol = "NAAM", layer.name = "Landbouwstreek", 
+        alpha.regions = 0.3, col.regions = c("red", "green", "blue")) +
+  mapview(leefdaal, zcol = "naam", layer.name = "Deelgebied", alpha.regions = 1)
+```
+
+**Conclusie**  
+  
+We zien dat Kortenberg en Zavelberg binnen de Zandleemstreek vallen terwijl Lovenjoel in de Leemstreek ligt.
+
+```{r}
+conclusie_df <- data.frame(onderdeel = "landbouwstreek", 
+  Kortenberg = "+", Lovenjoel = "-", 
+  opmerking = "Kortenberg, Zavelberg: zandleem, Lovenjoel: leem")
+```
 
 # Vergelijking beheerovereenkomsten
 
@@ -286,10 +314,9 @@ Het absolute verschil in oppervlakte beheerovereenkomsten zal het zelfde zijn al
 Op vlak van oppervlakte-aandeel beheersovereenkomsten is er in Kortenberg bijna niets te vinden en Lovenjoel is in dat opzicht meer vergelijkbaar met Zavelberg. Desondanks wordt in Lovenjoel wel vaker op andere beheersvormen ingezet dan in Zavelberg. Hierdoor heeft Kortenberg wel vaker een kleiner verschil in oppervlakte beheersovereenkomst met Zavelberg. Voor het controlegebied is het belangrijk dat hier geen beheerovereenkomsten aanwezig zijn, en dan vooral beheerovereenkomsten m.b.t. soortbescherming. We besluiten dat Kortenberg hier dan beter scoort dan Lovenjoel door de quasi volledige afwezigheid van beheersovereenkomsten, maar geven wel een "0" aan Lovenjoel omdat er ook geen beheerovereenkomsten m.b.t. soortbescherming zijn.
 
 ```{r}
-conclusie_df <- data.frame(onderdeel = "beheersovereenkomsten", 
-  Kortenberg = "+", Lovenjoel = "0", opmerking = 
+conclusie_df <- rbind(conclusie_df, c("beheersovereenkomsten", "+", "0",
     paste0("geen  beheerovereenkomsten m.b.t. soortbescherming, Kortenberg ",
-           "over het algemeen quasi geen beheerovereenkomsten"))
+           "over het algemeen quasi geen beheerovereenkomsten")))
 ```
 
 
