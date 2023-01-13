@@ -1,0 +1,474 @@
+---
+title: "MAS steekproeftrekking voor Zavelberg en controlegebied"
+author: "Ward Langeraert, Hans Van Calster"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE)
+target_dir <- rprojroot::find_root_file(
+    "src", "targets", "mas_steekproef_zavelberg",
+    criterion = rprojroot::is_git_root)
+knitr::opts_knit$set(
+  root.dir = target_dir)
+```
+
+# Inleiding
+
+Dit document beschrijft de analyse-workflow voor het opstellen van het steekproefkader en de steekproeftrekking voor de extra tellingen die in 2023 toegevoegd worden aan de pilootfase van het MAS project.
+Het gaat om tellingen in kerngebied Zavelberg (Leefdaal) en bijhorend controlegebied.
+Deze tellingen worden dus toegevoegd aan de andere steekproeftrekking, die werd uitgevoerd in het kader van het pilootproject, in de Oostelijke leemstreek en de Moeren (2022-2023).
+
+We maken voor het steekproefontwerp gebruik van het `targets` package in combinatie met `RMarkdown`.
+
+# Packages
+
+TO DO
+
+Installeren van de vereiste R packages.
+Extra reproduceerbaarheid van het analysestramien wordt verzekerd door het `renv` package.
+Voor compatibiliteit tussen `renv` en `targets`, zie `?targets::tar_renv`.
+Het bijhorende R-project heeft een `.Rprofile` bestand waarmee bij opstart van het project hetzelfde `renv` project geladen wordt als van het hoofd `mbag` R-project.
+Het `renv` package zorgt ervoor dat de analyses gebeuren in een geïsoleerd R-project met gespecifieerde versies van alle benodigde R packages (zowel de packages die expliciet geladen worden als de packages waarvan deze afhankelijk zijn).
+
+De onderstaande chunk wordt best in interactieve modus uitgevoerd.
+
+```{r renv-restore, eval = FALSE}
+renv::restore()
+```
+
+# Setup
+
+In onderstaande chunk laden we R packages die we nodig hebben in interactieve modus. 
+Verderop beschrijven we elk van de rekenstappen in Target Markdown chunks.
+Deze target-chunks worden weggeschreven naar een `_targets.R` bestand en de hulpscripts worden opgeslagen in een bestandsmap `_targets_r/`.
+De functie `tar_unscript()` in de chunk hieronder verwijdert alle hulpscripts uit de `_targets_r` bestandsmap.
+Dit is om te voorkomen dat er per ongeluk code naar deze map werd weggeschreven wanneer de target-chunks in interactieve modus worden uitgevoerd.
+
+```{r}
+library(targets)
+library(tarchetypes)
+library(tidyverse)
+library(tibble)
+library(sf)
+tar_unscript(script = file.path(target_dir, "_targets.R"))
+```
+
+<!--
+Voeg deze lijn toe aan `.Renviron`:
+
+`OSMEXT_DOWNLOAD_DIRECTORY="C:/R/osmdata"`
+-->
+
+```{r eval = interactive() && osmextract::oe_download_directory() != "C:\\R\\osmdata"}
+usethis::edit_r_environ()
+```
+
+
+
+# Globals
+
+Eerst definiëren we globale opties/functies die voor alle targets gelden.
+
+We gebruiken standaard "qs" als opslagformaat omdat dit zowel voor data.frames als voor andere R objecten toepasbaar is, resulteert in kleinere bestanden en sneller kan gelezen en weggeschreven worden in vergelijking met "rds" bestanden.
+
+
+```{targets mas-globals, tar_globals = TRUE}
+options(tidyverse.quiet = TRUE)
+tar_option_set(packages = c("dplyr",
+                            "readr",
+                            "tidyr",
+                            "tibble",
+                            "nngeo", 
+                            "osmextract",
+                            "terra",
+                            "exactextractr",
+                            "arrow",
+                            "httr",
+                            "sf"),
+               format = "qs",
+               memory = "transient",
+               garbage_collection = TRUE,
+               workspace_on_error = TRUE)
+target_dir <- rprojroot::find_root_file(
+    "src", "targets", "mas_steekproef_zavelberg",
+    criterion = rprojroot::is_git_root)
+mbag_dir <- rprojroot::find_root_file(
+    criterion = rprojroot::is_git_root)
+source(file.path(mbag_dir, "src", "R", "landuse_maps.R"))
+source(file.path(mbag_dir, "src", "R", "geocomputations.R"))
+source(file.path(mbag_dir, "src", "R", "draw_sample.R"))
+source(file.path(mbag_dir, "src", "R", "steekproefkader.R"))
+source(file.path(mbag_dir, "src", "R", "berekening_hulpvariabelen.R"))
+source(file.path(mbag_dir, "src", "R", "steekproeftrekking_nabehandeling.R"))
+source(file.path(mbag_dir, "src", "R", "wfs_wcs.R"))
+
+```
+
+
+# Targets
+
+In dit hoofdstuk worden alle targets gedefinieerd, maar er worden nog geen berekeningen uitgevoerd.
+
+We beginnen met het inlezen van bestanden.
+Alle targets voor bestanden zijn op zo'n manier opgebouwd dat ze detecteren wanneer de inhoud van het bestand wijzigt.
+Als de inhoud wijzigt, zal de target vervallen en bij uitvoering van het analysestramien opnieuw uitgevoerd worden.
+Dit geldt dan eveneens voor alle stroomafwaartse targets die ervan afhankelijk zijn.
+
+<!--
+"piloot_perimeters.gpkg", de layer "piloot_perimeters" wijziging.
+Deze bevat momenteel een rij voor Oostelijke leemstreek en een rij voor De Moeren.
+Hier moet een rij aan toegevoegd worden voor Zavelberg en zijn controlegebied.
+Misschien dit Naam == "zandleemstreek" geven?
+
+Daarna hebben we de optie:
+
+(1) ofwel behouden we deze 3 gebieden en laten we de pipeline de berekeningen doen voor elk
+(2) ofwel beperken we deze pipeline tot enkel zandleemstreek
+
+Indien (2) dan moet st_read(perimeters_file) hieronder aangepast worden naar
+st_read(perimeters_file) %>% filter(Naam == "Zandleemstreek")
+-->
+
+<!--
+target "lbg_file"
+wellicht aan te passen naar jaar == 2021 of 2022?
+-->
+
+```{targets raw-data}
+list(
+  tarchetypes::tar_file(
+    perimeters_file,
+    path_to_perimeters()
+    ),
+  tar_target(
+    perimeters_data,
+    st_read(perimeters_file)
+    ),
+  tarchetypes::tar_file(
+    osm_belgium,
+    path_to_osm_download()
+    ),
+  tarchetypes::tar_file(
+    vito_lum_2019_file,
+    path_to_lum(jaar = 2019)
+    ),
+  tarchetypes::tar_file(
+    legend_lum_file,
+    path_to_legend_lum()
+    ),
+  tar_target(
+    legend_lum,
+    read_legend_lum(file = legend_lum_file)
+  ),
+  tarchetypes::tar_file(
+    openheid_landschap_file,
+    path_to_openheid_landschap()
+    ),
+  tarchetypes::tar_file(
+    bo_file,
+    path_to_bo2021()
+    ),
+  tarchetypes::tar_file(
+    lbg_file,
+    path_to_lbg(jaar = "2020")
+  ),
+  tarchetypes::tar_file(
+    sbp_akkervogels_file,
+    path_to_sbp_akkervogels()
+  )
+)
+```
+
+<!--
+target "exclusie_osm_landgebruiken"
+
+exclusie_landgebruik_osm() functie extra argument landuse leisure toevoegen met als default:
+
+exclusie_landgebruik_osm <- function(
+  gebied, osmdata,
+  landuse = c('residential', 'military', 'industrial', 'cemetery'),
+  leisure = c('park')
+  ) {}
+
+
+Zodat we dit indien nodig kunnen uitbreiden met andere landgebruiken die we willen uitsluiten
+-->
+
+<!--
+target "paden"
+
+extract_osm_paden(gebied, exclusie, osmdata)
+
+extra argument toevoegen met als default
+
+extract_osm_paden <- function(
+  gebied, exclusie, osmdata,
+  paths_include = c('track', 'footway', 'path', 'cycleway', 'bridleway', 'tertiary',
+    'tertiary_link', 'unclassified'),
+  cutting_exclude = c('yes', 'both', 'hollow_way'),
+  historic_exclude = c('hollow_way'),
+  waterway = c('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch')
+  ) {}
+
+Aan te passen conform afspraken gemaakt met Johannes (geen water etc)
+
+
+-->
+
+
+<!--
+Hier kunnen we een extra target toevoegen dat voor elk van de steekproefpunten in het steekproefkader op voorhand inschat wat de zichtbaarheid is. Zie src/markdown/mas/visibility.Rmd
+De berekening in src/markdown/mas/visibility.Rmd is nog niet ideaal.
+We zouden een soort cumulatieve viewshed moeten hebben. 
+Nu hebben we een index op verschillende punten in 25m cirkel, maar je kan hier moeilijk een gemiddelde of max van nemen.
+Het kan bv zijn dat door je te verplaatsen je in totaal een goed overzicht hebt, maar op individuele punten eerder slecht zicht.
+
+Degenen met duidelijk te lage zichtbaarheid kunnen we er dan al op voorhand uit filteren.
+
+-->
+
+```{targets steekproefkader}
+list(
+  tar_target(name = exclusie_osm_landgebruiken,
+             command = exclusie_landgebruik_osm(
+               gebied = perimeters_data,
+               osmdata = osm_belgium),
+             pattern = map(perimeters_data)
+  ),
+  tar_target(name = paden,
+             command = extract_osm_paden(
+               gebied = perimeters_data,
+               exclusie = exclusie_osm_landgebruiken,
+               osmdata = osm_belgium
+               ),
+             pattern = map(perimeters_data, exclusie_osm_landgebruiken)
+             ),
+  tar_target(name = punten,
+             command = paden_naar_punten(
+               data_paden = paden,
+               gebieden = perimeters_data,
+               interpoint_distance = 50,
+               border_distance = 300
+               ),
+             pattern = map(perimeters_data, paden)
+             ) ,
+  tar_target(name = telcirkels_landgebruik,
+             command = punten_lum_buffer(
+               punten_sf = punten,
+               radius = 300,
+               file = vito_lum_2019_file,
+               legend = legend_lum
+              ),
+             pattern = map(punten)),
+  tar_target(name = telcirkels_selectie_landgebruik,
+             command = punten_selectie_landgebruik(
+               lum_extract_result = telcirkels_landgebruik,
+               legend_rast = legend_lum,
+               max_prop_overige = 0.5,
+               min_prop_akker = 0.3,
+               min_prop_akker_grasland = 0.4
+               ),
+             pattern = map(telcirkels_landgebruik)
+  ),
+  tar_target(name = punten_steekproefkader,
+             command = selectie_landgebruik_vito(
+               punten_sf = punten,
+               selectie_df = telcirkels_selectie_landgebruik
+             ),
+             pattern = map(punten, telcirkels_selectie_landgebruik))
+)
+```
+
+<!--
+target "sbp_akkervogels"
+
+Check bij Johannes of er al een update afbakening is van de soortbeschermingsplan akkervogels
+-->
+
+
+
+
+```{targets hulpvariabelen}
+list(
+  tar_target(
+    name = plus_sb,
+    command = add_bo2021_to_frame(
+      punten_df = punten_steekproefkader,
+      path_bo = bo_file),
+    pattern = map(punten_steekproefkader)
+    ),
+  tar_target(
+    name = lbg_statistics,
+    command = calc_lbg(path = lbg_file,
+                       punten_sf = punten_steekproefkader),
+    pattern = map(punten_steekproefkader)
+  ),
+  tar_target(
+    name = plus_openheid_landschap,
+    command = add_openheid_landschap_to_frame(
+      path = openheid_landschap_file,
+      punten_sf = plus_sb,
+      gebied = perimeters_data,
+      cutlevels = c(1.25, 1.35, 1.51),
+      class_labels = c("GL", "HGL", "HOL", "OL")),
+    pattern = map(perimeters_data, plus_sb)
+  ),
+  tar_target(name = sbp_akkervogels,
+             command = read_sbp_akkervogels(
+               path = sbp_akkervogels_file,
+               gebied = perimeters_data
+             ),
+             pattern = map(perimeters_data)),
+  tar_target(
+    name = steekproefkader_finaal,
+    command = add_stratum_sbp(punten_sf = plus_openheid_landschap,
+                              sbp = sbp_akkervogels),
+    pattern = map(sbp_akkervogels, plus_openheid_landschap)
+  )
+)
+```
+
+
+<!--
+target "allocatie_df"
+
+deze ad-hoc instelling zullen moeten aangepast worden
+
+-->
+
+```{targets steekproeftrekking}
+list(
+  tar_target(
+    allocatie_df,
+    allocatie(steekproefkader = steekproefkader_finaal,
+              min_samplesize = 30,
+              target_samplesize = 410,
+              popsize_minimum = 410,
+              allocatie_binnen_sbp = 0.5,
+              allocatie_leemstreek = 350/410,
+              ol_strata = c("OL", "HOL"))
+  ),
+  tarchetypes::tar_group_by(
+    allocatie_per_stratum,
+    allocatie_df,
+    Naam,
+    is_sbp,
+    openheid_klasse
+  ),
+  tarchetypes::tar_group_by(
+    steekproefkader_per_stratum,
+    steekproefkader_finaal %>%
+      semi_join(allocatie_df
+                %>%
+                  select(Naam, is_sbp, openheid_klasse),
+                by = c("Naam", "is_sbp", "openheid_klasse")),
+    Naam,
+    is_sbp,
+    openheid_klasse
+  ),
+  tar_target(
+    steekproef,
+    draw_sample(sampling_frame = steekproefkader_per_stratum,
+                sample_size = allocatie_per_stratum$samplesize,
+                sample_size_multiplication = 2),
+    pattern = map(steekproefkader_per_stratum, allocatie_per_stratum)
+  )
+)
+```
+
+```{targets nabehandeling}
+list(
+  tar_target(
+    steekproef_nn,
+    nn_steekproef(sample = steekproef,
+                  max_dist = 300)
+  ),
+  tar_target(
+    steekproef_zichtbaarheid,
+    bereken_zichtbaarheid(steekproef_nn,
+                          dist = 300,
+                          obs_height = 1.7,
+                          resolution = 1),
+    pattern = map(steekproef_nn)
+  )
+)
+```
+
+# Analysestramien uitvoeren
+
+> If you ran all the `{targets}` chunks in non-interactive mode, then your R scripts are set up to run the pipeline.
+
+```{r}
+tar_make()
+```
+
+Om de status van de berekening van targets via `tar_make()` op te volgen kan je `tar_progress()`, `tar_progress_summary()` of `tar_poll()` gebruiken.
+
+
+
+# Debug
+
+```{r eval=FALSE}
+#debug mode
+tar_load_globals()
+tar_make(callr_function = NULL)
+```
+
+
+```{r eval=FALSE}
+failed <- tar_meta(fields = error) %>%
+  na.omit() %>%
+  pull(name)
+
+failed
+
+tar_load_globals()
+tar_workspace(punten_6c6b6262)
+tar_traceback(failed, characters = 80)
+```
+
+
+# Output
+
+Alle resultaten worden opgeslagen in `_targets/objects` en de lijst van bestanden kan je bekijken met `tar_objects()`.
+
+```{r}
+tar_objects()
+```
+
+Ze kunnen individueel ingelezen worden met `tar_read()` of ingeladen worden met `tar_load()`.
+
+
+```{r}
+```
+
+
+Handig is dat targets afkomstig van dynamic branching ook automatisch geaggreggeerd worden.
+
+In de bestandsmap `_targets/meta` zitten alle metadata, die met `tar_meta()` bekeken kunnen worden.
+
+
+```{r}
+tar_meta()
+tar_errored() #om te zien of welke targets een foutmelding hebben
+tar_meta(fields = warnings) %>%
+  filter(!is.na(warnings))
+```
+
+De `targets` grafiek met onderlinge afhankelijkheden van de targets:
+
+```{r}
+tar_visnetwork(targets_only = TRUE)
+```
