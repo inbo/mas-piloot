@@ -65,9 +65,11 @@ library(sf)
 tar_unscript(script = file.path(target_dir, "_targets.R"))
 ```
 
+<!--
 Voeg deze lijn toe aan `.Renviron`:
 
 `OSMEXT_DOWNLOAD_DIRECTORY="C:/R/osmdata"`
+-->
 
 ```{r eval = interactive() && osmextract::oe_download_directory() != "C:\\R\\osmdata"}
 usethis::edit_r_environ()
@@ -138,6 +140,7 @@ Daarna hebben we de optie:
 Indien (2) dan moet st_read(perimeters_file) hieronder aangepast worden naar
 st_read(perimeters_file) %>% filter(Naam == "Zandleemstreek")
 -->
+
 <!--
 target "lbg_file"
 wellicht aan te passen naar jaar == 2021 of 2022?
