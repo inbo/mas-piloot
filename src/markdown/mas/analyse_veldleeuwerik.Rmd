@@ -50,6 +50,7 @@ source(here("src", "R", "wfs_wcs.R"))
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "sim.pdata.R"))
 source(here("src", "R", "plot_detection_curve.R"))
+source(here("src", "R", "summarize_ds_models2.R"))
 ```
 
 ```{r}
