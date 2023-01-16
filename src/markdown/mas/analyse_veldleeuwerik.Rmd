@@ -1090,7 +1090,7 @@ veldleeuwerik_dist_hr24 <- ds(data = veldleeuwerik_distance, key = "hr",
         convert_units = conversion_factor, region_table = region_table, 
         sample_table = sample_table, obs_table = obs_table)
 
-summarize_ds_models(
+summarize_ds_models2(
   veldleeuwerik_dist_hr9, veldleeuwerik_dist_hr19,
   veldleeuwerik_dist_hr21, veldleeuwerik_dist_hr22, veldleeuwerik_dist_hr23,
   veldleeuwerik_dist_hr24
