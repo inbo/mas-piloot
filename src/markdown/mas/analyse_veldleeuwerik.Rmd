@@ -65,7 +65,7 @@ Omwille van het verschil in design tussen 2022 en de voorgaande jaren, zullen we
 
 1.  2022
     -   schatting per stratum: regio, sbp, openheid
-    -   volledige dataset
+    -   volledige dataset 2022
 2.  2018-2022: 
     -   schatting per stratum: jaar, regio
     -   zou allemaal (grotendeels) OL en binnen sbp moeten zijn
