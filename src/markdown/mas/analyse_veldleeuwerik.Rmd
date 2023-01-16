@@ -1046,9 +1046,11 @@ names(out_models) <- model_names
 We vergelijken de AIC van de verschillende modellen met de functie `summarize_ds_models()`.
 Als het verschil tussen AIC's kleiner is dan 2, kiezen we het eenvoudigste van deze modellen (model met minste parameters).
 Modellen met vergelijkbare AIC's hebben vergelijkbare geschatte detectiekansen, dus in de praktijk is er weinig verschil in de keuze tussen deze modellen [@miller2019].
+We tonen enkel de modellen met $\Delta$AIC <= 20.
 
 ```{r, cache=TRUE}
 summarize_ds_models2(out_models) %>%
+  filter(`$\\Delta$AIC` <= 20) %>%
   kable()
 ```
 
