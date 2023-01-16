@@ -65,7 +65,7 @@ Omwille van het verschil in design tussen 2022 en de voorgaande jaren, zullen we
 
 1.  2022
     -   schatting per stratum: regio, sbp, openheid
-    -   volledige dataset
+    -   volledige dataset 2022
 2.  2018-2022: 
     -   schatting per stratum: jaar, regio
     -   zou allemaal (grotendeels) OL en binnen sbp moeten zijn
@@ -996,6 +996,9 @@ veldleeuwerik_dist_hr0 <- ds(data = veldleeuwerik_distance, key = "hr",
   sample_table = sample_table, obs_table = obs_table, max_adjustments = 2,
   monotonicity = "strict")
 
+out_models <- list(veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr0)
+model_names <- c("veldleeuwerik_dist_hn0", "veldleeuwerik_dist_hr0")
+
 # Sla de gefitte models op op deze locatie
 model_path <- "./src/markdown/mas/distance_models/"
 
@@ -1010,7 +1013,8 @@ for (i in seq_len(length(forms))) {
     
     # Sla model op als het nog niet bestaat en lees het in anderzijds
     if (file.exists(file)) {
-      assign(mod_name, readRDS(file))
+      det_model <- readRDS(file)
+      assign(mod_name, det_model)
       print(paste0("Model '", mod_name, "' fitted. ", 
                    "Formula: '", f, "'. Key: '", k, "'."))
     } else {
@@ -1027,45 +1031,36 @@ for (i in seq_len(length(forms))) {
       assign(mod_name, det_model)
       saveRDS(det_model, file = file)
     }
+    # Put models and model names in list 
+    out_models <- c(out_models, list(det_model))
+    model_names <- c(model_names, mod_name)
   }
 }
+
+names(out_models) <- model_names
 ```
 
-De volgende hazard-rate modellen konden niet gefit worden:
-
--   \~regio+jaar+openheid
--   \~regio+sbp+openheid
--   \~regio+jaar+sbp+openheid
--   \~regio\*jaar
--   \~sbp\*openheid
 
 ## Model selectie {#selectie-distance}
 
 We vergelijken de AIC van de verschillende modellen met de functie `summarize_ds_models()`.
 Als het verschil tussen AIC's kleiner is dan 2, kiezen we het eenvoudigste van deze modellen (model met minste parameters).
 Modellen met vergelijkbare AIC's hebben vergelijkbare geschatte detectiekansen, dus in de praktijk is er weinig verschil in de keuze tussen deze modellen [@miller2019].
+We tonen enkel de modellen met $\Delta$AIC <= 20.
 
 ```{r, cache=TRUE}
-model_selection <- summarize_ds_models(
-  veldleeuwerik_dist_hn0, veldleeuwerik_dist_hr0, 
-  veldleeuwerik_dist_hn1, veldleeuwerik_dist_hr1, veldleeuwerik_dist_hn2, 
-  veldleeuwerik_dist_hr2, veldleeuwerik_dist_hn3, veldleeuwerik_dist_hr3, 
-  veldleeuwerik_dist_hn4, veldleeuwerik_dist_hr4, veldleeuwerik_dist_hn5, 
-  veldleeuwerik_dist_hr5, veldleeuwerik_dist_hn6, veldleeuwerik_dist_hr6, 
-  veldleeuwerik_dist_hn7, veldleeuwerik_dist_hr7, veldleeuwerik_dist_hn8, 
-  veldleeuwerik_dist_hr8, veldleeuwerik_dist_hn9, veldleeuwerik_dist_hr9, 
-  veldleeuwerik_dist_hn10, veldleeuwerik_dist_hr10, veldleeuwerik_dist_hn11, 
-  veldleeuwerik_dist_hr11, veldleeuwerik_dist_hn12,
-  veldleeuwerik_dist_hn13, veldleeuwerik_dist_hn14, 
-  veldleeuwerik_dist_hr14, veldleeuwerik_dist_hn15, 
-  veldleeuwerik_dist_hn16, veldleeuwerik_dist_hn17, 
-  veldleeuwerik_dist_hr17, veldleeuwerik_dist_hn18, veldleeuwerik_dist_hr18, 
-  veldleeuwerik_dist_hn19, veldleeuwerik_dist_hr19, 
-  veldleeuwerik_dist_hn20
-  )
-model_selection %>%
+summarize_ds_models2(out_models) %>%
+  filter(`$\\Delta$AIC` <= 20) %>%
   kable()
 ```
+
+De volgende hazard-rate modellen konden niet gefit worden (Hessian = `NA`):
+
+-   \~regio+jaar+openheid
+-   \~regio+sbp+openheid
+-   \~regio+jaar+sbp+openheid
+-   \~regio\*jaar
+-   \~sbp\*openheid
 
 Het Hazard-rate model waarbij de detectiekans afhankelijk is van jaar en openheid scoort het best.
 Op basis van dit model testen we nog enkele combinaties waarbij we interacties tussen elke combinatie van twee variabelen toevoegen (niet regio\*openheid).
@@ -1095,7 +1090,7 @@ veldleeuwerik_dist_hr24 <- ds(data = veldleeuwerik_distance, key = "hr",
         convert_units = conversion_factor, region_table = region_table, 
         sample_table = sample_table, obs_table = obs_table)
 
-summarize_ds_models(
+summarize_ds_models2(
   veldleeuwerik_dist_hr9, veldleeuwerik_dist_hr19,
   veldleeuwerik_dist_hr21, veldleeuwerik_dist_hr22, veldleeuwerik_dist_hr23,
   veldleeuwerik_dist_hr24

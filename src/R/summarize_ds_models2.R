@@ -96,8 +96,8 @@ summarize_ds_models2 <- function(..., sort="AIC", output="latex",
                        stringsAsFactors=FALSE)
 
   if(output == "latex"){
-    model_names <- gsub("_", '\\\\char`_', model_names)
-    model_names <- paste0("\\texttt{", model_names, "}")
+    model_names <- gsub("_", '\\_', model_names)
+    #model_names <- paste0("\\texttt{", model_names, "}")
     res <- cbind.data.frame(model_names, res)
   }else if(output=="plain"){
     res <- cbind.data.frame(model_names, res)
