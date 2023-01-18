@@ -43,9 +43,8 @@ add_bo2021_to_frame <- function(
 
 
 path_to_lbg <- function(jaar = "2020") {
-  jaartal <- gsub(pattern = "\\d{2}$", replacement = "\\1", x = jaar)
   file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
-            paste0("lbgbrprc", 20, ".parquet"))
+            paste0("lbgbrprc", jaar, ".parquet"))
 }
 
 calc_lbg <- function(path,
