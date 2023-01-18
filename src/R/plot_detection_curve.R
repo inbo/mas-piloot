@@ -243,7 +243,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
         labs(x = "Afstand (m)", y = "Detectiekans") +
         theme(legend.position = c(1, 1),
               legend.justification = c(1, 1),
-              legend.background = element_rect(fill = "white", color = "black"))
+              legend.background = element_rect(fill = "white", color = "white"))
     # Plot without average fitting line
     } else {
       out <- ggplot(hist_df) +
@@ -256,7 +256,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
         labs(x = "Afstand (m)", y = "Detectiekans") +
         theme(legend.position = c(1, 1),
               legend.justification = c(1, 1),
-              legend.background = element_rect(fill = "white", color = "black"))
+              legend.background = element_rect(fill = "white", color = "white"))
     }
 
   # Plot without covariates/design matrix
@@ -273,7 +273,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
         labs(x = "Afstand (m)", y = "Detectiekans") +
         theme(legend.position = c(1, 1),
               legend.justification = c(1, 1),
-              legend.background = element_rect(fill = "white", color = "black"))
+              legend.background = element_rect(fill = "white", color = "white"))
     # Plot bar graph
     } else {
       out <- ggplot(hist_df) +
@@ -284,7 +284,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
         labs(x = "Afstand (m)", y = "Detectiekans") +
         theme(legend.position = c(1, 1),
               legend.justification = c(1, 1),
-              legend.background = element_rect(fill = "white", color = "black"))
+              legend.background = element_rect(fill = "white", color = "white"))
     }
   }
 
