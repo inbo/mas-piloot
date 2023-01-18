@@ -210,7 +210,7 @@ list(
 <!--
 target "exclusie_osm_landgebruiken"
 
-exclusie_landgebruik_osm() functie extra argument landuse leisure toevoegen met als default:
+exclusie_landgebruik_osm() functie extra argument landuse en leisure toevoegen met als default:
 
 exclusie_landgebruik_osm <- function(
   gebied, osmdata,
@@ -219,8 +219,20 @@ exclusie_landgebruik_osm <- function(
   ) {}
 
 
-Zodat we dit indien nodig kunnen uitbreiden met andere landgebruiken die we willen uitsluiten
+Zodat we dit ook andere landgebruiken kunnen uitsluiten indien nodig
 -->
+
+#> ward
+<!--
+Functie aangepast. Indien je geen landuse of leisure wilt uitsluiten moet je NULL ingeven bij die variabele! Anders ga je automatisch de defaults uitsluiten.
+
+Landgebruiken extra uit te sluiten:
+- zie ontoegankelijk issues_pilootmeetnet.Rmd
+- privégronden/paden?:
+    Misschien mogelijk om via trage wegen kaart de onverharde wegen van OSM eruit te halen die niet op de trage wegen kaart staan (risico dat we onterecht paadjes eruit halen?)
+
+-->
+
 
 <!--
 target "paden"
@@ -239,8 +251,17 @@ extract_osm_paden <- function(
   ) {}
 
 Aan te passen conform afspraken gemaakt met Johannes (geen water etc)
+-->
 
+#> ward
+<!--
+Functie aangepast. Indien je geen water wilt includen moet je NULL ingeven bij die variabele! Anders ga je automatisch de defaults gebruiken. Functie nog niet klaar.
 
+Afspraken Johannes:
+-Sommige paadjes in OSM zijn privé, niet openbaar toegankelijk
+-holle wegen: wel behouden, hopelijk lost visibiliteitsberekening dit op (eventueel gecombineerd met zenith-hoek berekening)
+-grachten, beken niet te gebruiken
+-Buffer van 50m rond snelwegen gebruiken (uitsluiten)
 -->
 
 
@@ -252,7 +273,14 @@ Nu hebben we een index op verschillende punten in 25m cirkel, maar je kan hier m
 Het kan bv zijn dat door je te verplaatsen je in totaal een goed overzicht hebt, maar op individuele punten eerder slecht zicht.
 
 Degenen met duidelijk te lage zichtbaarheid kunnen we er dan al op voorhand uit filteren.
+-->
 
+#> ward
+<!--
+Problemen zichtbaarheid issues_pilootmeetnet.Rmd:
+-zichtbaarheid > 50% van de cirkel, maar met laagstamboomgaarden is geen rekening gehouden (beschouwd als zichtbaar)
+- HGL valt buiten de doelpop; enkel OL en HOL
+- zichtbaarheid algemeen
 -->
 
 ```{targets steekproefkader}
