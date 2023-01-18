@@ -91,20 +91,41 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
   return(exclusie_landgebruik)
 }
 
-extract_osm_paden <- function(gebied, exclusie, osmdata) {
+# Set waterway to NULL if you don't want to include any waterway
+extract_osm_paden <- function(gebied, exclusie, osmdata,
+  paths_include = c('track', 'footway', 'path', 'cycleway', 'bridleway',
+                    'tertiary', 'tertiary_link', 'unclassified'),
+  cutting_exclude = c('yes', 'both', 'hollow_way'),
+  historic_exclude = c('hollow_way'),
+  waterway = c('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch')) {
+
+  # Create string include
+  inclusion_paths <- paste0("('", paste(paths_include,
+                                        collapse = "', '"), "')")
+  exclusion_cutting <- paste0("('", paste(cutting_exclude,
+                                        collapse = "', '"), "'))")
+  exclusion_historic <- paste0("('", paste(historic_exclude,
+                                        collapse = "', '"), "'))))")
+  inclusion_waterway <- paste0("('", paste(waterway,
+                                        collapse = "', '"), "'))")
+
+  if (is.null(waterway)) {
+    inclusion_str <- paste("(highway IN", inclusion_paths,
+                           "AND NOT ((cutting IN ", exclusion_cutting,
+                           "OR (historic IN", exclusion_historic,
+                           sep = " ")
+  } else {
+    inclusion_str <- paste("(highway IN", inclusion_paths,
+                           "AND NOT ((cutting IN ", exclusion_cutting,
+                           "OR (historic IN", exclusion_historic,
+                           "OR (waterway IN", inclusion_waterway, sep = " ")
+  }
+
   my_vectortranslate = c(
     "-t_srs", "EPSG:31370",
     "-select",
     "highway, waterway",
-    "-where",
-    "(highway IN
-    ('track', 'footway', 'path', 'cycleway', 'bridleway', 'tertiary',
-    'tertiary_link', 'unclassified') AND NOT
-    ((cutting IN ('yes', 'both', 'hollow_way')) OR (historic IN ('hollow_way')))
-  ) OR
-  (waterway IN
-    ('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch')
-  )",
+    "-where", inclusion_str,
     "-nlt", "PROMOTE_TO_MULTI"
   )
 
