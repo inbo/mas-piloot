@@ -40,12 +40,28 @@ read_legend_lum <- function(file) {
     ))
 }
 
-exclusie_landgebruik_osm <- function(gebied, osmdata) {
+# Set landuse or leisure to NULL if you don't want to exclude from these
+exclusie_landgebruik_osm <- function(gebied, osmdata,
+   landuse = c('residential', 'military', 'industrial', 'cemetery'),
+   leisure = c('park')) {
+
+  # Create string to exclude landuse and leisure variables
+  exclusion_landuse <- paste0("('", paste(landuse, collapse = "', '"), "')")
+  exclusion_leisure <- paste0("('", paste(leisure, collapse = "', '"), "')")
+
+  if (is.null(landuse)) {
+    exclusion_str <- paste("leisure IN", exclusion_leisure, sep = " ")
+  } else if (is.null(leisure)) {
+    exclusion_str <- paste("landuse IN", exclusion_landuse, sep = " ")
+  } else {
+    exclusion_str <- paste("landuse IN", exclusion_landuse,
+                           "OR leisure IN", exclusion_leisure, sep = " ")
+  }
+
   landuse_exclusie_vectortranslate = c(
     "-t_srs", "EPSG:31370",
     "-select", "landuse",
-    "-where", "landuse IN ('residential', 'military', 'industrial', 'cemetery')
-    OR leisure IN ('park')",
+    "-where", exclusion_str,
     "-nlt", "PROMOTE_TO_MULTI"
   )
 
