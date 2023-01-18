@@ -784,7 +784,7 @@ ggplot(data = circle_fun()) +
 We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
 
 ```{r}
-plots_old <- design_2018_2022 %>%
+plots_old <- bezoekenlijst_2018_2022 %>%
   filter(jaar != 2022) %>%
   distinct(plotnaam) %>%
   pull()
@@ -792,18 +792,18 @@ plots_old <- design_2018_2022 %>%
 veldleeuwerik_2018_2022_reduced <- veldleeuwerik_presences %>%
   filter(plotnaam %in% plots_old)
 
-design_2018_2022_reduced <- design_2018_2022 %>%
+bezoekenlijst_2018_2022_reduced <- bezoekenlijst_2018_2022 %>%
   filter(plotnaam %in% plots_old)
 ```
 
 De eerste dataset wordt gebruikt om de detectiecurve te fitten (zie verder).
-We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `size`: aantal broedparen per waarneming; een kolom `distance`: afstand tot elke waarneming; kolommen met covariaten: `regio`, `jaar`, `sbp` en `openheid`.
+We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `size`: aantal broedparen per waarneming; een kolom `distance`: afstand tot elke waarneming; kolommen met covariaten: `regio`en `jaar`.
 
 ```{r}
 veldleeuwerik_distance <- veldleeuwerik_2018_2022_reduced %>%
   st_drop_geometry() %>%
   select(object = oid, size = aantal, distance = distance2plot, 
-         regio, jaar, sbp, openheid) %>%
+         regio, jaar) %>%
   mutate(jaar = as.character(jaar))
 ```
 
@@ -857,7 +857,7 @@ We maken daarom dataframes om de abundanties en densiteiten te berekenen.
 
 ```{r}
 # Oppervlakte per stratum
-region_table <- design_2018_2022_reduced %>%
+region_table <- bezoekenlijst_2018_2022_reduced %>%
   distinct(regio, jaar) %>%
   full_join(areas, by = "regio") %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - ")) %>%
@@ -869,7 +869,7 @@ effort <- veldleeuwerik_2018_2022_reduced %>%
   unique() %>%
   length()
 
-sample_table <- design_2018_2022_reduced %>%
+sample_table <- bezoekenlijst_2018_2022_reduced %>%
   distinct(plotnaam, regio, jaar) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "),
          Effort = effort) %>%
@@ -928,12 +928,12 @@ plot_detection_curve(ds_model) +
   geom_text(aes(x = 150, y = 0.6), label = expression(italic("g(r;"*theta*")")))
 ```
 
-Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, jaar, sbp en openheid.
+Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio en jaar.
 Dit wordt ook wel multiple-covariate distance sampling (MCDS) genoemd.
 De detectiekans wordt dan berekend conditioneel aan de waargenomen waarden van de covariaten.
 
 ```{r}
-match_variables <- c("regio", "jaar", "sbp", "openheid")
+match_variables <- c("regio", "jaar")
 ```
 
 $$
@@ -960,33 +960,8 @@ $$
 \sigma(\mathbf{z}) = \exp{\left( \beta_0 + \sum_{j = 1}^{J} \beta_j z_j \right)}
 $$
 
-De hazard-rate key function heeft naast de scale parameter ook nog de shape parameter $b$.
-
-```{r}
-# We maken formules uit combinaties van alle variabelen
-combos <- sapply(seq(length(match_variables)), function(i) {
-  as.list(as.data.frame(combn(x = match_variables, m = i)))
-})
-combos <- unlist(combos, recursive = FALSE)
-
-# Combinaties zonder interacties
-forms1 <- sapply(combos, function(x) {
-  as.formula(paste0("~", paste(x, collapse = "+")))
-  })
-
-# Combinaties interacties
-forms2 <- sapply(combos, function(x) {
-  if (length(x) == 2) {
-  as.formula(paste0("~", paste(x, collapse = "*")))
-  }
-  })
-forms2[sapply(forms2, is.null)] <- NULL
-forms2 <- forms2[-3] # remove interaction regio openheid
-
-# Voeg combinaties samen
-forms <- c(forms1, forms2)
-```
-
+De hazard-rate key function heeft naast de scale parameter ook nog de shape parameter $b$.  
+  
 We fitten beide sleutelfuncties met de `ds()` functie in een for-loop.
 We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen ook tweewegsinteracties tussen de covariaten.
 De interactie regio met openheid kan niet gefit worden omdat HOL niet in De Moeren voorkomt.
@@ -995,10 +970,6 @@ Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken, bij
 De `ds()` functie voegt zelf aanpassingstermen toe aan de sleutelfunctie om de fit te verbeteren tot er geen verbetering meer in AIC is.
 
 ```{r, cache=TRUE}
-# Key functions
-keys <- c("hn", "hr")
-
-# Null models
 veldleeuwerik_dist_2018_2022_hn0 <- ds(data = veldleeuwerik_distance, 
   key = "hn", truncation = 300, transect = "point", dht_group = FALSE,  
   convert_units = conversion_factor, region_table = region_table, 
@@ -1011,50 +982,41 @@ veldleeuwerik_dist_2018_2022_hr0 <- ds(data = veldleeuwerik_distance,
   sample_table = sample_table, obs_table = obs_table, max_adjustments = 2,
   monotonicity = "strict")
 
-out_models <- list(veldleeuwerik_dist_2018_2022_hn0, 
-                   veldleeuwerik_dist_2018_2022_hr0)
-model_names <- c("veldleeuwerik_dist_2018_2022_hn0", 
-                 "veldleeuwerik_dist_2018_2022_hr0")
+veldleeuwerik_dist_2018_2022_hn1 <- ds(data = veldleeuwerik_distance, key = "hn", 
+  formula = ~regio, adjustment = NULL, truncation = 300, 
+  transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
 
-# Sla de gefitte models op op deze locatie
-model_path <- "./src/markdown/mas/distance_models/"
+veldleeuwerik_dist_2018_2022_hr1 <- ds(data = veldleeuwerik_distance, key = "hr", 
+  formula = ~regio, adjustment = NULL, truncation = 300, 
+  transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
 
-# Loop over formules en over key functions
-for (i in seq_len(length(forms))) {
-  f <- as.character(forms[i]) # f is de formule
-  
-  for (k in keys) {
-    # Naam voor model
-    mod_name <- paste0("veldleeuwerik_dist_2018_2022_", k, i)
-    file <- paste0(model_path, mod_name, ".rds")
-    
-    # Sla model op als het nog niet bestaat en lees het in anderzijds
-    if (file.exists(file)) {
-      det_model <- readRDS(file)
-      assign(mod_name, det_model)
-      print(paste0("Model '", mod_name, "' fitted. ", 
-                   "Formula: '", f, "'. Key: '", k, "'."))
-    } else {
-      det_model <- ds(data = veldleeuwerik_distance, key = k, 
-        formula = as.formula(f), adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-    
-      print(paste0("Model '", mod_name, "' fitted. ", 
-                   "Formula: '", f, "'. Key: '", k, "'."))
-      
-      # Sla gefitte model op
-      assign(mod_name, det_model)
-      saveRDS(det_model, file = file)
-    }
-    # Put models and model names in list 
-    out_models <- c(out_models, list(det_model))
-    model_names <- c(model_names, mod_name)
-  }
-}
+veldleeuwerik_dist_2018_2022_hn2 <- ds(data = veldleeuwerik_distance, key = "hn", 
+  formula = ~jaar, adjustment = NULL, truncation = 300, 
+  transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
 
-names(out_models) <- model_names
+veldleeuwerik_dist_2018_2022_hr2 <- ds(data = veldleeuwerik_distance, key = "hr", 
+  formula = ~jaar, adjustment = NULL, truncation = 300, 
+  transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
+
+veldleeuwerik_dist_2018_2022_hn3 <- ds(data = veldleeuwerik_distance, key = "hn", 
+  formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
+  transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
+
+veldleeuwerik_dist_2018_2022_hr3 <- ds(data = veldleeuwerik_distance, key = "hr", 
+  formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
+  transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
 ```
 
 
@@ -1063,58 +1025,17 @@ names(out_models) <- model_names
 We vergelijken de AIC van de verschillende modellen met de functie `summarize_ds_models()`.
 Als het verschil tussen AIC's kleiner is dan 2, kiezen we het eenvoudigste van deze modellen (model met minste parameters).
 Modellen met vergelijkbare AIC's hebben vergelijkbare geschatte detectiekansen, dus in de praktijk is er weinig verschil in de keuze tussen deze modellen [@miller2019].
-We tonen enkel de modellen met $\Delta$AIC <= 20.
 
 ```{r, cache=TRUE}
-summarize_ds_models2(out_models) %>%
-  filter(`$\\Delta$AIC` <= 20) %>%
-  kable()
-```
-
-Het Hazard-rate model waarbij de detectiekans afhankelijk is van regio, jaar en openheid scoort het best.
-Op basis van dit model testen we nog enkele combinaties waarbij we interacties tussen elke combinatie van de variabelen toevoegen (niet regio\*openheid).
-
-```{r, cache=TRUE}
-veldleeuwerik_dist_2018_2022_hr21 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*jaar + openheid, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-
-veldleeuwerik_dist_2018_2022_hr25 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio + jaar*openheid, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-
-veldleeuwerik_dist_2018_2022_hr23 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*jaar + openheid*sbp, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-
-veldleeuwerik_dist_2018_2022_hr24 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*sbp + jaar*openheid, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-
-veldleeuwerik_dist_2018_2022_hr25 <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio + sbp*jaar + openheid, adjustment = NULL, truncation = 300, 
-        transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor, region_table = region_table, 
-        sample_table = sample_table, obs_table = obs_table)
-
 summarize_ds_models2(
-  veldleeuwerik_dist_2018_2022_hr12, veldleeuwerik_dist_2018_2022_hr15,
-  veldleeuwerik_dist_2018_2022_hr21, veldleeuwerik_dist_2018_2022_hr25, 
-  veldleeuwerik_dist_2018_2022_hr23, veldleeuwerik_dist_2018_2022_hr24,
-  veldleeuwerik_dist_2018_2022_hr25
-  ) %>%
+  veldleeuwerik_dist_2018_2022_hn0, veldleeuwerik_dist_2018_2022_hr0, 
+  veldleeuwerik_dist_2018_2022_hn1, veldleeuwerik_dist_2018_2022_hr1,
+  veldleeuwerik_dist_2018_2022_hn2, veldleeuwerik_dist_2018_2022_hr2,
+  veldleeuwerik_dist_2018_2022_hn3, veldleeuwerik_dist_2018_2022_hr3) %>%
   kable()
 ```
 
-We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van regio, sbp, jaar en openheid met sbp en jaar in interactie.
+Het Hazard-rate model waarbij de detectiekans afhankelijk is van regio en jaar in interactie scoort het best.
 
 ## Model fit {#fit-distance}
 
@@ -1124,9 +1045,9 @@ Voor studies met punttransecten geven kansdichtheidsfunctieplots ook een goed id
 
 ```{r}
 par(mfrow = c(1, 2))
-von_mises <- gof_ds(veldleeuwerik_dist_2018_2022_hr25)
+von_mises <- gof_ds(veldleeuwerik_dist_2018_2022_hr3)
 von_mises
-plot(veldleeuwerik_dist_2018_2022_hr25, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_2018_2022_hr3, pdf = TRUE, showpoints = FALSE)
 par(mfrow = c(1, 1))
 ```
 
@@ -1136,15 +1057,15 @@ Inderdaad, als we kijken naar de verdeling van de afstanden, zien we dat de dete
 Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_2018_2022_hr25, plot_average_fit = FALSE, 
+plot_detection_curve(veldleeuwerik_dist_2018_2022_hr3, plot_average_fit = FALSE, 
                      n_breaks = 60)
 ```
 
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
 
 ```{r, cache=TRUE}
-veldleeuwerik_dist_2018_2022_hr25_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio + sbp*jaar + openheid, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hr3_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
+        formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         cutpoints = c(0, 50, 100, 150, 200, 250, 300),
         convert_units = conversion_factor, region_table = region_table, 
@@ -1154,21 +1075,22 @@ veldleeuwerik_dist_2018_2022_hr25_binned <- ds(data = veldleeuwerik_distance, ke
 De fit ziet er beter uit dan voordien.
 
 ```{r}
-plot(veldleeuwerik_dist_2018_2022_hr25_binned, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_2018_2022_hr3_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
-We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van sbp, jaar en openheid met sbp en jaar in interactie als finale model.
+We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van 
+regio en jaar in interactie als finale model.
 
 ```{r}
-veldleeuwerik_dist_2018_2022_model <- veldleeuwerik_dist_2018_2022_hr25_binned
-veldleeuwerik_covars <- c("regio", "sbp", "jaar", "openheid")
+veldleeuwerik_dist_2018_2022_model <- veldleeuwerik_dist_2018_2022_hr3_binned
+veldleeuwerik_covars <- c("regio", "jaar")
 ```
 
 ## Resultaten {#resultaten-distance}
 
 We hebben de studieregio in $2\times5$ strata opgesplits: elk jaar voor De Moeren en de Oostelijke leemstreek.
 Beschouw $A(s)$ de totale oppervlakte van stratum $s$ tot waar we de abundantieschatting willen extrapoleren en $a(s)$ het gesampelde gebied.
-De oppervlakte zal niet wijzigen over dejaren maar enkel tussen de regio's.
+De oppervlakte zal niet wijzigen over de jaren maar enkel tussen de regio's.
 
 $$
 a(s) = \pi w^2 T
@@ -1206,7 +1128,7 @@ De onzekerheid werd berekend m.b.v. de standaard opties in de `ds()` functie.
 Zie @miller2019 en verwijzingen daarin voor meer informatie over de preciese berekeningen.
 De onzekerheid in de volgende resultaten zijn telkens 95 % betrouwbaarheidsintervallen.
 
-De detectiekansen en standard errors zijn verschillend per regio, jaar en openheid van het landschap:
+De detectiekansen en standard errors zijn verschillend per regio en jaar:
 
 ```{r}
 cbind(veldleeuwerik_dist_2018_2022_model$ddf$data, 
@@ -1216,17 +1138,41 @@ cbind(veldleeuwerik_dist_2018_2022_model$ddf$data,
                                  se.fit = TRUE)$se) %>%
   select(all_of(veldleeuwerik_covars), "p(z)", "standard error") %>%
   distinct() %>%
-  arrange(!!!veldleeuwerik_covars) %>%
+  arrange(jaar, regio) %>%
   kable()
 ```
 
-De gemiddelde detectiekans $\hat{P}_a$ is gelijk aan `r round(veldleeuwerik_dist_2018_2022_model$dht$individuals$average.p, digits = 3)`.
-Deze kunnen we als volgt visualiseren:
-
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_2018_2022_model, 
-                     plot_average_fit = TRUE, n_breaks = 6)
+design_plot <- matrix(rep(0, 10 * 10), ncol = 10, byrow = TRUE)
+design_plot[, 1] <- 1
+design_plot[2, 2] <- 1
+design_plot[3, 3] <- 1
+design_plot[4, 4] <- 1
+design_plot[5, 5] <- 1
+design_plot[6, 6] <- 1
+design_plot[7:10, 2] <- 1
+design_plot[7, c(3, 7)] <- 1
+design_plot[8, c(4, 8)] <- 1
+design_plot[9, c(5, 9)] <- 1
+design_plot[10, c(6, 10)] <- 1
+
+labels_plot <- paste(c("De Moeren", "Oostelijke leemstreek", 
+                       rep(c("De Moeren", "Oostelijke leemstreek"), each = 4)),
+                     c(2018, 2018, rep(2019:2022, 2)), sep = " - ")
+
+design_plot %>%
+  data.frame() %>%
+  `rownames<-`(labels_plot) %>%
+  `colnames<-`(names(
+    veldleeuwerik_dist_2018_2022_model$ddf$ds$aux$ddfobj$scale$parameters)) %>%
+  kable()
+
+plot_detection_curve(veldleeuwerik_dist_2018_2022_model, design_mat = design_plot, 
+                     labels = labels_plot, n_breaks = 6) +
+  scale_colour_manual(values = c(inbo_palette(), "red"))
 ```
+
+De gemiddelde detectiekans $\hat{P}_a$ is gelijk aan `r round(veldleeuwerik_dist_2018_2022_model$dht$individuals$average.p, digits = 3)`.
 
 ```{r}
 summary_veldleeuwerik_dist <- summary(veldleeuwerik_dist_2018_2022_model)
@@ -1306,7 +1252,7 @@ In de volgende figuur zijn de gemiddeldes en maxima aangegeven door bar-plots en
 
 ```{r}
 # Bereken aantal plots per regio per jaar 2018-2022
-plots_per_regiojaar <- design_2018_2022_reduced %>%
+plots_per_regiojaar <- bezoekenlijst_2018_2022_reduced %>%
   group_by(regio, jaar) %>%
   summarise(aantal_plots = n_distinct(plotnaam)) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "))
@@ -1369,7 +1315,7 @@ We beschouwen alle plots van 2022.
 veldleeuwerik_2022 <- veldleeuwerik_presences %>%
   filter(jaar == 2022)
 
-design_2022 <- design_2018_2022 %>%
+design_2022 <- bezoekenlijst_2018_2022 %>%
   filter(jaar == 2022)
 ```
 
