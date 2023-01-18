@@ -9,8 +9,8 @@ st_crs.SpatRaster = function(x, ...) {
 }
 
 
-path_to_perimeters <- function() {
-  file.path(mbag_dir, "data", "processed", "piloot_perimeters.gpkg")
+path_to_perimeters <- function(file = "piloot_perimeters.gpkg") {
+  file.path(mbag_dir, "data", "processed", file)
 }
 
 path_to_osm_download <- function() {
