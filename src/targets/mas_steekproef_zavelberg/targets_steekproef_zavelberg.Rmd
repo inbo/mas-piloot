@@ -8,6 +8,8 @@ output:
     toc: true
     toc_float: true
     toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include = FALSE}
@@ -32,6 +34,7 @@ Deze tellingen worden dus toegevoegd aan de andere steekproeftrekking, die werd 
 
 We maken voor het steekproefontwerp gebruik van het `targets` package in combinatie met `RMarkdown`.
 
+
 # Packages
 
 TO DO
@@ -47,6 +50,7 @@ De onderstaande chunk wordt best in interactieve modus uitgevoerd.
 ```{r renv-restore, eval = FALSE}
 renv::restore()
 ```
+
 
 # Setup
 
@@ -71,10 +75,11 @@ Voeg deze lijn toe aan `.Renviron`:
 `OSMEXT_DOWNLOAD_DIRECTORY="C:/R/osmdata"`
 -->
 
+#> ward ok
+
 ```{r eval = interactive() && osmextract::oe_download_directory() != "C:\\R\\osmdata"}
 usethis::edit_r_environ()
 ```
-
 
 
 # Globals
@@ -101,11 +106,13 @@ tar_option_set(packages = c("dplyr",
                memory = "transient",
                garbage_collection = TRUE,
                workspace_on_error = TRUE)
+
 target_dir <- rprojroot::find_root_file(
     "src", "targets", "mas_steekproef_zavelberg",
     criterion = rprojroot::is_git_root)
 mbag_dir <- rprojroot::find_root_file(
     criterion = rprojroot::is_git_root)
+
 source(file.path(mbag_dir, "src", "R", "landuse_maps.R"))
 source(file.path(mbag_dir, "src", "R", "geocomputations.R"))
 source(file.path(mbag_dir, "src", "R", "draw_sample.R"))
@@ -113,7 +120,6 @@ source(file.path(mbag_dir, "src", "R", "steekproefkader.R"))
 source(file.path(mbag_dir, "src", "R", "berekening_hulpvariabelen.R"))
 source(file.path(mbag_dir, "src", "R", "steekproeftrekking_nabehandeling.R"))
 source(file.path(mbag_dir, "src", "R", "wfs_wcs.R"))
-
 ```
 
 
@@ -130,7 +136,7 @@ Dit geldt dan eveneens voor alle stroomafwaartse targets die ervan afhankelijk z
 "piloot_perimeters.gpkg", de layer "piloot_perimeters" wijziging.
 Deze bevat momenteel een rij voor Oostelijke leemstreek en een rij voor De Moeren.
 Hier moet een rij aan toegevoegd worden voor Zavelberg en zijn controlegebied.
-Misschien dit Naam == "zandleemstreek" geven?
+Misschien dit Naam == "Zandleemstreek" geven?
 
 Daarna hebben we de optie:
 
@@ -139,6 +145,11 @@ Daarna hebben we de optie:
 
 Indien (2) dan moet st_read(perimeters_file) hieronder aangepast worden naar
 st_read(perimeters_file) %>% filter(Naam == "Zandleemstreek")
+-->
+
+#> ward ok
+<!--
+Geen van beide opties gebruikt. Nieuwe file geschreven "zandleemstreek_perimeters.gpkg" met enkel de zandleemstreek multipolygoon. Optie aan functie `path_to_perimeters()` toegevoegd zodat deze gemakkelijk wordt ingelezen. Als default leest de functie nog altijd "piloot_perimeters.gpkg" in zodat de originele targets pipeline nog werkt.
 -->
 
 <!--
@@ -150,7 +161,7 @@ wellicht aan te passen naar jaar == 2021 of 2022?
 list(
   tarchetypes::tar_file(
     perimeters_file,
-    path_to_perimeters()
+    path_to_perimeters("zandleemstreek_perimeters.gpkg")
     ),
   tar_target(
     perimeters_data,
