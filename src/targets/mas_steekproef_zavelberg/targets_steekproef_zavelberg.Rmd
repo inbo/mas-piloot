@@ -157,6 +157,11 @@ target "lbg_file"
 wellicht aan te passen naar jaar == 2021 of 2022?
 -->
 
+#> ward ok
+<!--
+Shapefile 2021 omgezet naar .parquet. Simplificatie functie `path_to_lbg()`: geef jaar als argument en krijg bestand van dat jaar. 2022 nog niet beschikbaar.
+-->
+
 ```{targets raw-data}
 list(
   tarchetypes::tar_file(
@@ -193,7 +198,7 @@ list(
     ),
   tarchetypes::tar_file(
     lbg_file,
-    path_to_lbg(jaar = "2020")
+    path_to_lbg(jaar = "2021")
   ),
   tarchetypes::tar_file(
     sbp_akkervogels_file,
