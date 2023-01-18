@@ -129,7 +129,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
       # Combine in dataframe
       df_y_val <- y_vals %>%
         data.frame() %>%
-        `colnames<-`(labels) %>%
+        `colnames<-`(sort(labels)) %>%
         pivot_longer(col = everything(), names_to = "Legende",
                      values_to = "y_val") %>%
         arrange(Legende, desc(y_val)) %>%
@@ -153,7 +153,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
       # Combine in dataframe
       df_y_val <- y_vals %>%
         data.frame() %>%
-        `colnames<-`(labels) %>%
+        `colnames<-`(sort(labels)) %>%
         pivot_longer(col = everything(), names_to = "Legende",
                      values_to = "y_val") %>%
         arrange(Legende, desc(y_val)) %>%
