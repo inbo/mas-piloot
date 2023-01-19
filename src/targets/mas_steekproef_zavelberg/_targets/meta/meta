@@ -1,5 +1,5 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|2140f42bb7a123b9|||||||||||||||
+.Random.seed|object|9cf6cf8baa29c714|||||||||||||||
 add_bo2021_to_frame|function|4b24b5d96bbe4fd2|||||||||||||||
 add_openheid_landschap_to_frame|function|cc9b81f24783910c|||||||||||||||
 add_stratum_sbp|function|ab305f23cf121949|||||||||||||||
@@ -9,7 +9,7 @@ bo_file|stem|940952d996ba61d0|d47013c9ea23f622|13587a69903662e4|-1038609820|C:/R
 calc_lbg|function|3a3735977b0cf984|||||||||||||||
 draw_sample|function|297e4f7115ca88a0|||||||||||||||
 exclusie_landgebruik_osm|function|04127c6defdc8538|||||||||||||||
-extract_osm_paden|function|8a814c338dd4cebf|||||||||||||||
+extract_osm_paden|function|6dd560f5a0390b33|||||||||||||||
 get_coverage_wcs|function|23171b77b88b9707|||||||||||||||
 get_feature_wfs|function|867bf0bf51023891|||||||||||||||
 landusemetrics_grid_cell|function|05fd4d546b34b8c4|||||||||||||||
@@ -33,7 +33,7 @@ path_to_osm_download|function|6ad7e48367119170|||||||||||||||
 path_to_perimeters|function|22187d181ce5b65a|||||||||||||||
 path_to_sbp_akkervogels|function|7cf050f049f3aa7a|||||||||||||||
 perimeters_data|stem|718e3fa444229e96|259acd2099d9d883|b37ef90222a8c939|916414819||t19375.6302343051s|9beb9dfb9530a642|3503|qs|local|vector||perimeters_data_be223b15|0.05||
-perimeters_file|stem|41b4bf4fd3b388c4|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19375.5528164106s|22c04e6244b71b04|98304|file|local|vector|||0||
+perimeters_file|stem|41b4bf4fd3b388c4|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19376.3910113424s|22c04e6244b71b04|98304|file|local|vector|||0||
 point_to_gridcell|function|27bb10730048677c|||||||||||||||
 punten_lum_buffer|function|356dedfa66f15be1|||||||||||||||
 punten_selectie_landgebruik|function|4c2aaf8166092a1b|||||||||||||||
@@ -41,7 +41,7 @@ read_bo2021|function|13920fd20ecbac61|||||||||||||||
 read_legend_lum|function|5493f2158a71d708|||||||||||||||
 read_lum_rast|function|ab1941e8592097df|||||||||||||||
 read_sbp_akkervogels|function|a1d2ae71972eeaaa|||||||||||||||
-sbp_akkervogels_6dfb9303|branch||acc906648dcad49b|9770fe87d60fac87|-1514457687||t19375.6302379767s||0|qs|local|vector|sbp_akkervogels||0.03||error in evaluating the argument x in selecting a method for function nrow object out not found
+sbp_akkervogels_6dfb9303|branch||acc906648dcad49b|9770fe87d60fac87|-1514457687||t19375.6302379767s||0|qs|local|vector|sbp_akkervogels||0.02||error in evaluating the argument x in selecting a method for function nrow object out not found
 sbp_akkervogels_file|stem|e4d1a382c5fe78ff|b7b4e2f0ab5e650d|c7262cdd88bf10da|-1351920255|C:/R/git_repositories/mbag/data/bo_vlm/akkervogelgebieden.shp|t18185.5896296296s|9c077e0f051b9344|531772|file|local|vector|||0||
 selectie_landgebruik_vito|function|48a4042b1ae57018|||||||||||||||
 st_bbox.SpatRaster|function|af80857fe302b9bd|||||||||||||||

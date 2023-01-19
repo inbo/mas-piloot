@@ -6,7 +6,7 @@ list(
               target_samplesize = 410,
               popsize_minimum = 410,
               allocatie_binnen_sbp = 0.5,
-              allocatie_leemstreek = 350/410,
+              allocatie_leemstreek = 0,
               ol_strata = c("OL", "HOL"))
   ),
   tarchetypes::tar_group_by(

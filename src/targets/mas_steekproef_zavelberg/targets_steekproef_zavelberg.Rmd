@@ -227,10 +227,16 @@ Zodat we dit ook andere landgebruiken kunnen uitsluiten indien nodig
 Functie aangepast. Indien je geen landuse of leisure wilt uitsluiten moet je NULL ingeven bij die variabele! Anders ga je automatisch de defaults uitsluiten.
 
 Landgebruiken extra uit te sluiten:
+-Buffer van 50m rond snelwegen, treinsporen ... gebruiken (uitsluiten)
 - zie ontoegankelijk issues_pilootmeetnet.Rmd
+  -  serres: landuse = greenhouse_horticulture (niet aanwezig in zavelberg)
+  -  autostrade 50 m buffer: highway = motorway -> ten noorden van Lovenjoel, geen effectieve overlap
+  -  spoorwegen 50 m buffer: landuse = railway -> ten zuiden van kortenberg, bijna geen effectieve overlap
+  -  aeroway 50 m buffer: -> ten noorden van kortenberg, geen effectieve overlap
+  -  man_made = bridge
 - privégronden/paden?:
     Misschien mogelijk om via trage wegen kaart de onverharde wegen van OSM eruit te halen die niet op de trage wegen kaart staan (risico dat we onterecht paadjes eruit halen?)
-
+- wat met overlap andere cirkels?
 -->
 
 
@@ -261,7 +267,6 @@ Afspraken Johannes:
 -Sommige paadjes in OSM zijn privé, niet openbaar toegankelijk
 -holle wegen: wel behouden, hopelijk lost visibiliteitsberekening dit op (eventueel gecombineerd met zenith-hoek berekening)
 -grachten, beken niet te gebruiken
--Buffer van 50m rond snelwegen gebruiken (uitsluiten)
 -->
 
 
@@ -342,8 +347,6 @@ Check bij Johannes of er al een update afbakening is van de soortbeschermingspla
 -->
 
 
-
-
 ```{targets hulpvariabelen}
 list(
   tar_target(
@@ -389,7 +392,15 @@ list(
 target "allocatie_df"
 
 deze ad-hoc instelling zullen moeten aangepast worden
+-->
 
+#> ward
+<!--
+staan al ingesteld als default, dus we kunnen deze gewoon aanpassen. Voor allocatie_leemstreek moeten we 0 invullen zodat de code blijft werken. Deze fractie wordt namelijk aan de Oostelijke leemstreek toegekend.  
+mutate(allocatie_gebied = ifelse(Naam == "Oostelijke leemstreek",
+                                     allocatie_leemstreek,
+                                     1 - allocatie_leemstreek))
+De naam "Oostelijke leemstreek" zal niet aanwezig zijn, dus als we 0 invullen, zal 100% aan de Zandleemstreek worden toegekend.
 -->
 
 ```{targets steekproeftrekking}
@@ -401,7 +412,7 @@ list(
               target_samplesize = 410,
               popsize_minimum = 410,
               allocatie_binnen_sbp = 0.5,
-              allocatie_leemstreek = 350/410,
+              allocatie_leemstreek = 0,
               ol_strata = c("OL", "HOL"))
   ),
   tarchetypes::tar_group_by(
