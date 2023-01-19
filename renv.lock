@@ -101,9 +101,9 @@
       "RemoteHost": "api.github.com",
       "RemoteUsername": "hansvancalster",
       "RemoteRepo": "GVI",
-      "RemoteRef": "visibility-from-sf",
-      "RemoteSha": "3eb5b85aaf674ae477365e846713ffaec9818911",
-      "Hash": "f07f03b9937234a8d60b0e76b6beaf8b",
+      "RemoteRef": "summed-viewsheds",
+      "RemoteSha": "bcb14222333dc0efd960d6f8e05a440222ec0445",
+      "Hash": "ed0c7893ff23acce2f0ce781107813fb",
       "Requirements": [
         "Rcpp",
         "RcppProgress",
@@ -865,6 +865,23 @@
       "Hash": "e8a1e41acf02548751f45c718d55aa6a",
       "Requirements": []
     },
+    "credentials": {
+      "Package": "credentials",
+      "Version": "2.0.0",
+      "Source": "Repository",
+      "Repository": "https://ropensci.r-universe.dev",
+      "RemoteUrl": "https://github.com/r-lib/credentials",
+      "RemoteRef": "main",
+      "RemoteSha": "32fd1ea2486c8b32bf4ac6f8e313020888b3a27b",
+      "Hash": "9200654488bee888368f0b6465e3cb91",
+      "Requirements": [
+        "askpass",
+        "curl",
+        "jsonlite",
+        "openssl",
+        "sys"
+      ]
+    },
     "crosstalk": {
       "Package": "crosstalk",
       "Version": "1.2.0",
@@ -1288,6 +1305,21 @@
         "Rcpp"
       ]
     },
+    "gert": {
+      "Package": "gert",
+      "Version": "1.9.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "9a091a6d2fb91e43afd4337e2dcef2e7",
+      "Requirements": [
+        "askpass",
+        "credentials",
+        "openssl",
+        "rstudioapi",
+        "sys",
+        "zip"
+      ]
+    },
     "ggforce": {
       "Package": "ggforce",
       "Version": "0.4.1",
@@ -1376,6 +1408,20 @@
         "scales"
       ]
     },
+    "gh": {
+      "Package": "gh",
+      "Version": "1.3.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "b6a12054ee13dce0f6696c019c10e539",
+      "Requirements": [
+        "cli",
+        "gitcreds",
+        "httr",
+        "ini",
+        "jsonlite"
+      ]
+    },
     "git2r": {
       "Package": "git2r",
       "Version": "0.30.1",
@@ -1395,6 +1441,14 @@
         "git2r",
         "yaml"
       ]
+    },
+    "gitcreds": {
+      "Package": "gitcreds",
+      "Version": "0.1.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "ab08ac61f3e1be454ae21911eb8bc2fe",
+      "Requirements": []
     },
     "globals": {
       "Package": "globals",
@@ -1741,6 +1795,14 @@
         "terra",
         "xml2"
       ]
+    },
+    "ini": {
+      "Package": "ini",
+      "Version": "0.3.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "6154ec2223172bce8162d4153cda21f7",
+      "Requirements": []
     },
     "inlatools": {
       "Package": "inlatools",
@@ -2096,8 +2158,8 @@
       "Repository": "https://inbo.r-universe.dev",
       "RemoteUrl": "https://github.com/tidyverse/lubridate",
       "RemoteRef": "HEAD",
-      "RemoteSha": "be024010ededa0d09cffe6e323777e3ab266f419",
-      "Hash": "16c7ce1bc02b20b0a2371d545e315812",
+      "RemoteSha": "c4714046ec412e669906ab8d1cd9a8e4fb125e13",
+      "Hash": "c00dc2b6d235358d3b876e5d3cd2906b",
       "Requirements": [
         "cpp11",
         "generics"
@@ -3360,7 +3422,7 @@
       "Repository": "https://ropensci.r-universe.dev",
       "RemoteUrl": "https://github.com/ropensci/tarchetypes",
       "RemoteRef": "main",
-      "RemoteSha": "4f75effd39342dd863fb6970fcbf54dcf92cbb13",
+      "RemoteSha": "441948ced3a9b5b97f9b43fee610b7593fbc9b53",
       "Hash": "e9acaa614fb0940956b59a5219fc253a",
       "Requirements": [
         "digest",
@@ -3527,6 +3589,27 @@
         "withr"
       ]
     },
+    "tidyterra": {
+      "Package": "tidyterra",
+      "Version": "0.3.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "0e0079a3e35be2d30ed6e3a33f4eb012",
+      "Requirements": [
+        "cli",
+        "crayon",
+        "data.table",
+        "dplyr",
+        "ggplot2",
+        "magrittr",
+        "rlang",
+        "scales",
+        "sf",
+        "terra",
+        "tibble",
+        "tidyr"
+      ]
+    },
     "tidyverse": {
       "Package": "tidyverse",
       "Version": "1.3.2",
@@ -3634,6 +3717,34 @@
         "lme4",
         "pbapply",
         "plyr"
+      ]
+    },
+    "usethis": {
+      "Package": "usethis",
+      "Version": "2.1.6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "a67a22c201832b12c036cc059f1d137d",
+      "Requirements": [
+        "cli",
+        "clipr",
+        "crayon",
+        "curl",
+        "desc",
+        "fs",
+        "gert",
+        "gh",
+        "glue",
+        "jsonlite",
+        "lifecycle",
+        "purrr",
+        "rappdirs",
+        "rlang",
+        "rprojroot",
+        "rstudioapi",
+        "whisker",
+        "withr",
+        "yaml"
       ]
     },
     "utf8": {
@@ -3762,6 +3873,14 @@
         "tibble"
       ]
     },
+    "whisker": {
+      "Package": "whisker",
+      "Version": "0.4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "ca970b96d894e90397ed20637a0c1bbe",
+      "Requirements": []
+    },
     "withr": {
       "Package": "withr",
       "Version": "2.5.0",
@@ -3818,6 +3937,14 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "458bb38374d73bf83b1bb85e353da200",
+      "Requirements": []
+    },
+    "zip": {
+      "Package": "zip",
+      "Version": "2.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "a7e91189fa51d9029a30eba3831ce53f",
       "Requirements": []
     },
     "zoo": {
