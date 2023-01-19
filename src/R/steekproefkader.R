@@ -43,7 +43,9 @@ read_legend_lum <- function(file) {
 # Set landuse or leisure to NULL if you don't want to exclude from these
 exclusie_landgebruik_osm <- function(gebied, osmdata,
    landuse = c('residential', 'military', 'industrial', 'cemetery'),
-   leisure = c('park')) {
+   leisure = c('park'),
+   buffer_poly = NULL,
+   buffer_line = NULL) {
 
   # Create string to exclude landuse and leisure variables
   exclusion_landuse <- paste0("('", paste(landuse, collapse = "', '"), "')")
@@ -64,6 +66,45 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
     "-where", exclusion_str,
     "-nlt", "PROMOTE_TO_MULTI"
   )
+
+  # put in separate function and with named list? landuse: railway, aeroway: aerodrome?
+  # check how to combine with non buffered geometry
+  if (!is.null(buffer_poly)) {
+    poly_buff_exclusie_vectortranslate = c(
+      "-t_srs", "EPSG:31370",
+      "-select", "landuse",
+      "-where", "landuse in ('railway') OR aeroway in ('aerodrome')",
+      "-nlt", "PROMOTE_TO_MULTI"
+    )
+
+    test1 <- osmextract::oe_get(
+      place = gebied %>% st_buffer(buffer_poly),
+      layer = "multipolygons",
+      vectortranslate_options = poly_buff_exclusie_vectortranslate,
+      boundary = gebied %>% st_buffer(buffer_poly),
+      boundary_type = "clipsrc",
+      download_directory = dirname(osmdata)) %>%
+      st_buffer(buffer_poly)
+
+  } else if (!is.null(buffer_line)) {
+    line_buff_exclusie_vectortranslate = c(
+      "-t_srs", "EPSG:31370",
+      "-select", "highway",
+      "-where", "highway in ('motorway', 'motorway_link')",
+      "-nlt", "PROMOTE_TO_MULTI"
+    )
+
+    test2 <- osmextract::oe_get(
+      place = gebied %>% st_buffer(buffer_line),
+      vectortranslate_options = line_buff_exclusie_vectortranslate,
+      boundary = gebied %>% st_buffer(buffer_line),
+      boundary_type = "clipsrc",
+      download_directory = dirname(osmdata)) %>%
+      st_buffer(buffer_line)
+  } else if () {
+    supertest <- rbind(test1 %>% st_buffer(50) %>% select(geometry),
+                       test2 %>% st_buffer(50) %>% select(geometry))
+  }
 
   exclusie_landgebruik <- osmextract::oe_get(
     place = gebied,
