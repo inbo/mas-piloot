@@ -53,7 +53,7 @@ exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
   # collapse exclusion strings in list to a single where clause
   exclusion_str <- paste(unlist(exclusion_list), collapse = " OR ")
 
-  landuse_exclusie_vectortranslate = c(
+  buffer_exclusie_vectortranslate = c(
     "-t_srs", "EPSG:31370",
     "-select", selection,
     "-where", exclusion_str,
@@ -61,10 +61,10 @@ exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
   )
 
   if (geom_type == "lines") {
-    out <- osmextract::oe_get(
+    exclusie_landgebruik <- osmextract::oe_get(
       place = gebied %>% st_buffer(buffer),
       layer = geom_type,
-      vectortranslate_options = landuse_exclusie_vectortranslate,
+      vectortranslate_options = buffer_exclusie_vectortranslate,
       boundary = gebied %>% st_buffer(buffer),
       boundary_type = "clipsrc",
       download_directory = dirname(osmdata)) %>%
@@ -72,15 +72,31 @@ exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
   }
 
   if (geom_type == "multipolygons") {
-    out <- osmextract::oe_get(
-      place = gebied %>% st_buffer(buffer_poly),
+    exclusie_landgebruik <- osmextract::oe_get(
+      place = gebied %>% st_buffer(buffer),
       layer = geom_type,
-      vectortranslate_options = poly_buff_exclusie_vectortranslate,
-      boundary = gebied %>% st_buffer(buffer_poly),
+      vectortranslate_options = buffer_exclusie_vectortranslate,
+      boundary = gebied %>% st_buffer(buffer),
       boundary_type = "clipsrc",
       download_directory = dirname(osmdata)) %>%
-      st_buffer(buffer_poly)
+      st_buffer(buffer)
   }
+
+  out <- exclusie_landgebruik %>%
+    st_cast("MULTIPOLYGON") %>%
+    st_cast("GEOMETRYCOLLECTION") %>%
+    mutate(id = seq_len(nrow(.))) %>%
+    st_collection_extract("POLYGON") %>%
+    aggregate(list(.$id), first, do_union = FALSE) %>%
+    select(-id, -Group.1) %>%
+    as_tibble %>%
+    st_as_sf() %>%
+    st_union() %>%
+    #st_buffer(dist = 20) %>%
+    st_simplify(dTolerance = 10) %>%
+    st_remove_holes() %>%
+    st_as_sf() %>%
+    mutate(Naam = gebied$Naam)
 
   return(out)
 }
@@ -96,9 +112,7 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
   exclusion_landuse <- paste0("('", paste(landuse, collapse = "', '"), "')")
   exclusion_leisure <- paste0("('", paste(leisure, collapse = "', '"), "')")
 
-  if (is.null(landuse)) {
-    exclusion_str <- paste("leisure IN", exclusion_leisure, sep = " ")
-  } else if (is.null(leisure)) {
+  if (is.null(leisure)) {
     exclusion_str <- paste("landuse IN", exclusion_landuse, sep = " ")
   } else {
     exclusion_str <- paste("landuse IN", exclusion_landuse,
@@ -135,7 +149,37 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
     st_as_sf() %>%
     mutate(Naam = gebied$Naam)
 
-  return(exclusie_landgebruik)
+  if (!is.null(layer_poly) & is.null(layer_line)) {
+    exclude_buffer <- exclusie_buffer_osm(gebied, osmdata, buffer = buffer_poly,
+      layer = layer_poly, geom_type = "multipolygons")
+
+    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+  } else if (is.null(layer_poly) & !is.null(layer_line)) {
+    exclude_buffer <- exclusie_buffer_osm(gebied, osmdata, buffer = buffer_line,
+      layer = layer_line, geom_type = "lines")
+
+    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+  } else if (!is.null(layer_poly) & !is.null(layer_line)) {
+    exclude_buffer_poly <- exclusie_buffer_osm(gebied, osmdata,
+      buffer = buffer_poly, layer = layer_poly, geom_type = "multipolygons")
+    exclude_buffer_line <- exclusie_buffer_osm(gebied, osmdata,
+      buffer = buffer_line, layer = layer_line, geom_type = "lines")
+    exclude_buffer <- st_union(exclude_buffer_poly, exclude_buffer_line) %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+
+    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+  } else {
+    out <- exclusie_landgebruik
+  }
+
+  return(out)
 }
 
 # Set waterway to NULL if you don't want to include any waterway
