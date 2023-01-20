@@ -224,16 +224,22 @@ Zodat we dit ook andere landgebruiken kunnen uitsluiten indien nodig
 
 #> ward
 <!--
-Functie aangepast. Indien je geen landuse of leisure wilt uitsluiten moet je NULL ingeven bij die variabele! Anders ga je automatisch de defaults uitsluiten.
+Functie aangepast. Indien je geen leisure wilt uitsluiten moet je NULL ingeven bij die variabele! Anders ga je automatisch de defaults uitsluiten. 
+Mogelijkheden landuse in Zandleem:
+forest, farmland, residential, grass, commercial, meadow, railway, farmyard
+Mogelijkheden leisure in Zandleem:
+pitch, swimming_pool
+Mogelijkheden man_made in Zandleem:
+water_tower
 
 Landgebruiken extra uit te sluiten:
--Buffer van 50m rond snelwegen, treinsporen ... gebruiken (uitsluiten)
+-Buffer van 50m rond snelwegen, treinsporen ... gebruiken (exclusie_buffer_osm() functie)
 - zie ontoegankelijk issues_pilootmeetnet.Rmd
-  -  serres: landuse = greenhouse_horticulture (niet aanwezig in zavelberg)
+  -  serres: landuse = greenhouse_horticulture (niet aanwezig in zandleemstreek)
   -  autostrade 50 m buffer: highway = motorway -> ten noorden van Lovenjoel, geen effectieve overlap
   -  spoorwegen 50 m buffer: landuse = railway -> ten zuiden van kortenberg, bijna geen effectieve overlap
   -  aeroway 50 m buffer: -> ten noorden van kortenberg, geen effectieve overlap
-  -  man_made = bridge
+  -  man_made = bridge (niet aanwezig in zandleemstreek)
 - privégronden/paden?:
     Misschien mogelijk om via trage wegen kaart de onverharde wegen van OSM eruit te halen die niet op de trage wegen kaart staan (risico dat we onterecht paadjes eruit halen?)
 - wat met overlap andere cirkels?
@@ -293,7 +299,14 @@ list(
   tar_target(name = exclusie_osm_landgebruiken,
              command = exclusie_landgebruik_osm(
                gebied = perimeters_data,
-               osmdata = osm_belgium),
+               osmdata = osm_belgium,
+               landuse = c("residential"),
+               leisure = NULL,
+               buffer_poly = 50, 
+               layer_poly = list(landuse = c("railway"), 
+                                 aeroway = c("aerodrome")),
+               buffer_line = 50, 
+               layer_line = list(highway = c("motorway", "motorway_link"))),
              pattern = map(perimeters_data)
   ),
   tar_target(name = paden,
