@@ -41,13 +41,16 @@ read_legend_lum <- function(file) {
 }
 
 exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
+  # which keys are present to exclude
   keys <- names(layer)
   selection <- paste(keys, collapse = ", ")
 
+  # create list with exclusion strings per key
   exclusion_list <- lapply(seq_along(layer), function(i) {
       paste0(keys[[i]], " IN ('", paste(layer[[i]], collapse = "', '"), "')")
     })
 
+  # collapse exclusion strings in list to a single where clause
   exclusion_str <- paste(unlist(exclusion_list), collapse = " OR ")
 
   landuse_exclusie_vectortranslate = c(
