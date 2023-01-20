@@ -227,10 +227,13 @@ Zodat we dit ook andere landgebruiken kunnen uitsluiten indien nodig
 Functie aangepast. Indien je geen leisure wilt uitsluiten moet je NULL ingeven bij die variabele! Anders ga je automatisch de defaults uitsluiten. 
 Mogelijkheden landuse in Zandleem:
 forest, farmland, residential, grass, commercial, meadow, railway, farmyard
+-> residential, commercial
 Mogelijkheden leisure in Zandleem:
 pitch, swimming_pool
+-> niet relevant
 Mogelijkheden man_made in Zandleem:
 water_tower
+-> niet relevant (super klein)
 
 Landgebruiken extra uit te sluiten:
 -Buffer van 50m rond snelwegen, treinsporen ... gebruiken (exclusie_buffer_osm() functie)
@@ -300,7 +303,7 @@ list(
              command = exclusie_landgebruik_osm(
                gebied = perimeters_data,
                osmdata = osm_belgium,
-               landuse = c("residential"),
+               landuse = c("residential", "commercial"),
                leisure = NULL,
                buffer_poly = 50, 
                layer_poly = list(landuse = c("railway"), 
