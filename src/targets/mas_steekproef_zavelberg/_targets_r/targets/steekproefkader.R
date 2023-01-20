@@ -2,7 +2,14 @@ list(
   tar_target(name = exclusie_osm_landgebruiken,
              command = exclusie_landgebruik_osm(
                gebied = perimeters_data,
-               osmdata = osm_belgium),
+               osmdata = osm_belgium,
+               landuse = c("residential"),
+               leisure = NULL,
+               buffer_poly = 50, 
+               layer_poly = list(landuse = c("railway"), 
+                                 aeroway = c("aerodrome")),
+               buffer_line = 50, 
+               layer_line = list(highway = c("motorway", "motorway_link"))),
              pattern = map(perimeters_data)
   ),
   tar_target(name = paden,
