@@ -243,7 +243,7 @@ Landgebruiken extra uit te sluiten:
   -  spoorwegen 50 m buffer: landuse = railway -> ten zuiden van kortenberg, bijna geen effectieve overlap
   -  aeroway 50 m buffer: -> ten noorden van kortenberg, geen effectieve overlap
   -  man_made = bridge (niet aanwezig in zandleemstreek)
-- privégronden/paden?:
+- privégronden/paden?: https://wiki.openstreetmap.org/wiki/Map_features#Restrictions
     Misschien mogelijk om via trage wegen kaart de onverharde wegen van OSM eruit te halen die niet op de trage wegen kaart staan (risico dat we onterecht paadjes eruit halen?)
 - wat met overlap andere cirkels?
 -->
@@ -309,14 +309,20 @@ list(
                layer_poly = list(landuse = c("railway"), 
                                  aeroway = c("aerodrome")),
                buffer_line = 50, 
-               layer_line = list(highway = c("motorway", "motorway_link"))),
+               layer_line = list(highway = c("motorway", "motorway_link"))
+               ),
              pattern = map(perimeters_data)
   ),
   tar_target(name = paden,
              command = extract_osm_paden(
                gebied = perimeters_data,
                exclusie = exclusie_osm_landgebruiken,
-               osmdata = osm_belgium
+               osmdata = osm_belgium,
+               paths_include = c('track', 'footway', 'path', 'cycleway', 
+                'bridleway', 'tertiary', 'tertiary_link', 'unclassified'),
+               cutting_exclude = NULL,
+               historic_exclude = NULL,
+               waterway = NULL
                ),
              pattern = map(perimeters_data, exclusie_osm_landgebruiken)
              ),
