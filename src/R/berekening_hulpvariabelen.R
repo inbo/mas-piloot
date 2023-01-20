@@ -110,8 +110,10 @@ add_openheid_landschap_to_frame <- function(
     y = vect(punten_sf))
 
   punten_sf <- punten_sf %>%
-    bind_cols(openheid_classes_points %>% select(openheid_klasse = focal_sum),
-              openheid_values_points %>% select(openheid_waarde = focal_sum)
+    bind_cols(openheid_classes_points %>%
+                dplyr::select(openheid_klasse = focal_sum),
+              openheid_values_points %>%
+                dplyr::select(openheid_waarde = focal_sum)
     ) %>%
     mutate(openheid_klasse = factor(openheid_klasse,
                                     levels = 1:nclass,
