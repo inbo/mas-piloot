@@ -102,8 +102,8 @@
       "RemoteUsername": "hansvancalster",
       "RemoteRepo": "GVI",
       "RemoteRef": "summed-viewsheds",
-      "RemoteSha": "bcb14222333dc0efd960d6f8e05a440222ec0445",
-      "Hash": "ed0c7893ff23acce2f0ce781107813fb",
+      "RemoteSha": "2f22b385cca0da7a4d7d9aefaf19b647f0ee04b9",
+      "Hash": "43832ea1c1c5bddb3a0ff4c0a2c866a4",
       "Requirements": [
         "Rcpp",
         "RcppProgress",
@@ -112,10 +112,12 @@
         "foreach",
         "ggplot2",
         "magrittr",
+        "purrr",
         "raster",
         "scales",
         "sf",
-        "terra"
+        "terra",
+        "tidyr"
       ]
     },
     "Hmisc": {
@@ -2814,10 +2816,10 @@
     },
     "raster": {
       "Package": "raster",
-      "Version": "3.6-3",
+      "Version": "3.6-14",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "d550f9d6dbb4dce7cbd146b09d663343",
+      "Hash": "2406e2380237f4dcf84e83260419895a",
       "Requirements": [
         "Rcpp",
         "sp",
@@ -3473,10 +3475,10 @@
     },
     "terra": {
       "Package": "terra",
-      "Version": "1.6-17",
+      "Version": "1.6-53",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "3e264754dde87261bc7ccdb30d29d3b4",
+      "Hash": "3bd9337c86c21c0f6d15ebecc6cb0ea9",
       "Requirements": [
         "Rcpp"
       ]

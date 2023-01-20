@@ -8,8 +8,8 @@ output: html_document
 ```{r setup, include=FALSE}
 renv::restore()
 knitr::opts_chunk$set(echo = TRUE, message = FALSE)
-library(GVI)
 library(terra)
+library(GVI)
 library(sf)
 library(dplyr)
 library(ggplot2)
@@ -27,7 +27,6 @@ steekproef <- tar_read(steekproef_zichtbaarheid, store = targets_store) %>%
                                     "buiten plan"))
          )
 ```
-
 
 ```{r bereken-zichtbaarheid}
 bereken_vvi <- function(point,
@@ -53,7 +52,7 @@ bereken_vvi <- function(point,
   vvi_from_sf(
     observer = poly25,
     spacing = spacing,
-    cores = 4,
+    cores = 1,
     progress = TRUE,
     max_distance = dist,
     dsm_rast = dsm_r1,
@@ -63,6 +62,13 @@ bereken_vvi <- function(point,
     output_type = output_type)
 }
 ```
+
+## Vooraf
+
+::: {#cores .warning}
+De functie `vvi_from_sf()` heeft een argument cores.
+Er is een bug in de functie wanneer cores niet gelijk aan 1 is.
+:::
 
 ## Voorbeeld voor 1 telpunt:
 
@@ -169,6 +175,7 @@ ggplot() +
   labs(title = paste("Cumulatieve VVI = ", round(cvvi_res5sp10, 2)))
 ```
 
+
 ## Test op groter aantal punten
 
 Rechtstreeks via WCS werkt niet want laat niet toe om groot gebied te downloaden.
@@ -216,66 +223,79 @@ dtm_dm <- terra::rast(here::here("data", "dem", "dhmvii_dtm_1m_demoeren.tif"))
 crs(dtm_dm) <- "epsg:31370"
 ```
 
-
 ```{r}
 dm_25mpoly <- steekproef %>%
   filter(Naam == "De Moeren") %>%
   st_buffer(dist = 25)
+```
 
-# vvi_dm <- vvi_from_sf(
-#     observer = dm_25mpoly,
-#     spacing = 10,
-#     cores = 4,
-#     progress = TRUE,
-#     max_distance = 300,
-#     dsm_rast = dsm_dm,
-#     dtm_rast = dtm_dm,
-#     observer_height = 1.7,
-#     raster_res = 5,
-#     output_type = "cumulative")
-
-vvi_out <- dm_25mpoly %>%
-  group_by(pointid) %>%
-  tidyr::nest() %>%
-  mutate(cvvi = purrr::map_dbl(data, function(x) {
-    vvi_from_sf(
-    observer = x,
+```{r vvi-dm}
+vvi_dm <- vvi_from_sf(
+    observer = dm_25mpoly,
     spacing = 10,
-    cores = 4,
-    progress = FALSE,
+    cores = 1,
+    progress = TRUE,
     max_distance = 300,
     dsm_rast = dsm_dm,
     dtm_rast = dtm_dm,
     observer_height = 1.7,
     raster_res = 5,
-    output_type = "cumulative")
-  }))
+    output_type = "cumulative",
+    by_row = TRUE)
+```
+
+```{r}
+vvi_dm_viewshed <- vvi_from_sf(
+    observer = dm_25mpoly,
+    spacing = 10,
+    cores = 1,
+    progress = TRUE,
+    max_distance = 300,
+    dsm_rast = dsm_dm,
+    dtm_rast = dtm_dm,
+    observer_height = 1.7,
+    raster_res = 5,
+    output_type = "viewshed",
+    by_row = TRUE)
+
+# raster lijkt verschoven tov OSM, polygonen liggen juist
+# nochtans hebben beide dezelfde crs
+waldo::compare(st_crs(vvi_dm_viewshed), st_crs(dm_25mpoly)) # niets belangrijk anders
+vvi_dm_viewshed_raster <- raster::raster(vvi_dm_viewshed)
+#raster::crs(vvi_dm_viewshed_raster) <- st_crs(dm_25mpoly)$wkt
+mapview::mapview(vvi_dm_viewshed_raster, 
+                 col.region = function(n) grDevices::hcl.colors(n, palette = "terrain")) +
+  mapview::mapview(dm_25mpoly)
+
+# maar volgens deze figuur is wel alles ok
+dm_25mpoly %>%
+  ggplot() +
+  tidyterra::geom_spatraster(data = vvi_dm_viewshed) +
+  geom_sf() +
+  tidyterra::scale_fill_terrain_c()
 
 ```
 
 
 ```{r}
-vvi_out %>%
-  tidyr::unnest(data) %>%
-  sf::st_set_geometry("geometry") %>%
+dm_25mpoly %>%
+  bind_cols(vvi_dm) %>%
   ggplot() +
   geom_sf(data = perimeters %>% filter(Naam == "De Moeren")) +
   geom_sf(aes(fill = cvvi, colour = cvvi))
 ```
 
 ```{r}
-vvi_out %>%
-  tidyr::unnest(data) %>%
+vvi_dm %>%
   ggplot() + 
   geom_histogram(aes(x = cvvi))
 ```
-
 
 ```{r}
 steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
 ```
 
-Berekening op volledige steekproefkader (Moeren en Leemstreek) zou `r round(nrow(steekproefkader) * 25 * 30 * 1e-3 /3600, 1)` uur duren bij resolutie van 5 m en spacing van 10 m.
+Berekening op volledige steekproefkader (Moeren en Leemstreek) zou minimaal `r round(nrow(steekproefkader) * 25 * 5 * 1e-3 /3600, 1)` uur duren bij resolutie van 5 m en spacing van 10 m.
 
 ## Wanneer is zichtbaarheid te laag?
 
@@ -283,15 +303,11 @@ Vanaf wanneer besluiten we dat de zichtbaarheid te laag is?
 De Moeren is een zeer plat open landschap waar de zichtbaarheid normaal hoog is.
 Verdeling van de zichtbaarheidsindices in de Moeren:
 
-
 ```{r}
-vvi_out %>%
-  tidyr::unnest(data) %>%
-  sf::st_set_geometry("geometry") %>%
+dm_25mpoly %>%
+  bind_cols(vvi_dm) %>%
   ungroup() %>%
   mutate(pointid = reorder(pointid, cvvi, mean)) %>%
   ggplot() +
   geom_point(aes(x = cvvi, y = pointid))
 ```
-
-
