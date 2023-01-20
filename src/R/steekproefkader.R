@@ -200,11 +200,25 @@ extract_osm_paden <- function(gebied, exclusie, osmdata,
   inclusion_waterway <- paste0("('", paste(waterway,
                                         collapse = "', '"), "'))")
 
-  if (is.null(waterway)) {
+  if (is.null(waterway) & is.null(historic_exclude) &
+      is.null(cutting_exclude)) {
+
+    inclusion_str <- paste("highway IN", inclusion_paths, sep = " ")
+
+  } else if (is.null(waterway) & !is.null(historic_exclude) &
+      !is.null(cutting_exclude)) {
+
     inclusion_str <- paste("(highway IN", inclusion_paths,
                            "AND NOT ((cutting IN ", exclusion_cutting,
                            "OR (historic IN", exclusion_historic,
                            sep = " ")
+
+  } else if (!is.null(waterway) & is.null(historic_exclude) &
+             is.null(cutting_exclude)) {
+
+    inclusion_str <- paste("(highway IN", inclusion_paths,
+                           "OR (waterway IN", inclusion_waterway, sep = " ")
+
   } else {
     inclusion_str <- paste("(highway IN", inclusion_paths,
                            "AND NOT ((cutting IN ", exclusion_cutting,
