@@ -303,13 +303,13 @@ list(
              command = exclusie_landgebruik_osm(
                gebied = perimeters_data,
                osmdata = osm_belgium,
-               landuse = c("residential", "commercial"),
+               landuse = c("residential", "commercial", "railway"),
                leisure = NULL,
                buffer_poly = 50, 
-               layer_poly = list(landuse = c("railway"), 
-                                 aeroway = c("aerodrome")),
+               layer_poly = list(aeroway = c("aerodrome")),
                buffer_line = 50, 
-               layer_line = list(highway = c("motorway", "motorway_link"))
+               layer_line = list(highway = c("motorway", "motorway_link"),
+                                 railway = c("rail"))
                ),
              pattern = map(perimeters_data)
   ),
