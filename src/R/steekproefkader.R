@@ -40,18 +40,79 @@ read_legend_lum <- function(file) {
     ))
 }
 
+exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
+  # which keys are present to exclude
+  keys <- names(layer)
+  selection <- paste(keys, collapse = ", ")
+
+  # create list with exclusion strings per key
+  exclusion_list <- lapply(seq_along(layer), function(i) {
+      paste0(keys[[i]], " IN ('", paste(layer[[i]], collapse = "', '"), "')")
+    })
+
+  # collapse exclusion strings in list to a single where clause
+  exclusion_str <- paste(unlist(exclusion_list), collapse = " OR ")
+
+  buffer_exclusie_vectortranslate = c(
+    "-t_srs", "EPSG:31370",
+    "-select", selection,
+    "-where", exclusion_str,
+    "-nlt", "PROMOTE_TO_MULTI"
+  )
+
+  if (geom_type == "lines") {
+    exclusie_landgebruik <- osmextract::oe_get(
+      place = gebied %>% st_buffer(buffer),
+      layer = geom_type,
+      extra_tags = keys,
+      vectortranslate_options = buffer_exclusie_vectortranslate,
+      boundary = gebied %>% st_buffer(buffer),
+      boundary_type = "clipsrc",
+      download_directory = dirname(osmdata)) %>%
+      st_buffer(buffer)
+  }
+
+  if (geom_type == "multipolygons") {
+    exclusie_landgebruik <- osmextract::oe_get(
+      place = gebied %>% st_buffer(buffer),
+      layer = geom_type,
+      vectortranslate_options = buffer_exclusie_vectortranslate,
+      boundary = gebied %>% st_buffer(buffer),
+      boundary_type = "clipsrc",
+      download_directory = dirname(osmdata)) %>%
+      st_buffer(buffer)
+  }
+
+  out <- exclusie_landgebruik %>%
+    st_cast("MULTIPOLYGON") %>%
+    st_cast("GEOMETRYCOLLECTION") %>%
+    mutate(id = seq_len(nrow(.))) %>%
+    st_collection_extract("POLYGON") %>%
+    aggregate(list(.$id), first, do_union = FALSE) %>%
+    select(-id, -Group.1) %>%
+    as_tibble %>%
+    st_as_sf() %>%
+    st_union() %>%
+    st_simplify(dTolerance = 10) %>%
+    st_remove_holes() %>%
+    st_as_sf() %>%
+    mutate(Naam = gebied$Naam)
+
+  return(out)
+}
+
 # Set landuse or leisure to NULL if you don't want to exclude from these
 exclusie_landgebruik_osm <- function(gebied, osmdata,
    landuse = c('residential', 'military', 'industrial', 'cemetery'),
-   leisure = c('park')) {
+   leisure = c('park'),
+   buffer_poly = NULL, layer_poly = NULL,
+   buffer_line = NULL, layer_line = NULL) {
 
   # Create string to exclude landuse and leisure variables
   exclusion_landuse <- paste0("('", paste(landuse, collapse = "', '"), "')")
   exclusion_leisure <- paste0("('", paste(leisure, collapse = "', '"), "')")
 
-  if (is.null(landuse)) {
-    exclusion_str <- paste("leisure IN", exclusion_leisure, sep = " ")
-  } else if (is.null(leisure)) {
+  if (is.null(leisure)) {
     exclusion_str <- paste("landuse IN", exclusion_landuse, sep = " ")
   } else {
     exclusion_str <- paste("landuse IN", exclusion_landuse,
@@ -88,7 +149,37 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
     st_as_sf() %>%
     mutate(Naam = gebied$Naam)
 
-  return(exclusie_landgebruik)
+  if (!is.null(layer_poly) & is.null(layer_line)) {
+    exclude_buffer <- exclusie_buffer_osm(gebied, osmdata, buffer = buffer_poly,
+      layer = layer_poly, geom_type = "multipolygons")
+
+    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+  } else if (is.null(layer_poly) & !is.null(layer_line)) {
+    exclude_buffer <- exclusie_buffer_osm(gebied, osmdata, buffer = buffer_line,
+      layer = layer_line, geom_type = "lines")
+
+    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+  } else if (!is.null(layer_poly) & !is.null(layer_line)) {
+    exclude_buffer_poly <- exclusie_buffer_osm(gebied, osmdata,
+      buffer = buffer_poly, layer = layer_poly, geom_type = "multipolygons")
+    exclude_buffer_line <- exclusie_buffer_osm(gebied, osmdata,
+      buffer = buffer_line, layer = layer_line, geom_type = "lines")
+    exclude_buffer <- st_union(exclude_buffer_poly, exclude_buffer_line) %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+
+    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+  } else {
+    out <- exclusie_landgebruik
+  }
+
+  return(out)
 }
 
 # Set waterway to NULL if you don't want to include any waterway
@@ -109,11 +200,25 @@ extract_osm_paden <- function(gebied, exclusie, osmdata,
   inclusion_waterway <- paste0("('", paste(waterway,
                                         collapse = "', '"), "'))")
 
-  if (is.null(waterway)) {
+  if (is.null(waterway) & is.null(historic_exclude) &
+      is.null(cutting_exclude)) {
+
+    inclusion_str <- paste("highway IN", inclusion_paths, sep = " ")
+
+  } else if (is.null(waterway) & !is.null(historic_exclude) &
+      !is.null(cutting_exclude)) {
+
     inclusion_str <- paste("(highway IN", inclusion_paths,
                            "AND NOT ((cutting IN ", exclusion_cutting,
                            "OR (historic IN", exclusion_historic,
                            sep = " ")
+
+  } else if (!is.null(waterway) & is.null(historic_exclude) &
+             is.null(cutting_exclude)) {
+
+    inclusion_str <- paste("(highway IN", inclusion_paths,
+                           "OR (waterway IN", inclusion_waterway, sep = " ")
+
   } else {
     inclusion_str <- paste("(highway IN", inclusion_paths,
                            "AND NOT ((cutting IN ", exclusion_cutting,

@@ -1,5 +1,5 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|9cf6cf8baa29c714|||||||||||||||
+.Random.seed|object|90f91e1334ddc643|||||||||||||||
 add_bo2021_to_frame|function|4b24b5d96bbe4fd2|||||||||||||||
 add_openheid_landschap_to_frame|function|cc9b81f24783910c|||||||||||||||
 add_stratum_sbp|function|ab305f23cf121949|||||||||||||||
@@ -8,7 +8,8 @@ bereken_zichtbaarheid|function|54f797b41085e494|||||||||||||||
 bo_file|stem|940952d996ba61d0|d47013c9ea23f622|13587a69903662e4|-1038609820|C:/R/git_repositories/mbag/data/bo_vlm/BO_2021_VLM_EXTERN.shp|t18648.5084490741s|d4e1013b524d1846|10432808|file|local|vector|||0||
 calc_lbg|function|3a3735977b0cf984|||||||||||||||
 draw_sample|function|297e4f7115ca88a0|||||||||||||||
-exclusie_landgebruik_osm|function|04127c6defdc8538|||||||||||||||
+exclusie_buffer_osm|function|6dcbfddf2929b6d3|||||||||||||||
+exclusie_landgebruik_osm|function|6c3a4757bc35220c|||||||||||||||
 extract_osm_paden|function|6dd560f5a0390b33|||||||||||||||
 get_coverage_wcs|function|23171b77b88b9707|||||||||||||||
 get_feature_wfs|function|867bf0bf51023891|||||||||||||||
@@ -41,7 +42,7 @@ read_bo2021|function|13920fd20ecbac61|||||||||||||||
 read_legend_lum|function|5493f2158a71d708|||||||||||||||
 read_lum_rast|function|ab1941e8592097df|||||||||||||||
 read_sbp_akkervogels|function|a1d2ae71972eeaaa|||||||||||||||
-sbp_akkervogels_6dfb9303|branch||acc906648dcad49b|9770fe87d60fac87|-1514457687||t19375.6302379767s||0|qs|local|vector|sbp_akkervogels||0.02||error in evaluating the argument x in selecting a method for function nrow object out not found
+sbp_akkervogels_6dfb9303|branch||acc906648dcad49b|9770fe87d60fac87|-1514457687||t19375.6302379767s||0|qs|local|vector|sbp_akkervogels||0.01||error in evaluating the argument x in selecting a method for function nrow object out not found
 sbp_akkervogels_file|stem|e4d1a382c5fe78ff|b7b4e2f0ab5e650d|c7262cdd88bf10da|-1351920255|C:/R/git_repositories/mbag/data/bo_vlm/akkervogelgebieden.shp|t18185.5896296296s|9c077e0f051b9344|531772|file|local|vector|||0||
 selectie_landgebruik_vito|function|48a4042b1ae57018|||||||||||||||
 st_bbox.SpatRaster|function|af80857fe302b9bd|||||||||||||||
