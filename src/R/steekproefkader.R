@@ -64,6 +64,7 @@ exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
     exclusie_landgebruik <- osmextract::oe_get(
       place = gebied %>% st_buffer(buffer),
       layer = geom_type,
+      extra_tags = keys,
       vectortranslate_options = buffer_exclusie_vectortranslate,
       boundary = gebied %>% st_buffer(buffer),
       boundary_type = "clipsrc",
@@ -92,7 +93,6 @@ exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
     as_tibble %>%
     st_as_sf() %>%
     st_union() %>%
-    #st_buffer(dist = 20) %>%
     st_simplify(dTolerance = 10) %>%
     st_remove_holes() %>%
     st_as_sf() %>%
