@@ -34,6 +34,7 @@ bereken_vvi <- function(point,
                        obs_height = 1.7,
                        resolution = 1,
                        spacing = 5,
+                       dsm_offset = 0,
                        output_type) {
 
   bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
@@ -55,7 +56,7 @@ bereken_vvi <- function(point,
     cores = 1,
     progress = TRUE,
     max_distance = dist,
-    dsm_rast = dsm_r1,
+    dsm_rast = dsm_r1 + dsm_offset,
     dtm_rast = dtm_r1,
     observer_height = obs_height,
     raster_res = resolution,
@@ -71,6 +72,8 @@ Er is een bug in de functie wanneer cores niet gelijk aan 1 is.
 :::
 
 ## Voorbeeld voor 1 telpunt:
+
+### spacing 5 m, raster resolutie 1 m
 
 Berekening zichtbaarheidsindex binnen straal van 25 m rond telpunt in een raster van locaties die 5 m van elkaar liggen:
 
@@ -125,6 +128,8 @@ ggplot() +
   labs(title = paste("Cumulatieve VVI = ", round(cvvi, 2)))
 ```
 
+### Spacing 5 m, raster resolutie 5 m
+
 Effect van lagere resolutie:
 
 ```{r}
@@ -149,6 +154,8 @@ ggplot() +
   tidyterra::scale_fill_terrain_c() +
   labs(title = paste("Cumulatieve VVI = ", round(cvvi_res5, 2)))
 ```
+
+### Spacing 10 m, raster resolutie 5 m
 
 Effect van lagere resolutie en hogere spacing:
 
@@ -194,10 +201,12 @@ perimeters <- tar_read(perimeters_data, store = targets_store) %>%
   select(-section)
 
 dm <- perimeters %>% filter(Naam == "De Moeren")
+ol <- perimeters %>% filter(Naam == "Oostelijke leemstreek")
 ```
 
 De volgende chunks lezen van de server en schrijven het deel weg dat valt binnen bounding box van de Moeren (naar data/dem folder).
 Voor de Moeren zijn deze bestanden 160 Mb groot.
+Voor de Oostelijke leemstreek bijna 3 Gb.
 
 ```{r eval=!file.exists(here::here("data", "dem", "dhmvii_dsm_1m_demoeren.tif"))}
 dsm_dm <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDSMRAS1m.tif") %>%
@@ -223,9 +232,41 @@ dtm_dm <- terra::rast(here::here("data", "dem", "dhmvii_dtm_1m_demoeren.tif"))
 crs(dtm_dm) <- "epsg:31370"
 ```
 
+```{r eval=!file.exists(here::here("data", "dem", "dhmvii_dsm_1m_oostelijkeleemstreek.tif"))}
+dsm_ol <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDSMRAS1m.tif") %>%
+  terra::crop(
+    ol,
+    filename = here::here(
+      "data", "dem", "dhmvii_dsm_1m_oostelijkeleemstreek.tif"))
+```
+
+```{r eval=file.exists(here::here("data", "dem", "dhmvii_dsm_1m_oostelijkeleemstreek.tif"))}
+dsm_ol <- terra::rast(
+  here::here("data", "dem", "dhmvii_dsm_1m_oostelijkeleemstreek.tif"))
+crs(dsm_ol) <- "epsg:31370"
+```
+
+```{r eval=!file.exists(here::here("data", "dem", "dhmvii_dtm_1m_oostelijkeleemstreek.tif"))}
+dtm_ol <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDTMRAS1m.tif") %>%
+  terra::crop(
+    ol,
+    filename = here::here(
+      "data", "dem", "dhmvii_dtm_1m_oostelijkeleemstreek.tif"))
+```
+
+```{r eval=file.exists(here::here("data", "dem", "dhmvii_dtm_1m_oostelijkeleemstreek.tif"))}
+dtm_ol <- terra::rast(here::here("data", "dem", "dhmvii_dtm_1m_oostelijkeleemstreek.tif"))
+crs(dtm_ol) <- "epsg:31370"
+```
+
+
 ```{r}
 dm_25mpoly <- steekproef %>%
   filter(Naam == "De Moeren") %>%
+  st_buffer(dist = 25)
+
+ol_25mpoly <- steekproef %>%
+  filter(Naam == "Oostelijke leemstreek") %>%
   st_buffer(dist = 25)
 ```
 
@@ -243,6 +284,23 @@ vvi_dm <- vvi_from_sf(
     output_type = "cumulative",
     by_row = TRUE)
 ```
+
+```{r vvi-ol}
+vvi_ol <- vvi_from_sf(
+    observer = ol_25mpoly,
+    spacing = 10,
+    cores = 1,
+    progress = TRUE,
+    max_distance = 300,
+    dsm_rast = dsm_ol,
+    dtm_rast = dtm_ol,
+    observer_height = 1.7,
+    raster_res = 5,
+    output_type = "cumulative",
+    by_row = TRUE)
+
+```
+
 
 ```{r}
 vvi_dm_viewshed <- vvi_from_sf(
@@ -286,10 +344,28 @@ dm_25mpoly %>%
 ```
 
 ```{r}
+ol_25mpoly %>%
+  bind_cols(vvi_ol) %>%
+  ggplot() +
+  geom_sf(data = ol) +
+  geom_sf(aes(fill = cvvi, colour = cvvi))
+```
+
+
+```{r}
 vvi_dm %>%
   ggplot() + 
   geom_histogram(aes(x = cvvi))
 ```
+
+```{r}
+vvi_ol %>%
+  bind_cols(ol_25mpoly) %>%
+  ggplot() + 
+  geom_density(aes(x = cvvi, fill = openheid_klasse), alpha = 0.2)
+```
+
+
 
 ```{r}
 steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
@@ -310,4 +386,16 @@ dm_25mpoly %>%
   mutate(pointid = reorder(pointid, cvvi, mean)) %>%
   ggplot() +
   geom_point(aes(x = cvvi, y = pointid))
+```
+
+En in de Oostelijke leemstreek:
+
+```{r}
+ol_25mpoly %>%
+  bind_cols(vvi_ol) %>%
+  ungroup() %>%
+  mutate(pointid = reorder(pointid, cvvi, mean)) %>%
+  ggplot() +
+  geom_point(aes(x = cvvi, y = pointid)) +
+  facet_wrap(~openheid_klasse, scales = "free")
 ```
