@@ -101,9 +101,9 @@
       "RemoteHost": "api.github.com",
       "RemoteUsername": "hansvancalster",
       "RemoteRepo": "GVI",
-      "RemoteRef": "summed-viewsheds",
-      "RemoteSha": "2f22b385cca0da7a4d7d9aefaf19b647f0ee04b9",
-      "Hash": "43832ea1c1c5bddb3a0ff4c0a2c866a4",
+      "RemoteRef": "visibility-from-sf",
+      "RemoteSha": "e63b121da46fd7941911d5b207349e276540ede9",
+      "Hash": "52e2d8690ab93997c539a1dcffd2ff8f",
       "Requirements": [
         "Rcpp",
         "RcppProgress",
