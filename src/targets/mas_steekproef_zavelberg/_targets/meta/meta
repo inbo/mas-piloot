@@ -1,10 +1,11 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|cf2c23ee2bf74ad5|||||||||||||||
+.Random.seed|object|c2d58d1ae327ad5f|||||||||||||||
 add_bo2021_to_frame|function|4b24b5d96bbe4fd2|||||||||||||||
 add_openheid_landschap_to_frame|function|e8372aad7792bbf7|||||||||||||||
 add_stratum_sbp|function|ab305f23cf121949|||||||||||||||
 allocatie|function|41bddde22d780063|||||||||||||||
-allocatie_df|stem|dec90797b3787193|a575c077632f9875|f9b07ef57781a6de|-878230153||t19382.6030062048s|94e1d7418d47ed10|214|qs|local|vector|||0.03||
+allocatie_df|stem|178e2f40e2c9342a|5e8477e8f901c52e|f9b07ef57781a6de|-878230153||t19382.6622172733s|768af1b6380cf070|339|qs|local|vector|||0.05||
+allocatie_per_stratum|stem|3ab8b9c17c84fa1d|8ac2a374e9065b64|2d44dbaef973aa45|-786416839||t19382.6622211362s|2da402a946d20212|354|qs|local|group||allocatie_per_stratum_79b75466*allocatie_per_stratum_b68c51ac*allocatie_per_stratum_f8057e53*allocatie_per_stratum_65856bf3|0||
 bereken_zichtbaarheid|function|54f797b41085e494|||||||||||||||
 bo_file|stem|940952d996ba61d0|d47013c9ea23f622|13587a69903662e4|-1038609820|C:/R/git_repositories/mbag/data/bo_vlm/BO_2021_VLM_EXTERN.shp|t18648.5084490741s|d4e1013b524d1846|10432808|file|local|vector|||0||
 calc_lbg|function|3a3735977b0cf984|||||||||||||||
@@ -63,9 +64,11 @@ sbp_akkervogels_file|stem|e4d1a382c5fe78ff|b7b4e2f0ab5e650d|c7262cdd88bf10da|-13
 selectie_landgebruik_vito|function|48a4042b1ae57018|||||||||||||||
 st_bbox.SpatRaster|function|af80857fe302b9bd|||||||||||||||
 st_crs.SpatRaster|function|70c89432d6566dd5|||||||||||||||
+steekproef_98295cec|branch||872607aaf1de9c90|a3ab054c81fddd03|348383102||t19382.6622245589s||0|qs|local|vector|steekproef||0||sample_size_extra not less than nrowsampling_frame
 steekproef_uitdunnen|function|150bfcd4f4b84182|||||||||||||||
 steekproefkader_finaal|pattern|edd8a31f09dd136d|dba75116b3510d73||-238515416||||5475|qs|local|vector||steekproefkader_finaal_60e15347|0.03||
 steekproefkader_finaal_60e15347|branch|2b12fd8ee0f05a1f|dba75116b3510d73|cbdb0ffcae241c1f|-1597734766||t19382.6030019029s|1155757ada31e1e7|5475|qs|local|vector|steekproefkader_finaal||0.03||
+steekproefkader_per_stratum|stem|0b4f97101d2e4e74|1b4b7a6940d03d94|1d49be3d694826e7|1615914461||t19382.6622193652s|7294443dd7629197|5508|qs|local|group||steekproefkader_per_stratum_67099f8d*steekproefkader_per_stratum_c1b59bfb*steekproefkader_per_stratum_1010071a*steekproefkader_per_stratum_396b22e5|0.02||
 target_dir|object|6fa814d1e4388b90|||||||||||||||
 telcirkels_landgebruik|pattern|5322e03421711643|07b4a731c4824f5d||-1712495207||||10763|qs|local|vector||telcirkels_landgebruik_2f28bf14|2.72||
 telcirkels_landgebruik_2f28bf14|branch|aa08094d3747d7bd|07b4a731c4824f5d|bde5c31a2199e756|-1202004000||t19382.6026021597s|03137d2eb7be0075|10763|qs|local|vector|telcirkels_landgebruik||2.72||

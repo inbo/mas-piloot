@@ -365,9 +365,9 @@ list(
   tar_target(
     allocatie_df,
     allocatie(steekproefkader = steekproefkader_finaal,
-              min_samplesize = 30,
-              target_samplesize = 410,
-              popsize_minimum = 410,
+              min_samplesize = 0,
+              target_samplesize = 50,
+              popsize_minimum = 0,
               allocatie_binnen_sbp = 0.5,
               allocatie_leemstreek = 0,
               ol_strata = c("OL", "HOL"))
