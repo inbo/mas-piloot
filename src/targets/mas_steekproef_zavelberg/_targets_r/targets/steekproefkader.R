@@ -3,20 +3,26 @@ list(
              command = exclusie_landgebruik_osm(
                gebied = perimeters_data,
                osmdata = osm_belgium,
-               landuse = c("residential"),
+               landuse = c("residential", "commercial", "railway"),
                leisure = NULL,
                buffer_poly = 50, 
-               layer_poly = list(landuse = c("railway"), 
-                                 aeroway = c("aerodrome")),
+               layer_poly = list(aeroway = c("aerodrome")),
                buffer_line = 50, 
-               layer_line = list(highway = c("motorway", "motorway_link"))),
+               layer_line = list(highway = c("motorway", "motorway_link"),
+                                 railway = c("rail"))
+               ),
              pattern = map(perimeters_data)
   ),
   tar_target(name = paden,
              command = extract_osm_paden(
                gebied = perimeters_data,
                exclusie = exclusie_osm_landgebruiken,
-               osmdata = osm_belgium
+               osmdata = osm_belgium,
+               paths_include = c('track', 'footway', 'path', 'cycleway', 
+                'bridleway', 'tertiary', 'tertiary_link', 'unclassified'),
+               cutting_exclude = NULL,
+               historic_exclude = NULL,
+               waterway = NULL
                ),
              pattern = map(perimeters_data, exclusie_osm_landgebruiken)
              ),
