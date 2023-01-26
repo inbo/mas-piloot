@@ -318,7 +318,45 @@ mas_clean <- mas_31370_pipeline1 %>%
 We zijn geïnteresseerd in broedparen van de Veldleeuwerik in De Moeren en de Oostelijke leemstreek.
 Daarvoor selecteren we alleen waarnemingen met broedcode 1 of hoger.
 In het Nederlandse onderzoek van @wiersma2021 beschouwen ze tevens enkel waarnemingen van binnen soortspecifieke datumgrenzen om niet-broedende individuen uit te sluiten.
-Deze data hebben wij voorlopig niet (wel aanwezig op de [SOVON website](https://sovon.nl/)).
+
+```{r}
+datumgrenzen <- read_csv2(here("data", "SOVON", 
+                              "Interpretatie_Criteria_Broedvogels_v2.csv"))
+
+trans_vec <- c("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug")
+
+datumgrenzen <- datumgrenzen %>%
+  mutate(across(Datum_begin:`Datum eind_oud`, ~ gsub("-", "/", .x))) %>%
+  separate(Datum_begin, into = c("Datum_begin_dag", "Datum_begin_maand"), 
+           sep = "/") %>%
+  separate(Datum_eind, into = c("Datum_eind_dag", "Datum_eind_maand"), 
+           sep = "/") %>%
+  separate(`Datum begin_oud`, into = c("Datum_begin_dag_oud", 
+                                       "Datum_begin_maand_oud"), 
+           sep = "/") %>%
+  separate(`Datum eind_oud`, into = c("Datum_eind_dag_oud", 
+                                      "Datum_eind_maand_oud"), 
+           sep = "/") %>%
+  mutate(Datum_begin_maand = match(Datum_begin_maand, trans_vec),
+         datum_begin = paste(Datum_begin_dag, Datum_begin_maand, sep = "/")) %>%
+  mutate(Datum_eind_maand = match(Datum_eind_maand, trans_vec),
+         datum_eind = paste(Datum_eind_dag, Datum_eind_maand, sep = "/")) %>%
+  mutate(Datum_begin_maand_oud = match(Datum_begin_maand_oud, trans_vec),
+         datum_begin_oud = paste(Datum_begin_dag_oud, Datum_begin_maand_oud, 
+                                 sep = "/")) %>%
+  mutate(Datum_eind_maand_oud = match(Datum_eind_maand_oud, trans_vec),
+         datum_eind_oud = paste(Datum_eind_dag_oud, Datum_eind_maand_oud, 
+                                sep = "/")) %>%
+  mutate(across(datum_begin:datum_eind_oud, 
+                ~ ifelse(.x == "NA/NA", NA, .x))) %>%
+  select(id = Id, soort = Soort, datum_begin, datum_eind, datum_begin_oud, 
+         datum_eind_oud, broedcode, broedcode_oud = bc_oud, 
+         wnm_vereist = `Waarnemingen verreist`, Opmerking)
+
+
+```
+
+
 Wel selecteren we enkel waarnemingen binnen de telrondes van vogels die tot op maximum 300 m afstand van het telpunt zijn gezien.
 
 ```{r}
