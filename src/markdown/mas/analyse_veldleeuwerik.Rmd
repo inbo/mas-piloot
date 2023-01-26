@@ -1319,7 +1319,7 @@ design_2022 <- bezoekenlijst_2018_2022 %>%
   filter(jaar == 2022)
 ```
 
-De eerste dataset wordt gebruikt om de detectiecurve te fitten (zie verder).
+De eerste dataset wordt gebruikt om de detectiecurve te fitten.
 We hebben een kolom `object` nodig: volgnummer voor elke waarneming; een kolom `size`: aantal broedparen per waarneming; een kolom `distance`: afstand tot elke waarneming; kolommen met covariaten: `regio`, `sbp` en `openheid`.
 
 ```{r}
@@ -1344,40 +1344,44 @@ We trekken een buffer van 300 m rond het steekproefkader: half-open landschap (H
 # Lees steekproefkader in
 steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
 
-# Selectie en buffer
 perimeters_strata <- steekproefkader %>%
   filter(openheid_klasse %in% c("HOL", "OL"),
          !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  group_by(Naam, openheid_klasse, is_sbp) %>%
   st_buffer(dist = 300) %>%
-  group_by(Naam) %>%
-  summarise(geometry = st_union(geometry)) %>%
-  ungroup()
+  summarize()
+
+perimeters_strata <- perimeters_strata %>%
+  mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), sep = " - "))
+
+mapview::mapview(perimeters_strata, zcol = "stratum")
 
 # Visualisatie
 p_moeren <- perimeters_strata %>%
   filter(Naam == "De Moeren") %>%
-  ggplot() +
-    geom_sf() +
+  ggplot(aes(fill = stratum)) +
+    geom_sf(alpha = 0.8) +
     facet_grid(~Naam)
 
 p_leemstreek <- perimeters_strata %>%
   filter(Naam == "Oostelijke leemstreek") %>%
-  ggplot() +
-    geom_sf() +
-    facet_grid(~Naam)
+  ggplot(aes(fill = stratum)) +
+    geom_sf(alpha = 0.8) +
+    facet_grid(~Naam) +
+  theme(legend.position = "bottom")
 
-# Bereken oppervlaktes van de regio's
+# Bereken oppervlaktes van de strata
 areas <- perimeters_strata %>% 
   mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
-  select(regio = Naam, Area) %>%
+  select(regio = Naam, stratum, Area) %>%
   st_drop_geometry()
 table_area <- areas %>%
   rename(`oppervlakte (km²)` = Area) %>%
   tableGrob(rows = NULL)
 
 # Plot
-grid.arrange(p_moeren, p_leemstreek, table_area, 
-             layout_matrix = rbind(c(1, 2), c(1, 3)))
+grid.arrange(p_moeren, table_area, p_leemstreek, 
+             layout_matrix = rbind(c(1, 2), c(3, 3)))
 ```
 
 We willen een densiteitsschatting voor elk stratum.
@@ -1388,7 +1392,8 @@ We maken daarom dataframes om de abundanties en densiteiten te berekenen.
 # Oppervlakte per stratum
 region_table <- design_2022 %>%
   distinct(regio, openheid, sbp) %>%
-  full_join(areas, by = "regio") %>%
+  mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
+  full_join(areas, by = c("regio", "stratum")) %>%
   mutate(Region.Label = paste(regio, openheid, sbp, sep = " - ")) %>%
   select(Region.Label, Area)
 
@@ -1399,14 +1404,15 @@ effort <- veldleeuwerik_2022 %>%
   length()
 
 sample_table <- design_2022 %>%
-  distinct(plotnaam, regio, jaar) %>%
-  mutate(Region.Label = paste(regio, jaar, sep = " - "),
+  distinct(plotnaam, regio, openheid, sbp) %>%
+  mutate(Region.Label = paste(regio, openheid, sbp, sep = " - "),
          Effort = effort) %>%
   select(Sample.Label = plotnaam, Region.Label, Effort)
 
-# Waarnemingen per welke plots en strata
+# Waarnemingen per plots en strata
 obs_table <- veldleeuwerik_2022 %>%
   st_drop_geometry() %>%
+  mutate(Region.Label = paste(regio, openheid, sbp, sep = " - ")) %>%
   select(object = oid, Region.Label, Sample.Label = plotnaam)
 ```
 
@@ -1442,7 +1448,8 @@ forms2 <- sapply(combos, function(x) {
   }
   })
 forms2[sapply(forms2, is.null)] <- NULL
-forms2 <- forms2[-3] # remove interaction regio openheid
+# remove interaction regio openheid
+forms2 <- forms2[-match("~regio * openheid", forms2)]
 
 # Voeg combinaties samen
 forms <- c(forms1, forms2)
