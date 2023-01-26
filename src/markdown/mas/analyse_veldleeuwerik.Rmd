@@ -320,12 +320,12 @@ Daarvoor selecteren we alleen waarnemingen met broedcode 1 of hoger.
 In het Nederlandse onderzoek van @wiersma2021 beschouwen ze tevens enkel waarnemingen van binnen soortspecifieke datumgrenzen om niet-broedende individuen uit te sluiten.
 
 ```{r}
-datumgrenzen <- read_csv2(here("data", "SOVON", 
+datumgrenzen_df <- read_csv2(here("data", "SOVON", 
                               "Interpretatie_Criteria_Broedvogels_v2.csv"))
 
 trans_vec <- c("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug")
 
-datumgrenzen <- datumgrenzen %>%
+datumgrenzen_df2 <- datumgrenzen_df %>%
   mutate(across(Datum_begin:`Datum eind_oud`, ~ gsub("-", "/", .x))) %>%
   separate(Datum_begin, into = c("Datum_begin_dag", "Datum_begin_maand"), 
            sep = "/") %>%
@@ -338,24 +338,49 @@ datumgrenzen <- datumgrenzen %>%
                                       "Datum_eind_maand_oud"), 
            sep = "/") %>%
   mutate(Datum_begin_maand = match(Datum_begin_maand, trans_vec),
-         datum_begin = paste(Datum_begin_dag, Datum_begin_maand, sep = "/")) %>%
+         datum_begin = paste(Datum_begin_maand, Datum_begin_dag, sep = "-")) %>%
   mutate(Datum_eind_maand = match(Datum_eind_maand, trans_vec),
-         datum_eind = paste(Datum_eind_dag, Datum_eind_maand, sep = "/")) %>%
+         datum_eind = paste(Datum_eind_maand, Datum_eind_dag, sep = "-")) %>%
   mutate(Datum_begin_maand_oud = match(Datum_begin_maand_oud, trans_vec),
-         datum_begin_oud = paste(Datum_begin_dag_oud, Datum_begin_maand_oud, 
-                                 sep = "/")) %>%
+         datum_begin_oud = paste(Datum_begin_maand_oud, Datum_begin_dag_oud, 
+                                 sep = "-")) %>%
   mutate(Datum_eind_maand_oud = match(Datum_eind_maand_oud, trans_vec),
-         datum_eind_oud = paste(Datum_eind_dag_oud, Datum_eind_maand_oud, 
-                                sep = "/")) %>%
+         datum_eind_oud = paste(Datum_eind_maand_oud, Datum_eind_dag_oud,
+                                sep = "-")) %>%
   mutate(across(datum_begin:datum_eind_oud, 
-                ~ ifelse(.x == "NA/NA", NA, .x))) %>%
+                ~ ifelse(.x == "NA-NA", NA, .x))) %>%
   select(id = Id, soort = Soort, datum_begin, datum_eind, datum_begin_oud, 
          datum_eind_oud, broedcode, broedcode_oud = bc_oud, 
          wnm_vereist = `Waarnemingen verreist`, Opmerking)
 
+datumgrenzen_mas <- datumgrenzen_df2 %>%
+  select(id, soort, datum_begin, datum_eind) %>%
+  mutate(
+    jaar = 2022,
+    datum_begin2 = ymd(paste(jaar, datum_begin, sep = "-")),
+    datum_eind2 = ymd(paste(jaar, datum_eind, sep = "-")),
+    R1 = ifelse(ymd(paste(jaar, r1_start, sep = "-")) %within% 
+                  interval(datum_begin2, datum_eind2) &
+                ymd(paste(jaar, r1_stop, sep = "-")) %within% 
+                  interval(datum_begin2, datum_eind2), TRUE, FALSE),
+    R2 = ifelse(ymd(paste(jaar, r2_start, sep = "-")) %within% 
+                  interval(datum_begin2, datum_eind2) &
+                ymd(paste(jaar, r2_stop, sep = "-")) %within% 
+                  interval(datum_begin2, datum_eind2), TRUE, FALSE),
+    R3 = ifelse(ymd(paste(jaar, r3_start, sep = "-")) %within% 
+                  interval(datum_begin2, datum_eind2) &
+                ymd(paste(jaar, r3_stop, sep = "-")) %within% 
+                  interval(datum_begin2, datum_eind2), TRUE, FALSE),
+    R4 = ifelse(ymd(paste(jaar, r4_start, sep = "-")) %within% 
+                  interval(datum_begin2, datum_eind2) &
+                ymd(paste(jaar, r4_stop, sep = "-")) %within% 
+                  interval(datum_begin2, datum_eind2), TRUE, FALSE)
+    
+    ) %>%
+  select(id, soort, datum_begin, datum_eind, R1, R2, R3, R4)
+        
 
 ```
-
 
 Wel selecteren we enkel waarnemingen binnen de telrondes van vogels die tot op maximum 300 m afstand van het telpunt zijn gezien.
 
@@ -375,7 +400,6 @@ veldleeuwerik_presences <- mas_clean %>%
 
 In telperiodes 1-3 is het aantal waarnemingen van Veldleeuwerik ongeveer even groot.
 In telperiode 4 ligt dit iets lager.
-We zien inderdaad op de website van SOVON dat de datumgrenzen 1 april tot 15 juni gelden [@veldleeuwerikSovon]. We nemen telperiode 4 dus niet mee in de analyses.
 
 ```{r}
 veldleeuwerik_presences %>%
@@ -385,6 +409,14 @@ veldleeuwerik_presences %>%
        fill = "jaar") +
   facet_wrap(~regio, scales = "free_y") +
   theme(legend.position = "bottom")
+```
+
+We zien inderdaad op de website van SOVON dat de datumgrenzen 1 april tot 15 juni gelden [@veldleeuwerikSovon]. We nemen telperiode 4 dus niet mee in de analyses.
+
+```{r}
+datumgrenzen_mas %>%
+  filter(soort == "Veldleeuwerik") %>%
+  kable()
 ```
 
 ```{r}
