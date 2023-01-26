@@ -1348,12 +1348,9 @@ perimeters_strata <- steekproefkader %>%
          !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
   group_by(Naam, openheid_klasse, is_sbp) %>%
   st_buffer(dist = 300) %>%
-  summarize()
-
-perimeters_strata <- perimeters_strata %>%
-  mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), sep = " - "))
-
-mapview::mapview(perimeters_strata, zcol = "stratum")
+  summarize() %>%
+  mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
+                         sep = " - "))
 
 # Visualisatie
 p_moeren <- perimeters_strata %>%
