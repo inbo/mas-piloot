@@ -1608,12 +1608,19 @@ De fit ziet er beter uit dan voordien.
 plot(veldleeuwerik_dist_2022_hr6_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
+Maar is nog niet ideaal:
+
+```{r}
+gof_ds(veldleeuwerik_dist_2022_hr6_binned)
+```
+
 We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van sbp, jaar en openheid met sbp en jaar in interactie als finale model.
 
 ```{r}
 veldleeuwerik_dist_2022_model <- veldleeuwerik_dist_2022_hr6_binned
 veldleeuwerik_covars <- c("sbp", "openheid")
 ```
+
 
 ## Resultaten {#resultaten-distance2022}
 
