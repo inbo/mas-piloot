@@ -411,17 +411,12 @@ veldleeuwerik_presences %>%
   theme(legend.position = "bottom")
 ```
 
-We zien inderdaad op de website van SOVON dat de datumgrenzen 1 april tot 15 juni gelden [@veldleeuwerikSovon]. We nemen telperiode 4 dus niet mee in de analyses.
+Alle telperiodes bevinden zich wel binnen de datumgrenzen (maar binnen in de oude: 1 april tot 15 juni [@veldleeuwerikSovon]). We nemen alle telperiode dus mee in de analyses.
 
 ```{r}
 datumgrenzen_mas %>%
   filter(soort == "Veldleeuwerik") %>%
   kable()
-```
-
-```{r}
-veldleeuwerik_presences <- veldleeuwerik_presences %>%
-  filter(periode_in_jaar != "R4")
 ```
 
 Slechts één plot bevind zich in half-gesloten landschap en in De Moeren maar 2 in half-open landschap.
