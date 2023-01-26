@@ -417,6 +417,13 @@ Alle telperiodes bevinden zich wel binnen de datumgrenzen (maar binnen in de oud
 datumgrenzen_mas %>%
   filter(soort == "Veldleeuwerik") %>%
   kable()
+
+telperiodes_df <- datumgrenzen_mas %>%
+  filter(soort == "Veldleeuwerik") %>%
+  select(R1:R4) %>%
+  as.vector()
+
+telperiodes <- names(telperiodes_df[which(telperiodes_df == TRUE)])
 ```
 
 Slechts één plot bevind zich in half-gesloten landschap en in De Moeren maar 2 in half-open landschap.
@@ -427,7 +434,7 @@ We verwijderen deze plots voor verdere analyses.
 bezoekenlijst_2018_2022 <- design_2018_2022 %>% 
   expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # voeg telperiodes toe
   filter(!is.na(periode_in_jaar),
-         periode_in_jaar != "R4") %>%
+         periode_in_jaar %in% telperiodes) %>% # selectie telperiodes Veldleeuwerik
   arrange(plotnaam, jaar, periode_in_jaar)
 
 design <- bezoekenlijst_2018_2022 %>%
@@ -492,7 +499,7 @@ veldleeuwerik_df <- veldleeuwerik_presences %>%
 
 ## Tellingen {#exploratie-tellingen}
 
-We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2022 waarbij er in elk jaar `r length(unique(veldleeuwerik_presences$periode_in_jaar))` telperiodes waren.
+We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2022 waarbij er in elk jaar `r length(telperiodes)` telperiodes waren.
 Het aantal bezochte plots neemt over het algemeen toe over de jaren, behalve in De Moeren tussen 2019 en 2020.
 Het aantal waarnemingen niet altijd toe met het aantal bezochte plots.
 Het aantal waargenomen broedparen is steeds gelijkaardig aan het aantal waarnemingen wat wil zeggen dat de meeste waarnemingen meestal om een enkel broedpaar (of een individu dat broedgedrag vertoont) gaat.
