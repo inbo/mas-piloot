@@ -1608,9 +1608,8 @@ summarize_ds_models2(out_models) %>%
 
 De volgende hazard-rate modellen konden niet gefit worden (Hessian = `NA`):
 
--   \~sbp\*openheid
 -   \~regio + sbp
--   \~regio\*sbp
+-   \~openheid
 -   \~regio + sbp + openheid
 -   \~regio + openheid
 
