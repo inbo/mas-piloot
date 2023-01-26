@@ -1661,7 +1661,7 @@ summary_results_veldleeuwerik_dist <- bind_rows(
   separate(Label, into = c("regio", "openheid", "sbp"), sep = " - ")
 ```
 
-Per stratum (combinatie regio en jaar) krijgen we dan de abundanties:
+Per stratum krijgen we dan de abundanties:
 
 ```{r}
 summary_results_veldleeuwerik_dist %>%
