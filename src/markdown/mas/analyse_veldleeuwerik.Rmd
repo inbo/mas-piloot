@@ -1306,8 +1306,7 @@ veldleeuwerik_df %>%
 
 
 # Densiteitsschattingen 2022 {#dens-2022}
-
-## Data selectie en preparatie {#preparatie-distance}
+## Data selectie en preparatie {#preparatie-distance2022}
 
 We beschouwen alle plots van 2022.
 
@@ -1423,7 +1422,7 @@ Ten slotte zet de conversiefactor de afstanden om van meter naar vierkante kilom
 conversion_factor <- convert_units("meter", NULL, "Square kilometer")
 ```
 
-## Model specificatie {#specificatie-distance}
+## Model specificatie {#specificatie-distance2022}
 
 Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, sbp en openheid.
 
@@ -1526,7 +1525,7 @@ names(out_models) <- model_names
 ```
 
 
-## Model selectie {#selectie-distance}
+## Model selectie {#selectie-distance2022}
 
 We vergelijken de AIC van de verschillende modellen.
 Als het verschil tussen AIC's kleiner is dan 2, kiezen we het eenvoudigste van deze modellen (model met minste parameters).
@@ -1571,7 +1570,7 @@ summarize_ds_models2(
 
 We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van sbp en openheid.
 
-## Model fit {#fit-distance}
+## Model fit {#fit-distance2022}
 
 Om te controleren of ons model goed past bij de data ("goodness of fit") maken we een Q-Q plot waarbij de cumulatieve distributiefunctie van de gefitte detectiefunctie (CDF) wordt vergeleken met de distributie van de data (EDF).
 De Cramér-von Mises test kwantificeert de informatie van de Q-Q-plot door te testen of punten van de EDF en CDF uit dezelfde verdeling komen [@buckland2015; @miller2019].
@@ -1619,7 +1618,7 @@ veldleeuwerik_dist_2022_model <- veldleeuwerik_dist_2022_hr6_binned
 veldleeuwerik_covars <- c("sbp", "openheid")
 ```
 
-## Resultaten {#resultaten-distance}
+## Resultaten {#resultaten-distance2022}
 
 De detectiekansen en standard errors zijn verschillend per sbp en openheid van het landschap:
 
@@ -1694,81 +1693,11 @@ summary_results_veldleeuwerik_dist %>%
     theme(legend.position = "")
 ```
 
-## Discussie {#discussie-distance}
+## Discussie {#discussie-distance2022}
 
-@roodbergen2011 hadden voor de Veldleeuwerik gelijkaardige problemen om een passende detectiecurve te fitten.
-Zij stellen dat dit kan worden veroorzaakt doordat vogels zich verplaatsen als reactie op de waarnemer of het afronden van afstanden door waarnemers.
-Dit laatste is bij ons zeker niet het geval doordat waarnemers een punt aanduiden op de kaart via een app en niet manueel een afstand invoeren.
-Het probleem ligt dus waarschijnlijk in het gedrag van de soort.
-Veldleeuwerikken vliegen gemakkelijk op bij verstoring waardoor we minder waarnemingen zien op kleinere afstanden en dan weer een groter aantal zien rond ca.
-75-100 m.
-Bovendien is de soort nog gemakkelijk te horen op grotere afstand zonder exact de locatie te weten.
-Hierdoor zien we opnieuw een stijging rond 250 m.
-@roodbergen2011 fitten daarom voor deze soort een detectiecurve m.b.v. afstandsintervallen.
-Wij groepeerden daarom de afstanden per 50 m.
-Hoewel de fit er visueel beter uitzag, waren de densiteitsschattingen en hun onzekerheid quasi identiek aan de eerdere resultaten zonder groepering (resultaten niet getoond).
-
-We kunnen deze resultaten vergelijken met andere technieken.
-Het gemiddelde en het maximum aantal en broedparen over de telperiodes.
-Opgeteld per jaar en per regio.
-Omgerekend naar densiteit door te delen door de bezochte oppervlakte.
-Voor het gemiddelde is ook met absensies rekening gehouden (maakt voor maximum niet uit).
-De gemiddeldes liggen lager, terwijl de maxima goed overeenkomen met de resultaten van distance sampling.
-@wiersma2021 gebruiken de maxima om de densiteiten te schatten.
-Ze stellen dat dit minimumschattingen zijn omdat ze niet voor onvolledige trefkans hebben gecorrigeerd.
-Wij doen dat wel via distance sampling, maar in het geval van de Veldleeuwerik zien we hier geen groot verschil tussen het gebruik van maxima of distance sampling.
-
-In de volgende figuur zijn de gemiddeldes en maxima aangegeven door bar-plots en waarbij de resultaten van distance sampling erover zijn geplot.
-
-```{r}
-# Bereken aantal plots per regio per jaar
-plots_per_regiojaar <- plots_per_jaar %>%
-  mutate(Region.Label = paste(regio, jaar, sep = " - "))
-
-# Oppervlakte telcirkels
-cirkelopp <- pi * 300^2
-
-distance_plot_df <- summary_results_veldleeuwerik_dist %>%
-  filter(variable == "density") %>%
-  mutate(jaar = as.integer(jaar))
-
-veldleeuwerik_df %>%
-  # Bepaal voor elke plot het gemiddeld aantal individuen en maximum over
-  # de telperiodes per jaar
-  group_by(plotnaam, jaar, periode_in_jaar) %>%
-  mutate(totaal = sum(aantal)) %>%
-  group_by(plotnaam, jaar) %>%
-  mutate(gemiddelde = mean(totaal),
-            maximum = max(totaal)) %>%
-  ungroup() %>%
-  select(-c(periode_in_jaar, aantal, totaal)) %>%
-  distinct() %>%
+Net zoals voordien hadden we problemen om een passende detectiecurve te fitten (zie discussie \@ref(discussie-distance)).  
   
-  # Bereken dan het totaal aantal individuen over alle plots (som)
-  group_by(Region.Label) %>%
-  summarise(tot_gemiddelde = sum(gemiddelde),
-            tot_max = sum(maximum)) %>% 
-  
-  # Deel door aantal plots om aantal broedkoppels per plot te krijgen
-  full_join(plots_per_regiojaar, by = "Region.Label") %>%
-  mutate(tot_gemiddelde_plots = (tot_gemiddelde / aantal_plots) / cirkelopp * 1e6,
-         tot_max_plots = (tot_max / aantal_plots) / cirkelopp * 1e6) %>%
-  pivot_longer(cols = c("tot_gemiddelde_plots", "tot_max_plots"), 
-               names_to = "categorie", values_to = "Estimate") %>%
-  
-  # Visualiseer
-  ggplot(aes(x = jaar, y = Estimate)) + 
-    geom_bar(aes(fill = regio), stat = "identity") + 
-    geom_point(data = distance_plot_df, aes(x = jaar, y = Estimate), size = 4) + 
-    geom_errorbar(data = distance_plot_df, aes(ymin = lcl, ymax = ucl), 
-                  width = 0.25) +
-    labs(x = "", y = "Aantal broedparen Veldleeuwerik per 100 ha") +
-    theme(legend.position = "") +
-    facet_wrap(regio~categorie, labeller = labeller(
-      categorie = c(
-        "tot_gemiddelde_plots" = "Gemiddeld aantal broedparen per plot",
-        "tot_max_plots" = "Maximum aantal broedparen per plot")
-      ), scales = "free_y")
-```
+We zien een duidelijk verschil in densiteiten tussen de strata. Het is steeds hoger binnen dan buiten soortbeschermingszones en in OL dan in HOL.
+
 
 ## Referenties
