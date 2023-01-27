@@ -1790,4 +1790,49 @@ Hoe kunnen we deze workflow zo correct, efficiënt en snel toepassen op alle soo
 Vanaf model selectie en fit zal geen of beperkte automatisatie meer kunnen toegepast worden. We selecteren voor elke soort het finale model en slaan deze op. Deze finale modellen kunnen dan in het rapport gebruikt worden voor het genereren van plots en tabellen.
 
 
+## Opruimen en voorbereiden basis dataframes met algemene data
+
+We hebben 3 belangrijke dataframes. 
+
+1.  `mas_clean` met alle observaties
+2.  `design_2018_2022_mas` met alle bezochte plots
+    - selecteer OL in De Moeren en OL en HOL in Oostelijke leemstreek
+3.  `datum_grenzen_mas` met de datumgrenzen voor elke soort
+
+```{r}
+mas_clean <- mas_clean
+design_2018_2022_mas <- design_2018_2022_sf %>%
+  st_drop_geometry() %>%
+  filter((regio == "Oostelijke leemstreek" & openheid %in% c("OL", "HOL")) |
+         (regio == "De Moeren" & openheid == "OL"))
+datumgrenzen_mas <- datumgrenzen_mas 
+```
+
+
+## Filter algemene dataframes
+
+We maken een dataframe `bezoekenlijst_2018_2022_mas` waarbij we alle telperiodes toevoegen aan de bezochte plots.
+
+```{r}
+bezoekenlijst_2018_2022_mas <- design_2018_2022_mas %>% 
+  expand_grid(distinct(mas_clean, periode_in_jaar)) %>%
+  filter(!is.na(periode_in_jaar)) %>%
+  arrange(plotnaam, jaar, periode_in_jaar)
+```
+
+We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode > 0, geen afstanden > 300 m en dat ze binnen telperiodes vallen. We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
+
+```{r}
+mas_observations <- mas_clean %>%
+  filter(wrntype > 0L, distance2plot <= 300, !is.na(periode_in_jaar),
+         soortgrp == 2) %>%  
+  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "),
+         naam = ifelse(naam == "Gele kwikstaart (spec)", "Gele Kwikstaart",
+                       naam),
+         naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
+                       naam))
+```
+
+
 # Referenties
