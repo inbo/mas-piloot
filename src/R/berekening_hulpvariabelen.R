@@ -204,3 +204,37 @@ add_stratum_sbp <- function(punten_sf, sbp) {
   return(telpunten)
 }
 
+bereken_vvi <- function(point,
+                        dist = 300,
+                        obs_height = 1.7,
+                        resolution = 1,
+                        spacing = 5,
+                        dsm_offset = 0,
+                        output_type) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+
+  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+
+  poly25 <- point %>% st_buffer(dist = 25)
+
+  vvi_from_sf(
+    observer = poly25,
+    spacing = spacing,
+    cores = 1,
+    progress = TRUE,
+    max_distance = dist,
+    dsm_rast = dsm_r1 + dsm_offset,
+    dtm_rast = dtm_r1,
+    observer_height = obs_height,
+    raster_res = resolution,
+    output_type = output_type)
+}
+
