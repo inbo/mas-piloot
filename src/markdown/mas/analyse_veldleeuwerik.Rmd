@@ -1811,15 +1811,6 @@ datumgrenzen_mas <- datumgrenzen_mas
 
 ## Filter algemene dataframes
 
-We maken een dataframe `bezoekenlijst_2018_2022_mas` waarbij we alle telperiodes toevoegen aan de bezochte plots.
-
-```{r}
-bezoekenlijst_2018_2022_mas <- design_2018_2022_mas %>% 
-  expand_grid(distinct(mas_clean, periode_in_jaar)) %>%
-  filter(!is.na(periode_in_jaar)) %>%
-  arrange(plotnaam, jaar, periode_in_jaar)
-```
-
 We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode > 0, geen afstanden > 300 m en dat ze binnen telperiodes vallen. We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
 
 ```{r}
@@ -1833,6 +1824,122 @@ mas_observations <- mas_clean %>%
          naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
                        naam))
 ```
+
+
+## Genereer dataframes voor elke soort
+
+We maken in een for-loop een dataframe voor elke soort waar we ook filteren op de datumgrenzen.
+
+```{r}
+df_obs_list <- vector("list", length = length(unique(mas_observations$naam)))
+df_obs_names <- vector(length = length(unique(mas_observations$naam)))
+
+for (i in seq_along(unique(mas_observations$naam))) {
+  spec <- sort(unique(mas_observations$naam))[i]
+    
+  # selecteer telperiodes per soort
+  telperiodes_df <- datumgrenzen_mas %>%
+    filter(soort == spec) %>%
+    select(R1:R4)
+  telperiodes_df <- unlist(telperiodes_df[1,])
+  telperiodes <- names(telperiodes_df[which(telperiodes_df == TRUE)])
+  
+  # selecteer waarnemingen
+  df_obs <- mas_observations %>% 
+    st_drop_geometry() %>%
+    filter(naam == spec, 
+           periode_in_jaar %in% telperiodes)
+  naam_obs <- gsub(" ", "", spec)
+  
+  df_obs_list[[i]] <- df_obs
+  df_obs_names[i] <- naam_obs
+}
+
+names(df_obs_list) <- df_obs_names
+```
+
+
+## Genereer dataframes voor distance sampling
+### 2018-2022
+
+We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren. We zetten alle datasets om om te gebruiken om de detectiecurve te fitten.
+
+```{r}
+plots_old <- design_2018_2022_mas %>%
+  filter(jaar != 2022) %>%
+  distinct(plotnaam) %>%
+  pull()
+
+distance_dfs <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(plotnaam %in% plots_old) %>% 
+      select(object = oid, size = aantal, distance = distance2plot, 
+             regio, jaar) %>%
+      mutate(jaar = as.character(jaar))
+  })
+```
+
+`sample_table` geeft aan welke plots in welke regio’s voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
+
+```{r}
+efforts <- lapply(df_obs_list, function(df) {
+    df %>%
+      pull(periode_in_jaar) %>%
+      unique() %>%
+      length()
+  })
+
+sample_tables <- lapply(efforts, function(effort) {
+    design_2018_2022_mas %>%
+      distinct(plotnaam, regio, jaar) %>%
+      mutate(Region.Label = paste(regio, jaar, sep = " - "),
+             Effort = effort) %>%
+      select(Sample.Label = plotnaam, Region.Label, Effort)
+  })
+```
+
+`obs_table` geeft aan welke waarnemingen in welke plots en strata zitten.
+
+```{r}
+obs_tables <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(plotnaam %in% plots_old) %>% 
+      select(object = oid, Region.Label, Sample.Label = plotnaam)
+  })
+```
+
+De `region_table` en de conversiefactor zijn gemeenschappelijk voor alle soorten. `region_table` bevat de oppervlaktes per stratum (regio-jaar).
+
+```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+# Selectie en buffer
+perimeters_strata <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  st_buffer(dist = 300) %>%
+  group_by(Naam) %>%
+  summarise(geometry = st_union(geometry)) %>%
+  ungroup()
+
+# Bereken oppervlaktes van de regio's
+areas <- perimeters_strata %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
+  select(regio = Naam, Area) %>%
+  st_drop_geometry()
+
+region_table_2018_2022 <- design_2018_2022_mas %>%
+  distinct(regio, jaar) %>%
+  full_join(areas, by = "regio") %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - ")) %>%
+  select(Region.Label, Area)
+
+# Conversiefactor van meter naar 100 hectare
+conversion_factor <- convert_units("meter", NULL, "Square kilometer")
+```
+
+
 
 
 # Referenties
