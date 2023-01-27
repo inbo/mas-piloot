@@ -184,11 +184,11 @@ list(
     ),
   tarchetypes::tar_file(
     bo_file,
-    path_to_bo2021()
+    path_to_bo(jaar = 2022)
     ),
   tarchetypes::tar_file(
     lbg_file,
-    path_to_lbg(jaar = "2021")
+    path_to_lbg(jaar = 2021)
   ),
   tarchetypes::tar_file(
     sbp_akkervogels_file,
@@ -317,7 +317,7 @@ Check bij Johannes of er al een update afbakening is van de soortbeschermingspla
 list(
   tar_target(
     name = plus_sb,
-    command = add_bo2021_to_frame(
+    command = add_bo_to_frame(
       punten_df = punten_steekproefkader,
       path_bo = bo_file),
     pattern = map(punten_steekproefkader)

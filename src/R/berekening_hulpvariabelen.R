@@ -1,8 +1,13 @@
+path_to_bo <- function(jaar = 2021) {
+  file_name <- paste("BO", jaar, "VLM_EXTERN.shp", sep = "_")
+  file.path(mbag_dir, "data", "bo_vlm", file_name)
+}
+
 path_to_bo2021 <- function() {
   file.path(mbag_dir, "data", "bo_vlm", "BO_2021_VLM_EXTERN.shp")
 }
 
-read_bo2021 <- function(path) {
+read_bo <- function(path) {
   aes <- sf::st_read(dsn = path) %>%
     st_transform(crs = 31370)
   return(aes)
@@ -13,7 +18,7 @@ add_bo2021_to_frame <- function(
   path_bo
   ) {
 
-  bo2021 <- read_bo2021(path = path_bo)
+  bo2021 <- read_bo(path = path_bo)
 
   points_bo2021 <- landusemetrics_grid_cell(
     grid_cell = punten_df %>%
@@ -41,8 +46,41 @@ add_bo2021_to_frame <- function(
   return(punten)
 }
 
+add_bo_to_frame <- function(
+    punten_df,
+    path_bo
+) {
 
-path_to_lbg <- function(jaar = "2020") {
+  bo_layer <- read_bo(path = path_bo)
+
+  points_bo <- landusemetrics_grid_cell(
+    grid_cell = punten_df %>%
+      st_buffer(dist = 300),
+    layer = bo_layer,
+    grid_group_by_col = "pointid",
+    layer_group_by_col = "SRT_OBJECT")
+
+  bo_maatregelen <- bo_layer %>%
+    st_drop_geometry() %>%
+    distinct(BH_DOELST, SRT_OBJECT, EENHEID)
+
+  aandeel_sb <- points_bo %>%
+    select(pointid, SRT_OBJECT, area_prop) %>%
+    left_join(bo_maatregelen, by = "SRT_OBJECT") %>%
+    filter(BH_DOELST == "soortenbescherming (SB)") %>%
+    group_by(pointid) %>%
+    summarise(area_prop_sb = sum(area_prop))
+
+  punten <- punten_df %>%
+    left_join(aandeel_sb,
+              by = "pointid") %>%
+    mutate(area_prop_sb = ifelse(is.na(area_prop_sb), 0, area_prop_sb))
+
+  return(punten)
+}
+
+
+path_to_lbg <- function(jaar = 2020) {
   file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
             paste0("lbgbrprc", jaar, ".parquet"))
 }
