@@ -1,5 +1,5 @@
 ---
-title: "Distance sampling Veldleeuwerik"
+title: "Distance sampling"
 author: "Ward Langeraert"
 date: "`r Sys.Date()`"
 
@@ -70,6 +70,8 @@ Omwille van het verschil in design tussen 2022 en de voorgaande jaren, zullen we
 2.  2022
     -   schatting per stratum: regio, sbp, openheid
     -   volledige dataset 2022
+  
+Eerst voor Veldleeuwerik. Later generalisatie.
 
 # Inlezen data {#inlezen-data}
 
@@ -1775,4 +1777,17 @@ Net zoals voordien hadden we problemen om een passende detectiecurve te fitten (
 We zien een duidelijk verschil in densiteiten tussen de strata. Het is steeds hoger binnen dan buiten soortbeschermingszones en in OL dan in HOL.
 
 
-## Referenties
+# Meedere soorten
+
+Hoe kunnen we deze workflow zo correct, efficiënt en snel toepassen op alle soorten?  
+
+1.  Opruimen en voorbereiden basis dataframes met algemene data
+2.  Filter algemene dataframes
+3.  Genereer dataframes voor elke soort
+4.  Genereer dataframes voor distance sampling
+5.  Model specificatie distance sampling
+
+Vanaf model selectie en fit zal geen of beperkte automatisatie meer kunnen toegepast worden. We selecteren voor elke soort het finale model en slaan deze op. Deze finale modellen kunnen dan in het rapport gebruikt worden voor het genereren van plots en tabellen.
+
+
+# Referenties
