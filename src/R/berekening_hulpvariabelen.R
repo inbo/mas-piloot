@@ -122,8 +122,8 @@ add_openheid_landschap_to_frame <- function(
 }
 
 
-path_to_sbp_akkervogels <- function() {
-  file.path(mbag_dir, "data", "bo_vlm", "akkervogelgebieden.shp")
+path_to_sbp_akkervogels <- function(file = "akkervogelgebieden.shp") {
+  file.path(mbag_dir, "data", "bo_vlm", file)
 }
 
 read_sbp_akkervogels <- function(
