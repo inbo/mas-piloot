@@ -1,7 +1,7 @@
 list(
   tar_target(
     name = plus_sb,
-    command = add_bo2021_to_frame(
+    command = add_bo_to_frame(
       punten_df = punten_steekproefkader,
       path_bo = bo_file),
     pattern = map(punten_steekproefkader)
