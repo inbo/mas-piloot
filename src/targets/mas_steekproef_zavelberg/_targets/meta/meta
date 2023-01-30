@@ -1,21 +1,32 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|b5669bf912dbd65d|||||||||||||||
+.Random.seed|object|f954c00ef382c41b|||||||||||||||
 add_bo_to_frame|function|13caf901404892cd|||||||||||||||
 add_bo2021_to_frame|function|b3f03a141605c9fc|||||||||||||||
 add_openheid_landschap_to_frame|function|e8372aad7792bbf7|||||||||||||||
 add_stratum_sbp|function|ab305f23cf121949|||||||||||||||
+add_visibility_to_frame|function|39c375dea8c4e6ea|||||||||||||||
 allocatie|function|41bddde22d780063|||||||||||||||
-allocatie_df|stem|178e2f40e2c9342a|5e8477e8f901c52e|06a5610275ce3abd|-878230153||t19384.6103710779s|768af1b6380cf070|339|qs|local|vector|||0.03||
+allocatie_df|stem|178e2f40e2c9342a|5e8477e8f901c52e|90849a8537ac5e4b|-878230153||t19387.4577388969s|768af1b6380cf070|339|qs|local|vector|||0.03||
 allocatie_per_stratum|stem|3ab8b9c17c84fa1d|8ac2a374e9065b64|2d44dbaef973aa45|-786416839||t19382.6622211362s|2da402a946d20212|354|qs|local|group||allocatie_per_stratum_79b75466*allocatie_per_stratum_b68c51ac*allocatie_per_stratum_f8057e53*allocatie_per_stratum_65856bf3|0||
+bereken_vvi|function|b10c6d4839344f01|||||||||||||||
 bereken_zichtbaarheid|function|54f797b41085e494|||||||||||||||
 bo_file|stem|7e0d21cf5606c794|359c1b4c7990a9fd|298b5355cf1ca6d6|-1038609820|C:/R/git_repositories/mbag/data/bo_vlm/BO_2022_VLM_EXTERN.shp|t19017.4542941954s|ad0af8073b51b807|10303232|file|local|vector|||0||
 calc_lbg|function|55e1beb2d858f76b|||||||||||||||
 draw_sample|function|297e4f7115ca88a0|||||||||||||||
+dsm|object|ecf0b92ed66e1b16|||||||||||||||
+dtm|object|c47c7d4b3d7938d9|||||||||||||||
 exclusie_buffer_osm|function|f47b54aa966b23fe|||||||||||||||
 exclusie_landgebruik_osm|function|f83bb08e14a42ac6|||||||||||||||
 exclusie_osm_landgebruiken|pattern|d373c34eacd2894f|30defcb582b51728||-1395235820||||5130|qs|local|vector||exclusie_osm_landgebruiken_6dfb9303|215.42||
 exclusie_osm_landgebruiken_6dfb9303|branch|2e427a702db2de49|30defcb582b51728|b096eb09ae724a3b|-1340550281||t19382.6020291189s|0fc8136c1a99b1a7|5130|qs|local|vector|exclusie_osm_landgebruiken||215.42|attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries|
 extract_osm_paden|function|526d857ea8066934|||||||||||||||
+file_dsm|object|d60c2a4a51a21765|||||||||||||||
+file_dtm|object|43871ca25f311fd7|||||||||||||||
+filename|object|26d077a5f8a8fe4e|||||||||||||||
+filename_dsm|object|4f1475a1374d2b45|||||||||||||||
+filename_dtm|object|ee355bf2e74c33d1|||||||||||||||
+filter_zichtbaarheid|function|c0881118e559aea7|||||||||||||||
+gebied|object|86e124abcfe90d1e|||||||||||||||
 get_coverage_wcs|function|23171b77b88b9707|||||||||||||||
 get_feature_wfs|function|867bf0bf51023891|||||||||||||||
 landusemetrics_grid_cell|function|63bf35761ccad345|||||||||||||||
@@ -28,6 +39,8 @@ lum_download|function|6824f1f1ddc0e360|||||||||||||||
 lum_read_from_inbo|function|adfa6bb3e812df82|||||||||||||||
 lum_read_from_vito|function|e0da637d68abe823|||||||||||||||
 mbag_dir|object|449209c57eb19403|||||||||||||||
+min_cvvi|object|8a0059b814463716|||||||||||||||
+name|object|26d077a5f8a8fe4e|||||||||||||||
 nn_steekproef|function|04e18ded90bdbb1c|||||||||||||||
 openheid_landschap_file|stem|209fc30a2f51ca7a|5747555e9d5be752|0a93b2ba5b04fab3|1011586389|C:/R/git_repositories/mbag/data/dem/openness300m_chm_res25_c300_mean_vlaanderen.tif|t19072.3925462963s|67065bf5b4b15cab|120678615|file|local|vector|||0||
 osm_belgium|stem|862c177d6c739c37|b6dad0f51c49b73b|404f59bf50dfbf49|-932366199|C:\R\osmdata/geofabrik_belgium-latest.osm.pbf|t19045.6525694444s|eab69190422e56b8|481497732|file|local|vector|||0||
@@ -44,16 +57,19 @@ path_to_osm_download|function|6ad7e48367119170|||||||||||||||
 path_to_perimeters|function|22187d181ce5b65a|||||||||||||||
 path_to_sbp_akkervogels|function|be46bd1f767f9150|||||||||||||||
 perimeters_data|stem|718e3fa444229e96|259acd2099d9d883|b37ef90222a8c939|916414819||t19375.6302343051s|9beb9dfb9530a642|3503|qs|local|vector||perimeters_data_be223b15|0.05||
-perimeters_file|stem|41b4bf4fd3b388c4|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19384.4469293369s|22c04e6244b71b04|98304|file|local|vector|||0||
+perimeters_file|stem|41b4bf4fd3b388c4|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19384.6981974456s|22c04e6244b71b04|98304|file|local|vector|||0||
 plus_openheid_landschap|pattern|9ce49381287c4966|1685890019eb64eb||-1021060035||||5452|qs|local|vector||plus_openheid_landschap_55d55bad|0.14||
 plus_openheid_landschap_55d55bad|branch|52a3ffc8c63af135|1685890019eb64eb|fe51eeafdcafd4c9|-316560747||t19384.6103606823s|c1e1f13c7ed7bfd2|5452|qs|local|vector|plus_openheid_landschap||0.14||
 plus_sb|pattern|91cd189a46156d9c|7799087a2c101254||-387737101||||4742|qs|local|vector||plus_sb_6b098b3c|1.47||
 plus_sb_6b098b3c|branch|5a37d5df478c795e|7799087a2c101254|1d6e2338b6a35555|-997871522||t19384.610352427s|9404cb26ab2b912f|4742|qs|local|vector|plus_sb||1.47|attribute variables are assumed to be spatially constant throughout all geometries|
+plus_visibility|pattern|25ef5a7cf65f6887|879b8eb6f893faa8||-826081268||||6636|qs|local|vector||plus_visibility_b17fc7c1|14.34||
+plus_visibility_b17fc7c1|branch|dc36549d8eadfb61|879b8eb6f893faa8|4e66369b70dd3dc6|-679376862||t19387.4577284174s|cb282569646bfa7e|6636|qs|local|vector|plus_visibility||14.34||
 point_to_gridcell|function|27bb10730048677c|||||||||||||||
 punten|pattern|7ecbb6496a3626ce|5ff6cabb84dc0334||-1035966488||||3920|qs|local|vector||punten_cf89da31|0.46||
 punten_cf89da31|branch|52767026cf195e0d|5ff6cabb84dc0334|861b221d7e9afcfe|1026742876||t19382.6025654247s|5f3040aee99ce431|3920|qs|local|vector|punten||0.46|attribute variables are assumed to be spatially constant throughout all geometries|
 punten_lum_buffer|function|54d32e57cf2bd301|||||||||||||||
 punten_selectie_landgebruik|function|4c2aaf8166092a1b|||||||||||||||
+punten_sf|object|68cf14b9f8445362|||||||||||||||
 punten_steekproefkader|pattern|f3cb0cec32469fe8|1096316cc1a384e8||-1999098994||||3924|qs|local|vector||punten_steekproefkader_943ec6af|0||
 punten_steekproefkader_943ec6af|branch|c29cf3f73526bcca|1096316cc1a384e8|0aa6c9ed95e1a67f|684815415||t19382.602615181s|122ff7200407448b|3924|qs|local|vector|punten_steekproefkader||0||
 read_bo|function|13920fd20ecbac61|||||||||||||||
@@ -61,21 +77,26 @@ read_bo2021|function|13920fd20ecbac61|||||||||||||||
 read_legend_lum|function|5493f2158a71d708|||||||||||||||
 read_lum_rast|function|ab1941e8592097df|||||||||||||||
 read_sbp_akkervogels|function|65ee89fac71388be|||||||||||||||
+sbp|object|a488f835717ed80b|||||||||||||||
 sbp_akkervogels|pattern|3104ca7ad242cd0d|acc906648dcad49b||-205952475||||2673|qs|local|vector||sbp_akkervogels_6dfb9303|0.16||
 sbp_akkervogels_6dfb9303|branch|ab88fdf6ba2f6191|acc906648dcad49b|e04e0a6b13992cc0|-1514457687||t19382.5995310249s|efae58c39f5e2b9d|2673|qs|local|vector|sbp_akkervogels||0.16|attribute variables are assumed to be spatially constant throughout all geometries|
 sbp_akkervogels_file|stem|e4d1a382c5fe78ff|c2c2b2b64539feb0|b071275522d600b3|-1351920255|C:/R/git_repositories/mbag/data/bo_vlm/akkervogelgebieden2022.shp|t19384.4746173321s|9c077e0f051b9344|531772|file|local|vector|||0||
+select_groups|function|b9a5378fd702715f|||||||||||||||
 selectie_landgebruik_vito|function|48a4042b1ae57018|||||||||||||||
 st_bbox.SpatRaster|function|af80857fe302b9bd|||||||||||||||
 st_crs.SpatRaster|function|70c89432d6566dd5|||||||||||||||
 steekproef_98295cec|branch||872607aaf1de9c90|a3ab054c81fddd03|348383102||t19382.6622245589s||0|qs|local|vector|steekproef||0.01||sample_size_extra not less than nrowsampling_frame
+steekproef_d8e18cdd|branch||872607aaf1de9c90|7190ab4531e9c2cb|-1930988197||t19387.4577451767s||0|qs|local|vector|steekproef||0.01||sample_size_extra not less than nrowsampling_frame
 steekproef_uitdunnen|function|150bfcd4f4b84182|||||||||||||||
-steekproefkader_finaal|pattern|aab47c573762e6ea|dba75116b3510d73||-238515416||||5475|qs|local|vector||steekproefkader_finaal_60e15347|0.03||
+steekproefkader_finaal|pattern|3de7463c2870e0ef|4db3f7a56fea07d8||-238515416||||6653|qs|local|vector||steekproefkader_finaal_5a86d75b|0.03||
+steekproefkader_finaal_5a86d75b|branch|0ee948128fcf664f|4db3f7a56fea07d8|840bf92cee2d7f07|-222959215||t19387.4577348739s|cc23c94df67ad2d3|6653|qs|local|vector|steekproefkader_finaal||0.03||
 steekproefkader_finaal_60e15347|branch|eb3aa3fb24687222|dba75116b3510d73|e79bcb2f5c853c81|-1597734766||t19384.6103668144s|1155757ada31e1e7|5475|qs|local|vector|steekproefkader_finaal||0.03||
-steekproefkader_per_stratum|stem|9426bedb8e66067c|1b4b7a6940d03d94|d4aefd57ed9da47e|1615914461||t19384.6103732322s|7294443dd7629197|5508|qs|local|group||steekproefkader_per_stratum_67099f8d*steekproefkader_per_stratum_c1b59bfb*steekproefkader_per_stratum_e1205f98*steekproefkader_per_stratum_fc34534c|0.02||
+steekproefkader_per_stratum|stem|a0324aad959db061|1b4b7a6940d03d94|a0667212254764de|1615914461||t19387.4577410522s|000190bb2979fc05|6689|qs|local|group||steekproefkader_per_stratum_0b32ab9d*steekproefkader_per_stratum_161f6ad5*steekproefkader_per_stratum_fe84282d*steekproefkader_per_stratum_34bbca1c|0||
 target_dir|object|6fa814d1e4388b90|||||||||||||||
 telcirkels_landgebruik|pattern|5322e03421711643|07b4a731c4824f5d||-1712495207||||10763|qs|local|vector||telcirkels_landgebruik_2f28bf14|2.72||
 telcirkels_landgebruik_2f28bf14|branch|aa08094d3747d7bd|07b4a731c4824f5d|9793844b906cac23|-1202004000||t19384.6099600844s|03137d2eb7be0075|10763|qs|local|vector|telcirkels_landgebruik||2.54||
 telcirkels_selectie_landgebruik|pattern|79c90ce615a5bf35|ef4f2279b6344c96||-1288691576||||6005|qs|local|vector||telcirkels_selectie_landgebruik_602f30de|0.22||
 telcirkels_selectie_landgebruik_602f30de|branch|a39b2dc6e1127adb|ef4f2279b6344c96|a66bac7c0cf2349b|1174039348||t19382.6026100255s|713f39dc068a3f16|6005|qs|local|vector|telcirkels_selectie_landgebruik||0.22||
+test|object|3acb07242e805351|||||||||||||||
 unpack_mht|function|6460af0636392b31|||||||||||||||
 vito_lum_2019_file|stem|e562a9788de76291|6200b6036f557b4d|7654f7ab9f80a925|-632092389|C:/R/git_repositories/mbag/data/landgebruik/vito/lu_landgebruik_vlaa_2019_v2.tif|t18823.6266666667s|51d7bcac44afca0a|57051741|file|local|vector|||2.55||

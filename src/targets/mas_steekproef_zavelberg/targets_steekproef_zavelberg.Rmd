@@ -100,7 +100,8 @@ tar_option_set(packages = c("dplyr",
                             "exactextractr",
                             "arrow",
                             "httr",
-                            "sf"),
+                            "sf",
+                            "GVI"),
                format = "qs",
                memory = "transient",
                garbage_collection = TRUE,
@@ -338,6 +339,16 @@ list(
       class_labels = c("GL", "HGL", "HOL", "OL")),
     pattern = map(perimeters_data, plus_sb)
   ),
+  tar_target(
+    name = plus_visibility,
+    command = add_visibility_to_frame(
+      punten_sf = plus_openheid_landschap,
+      gebied = perimeters_data,
+      name = "leefdaal",
+      resolution = 5,
+      spacing = 10),
+    pattern = map(perimeters_data, plus_openheid_landschap)
+  ),
   tar_target(name = sbp_akkervogels,
              command = read_sbp_akkervogels(
                path = sbp_akkervogels_file,
@@ -346,9 +357,9 @@ list(
              pattern = map(perimeters_data)),
   tar_target(
     name = steekproefkader_finaal,
-    command = add_stratum_sbp(punten_sf = plus_openheid_landschap,
+    command = add_stratum_sbp(punten_sf = plus_visibility,
                               sbp = sbp_akkervogels),
-    pattern = map(sbp_akkervogels, plus_openheid_landschap)
+    pattern = map(sbp_akkervogels, plus_visibility)
   )
 )
 ```
@@ -403,17 +414,16 @@ list(
 ```{targets nabehandeling}
 list(
   tar_target(
-    steekproef_nn,
-    nn_steekproef(sample = steekproef,
-                  max_dist = 300)
+    steekproef_zichtbaarheid,
+    filter_zichtbaarheid(sample = steekproef,
+                         min_cvvi = 0.25),
+    pattern = map(steekproef)
   ),
   tar_target(
-    steekproef_zichtbaarheid,
-    bereken_zichtbaarheid(steekproef_nn,
-                          dist = 300,
-                          obs_height = 1.7,
-                          resolution = 1),
-    pattern = map(steekproef_nn)
+    steekproef_nn,
+    nn_steekproef(sample = steekproef_zichtbaarheid,
+                  max_dist = 300),
+    pattern = map(steekproef_zichtbaarheid)
   )
 )
 ```
@@ -448,7 +458,7 @@ failed <- tar_meta(fields = error) %>%
 failed
 
 tar_load_globals()
-tar_workspace(punten_6c6b6262)
+tar_workspace("steekproef_98295cec")
 tar_traceback(failed, characters = 80)
 ```
 

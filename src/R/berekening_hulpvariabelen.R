@@ -204,3 +204,89 @@ add_stratum_sbp <- function(punten_sf, sbp) {
   return(telpunten)
 }
 
+bereken_vvi <- function(point,
+                        dist,
+                        obs_height,
+                        resolution,
+                        spacing,
+                        dsm_offset,
+                        output_type) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+
+  # use get_coverage_wcs() from inbospatial not from source wfs_scs.R!
+  dsm_r1 <- inbospatial::get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- inbospatial::get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+
+  poly25 <- point %>% st_buffer(dist = 25)
+
+  vvi_from_sf(
+    observer = poly25,
+    spacing = spacing,
+    cores = 1,
+    progress = TRUE,
+    max_distance = dist,
+    dsm_rast = dsm_r1 + dsm_offset,
+    dtm_rast = dtm_r1,
+    observer_height = obs_height,
+    raster_res = resolution,
+    output_type = output_type)
+}
+
+add_visibility_to_frame <- function(punten_sf,
+                                    gebied,
+                                    name,
+                                    resolution,
+                                    spacing,
+                                    dist = 300,
+                                    obs_height = 1.7,
+                                    dsm_offset = 0) {
+
+  filename_dsm <- paste0("dhmvii_dsm_1m_", name, ".tif")
+  file_dsm <- file.path(mbag_dir, "data", "dem", filename_dsm)
+
+  if (file.exists(file_dsm)) {
+    dsm <- terra::rast(file_dsm)
+    crs(dsm) <- "epsg:31370"
+  } else {
+    dsm <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDSMRAS1m.tif") %>%
+      terra::crop(gebied, filename = file_dsm)
+    crs(dsm) <- "epsg:31370"
+  }
+
+  filename_dtm <- paste0("dhmvii_dtm_1m_", name, ".tif")
+  file_dtm <- file.path(mbag_dir, "data", "dem", filename_dtm)
+
+  if (file.exists(file_dtm)) {
+    dtm <- terra::rast(file_dtm)
+    crs(dtm) <- "epsg:31370"
+  } else {
+    dtm <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDTMRAS1m.tif") %>%
+      terra::crop(gebied, filename = file_dtm)
+    crs(dtm) <- "epsg:31370"
+  }
+
+  vvi_dm <- vvi_from_sf(
+    observer = punten_sf %>% st_buffer(dist = 25),
+    spacing = spacing,
+    cores = 1,
+    progress = TRUE,
+    max_distance = dist,
+    dsm_rast = dsm + dsm_offset,
+    dtm_rast = dtm,
+    observer_height = obs_height,
+    raster_res = resolution,
+    output_type = "cumulative",
+    by_row = TRUE)
+
+  punten_sf$cvvi <- vvi_dm$cvvi
+
+  return(punten_sf)
+}
+
