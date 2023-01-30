@@ -56,3 +56,17 @@ ggplot() +
   labs(fill = "Landbouwstreek")
 ```
 
+# Selectie doelgebied
+
+```{r}
+zandleem_vlaanderen <- st_intersection(landbouwstreken, vlaanderen) %>%
+  filter(NAAM == "Zandleemstreek")
+
+akkervogelgebieden_zandleem <- st_intersection(akkervogelgebieden, 
+                                               zandleem_vlaanderen)
+```
+
+```{r}
+mapview(zandleem_vlaanderen, col.regions = "yellow") + mapview(akkervogelgebieden_zandleem)
+```
+
