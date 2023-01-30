@@ -22,6 +22,16 @@ list(
       class_labels = c("GL", "HGL", "HOL", "OL")),
     pattern = map(perimeters_data, plus_sb)
   ),
+  tar_target(
+    name = plus_visibility,
+    command = add_visibility_to_frame(
+      punten_sf = plus_openheid_landschap,
+      gebied = perimeters_data,
+      name = "leefdaal",
+      resolution = 5,
+      spacing = 10),
+    pattern = map(perimeters_data, plus_openheid_landschap)
+  ),
   tar_target(name = sbp_akkervogels,
              command = read_sbp_akkervogels(
                path = sbp_akkervogels_file,
@@ -30,8 +40,8 @@ list(
              pattern = map(perimeters_data)),
   tar_target(
     name = steekproefkader_finaal,
-    command = add_stratum_sbp(punten_sf = plus_openheid_landschap,
+    command = add_stratum_sbp(punten_sf = plus_visibility,
                               sbp = sbp_akkervogels),
-    pattern = map(sbp_akkervogels, plus_openheid_landschap)
+    pattern = map(sbp_akkervogels, plus_visibility)
   )
 )

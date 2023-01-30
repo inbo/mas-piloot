@@ -1,15 +1,14 @@
 list(
   tar_target(
-    steekproef_nn,
-    nn_steekproef(sample = steekproef,
-                  max_dist = 300)
+    steekproef_zichtbaarheid,
+    filter_zichtbaarheid(sample = steekproef,
+                         min_cvvi = 0.25),
+    pattern = map(steekproef)
   ),
   tar_target(
-    steekproef_zichtbaarheid,
-    bereken_zichtbaarheid(steekproef_nn,
-                          dist = 300,
-                          obs_height = 1.7,
-                          resolution = 1),
-    pattern = map(steekproef_nn)
+    steekproef_nn,
+    nn_steekproef(sample = steekproef_zichtbaarheid,
+                  max_dist = 300),
+    pattern = map(steekproef_zichtbaarheid)
   )
 )
