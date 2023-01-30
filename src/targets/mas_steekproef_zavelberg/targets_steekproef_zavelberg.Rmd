@@ -101,7 +101,6 @@ tar_option_set(packages = c("dplyr",
                             "arrow",
                             "httr",
                             "sf",
-                            "inbospatial",
                             "GVI"),
                format = "qs",
                memory = "transient",
@@ -343,8 +342,8 @@ list(
   tar_target(
     name = plus_visibility,
     command = add_visibility_to_frame(
-      ),
-    pattern = map(perimeters_data, plus_sb)
+      punten_sf = plus_openheid_landschap),
+    pattern = map(perimeters_data, plus_openheid_landschap)
   ),
   tar_target(name = sbp_akkervogels,
              command = read_sbp_akkervogels(
