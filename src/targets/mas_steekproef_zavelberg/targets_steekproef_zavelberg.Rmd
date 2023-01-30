@@ -458,7 +458,7 @@ failed <- tar_meta(fields = error) %>%
 failed
 
 tar_load_globals()
-tar_workspace(punten_6c6b6262)
+tar_workspace("steekproef_98295cec")
 tar_traceback(failed, characters = 80)
 ```
 
