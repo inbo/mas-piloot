@@ -214,11 +214,12 @@ bereken_vvi <- function(point,
 
   bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
 
-  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
+  # use get_coverage_wcs() from inbospatial not from source wfs_scs.R!
+  dsm_r1 <- inbospatial::get_coverage_wcs(wcs = "dsm",
                              bbox = bbox_buffer,
                              layername = "EL.GridCoverage.DSM",
                              resolution = resolution)
-  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
+  dtm_r1 <- inbospatial::get_coverage_wcs(wcs = "dtm",
                              bbox = bbox_buffer,
                              layername = "EL.GridCoverage.DTM",
                              resolution = resolution)
@@ -237,4 +238,5 @@ bereken_vvi <- function(point,
     raster_res = resolution,
     output_type = output_type)
 }
+
 
