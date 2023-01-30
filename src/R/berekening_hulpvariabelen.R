@@ -209,7 +209,6 @@ bereken_vvi <- function(point,
                         obs_height,
                         resolution,
                         spacing,
-                        dsm_offset,
                         output_type) {
 
   bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
@@ -232,7 +231,7 @@ bereken_vvi <- function(point,
     cores = 1,
     progress = TRUE,
     max_distance = dist,
-    dsm_rast = dsm_r1 + dsm_offset,
+    dsm_rast = dsm_r1,
     dtm_rast = dtm_r1,
     observer_height = obs_height,
     raster_res = resolution,
@@ -245,8 +244,7 @@ add_visibility_to_frame <- function(punten_sf,
                                     resolution,
                                     spacing,
                                     dist = 300,
-                                    obs_height = 1.7,
-                                    dsm_offset = 0) {
+                                    obs_height = 1.7) {
 
   filename_dsm <- paste0("dhmvii_dsm_1m_", name, ".tif")
   file_dsm <- file.path(mbag_dir, "data", "dem", filename_dsm)
@@ -278,7 +276,7 @@ add_visibility_to_frame <- function(punten_sf,
     cores = 1,
     progress = TRUE,
     max_distance = dist,
-    dsm_rast = dsm + dsm_offset,
+    dsm_rast = dsm,
     dtm_rast = dtm,
     observer_height = obs_height,
     raster_res = resolution,
