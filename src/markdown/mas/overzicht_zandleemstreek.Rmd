@@ -33,7 +33,6 @@ mbag_dir <- here()
 
 Overzicht van de zandleemstreek geven om steekproefgebied af te bakenen.
 
-
 # Kaartlagen
 
 ```{r}
@@ -67,5 +66,34 @@ akkervogelgebieden_zandleem <- st_intersection(akkervogelgebieden,
 ```
 
 ```{r}
-mapview(zandleem_vlaanderen, col.regions = "yellow") + mapview(akkervogelgebieden_zandleem)
+mapview(zandleem_vlaanderen, col.regions = "yellow") + 
+  mapview(akkervogelgebieden_zandleem)
+```
+
+# Probleem met osm extract
+
+>The OpenStreetMap map for Belgium is incomplete, some small pieces are missing.
+><https://download.geofabrik.de/europe/belgium.html#>
+
+>In the documentation I read: "The boundaries usually follow country borders, but occasionally we take liberties and include a litte more of a neighbouring country if this greatly simplifies the polygon."
+>But this is not the case here: 
+>approx. coord.: 50.793232, 3.115215 and 50.782217, 3.104937
+
+>This means that when I want to extract information from these regions or a polygon containing these regions, not the region of Belgium is downloaded but the entire European map.
+>This map is very large and way too large for my intentions.
+>Belgium is only a small country so it is a bit silly to have to download the entire map of Europe.  
+  
+  
+Voorlopige oplossing:  
+Maak intersectie met polygoon van osm website en negatieve buffer.
+
+```{r}
+belgium <- st_read("C:/Users/ward_langeraert/Downloads/belgium.kml", 
+                   quiet = TRUE) %>% 
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(31370)
+
+intersect_osm <- st_intersection(zandleem_vlaanderen, belgium)
+
+osmextract::oe_match(intersect_osm %>% st_buffer(-0.001))
 ```
