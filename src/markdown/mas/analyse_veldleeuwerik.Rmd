@@ -1798,7 +1798,8 @@ Hoe kunnen we deze workflow zo correct, efficiënt en snel toepassen op alle soo
 2.  Filter algemene dataframes
 3.  Genereer dataframes voor elke soort
 4.  Genereer dataframes voor distance sampling
-5.  Model specificatie distance sampling
+5.  Data selectie voor model specificatie
+6.  Model specificatie distance sampling
 
 Vanaf model selectie en fit zal geen of beperkte automatisatie meer kunnen toegepast worden. We selecteren voor elke soort het finale model en slaan deze op. Deze finale modellen kunnen dan in het rapport gebruikt worden voor het genereren van plots en tabellen.
 
@@ -1957,14 +1958,93 @@ conversion_factor_2018_2022 <- convert_units("meter", NULL, "Square kilometer")
 
 
 
-# Model specificatie distance sampling
+# Data selectie voor model specificatie
 ## 2018-2022
 
-selectie 
+We hebben bepaalde regels nodig om de modellen te kunnen fitten:
+
+-   behoud strata als aantal waarnemingen per stratum >= 10
+-   behoud datasets als totaal aantal waarnemingen >= 20
+
+Dat impliceert dat wanneer een soort slechts in een jaar een regio gezien is, er minstens 20 waarnemingen moeten zijn. Vanaf dat de soort in twee strata gezien is, zullen er automatisch 20 waarnemingen zijn voor die soort.
+
 ```{r}
-distance_dfs_2018_2022[sapply(distance_dfs_2018_2022, nrow) >= 30]
+filter_dist_df <- function(data, stratum_filter, dataset_filter) {
+  # Selectie strata
+  select_df <- lapply(data, function(i) {
+    i %>% 
+      group_by(regio, jaar) %>% 
+      mutate(n = n()) %>%
+      filter(n >= stratum_filter) %>%
+      ungroup() %>%
+      select(-n)
+  })
+  
+  # Selectie datasets
+  select_df <- select_df[sapply(select_df, nrow) >= dataset_filter]
+  
+  return(select_df)
+}
+
+distance_dfs_2018_2022_final <- filter_dist_df(distance_dfs_2018_2022, 10, 20)
 ```
 
+De meeste soorten zijn in meerdere jaren gezien. De meeste soorten hebben waarnemingen van slechts een enkele regio. Een interactie tussen regio en jaar zal slechts in een beperkt aantal gevallen gefit kunnen worden.
+
+```{r}
+stratum_cijfers_lijst <- lapply(seq_along(distance_dfs_2018_2022_final), 
+  function(i) {
+    if (nrow(distance_dfs_2018_2022_final[[i]]) == 0) {
+      out <- tibble(soort = names(distance_dfs_2018_2022_final[i]),
+                    n = 0, n_jaar = 0, n_regio = 0, n_interactie = 0)
+    } else {
+      out <- distance_dfs_2018_2022_final[[i]] %>% 
+        mutate(soort = names(distance_dfs_2018_2022_final[i])) %>%
+        mutate(n = nrow(distance_dfs_2018_2022_final[[i]]),
+               n_jaar = n_distinct(jaar) > 1,
+               n_regio = n_distinct(regio) > 1) %>%
+        group_by(regio) %>%
+        mutate(n_interactie = n_distinct(jaar)) %>%
+        ungroup() %>%
+        mutate(n_interactie = !(min(n_interactie) == 1 | n_regio == FALSE)) %>%
+        distinct(soort, n, n_jaar, n_regio, n_interactie)
+    }
+    return(out)
+  })
+
+stratum_cijfers_df <- do.call(rbind, stratum_cijfers_lijst)
+```
+
+```{r}
+stratum_cijfers_df %>% 
+  mutate(n = factor(n, levels = sort(unique(n)), ordered = TRUE)) %>%
+  ggplot() +
+   geom_bar(aes(x = n)) +
+   labs(x = "Aantal waarnemingen", y = "Aantal soorten") +
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, 
+                                    size = 6))
+```
+
+```{r}
+stratum_cijfers_df %>%
+  ggplot() +
+   geom_bar(aes(x = n_jaar)) +
+   labs(x = "In meer dan 1 jaar gezien", y = "Aantal soorten")
+
+stratum_cijfers_df %>% 
+  ggplot() +
+   geom_bar(aes(x = n_regio)) +
+   labs(x = "In meer dan 1 regio gezien", y = "Aantal soorten")
+
+stratum_cijfers_df %>% 
+  ggplot() +
+   geom_bar(aes(x = n_interactie)) +
+   labs(x = "In meerdere regio's en jaren gezien (interactie)", 
+        y = "Aantal soorten")
+```
+
+
+# Model specificatie distance sampling
 
 ```{r}
 match_variables_2018_2022 <- c("regio", "jaar")
@@ -2004,8 +2084,8 @@ keys <- c("hn", "hr")
 model_path <- "./src/markdown/mas/distance_models/"
 
 # Loop over species
-for (soort in names(distance_dfs_2018_2022)) {
-  distance_data <- distance_dfs_2018_2022[[soort]]
+for (soort in names(distance_dfs_2018_2022_final)) {
+  distance_data <- distance_dfs_2018_2022_final[[soort]]
   sample_table_2018_2022 <- sample_tables_2018_2022[[soort]]
   obs_table_2018_2022 <- obs_tables_2018_2022[[soort]]
   
@@ -2098,6 +2178,25 @@ forms2 <- forms2[-match("~regio*openheid", forms2)]
 
 # Voeg combinaties samen
 forms_2022 <- c("~1", forms1, forms2)
+```
+
+
+# Model fit per soort
+
+```{r}
+summarize_ds_models2(all_models$Zwartkop)
+```
+
+```{r}
+par(mfrow = c(1, 2))
+von_mises <- gof_ds(Zwartkop_distmod_2022_hn2 )
+von_mises
+plot(Zwartkop_distmod_2022_hn2 , pdf = TRUE, showpoints = FALSE)
+par(mfrow = c(1, 1))
+```
+
+```{r}
+plot_detection_curve(Zwartkop_distmod_2022_hn2)
 ```
 
 
