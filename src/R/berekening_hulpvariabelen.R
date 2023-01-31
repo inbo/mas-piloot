@@ -239,36 +239,21 @@ bereken_vvi <- function(point,
 }
 
 add_visibility_to_frame <- function(punten_sf,
-                                    gebied,
                                     name,
                                     resolution,
                                     spacing,
                                     dist = 300,
                                     obs_height = 1.7) {
 
-  filename_dsm <- paste0("dhmvii_dsm_1m_", name, ".tif")
+  filename_dsm <- "DHMVIIDSMRAS5m.tif"
   file_dsm <- file.path(mbag_dir, "data", "dem", filename_dsm)
+  dsm <- terra::rast(file_dsm)
+  crs(dsm) <- "epsg:31370"
 
-  if (file.exists(file_dsm)) {
-    dsm <- terra::rast(file_dsm)
-    crs(dsm) <- "epsg:31370"
-  } else {
-    dsm <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDSMRAS1m.tif") %>%
-      terra::crop(gebied, filename = file_dsm)
-    crs(dsm) <- "epsg:31370"
-  }
-
-  filename_dtm <- paste0("dhmvii_dtm_1m_", name, ".tif")
+  filename_dtm <- "DHMVIIDTMRAS5m.tif"
   file_dtm <- file.path(mbag_dir, "data", "dem", filename_dtm)
-
-  if (file.exists(file_dtm)) {
-    dtm <- terra::rast(file_dtm)
-    crs(dtm) <- "epsg:31370"
-  } else {
-    dtm <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDTMRAS1m.tif") %>%
-      terra::crop(gebied, filename = file_dtm)
-    crs(dtm) <- "epsg:31370"
-  }
+  dtm <- terra::rast(file_dtm)
+  crs(dtm) <- "epsg:31370"
 
   vvi_dm <- vvi_from_sf(
     observer = punten_sf %>% st_buffer(dist = 25),

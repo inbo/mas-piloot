@@ -1,14 +1,14 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|f954c00ef382c41b|||||||||||||||
+.Random.seed|object|525ed0f557b6e2b8|||||||||||||||
 add_bo_to_frame|function|13caf901404892cd|||||||||||||||
 add_bo2021_to_frame|function|b3f03a141605c9fc|||||||||||||||
 add_openheid_landschap_to_frame|function|e8372aad7792bbf7|||||||||||||||
 add_stratum_sbp|function|ab305f23cf121949|||||||||||||||
-add_visibility_to_frame|function|39c375dea8c4e6ea|||||||||||||||
+add_visibility_to_frame|function|8185c215a09fe94e|||||||||||||||
 allocatie|function|41bddde22d780063|||||||||||||||
-allocatie_df|stem|178e2f40e2c9342a|5e8477e8f901c52e|90849a8537ac5e4b|-878230153||t19387.4577388969s|768af1b6380cf070|339|qs|local|vector|||0.03||
+allocatie_df|stem|178e2f40e2c9342a|5e8477e8f901c52e|68080f766434b174|-878230153||t19388.377926811s|768af1b6380cf070|339|qs|local|vector|||0.04||
 allocatie_per_stratum|stem|3ab8b9c17c84fa1d|8ac2a374e9065b64|2d44dbaef973aa45|-786416839||t19382.6622211362s|2da402a946d20212|354|qs|local|group||allocatie_per_stratum_79b75466*allocatie_per_stratum_b68c51ac*allocatie_per_stratum_f8057e53*allocatie_per_stratum_65856bf3|0||
-bereken_vvi|function|b10c6d4839344f01|||||||||||||||
+bereken_vvi|function|0abbdeccbbd13eed|||||||||||||||
 bereken_zichtbaarheid|function|54f797b41085e494|||||||||||||||
 bo_file|stem|7e0d21cf5606c794|359c1b4c7990a9fd|298b5355cf1ca6d6|-1038609820|C:/R/git_repositories/mbag/data/bo_vlm/BO_2022_VLM_EXTERN.shp|t19017.4542941954s|ad0af8073b51b807|10303232|file|local|vector|||0||
 calc_lbg|function|55e1beb2d858f76b|||||||||||||||
@@ -57,12 +57,13 @@ path_to_osm_download|function|6ad7e48367119170|||||||||||||||
 path_to_perimeters|function|22187d181ce5b65a|||||||||||||||
 path_to_sbp_akkervogels|function|be46bd1f767f9150|||||||||||||||
 perimeters_data|stem|718e3fa444229e96|259acd2099d9d883|b37ef90222a8c939|916414819||t19375.6302343051s|9beb9dfb9530a642|3503|qs|local|vector||perimeters_data_be223b15|0.05||
-perimeters_file|stem|41b4bf4fd3b388c4|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19384.6981974456s|22c04e6244b71b04|98304|file|local|vector|||0||
+perimeters_file|stem|41b4bf4fd3b388c4|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19388.3535891137s|22c04e6244b71b04|98304|file|local|vector|||0||
 plus_openheid_landschap|pattern|9ce49381287c4966|1685890019eb64eb||-1021060035||||5452|qs|local|vector||plus_openheid_landschap_55d55bad|0.14||
 plus_openheid_landschap_55d55bad|branch|52a3ffc8c63af135|1685890019eb64eb|fe51eeafdcafd4c9|-316560747||t19384.6103606823s|c1e1f13c7ed7bfd2|5452|qs|local|vector|plus_openheid_landschap||0.14||
 plus_sb|pattern|91cd189a46156d9c|7799087a2c101254||-387737101||||4742|qs|local|vector||plus_sb_6b098b3c|1.47||
 plus_sb_6b098b3c|branch|5a37d5df478c795e|7799087a2c101254|1d6e2338b6a35555|-997871522||t19384.610352427s|9404cb26ab2b912f|4742|qs|local|vector|plus_sb||1.47|attribute variables are assumed to be spatially constant throughout all geometries|
-plus_visibility|pattern|25ef5a7cf65f6887|879b8eb6f893faa8||-826081268||||6636|qs|local|vector||plus_visibility_b17fc7c1|14.34||
+plus_visibility|pattern|8459a3c4aa609913|0cd0b6b9a4c5ca30||-826081268||||6636|qs|local|vector||plus_visibility_009d31a8|17||
+plus_visibility_009d31a8|branch|ccb1aec360b44702|0cd0b6b9a4c5ca30|3d3e0f40ed37ba93|1719804640||t19388.3779143301s|cb282569646bfa7e|6636|qs|local|vector|plus_visibility||17||
 plus_visibility_b17fc7c1|branch|dc36549d8eadfb61|879b8eb6f893faa8|4e66369b70dd3dc6|-679376862||t19387.4577284174s|cb282569646bfa7e|6636|qs|local|vector|plus_visibility||14.34||
 point_to_gridcell|function|27bb10730048677c|||||||||||||||
 punten|pattern|7ecbb6496a3626ce|5ff6cabb84dc0334||-1035966488||||3920|qs|local|vector||punten_cf89da31|0.46||
@@ -87,11 +88,13 @@ st_bbox.SpatRaster|function|af80857fe302b9bd|||||||||||||||
 st_crs.SpatRaster|function|70c89432d6566dd5|||||||||||||||
 steekproef_98295cec|branch||872607aaf1de9c90|a3ab054c81fddd03|348383102||t19382.6622245589s||0|qs|local|vector|steekproef||0.01||sample_size_extra not less than nrowsampling_frame
 steekproef_d8e18cdd|branch||872607aaf1de9c90|7190ab4531e9c2cb|-1930988197||t19387.4577451767s||0|qs|local|vector|steekproef||0.01||sample_size_extra not less than nrowsampling_frame
+steekproef_f0511d2a|branch||872607aaf1de9c90|c06fc21e7852be97|1229404822||t19388.3779343263s||0|qs|local|vector|steekproef||0.01||sample_size_extra not less than nrowsampling_frame
 steekproef_uitdunnen|function|150bfcd4f4b84182|||||||||||||||
-steekproefkader_finaal|pattern|3de7463c2870e0ef|4db3f7a56fea07d8||-238515416||||6653|qs|local|vector||steekproefkader_finaal_5a86d75b|0.03||
+steekproefkader_finaal|pattern|b3f29c6eab75166f|4db3f7a56fea07d8||-238515416||||6653|qs|local|vector||steekproefkader_finaal_2f728bdd|0.05||
+steekproefkader_finaal_2f728bdd|branch|0baa8d278b7019de|4db3f7a56fea07d8|65a1d52f9c4a6d4e|-423240289||t19388.3779218475s|cc23c94df67ad2d3|6653|qs|local|vector|steekproefkader_finaal||0.05||
 steekproefkader_finaal_5a86d75b|branch|0ee948128fcf664f|4db3f7a56fea07d8|840bf92cee2d7f07|-222959215||t19387.4577348739s|cc23c94df67ad2d3|6653|qs|local|vector|steekproefkader_finaal||0.03||
 steekproefkader_finaal_60e15347|branch|eb3aa3fb24687222|dba75116b3510d73|e79bcb2f5c853c81|-1597734766||t19384.6103668144s|1155757ada31e1e7|5475|qs|local|vector|steekproefkader_finaal||0.03||
-steekproefkader_per_stratum|stem|a0324aad959db061|1b4b7a6940d03d94|a0667212254764de|1615914461||t19387.4577410522s|000190bb2979fc05|6689|qs|local|group||steekproefkader_per_stratum_0b32ab9d*steekproefkader_per_stratum_161f6ad5*steekproefkader_per_stratum_fe84282d*steekproefkader_per_stratum_34bbca1c|0||
+steekproefkader_per_stratum|stem|bef58c0b3dad4f4d|1b4b7a6940d03d94|216eb58d768ccc20|1615914461||t19388.3779294731s|000190bb2979fc05|6689|qs|local|group||steekproefkader_per_stratum_5a73a083*steekproefkader_per_stratum_a025e2f4*steekproefkader_per_stratum_bdc16c3d*steekproefkader_per_stratum_aba6a351|0.02||
 target_dir|object|6fa814d1e4388b90|||||||||||||||
 telcirkels_landgebruik|pattern|5322e03421711643|07b4a731c4824f5d||-1712495207||||10763|qs|local|vector||telcirkels_landgebruik_2f28bf14|2.72||
 telcirkels_landgebruik_2f28bf14|branch|aa08094d3747d7bd|07b4a731c4824f5d|9793844b906cac23|-1202004000||t19384.6099600844s|03137d2eb7be0075|10763|qs|local|vector|telcirkels_landgebruik||2.54||

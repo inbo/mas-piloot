@@ -343,11 +343,10 @@ list(
     name = plus_visibility,
     command = add_visibility_to_frame(
       punten_sf = plus_openheid_landschap,
-      gebied = perimeters_data,
       name = "leefdaal",
       resolution = 5,
       spacing = 10),
-    pattern = map(perimeters_data, plus_openheid_landschap)
+    pattern = map(plus_openheid_landschap)
   ),
   tar_target(name = sbp_akkervogels,
              command = read_sbp_akkervogels(
