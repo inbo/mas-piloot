@@ -50,8 +50,10 @@ vlaanderen <- read_sf("S:/Vlaanderen/Grenzen/Administratief/Vlaanderen.shp") %>%
 ```{r}
 ggplot() +
   geom_sf(data = landbouwstreken, aes(fill = NAAM)) +
-  geom_sf(data = akkervogelgebieden, fill = "black", colour = alpha("black", 0)) +
-  geom_sf(data = vlaanderen, fill = alpha("black", 0), colour = "red", size = 1.5) +
+  geom_sf(data = akkervogelgebieden, fill = "black", 
+          colour = alpha("black", 0)) +
+  geom_sf(data = vlaanderen, fill = alpha("black", 0), 
+          colour = "red", size = 1.5) +
   labs(fill = "Landbouwstreek")
 ```
 
@@ -67,7 +69,8 @@ akkervogelgebieden_zandleem <- st_intersection(akkervogelgebieden,
 
 ```{r}
 mapview(zandleem_vlaanderen, col.regions = "red") + 
-  mapview(akkervogelgebieden_zandleem)
+  mapview(akkervogelgebieden_zandleem, zcol = "Prioriteit", 
+          layer = "Prioriteit")
 ```
 
 # Probleem met osm extract
