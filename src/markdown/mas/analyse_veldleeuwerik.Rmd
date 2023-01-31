@@ -1870,7 +1870,7 @@ plots_old <- design_2018_2022_mas %>%
   distinct(plotnaam) %>%
   pull()
 
-distance_dfs <- lapply(df_obs_list, function(df) {
+distance_dfs_2018_2022 <- lapply(df_obs_list, function(df) {
     df %>%
       filter(plotnaam %in% plots_old) %>% 
       select(object = oid, size = aantal, distance = distance2plot, 
@@ -1882,14 +1882,14 @@ distance_dfs <- lapply(df_obs_list, function(df) {
 `sample_table` geeft aan welke plots in welke regio’s voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
 
 ```{r}
-efforts <- lapply(df_obs_list, function(df) {
+efforts_2018_2022 <- lapply(df_obs_list, function(df) {
     df %>%
       pull(periode_in_jaar) %>%
       unique() %>%
       length()
   })
 
-sample_tables <- lapply(efforts, function(effort) {
+sample_tables_2018_2022 <- lapply(efforts, function(effort) {
     design_2018_2022_mas %>%
       distinct(plotnaam, regio, jaar) %>%
       mutate(Region.Label = paste(regio, jaar, sep = " - "),
@@ -1901,7 +1901,7 @@ sample_tables <- lapply(efforts, function(effort) {
 `obs_table` geeft aan welke waarnemingen in welke plots en strata zitten.
 
 ```{r}
-obs_tables <- lapply(df_obs_list, function(df) {
+obs_tables_2018_2022 <- lapply(df_obs_list, function(df) {
     df %>%
       filter(plotnaam %in% plots_old) %>% 
       select(object = oid, Region.Label, Sample.Label = plotnaam)
@@ -1936,10 +1936,69 @@ region_table_2018_2022 <- design_2018_2022_mas %>%
   select(Region.Label, Area)
 
 # Conversiefactor van meter naar 100 hectare
-conversion_factor <- convert_units("meter", NULL, "Square kilometer")
+conversion_factor_2018_2022 <- convert_units("meter", NULL, "Square kilometer")
 ```
 
 
+# Model specificatie distance sampling
+## 2018-2022
+
+```{r}
+match_variables_2018_2022 <- c("regio", "jaar")
+
+# We maken formules uit combinaties van alle variabelen
+combos <- sapply(seq(length(match_variables_2018_2022)), function(i) {
+  as.list(as.data.frame(combn(x = match_variables_2018_2022, m = i)))
+})
+combos <- unlist(combos, recursive = FALSE)
+
+# Combinaties zonder interacties
+forms1 <- sapply(combos, function(x) {
+  as.formula(paste0("~", paste(x, collapse = "+")))
+  })
+
+# Combinaties interacties
+forms2 <- sapply(combos, function(x) {
+  if (length(x) == 2) {
+  as.formula(paste0("~", paste(x, collapse = "*")))
+  }
+  })
+forms2[sapply(forms2, is.null)] <- NULL
+
+# Voeg combinaties samen
+forms_2018_2022 <- c(forms1, forms2)
+```
+
+
+## 2022
+
+```{r}
+match_variables_2022 <- c("regio", "sbp", "openheid")
+
+# We maken formules uit combinaties van alle variabelen
+combos <- sapply(seq(length(match_variables_2022)), function(i) {
+  as.list(as.data.frame(combn(x = match_variables_2022, m = i)))
+})
+combos <- unlist(combos, recursive = FALSE)
+
+# Combinaties zonder interacties
+forms1 <- sapply(combos, function(x) {
+  as.formula(paste0("~", paste(x, collapse = "+")))
+  })
+
+# Combinaties interacties
+forms2 <- sapply(combos, function(x) {
+  if (length(x) == 2) {
+  as.formula(paste0("~", paste(x, collapse = "*")))
+  }
+  })
+forms2[sapply(forms2, is.null)] <- NULL
+# remove interaction regio openheid
+forms2 <- forms2[-match("~regio * openheid", forms2)]
+
+# Voeg combinaties samen
+forms_2022 <- c(forms1, forms2)
+```
 
 
 # Referenties
