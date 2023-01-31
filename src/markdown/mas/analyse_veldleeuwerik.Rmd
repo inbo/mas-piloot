@@ -2278,9 +2278,10 @@ for (naam in names(final_models)) {
                                  perl = TRUE)), collapse = " ")
   par(mfrow = c(1, 2))
   von_mises <- gof_ds(ds_model_2018_2022)
-  print(von_mises)
   plot(ds_model_2018_2022 , pdf = TRUE, showpoints = FALSE,
        main = titel)
+  print(titel)
+  print(von_mises)
   par(mfrow = c(1, 1))
   
   print(plot_detection_curve(ds_model_2018_2022) +
