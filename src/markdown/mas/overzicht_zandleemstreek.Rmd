@@ -69,4 +69,3 @@ akkervogelgebieden_zandleem <- st_intersection(akkervogelgebieden,
 ```{r}
 mapview(zandleem_vlaanderen, col.regions = "yellow") + mapview(akkervogelgebieden_zandleem)
 ```
-
