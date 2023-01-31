@@ -1966,7 +1966,9 @@ We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 -   behoud strata als aantal waarnemingen per stratum >= 10
 -   behoud datasets als totaal aantal waarnemingen >= 20
 
-Dat impliceert dat wanneer een soort slechts in een jaar een regio gezien is, er minstens 20 waarnemingen moeten zijn. Vanaf dat de soort in twee strata gezien is, zullen er automatisch 20 waarnemingen zijn voor die soort.
+Dat impliceert dat wanneer een soort slechts in een jaar een regio gezien is, er minstens 20 waarnemingen moeten zijn. Vanaf dat de soort in twee strata gezien is, zullen er automatisch 20 waarnemingen zijn voor die soort. 
+
+> Als we deze getallen aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
 
 ```{r}
 filter_dist_df <- function(data, stratum_filter, dataset_filter) {
@@ -2084,21 +2086,34 @@ keys <- c("hn", "hr")
 model_path <- "./src/markdown/mas/distance_models/"
 
 # Loop over species
-for (soort in names(distance_dfs_2018_2022_final)) {
-  distance_data <- distance_dfs_2018_2022_final[[soort]]
-  sample_table_2018_2022 <- sample_tables_2018_2022[[soort]]
-  obs_table_2018_2022 <- obs_tables_2018_2022[[soort]]
+for (spec in names(distance_dfs_2018_2022_final)) {
+  distance_data <- distance_dfs_2018_2022_final[[spec]]
+  sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
+  obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
   
   out_models <- list()
   model_names <- c()
+  
+  # Select possible formulas per species
+  form_spec <- forms_2018_2022
+  form_df <- stratum_cijfers_df %>% filter(soort == spec)
+  if (!pull(form_df[,"n_regio"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_jaar"])) {
+    form_spec[sapply(form_spec, function(i) grepl("jaar", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_interactie"])) {
+    form_spec[sapply(form_spec, function(i) grepl("\\*", i))] <- NULL
+  }
 
   # Loop over formules en over key functions
-  for (i in seq_len(length(forms_2018_2022))) {
-    f <- as.character(forms_2018_2022[i]) # f is de formule
+  for (i in seq_len(length(form_spec))) {
+    f <- as.character(form_spec[i]) # f is de formule
     
     for (k in keys) {
       # Naam voor model
-      mod_name <- paste0(soort, "_distmod_2022_", k, i)
+      mod_name <- paste0(spec, "_distmod_2022_", k, i)
       file <- paste0(model_path, mod_name, ".rds")
       
       # Sla model op als het nog niet bestaat en lees het in anderzijds
@@ -2143,7 +2158,7 @@ for (soort in names(distance_dfs_2018_2022_final)) {
   
   # Put models and model names in list 
   all_models <- c(all_models, list(out_models))
-  all_model_names <- c(all_model_names, soort)
+  all_model_names <- c(all_model_names, spec)
 }
 names(all_models) <- all_model_names
 ```
@@ -2180,23 +2195,42 @@ forms2 <- forms2[-match("~regio*openheid", forms2)]
 forms_2022 <- c("~1", forms1, forms2)
 ```
 
-
-# Model fit per soort
+# Densiteitschattingen 2018-2022
+## Model selectie per soort
 
 ```{r}
-summarize_ds_models2(all_models$Zwartkop)
+for (naam in names(all_models)) {
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  summarize_ds_models2(all_models[[naam]]) %>%
+    kable(caption = titel) %>% 
+    print()
+}
 ```
 
 ```{r}
-par(mfrow = c(1, 2))
-von_mises <- gof_ds(Zwartkop_distmod_2022_hn2 )
-von_mises
-plot(Zwartkop_distmod_2022_hn2 , pdf = TRUE, showpoints = FALSE)
-par(mfrow = c(1, 1))
+final_models <- list(Zwartkop = Zwartkop_distmod_2022_hn1,
+                     Blauwborst = Blauwborst_distmod_2022_hn1)
 ```
 
+
+## Model fit per soort
+
 ```{r}
-plot_detection_curve(Zwartkop_distmod_2022_hn2)
+for (naam in names(final_models)) {
+  ds_model_2018_2022 <- final_models[[naam]]
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  par(mfrow = c(1, 2))
+  von_mises <- gof_ds(ds_model_2018_2022)
+  print(von_mises)
+  plot(ds_model_2018_2022 , pdf = TRUE, showpoints = FALSE,
+       main = titel)
+  par(mfrow = c(1, 1))
+  
+  print(plot_detection_curve(ds_model_2018_2022) +
+    labs(title = titel))
+}
 ```
 
 
