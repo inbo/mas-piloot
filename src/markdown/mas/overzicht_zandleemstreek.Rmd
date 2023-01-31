@@ -87,12 +87,13 @@ mapview(zandleem_vlaanderen, col.regions = "red") +
 >Belgium is only a small country so it is a bit silly to have to download the entire map of Europe.  
   
   
-Voorlopige oplossing:  
+**Voorlopige oplossing:**  
 Maak intersectie met polygoon van osm website en negatieve buffer.
 
 ```{r}
-belgium <- st_read("C:/Users/ward_langeraert/Downloads/belgium.kml", 
-                   quiet = TRUE) %>% 
+belgium <- file.path(osmextract::oe_download_directory(),
+                     "belgium_periferie_osm.kml")
+belgium <- st_read(belgium, quiet = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM") %>% 
   st_transform(31370)
 
@@ -100,3 +101,6 @@ intersect_osm <- st_intersection(zandleem_vlaanderen, belgium)
 
 osmextract::oe_match(intersect_osm %>% st_buffer(-0.001))
 ```
+
+**Toekomst:**  
+Polygoon zou aangepast worden door beheerders 1/02/2023.
