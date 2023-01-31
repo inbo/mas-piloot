@@ -1903,7 +1903,7 @@ efforts_2018_2022 <- lapply(df_obs_list, function(df) {
       length()
   })
 
-sample_tables_2018_2022 <- lapply(efforts, function(effort) {
+sample_tables_2018_2022 <- lapply(efforts_2018_2022, function(effort) {
     design_2018_2022_mas %>%
       distinct(plotnaam, regio, jaar) %>%
       mutate(Region.Label = paste(regio, jaar, sep = " - "),
@@ -1966,7 +1966,7 @@ We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 -   behoud strata als aantal waarnemingen per stratum >= 10
 -   behoud datasets als totaal aantal waarnemingen >= 20
 
-Dat impliceert dat wanneer een soort slechts in een jaar een regio gezien is, er minstens 20 waarnemingen moeten zijn. Vanaf dat de soort in twee strata gezien is, zullen er automatisch 20 waarnemingen zijn voor die soort. 
+Dat impliceert dat na selectie: Als voor een soort slechts 1 stratum overblijft (jaar, regio), zijn er minstens 20 waarnemingen. Bij twee strata zijn dit er ook minstens 20, bij 3 strata minstens 30, 4 strata minstens 40 ... In totaal zijn er 10 strata mogelijk (5 jaren, 2 regio's).
 
 > Als we deze getallen aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
 
@@ -2043,6 +2043,25 @@ stratum_cijfers_df %>%
    geom_bar(aes(x = n_interactie)) +
    labs(x = "In meerdere regio's en jaren gezien (interactie)", 
         y = "Aantal soorten")
+```
+
+De volgende soorten blijven over:
+
+```{r}
+list <- lapply(seq_along(distance_dfs_2018_2022_final), 
+  function(i) {
+    distance_dfs_2018_2022_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2018_2022_final[i])) %>%
+      mutate(n_obs = nrow(distance_dfs_2018_2022_final[[i]]),
+             n_jaren = n_distinct(jaar),
+             n_regios = n_distinct(regio),
+             strata = paste0(regio, jaar),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_jaren, n_regios, n_strata)
+  })
+
+do.call(rbind, list) %>%
+  kable()
 ```
 
 
@@ -2164,7 +2183,6 @@ names(all_models) <- all_model_names
 ```
 
 
-
 ## 2022
 
 ```{r}
@@ -2232,6 +2250,9 @@ for (naam in names(final_models)) {
     labs(title = titel))
 }
 ```
+
+
+
 
 
 # Referenties
