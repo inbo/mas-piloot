@@ -1953,8 +1953,18 @@ conversion_factor_2018_2022 <- convert_units("meter", NULL, "Square kilometer")
 ```
 
 
+## 2022
+
+
+
 # Model specificatie distance sampling
 ## 2018-2022
+
+selectie 
+```{r}
+distance_dfs_2018_2022[sapply(distance_dfs_2018_2022, nrow) >= 30]
+```
+
 
 ```{r}
 match_variables_2018_2022 <- c("regio", "jaar")
@@ -1967,20 +1977,97 @@ combos <- unlist(combos, recursive = FALSE)
 
 # Combinaties zonder interacties
 forms1 <- sapply(combos, function(x) {
-  as.formula(paste0("~", paste(x, collapse = "+")))
+    paste0("~", paste(x, collapse = "+"))
   })
 
 # Combinaties interacties
 forms2 <- sapply(combos, function(x) {
   if (length(x) == 2) {
-  as.formula(paste0("~", paste(x, collapse = "*")))
+    paste0("~", paste(x, collapse = "*"))
   }
   })
 forms2[sapply(forms2, is.null)] <- NULL
 
 # Voeg combinaties samen
-forms_2018_2022 <- c(forms1, forms2)
+forms_2018_2022 <- c("~1", forms1, forms2)
 ```
+
+
+```{r}
+all_models <- list()
+all_model_names <- c()
+
+# Key functions
+keys <- c("hn", "hr")
+
+# Sla de gefitte models op op deze locatie
+model_path <- "./src/markdown/mas/distance_models/"
+
+# Loop over species
+for (soort in names(distance_dfs_2018_2022)) {
+  distance_data <- distance_dfs_2018_2022[[soort]]
+  sample_table_2018_2022 <- sample_tables_2018_2022[[soort]]
+  obs_table_2018_2022 <- obs_tables_2018_2022[[soort]]
+  
+  out_models <- list()
+  model_names <- c()
+
+  # Loop over formules en over key functions
+  for (i in seq_len(length(forms_2018_2022))) {
+    f <- as.character(forms_2018_2022[i]) # f is de formule
+    
+    for (k in keys) {
+      # Naam voor model
+      mod_name <- paste0(soort, "_distmod_2022_", k, i)
+      file <- paste0(model_path, mod_name, ".rds")
+      
+      # Sla model op als het nog niet bestaat en lees het in anderzijds
+      if (file.exists(file)) {
+        det_model <- readRDS(file)
+        assign(mod_name, det_model)
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+      } else {
+        if (f == "~1") {
+          det_model <- ds(data = distance_data, key = k, 
+            formula = as.formula(f), max_adjustments = 2, 
+            monotonicity = "strict", 
+            truncation = 300, transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2018_2022, 
+            region_table = region_table_2018_2022, 
+            sample_table = sample_table_2018_2022, 
+            obs_table = obs_table_2018_2022)
+        } else {
+          det_model <- ds(data = distance_data, key = k, 
+            formula = as.formula(f), adjustment = NULL, truncation = 300, 
+            transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2018_2022, 
+            region_table = region_table_2018_2022, 
+            sample_table = sample_table_2018_2022, 
+            obs_table = obs_table_2018_2022)
+        }
+        
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+        
+        # Sla gefitte model op
+        assign(mod_name, det_model)
+        saveRDS(det_model, file = file)
+      }
+      # Put models and model names in list 
+      out_models <- c(out_models, list(det_model))
+      model_names <- c(model_names, mod_name)
+    }
+  }
+  names(out_models) <- model_names
+  
+  # Put models and model names in list 
+  all_models <- c(all_models, list(out_models))
+  all_model_names <- c(all_model_names, soort)
+}
+names(all_models) <- all_model_names
+```
+
 
 
 ## 2022
@@ -1996,21 +2083,21 @@ combos <- unlist(combos, recursive = FALSE)
 
 # Combinaties zonder interacties
 forms1 <- sapply(combos, function(x) {
-  as.formula(paste0("~", paste(x, collapse = "+")))
+    paste0("~", paste(x, collapse = "+"))
   })
 
 # Combinaties interacties
 forms2 <- sapply(combos, function(x) {
   if (length(x) == 2) {
-  as.formula(paste0("~", paste(x, collapse = "*")))
+    paste0("~", paste(x, collapse = "*"))
   }
   })
 forms2[sapply(forms2, is.null)] <- NULL
 # remove interaction regio openheid
-forms2 <- forms2[-match("~regio * openheid", forms2)]
+forms2 <- forms2[-match("~regio*openheid", forms2)]
 
 # Voeg combinaties samen
-forms_2022 <- c(forms1, forms2)
+forms_2022 <- c("~1", forms1, forms2)
 ```
 
 
