@@ -2105,7 +2105,7 @@ keys <- c("hn", "hr")
 model_path <- "./src/markdown/mas/distance_models/"
 
 # Loop over species
-for (spec in names(distance_dfs_2018_2022_final)) {
+for (spec in names(distance_dfs_2018_2022_final)[-which(names(distance_dfs_2018_2022_final) %in% c("BruineKiekendief", "Houtduif", "Huismus", "WitteKwikstaart"))]) {
   distance_data <- distance_dfs_2018_2022_final[[spec]]
   sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
   obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
@@ -2227,8 +2227,45 @@ for (naam in names(all_models)) {
 ```
 
 ```{r}
-final_models <- list(Zwartkop = Zwartkop_distmod_2022_hn1,
-                     Blauwborst = Blauwborst_distmod_2022_hn1)
+final_models <- list(Blauwborst = Blauwborst_distmod_2022_hn1,
+                     Buizerd = Buizerd_distmod_2022_hn1,
+                     Ekster = Ekster_distmod_2022_hr1,
+                     Fazant = Fazant_distmod_2022_hr1,
+                     Gaai = Gaai_distmod_2022_hn1,
+                     Geelgors = Geelgors_distmod_2022_hr1,
+                     GeleKwikstaart = GeleKwikstaart_distmod_2022_hr3,
+                     Grasmus = Grasmus_distmod_2022_hn1,
+                     Graspieper = Graspieper_distmod_2022_hn1,
+                     GrauweGors = GrauweGors_distmod_2022_hn1,
+                     GroeneSpecht = GroeneSpecht_distmod_2022_hn1,
+                     GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hn1,
+                     Heggenmus = Heggenmus_distmod_2022_hn1,
+                     Holenduif = Holenduif_distmod_2022_hn1,
+                     Kauw = Kauw_distmod_2022_hr1,
+                     Kievit = Kievit_distmod_2022_hr1,
+                     KleineKarekiet = KleineKarekiet_distmod_2022_hn1,
+                     Kneu = Kneu_distmod_2022_hn1,
+                     Koolmees = Koolmees_distmod_2022_hr1,
+                     Kwartel = Kwartel_distmod_2022_hn1,
+                     Meerkoet = Meerkoet_distmod_2022_hn1,
+                     Merel = Merel_distmod_2022_hr1,
+                     Patrijs = Patrijs_distmod_2022_hn1,
+                     Pimpelmees = Pimpelmees_distmod_2022_hn1,
+                     Rietzanger = Rietzanger_distmod_2022_hn1,
+                     Roek = Roek_distmod_2022_hr1,
+                     Spotvogel = Spotvogel_distmod_2022_hn1,
+                     Spreeuw = Spreeuw_distmod_2022_hr1,
+                     Tjiftjaf = Tjiftjaf_distmod_2022_hr2,
+                     Torenvalk = Torenvalk_distmod_2022_hn1,
+                     Tuinfluiter = Tuinfluiter_distmod_2022_hr1,
+                     TurkseTortel_distmod_2022 = TurkseTortel_distmod_2022_hr1,
+                     Veldleeuwerik = Veldleeuwerik_distmod_2022_hr4,
+                     Vink = Vink_distmod_2022_hn1,
+                     WildeEend = WildeEend_distmod_2022_hn1,
+                     Winterkoning = Winterkoning_distmod_2022_hn1,
+                     Zanglijster = Zanglijster_distmod_2022_hr1,
+                     ZwarteKraai = ZwarteKraai_distmod_2022_hr1,
+                     Zwartkop = Zwartkop_distmod_2022_hn1)
 ```
 
 
