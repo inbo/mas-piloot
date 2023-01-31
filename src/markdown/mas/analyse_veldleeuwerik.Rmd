@@ -1056,38 +1056,50 @@ veldleeuwerik_dist_2018_2022_hr0 <- ds(data = veldleeuwerik_distance,
   sample_table = sample_table, obs_table = obs_table, max_adjustments = 2,
   monotonicity = "strict")
 
-veldleeuwerik_dist_2018_2022_hn1 <- ds(data = veldleeuwerik_distance, key = "hn", 
-  formula = ~regio, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hn1 <- ds(data = veldleeuwerik_distance, 
+  key = "hn", formula = ~regio, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_2018_2022_hr1 <- ds(data = veldleeuwerik_distance, key = "hr", 
-  formula = ~regio, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hr1 <- ds(data = veldleeuwerik_distance, 
+  key = "hr", formula = ~regio, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_2018_2022_hn2 <- ds(data = veldleeuwerik_distance, key = "hn", 
-  formula = ~jaar, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hn2 <- ds(data = veldleeuwerik_distance, 
+   key = "hn", formula = ~jaar, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_2018_2022_hr2 <- ds(data = veldleeuwerik_distance, key = "hr", 
-  formula = ~jaar, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hr2 <- ds(data = veldleeuwerik_distance, 
+  key = "hr", formula = ~jaar, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_2018_2022_hn3 <- ds(data = veldleeuwerik_distance, key = "hn", 
-  formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hn3 <- ds(data = veldleeuwerik_distance, 
+  key = "hn", formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_2018_2022_hr3 <- ds(data = veldleeuwerik_distance, key = "hr", 
-  formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hr3 <- ds(data = veldleeuwerik_distance, 
+  key = "hr", formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
+  transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
+
+veldleeuwerik_dist_2018_2022_hn4 <- ds(data = veldleeuwerik_distance, 
+  key = "hn", formula = ~regio+jaar, adjustment = NULL, truncation = 300, 
+  transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
+
+veldleeuwerik_dist_2018_2022_hr4 <- ds(data = veldleeuwerik_distance, 
+  key = "hr", formula = ~regio+jaar, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
@@ -1105,11 +1117,12 @@ summarize_ds_models2(
   veldleeuwerik_dist_2018_2022_hn0, veldleeuwerik_dist_2018_2022_hr0, 
   veldleeuwerik_dist_2018_2022_hn1, veldleeuwerik_dist_2018_2022_hr1,
   veldleeuwerik_dist_2018_2022_hn2, veldleeuwerik_dist_2018_2022_hr2,
-  veldleeuwerik_dist_2018_2022_hn3, veldleeuwerik_dist_2018_2022_hr3) %>%
+  veldleeuwerik_dist_2018_2022_hn3, veldleeuwerik_dist_2018_2022_hr3,
+  veldleeuwerik_dist_2018_2022_hn4, veldleeuwerik_dist_2018_2022_hr4) %>%
   kable()
 ```
 
-Het Hazard-rate model waarbij de detectiekans afhankelijk is van regio en jaar in interactie scoort het best.
+Het Hazard-rate model waarbij de detectiekans afhankelijk is van regio en jaar scoort het best.
 
 ## Model fit {#fit-distance}
 
@@ -1119,9 +1132,9 @@ Voor studies met punttransecten geven kansdichtheidsfunctieplots ook een goed id
 
 ```{r}
 par(mfrow = c(1, 2))
-von_mises <- gof_ds(veldleeuwerik_dist_2018_2022_hr3)
+von_mises <- gof_ds(veldleeuwerik_dist_2018_2022_hr4)
 von_mises
-plot(veldleeuwerik_dist_2018_2022_hr3, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_2018_2022_hr4, pdf = TRUE, showpoints = FALSE)
 par(mfrow = c(1, 1))
 ```
 
@@ -1131,15 +1144,15 @@ Inderdaad, als we kijken naar de verdeling van de afstanden, zien we dat de dete
 Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_2018_2022_hr3, plot_average_fit = FALSE, 
+plot_detection_curve(veldleeuwerik_dist_2018_2022_hr4, plot_average_fit = FALSE, 
                      n_breaks = 60)
 ```
 
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
 
 ```{r, cache=TRUE}
-veldleeuwerik_dist_2018_2022_hr3_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hr4_binned <- ds(data = veldleeuwerik_distance,
+        key = "hr", formula = ~regio+jaar, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         cutpoints = c(0, 50, 100, 150, 200, 250, 300),
         convert_units = conversion_factor, region_table = region_table, 
@@ -1149,14 +1162,14 @@ veldleeuwerik_dist_2018_2022_hr3_binned <- ds(data = veldleeuwerik_distance, key
 De fit ziet er beter uit dan voordien.
 
 ```{r}
-plot(veldleeuwerik_dist_2018_2022_hr3_binned, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_2018_2022_hr4_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
 We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van 
 regio en jaar in interactie als finale model.
 
 ```{r}
-veldleeuwerik_dist_2018_2022_model <- veldleeuwerik_dist_2018_2022_hr3_binned
+veldleeuwerik_dist_2018_2022_model <- veldleeuwerik_dist_2018_2022_hr4_binned
 veldleeuwerik_covars <- c("regio", "jaar")
 ```
 
@@ -1217,7 +1230,7 @@ cbind(veldleeuwerik_dist_2018_2022_model$ddf$data,
 ```
 
 ```{r}
-design_plot <- matrix(rep(0, 10 * 10), ncol = 10, byrow = TRUE)
+design_plot <- matrix(rep(0, 10 * 6), ncol = 6, byrow = TRUE)
 design_plot[, 1] <- 1
 design_plot[2, 2] <- 1
 design_plot[3, 3] <- 1
@@ -1225,10 +1238,10 @@ design_plot[4, 4] <- 1
 design_plot[5, 5] <- 1
 design_plot[6, 6] <- 1
 design_plot[7:10, 2] <- 1
-design_plot[7, c(3, 7)] <- 1
-design_plot[8, c(4, 8)] <- 1
-design_plot[9, c(5, 9)] <- 1
-design_plot[10, c(6, 10)] <- 1
+design_plot[7, 3] <- 1
+design_plot[8, 4] <- 1
+design_plot[9, 5] <- 1
+design_plot[10, 6] <- 1
 
 labels_plot <- paste(c("De Moeren", "Oostelijke leemstreek", 
                        rep(c("De Moeren", "Oostelijke leemstreek"), each = 4)),
