@@ -126,6 +126,14 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
     "-nlt", "PROMOTE_TO_MULTI"
   )
 
+  # Fix mismatch with osm file of Belgium
+  belgium_osm_file <- file.path(osmextract::oe_download_directory(),
+                                "belgium_periferie_osm.kml")
+  belgium_osm <- st_read(belgium_osm_file, quiet = TRUE) %>%
+    st_zm(drop = TRUE, what = "ZM") %>%
+    st_transform(31370)
+  gebied <- st_intersection(gebied, belgium_osm)
+
   exclusie_landgebruik <- osmextract::oe_get(
     place = gebied,
     layer = "multipolygons",
@@ -134,6 +142,7 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
     boundary_type = "clipsrc",
     download_directory = dirname(osmdata))
 
+  # Exclusie landgebruik
   exclusie_landgebruik <- exclusie_landgebruik %>%
     st_cast("GEOMETRYCOLLECTION") %>%
     mutate(id = seq_len(nrow(.))) %>%
