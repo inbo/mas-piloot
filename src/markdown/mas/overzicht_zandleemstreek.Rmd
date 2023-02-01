@@ -25,8 +25,10 @@ opts_knit$set(root.dir = here::here())
 library(tidyverse)
 library(sf)
 library(mapview)
+library(osmextract)
 
 mbag_dir <- here()
+source(file.path(mbag_dir, "src", "R", "steekproefkader.R"))
 ```
 
 # Doel
@@ -91,7 +93,7 @@ mapview(zandleem_vlaanderen, col.regions = "red") +
 Maak intersectie met polygoon van osm website en negatieve buffer.
 
 ```{r}
-belgium <- file.path(osmextract::oe_download_directory(),
+belgium <- file.path(oe_download_directory(),
                      "belgium_periferie_osm_2022-02-22.kml")
 belgium <- st_read(belgium, quiet = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM") %>% 
@@ -99,7 +101,7 @@ belgium <- st_read(belgium, quiet = TRUE) %>%
 
 intersect_osm <- st_intersection(zandleem_vlaanderen, belgium)
 
-osmextract::oe_match(intersect_osm %>% st_buffer(-0.001))
+oe_match(intersect_osm %>% st_buffer(-0.001))
 ```
 
 **Toekomst:**  
@@ -108,7 +110,7 @@ OK!
 Inderdaad. Nu valt de zandleemstreek binnen de osm polygoon van België (hiervoor was er een kleine mismatch).
 
 ```{r}
-provider_file <- file.path(osmextract::oe_download_directory(),
+provider_file <- file.path(oe_download_directory(),
                            "belgium_periferie_osm.kml")
 provider_data <- st_read(provider_file, quiet = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM")
@@ -130,13 +132,65 @@ if (nrow(matched_zones) == 0L) {
 Toch geeft `oe_match()` nog Europa aan. Waarom?
 
 ```{r}
-osmextract::oe_match(zandleem_vlaanderen)
+oe_match(zandleem_vlaanderen)
 ```
 
 Er is een mismatch tussen de link en de gekoppelde geometry.  
-https://github.com/ropensci/osmextract/tree/13f562c7e322d17a93b857efb5085c8859440b41/data
+https://github.com/ropensci/osmextract/tree/13f562c7e322d17a93b857efb5085c8859440b41/data  
+https://github.com/ropensci/osmextract/blob/13f562c7e322d17a93b857efb5085c8859440b41/data-raw/geofabrik_zones.R
 
 ```{r}
-mapview(osmextract::geofabrik_zones %>% filter(name == "Belgium")) +
+mapview(geofabrik_zones %>% filter(name == "Belgium")) +
   mapview(provider_data, col.regions = "red")
 ```
+
+Nieuwe aanpak:  
+Eerst controleer ik of de laag binnen de osm periferie van België valt.
+Als dat in orde is, wordt de osm laag van België gedownload.
+Er worden enkel bestanden gedownload als het nog niet lokaal aanwezig is.  
+  
+Daarna wordt er geextraheerd m.b.v. `oe_read()` i.p.v. `oe_get()`. Dit is vooral logisch omdat wij steeds binnen Vlaanderen en dus binnen België werken. Het is dus nutteloos om telkens heel de wereld af te gaan met `oe_match()` (via `oe_get()`).
+
+```{r, eval=F, echo=T}
+gebied <- zandleem_vlaanderen
+osmdata <- path_to_osm_download()
+
+# Download periferie van osm België
+provider_file <- file.path(oe_download_directory(),
+                           "belgium_periferie_osm.kml")
+if (!file.exists(provider_file)) {
+  download.file("https://download.geofabrik.de/europe/belgium.kml", 
+                provider_file)
+} else {
+  message("The chosen file was already detected in the download directory. Skip downloading.")
+}
+
+provider_data <- st_read(provider_file, quiet = TRUE) %>% 
+  st_zm(drop = TRUE, what = "ZM")
+
+# Valt het gebied binnen de periferie van osm België?
+matched_zones = provider_data[st_transform(gebied, crs = st_crs(provider_data)), 
+                              op = sf::st_contains]
+if (nrow(matched_zones) != 0L) {
+  oe_download("https://download.geofabrik.de/europe/belgium-latest.osm.pbf")
+} else {
+  stop("Gebied valt buiten België!", call. = FALSE)
+}
+
+landuse_exclusie_vectortranslate = c(
+    "-t_srs", "EPSG:31370",
+    "-select", "landuse",
+    "-where", "landuse IN ('residential', 'military', 'industrial', 'cemetery')",
+    "-nlt", "PROMOTE_TO_MULTI"
+  )
+
+exclusie_landgebruik <- oe_read(
+  file_path = osmdata,
+  layer = "multipolygons",
+  download_directory = dirname(osmdata),
+  vectortranslate_options = landuse_exclusie_vectortranslate,
+  boundary = zandleem_vlaanderen,
+  boundary_type = "clipsrc")
+```
+
+
