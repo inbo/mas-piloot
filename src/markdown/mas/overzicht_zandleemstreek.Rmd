@@ -92,7 +92,7 @@ Maak intersectie met polygoon van osm website en negatieve buffer.
 
 ```{r}
 belgium <- file.path(osmextract::oe_download_directory(),
-                     "belgium_periferie_osm.kml")
+                     "belgium_periferie_osm_2022-02-22.kml")
 belgium <- st_read(belgium, quiet = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM") %>% 
   st_transform(31370)
@@ -103,4 +103,40 @@ osmextract::oe_match(intersect_osm %>% st_buffer(-0.001))
 ```
 
 **Toekomst:**  
-Polygoon zou aangepast worden door beheerders 1/02/2023.
+Polygoon zou aangepast worden door beheerders 1/02/2023.  
+OK!  
+Inderdaad. Nu valt de zandleemstreek binnen de osm polygoon van België (hiervoor was er een kleine mismatch).
+
+```{r}
+provider_file <- file.path(osmextract::oe_download_directory(),
+                           "belgium_periferie_osm.kml")
+provider_data <- st_read(provider_file, quiet = TRUE) %>% 
+  st_zm(drop = TRUE, what = "ZM")
+
+place <- zandleem_vlaanderen
+
+# van oe_match() functie
+matched_zones = provider_data[st_transform(place, crs = st_crs(provider_data)), 
+                              op = sf::st_contains]
+
+# Check that the input zone intersects at least 1 area
+if (nrow(matched_zones) == 0L) {
+  stop("The input place does not intersect any area for the chosen provider.")
+} else {
+  print("The input place intersects the area for the chosen provider.")
+}
+```
+
+Toch geeft `oe_match()` nog Europa aan. Waarom?
+
+```{r}
+osmextract::oe_match(zandleem_vlaanderen)
+```
+
+Er is een mismatch tussen de link en de gekoppelde geometry.  
+https://github.com/ropensci/osmextract/tree/13f562c7e322d17a93b857efb5085c8859440b41/data
+
+```{r}
+mapview(osmextract::geofabrik_zones %>% filter(name == "Belgium")) +
+  mapview(provider_data, col.regions = "red")
+```
