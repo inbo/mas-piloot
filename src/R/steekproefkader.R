@@ -109,7 +109,7 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
    buffer_line = NULL, layer_line = NULL) {
 
   # Download periferie van osm België
-  provider_file <- file.path(oe_download_directory(),
+  provider_file <- file.path(osmextract::oe_download_directory(),
                              "belgium_periferie_osm.kml")
   if (!file.exists(provider_file)) {
     download.file("https://download.geofabrik.de/europe/belgium.kml",
@@ -125,7 +125,7 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
   matched_zones = provider_data[st_transform(gebied, crs = st_crs(provider_data)),
                                 op = sf::st_contains]
   if (nrow(matched_zones) != 0L) {
-    oe_download("https://download.geofabrik.de/europe/belgium-latest.osm.pbf")
+    osmextract::oe_download("https://download.geofabrik.de/europe/belgium-latest.osm.pbf")
   } else {
     stop("Gebied valt buiten België!", call. = FALSE)
   }
@@ -148,23 +148,16 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
     "-nlt", "PROMOTE_TO_MULTI"
   )
 
-  # Fix mismatch with osm file of Belgium
-  belgium_osm_file <- file.path(osmextract::oe_download_directory(),
-                                "belgium_periferie_osm.kml")
-  belgium_osm <- st_read(belgium_osm_file, quiet = TRUE) %>%
-    st_zm(drop = TRUE, what = "ZM") %>%
-    st_transform(31370)
-  gebied <- st_intersection(gebied, belgium_osm)
-
-  exclusie_landgebruik <- osmextract::oe_get(
-    place = gebied,
+  # Exclusie landgebruik
+  exclusie_landgebruik <- osmextract::oe_read(
+    file_path = osmdata,
     layer = "multipolygons",
+    download_directory = dirname(osmdata),
     vectortranslate_options = landuse_exclusie_vectortranslate,
     boundary = gebied,
-    boundary_type = "clipsrc",
-    download_directory = dirname(osmdata))
+    boundary_type = "clipsrc")
 
-  # Exclusie landgebruik
+
   exclusie_landgebruik <- exclusie_landgebruik %>%
     st_cast("GEOMETRYCOLLECTION") %>%
     mutate(id = seq_len(nrow(.))) %>%
