@@ -61,25 +61,25 @@ exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
   )
 
   if (geom_type == "lines") {
-    exclusie_landgebruik <- osmextract::oe_get(
-      place = gebied %>% st_buffer(buffer),
+    exclusie_landgebruik <- osmextract::oe_read(
+      file_path = osmdata,
       layer = geom_type,
-      extra_tags = keys,
+      download_directory = dirname(osmdata),
       vectortranslate_options = buffer_exclusie_vectortranslate,
+      extra_tags = keys,
       boundary = gebied %>% st_buffer(buffer),
-      boundary_type = "clipsrc",
-      download_directory = dirname(osmdata)) %>%
+      boundary_type = "clipsrc") %>%
       st_buffer(buffer)
   }
 
   if (geom_type == "multipolygons") {
-    exclusie_landgebruik <- osmextract::oe_get(
-      place = gebied %>% st_buffer(buffer),
+    exclusie_landgebruik <- osmextract::oe_read(
+      file_path = osmdata,
       layer = geom_type,
+      download_directory = dirname(osmdata),
       vectortranslate_options = buffer_exclusie_vectortranslate,
       boundary = gebied %>% st_buffer(buffer),
-      boundary_type = "clipsrc",
-      download_directory = dirname(osmdata)) %>%
+      boundary_type = "clipsrc") %>%
       st_buffer(buffer)
   }
 
@@ -117,12 +117,12 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
   } else {
     message("The chosen file was already detected in the download directory. Skip downloading.")
   }
-
   provider_data <- st_read(provider_file, quiet = TRUE) %>%
     st_zm(drop = TRUE, what = "ZM")
 
   # Valt het gebied binnen de periferie van osm België?
-  matched_zones = provider_data[st_transform(gebied, crs = st_crs(provider_data)),
+  matched_zones = provider_data[st_transform(gebied,
+                                             crs = sf::st_crs(provider_data)),
                                 op = sf::st_contains]
   if (nrow(matched_zones) != 0L) {
     osmextract::oe_download("https://download.geofabrik.de/europe/belgium-latest.osm.pbf")
