@@ -131,6 +131,7 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
    buffer_poly = NULL, layer_poly = NULL,
    buffer_line = NULL, layer_line = NULL) {
 
+  # Controleer of gebied binnen osm België valt
   check_osm_data(gebied)
 
   # Create string to exclude landuse and leisure variables
@@ -217,6 +218,9 @@ extract_osm_paden <- function(gebied, exclusie, osmdata,
   historic_exclude = c('hollow_way'),
   waterway = c('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch')) {
 
+  # Controleer of gebied binnen osm België valt
+  check_osm_data(gebied)
+
   # Create string include
   inclusion_paths <- paste0("('", paste(paths_include,
                                         collapse = "', '"), "')")
@@ -262,13 +266,13 @@ extract_osm_paden <- function(gebied, exclusie, osmdata,
   )
 
   # Read-in data
-  paden <- oe_get(
-    place = gebied,
-    extra_tags = c("historic", "cutting"),
+  paden <- osmextract::oe_read(
+    file_path = osmdata,
+    download_directory = dirname(osmdata),
     vectortranslate_options = my_vectortranslate,
+    extra_tags = c("historic", "cutting"),
     boundary = gebied,
-    boundary_type = "spat",
-    download_directory = dirname(osmdata))
+    boundary_type = "spat")
 
   paden <- paden %>%
     mutate(key = ifelse(is.na(highway), "waterway", "highway"),
