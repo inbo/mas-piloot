@@ -2216,13 +2216,15 @@ forms_2022 <- c("~1", forms1, forms2)
 # Densiteitschattingen 2018-2022
 ## Model selectie per soort
 
-```{r}
+```{r, results = 'asis'}
 for (naam in names(all_models)) {
   titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
                                  perl = TRUE)), collapse = " ")
+  print(
   summarize_ds_models2(all_models[[naam]]) %>%
-    kable(caption = titel) %>% 
-    print()
+    kable(caption = titel)
+  )
+  cat("\n")
 }
 ```
 
