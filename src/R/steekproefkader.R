@@ -108,6 +108,28 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
    buffer_poly = NULL, layer_poly = NULL,
    buffer_line = NULL, layer_line = NULL) {
 
+  # Download periferie van osm België
+  provider_file <- file.path(oe_download_directory(),
+                             "belgium_periferie_osm.kml")
+  if (!file.exists(provider_file)) {
+    download.file("https://download.geofabrik.de/europe/belgium.kml",
+                  provider_file)
+  } else {
+    message("The chosen file was already detected in the download directory. Skip downloading.")
+  }
+
+  provider_data <- st_read(provider_file, quiet = TRUE) %>%
+    st_zm(drop = TRUE, what = "ZM")
+
+  # Valt het gebied binnen de periferie van osm België?
+  matched_zones = provider_data[st_transform(gebied, crs = st_crs(provider_data)),
+                                op = sf::st_contains]
+  if (nrow(matched_zones) != 0L) {
+    oe_download("https://download.geofabrik.de/europe/belgium-latest.osm.pbf")
+  } else {
+    stop("Gebied valt buiten België!", call. = FALSE)
+  }
+
   # Create string to exclude landuse and leisure variables
   exclusion_landuse <- paste0("('", paste(landuse, collapse = "', '"), "')")
   exclusion_leisure <- paste0("('", paste(leisure, collapse = "', '"), "')")
