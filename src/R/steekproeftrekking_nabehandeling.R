@@ -66,6 +66,6 @@ bereken_zichtbaarheid <- function(point,
 }
 
 filter_zichtbaarheid <- function(sample, min_cvvi) {
-  steekproef %>%
+  sample %>%
     filter(cvvi >= min_cvvi)
 }
