@@ -193,4 +193,7 @@ exclusie_landgebruik <- oe_read(
   boundary_type = "clipsrc")
 ```
 
+Zie discussie hier:
+https://github.com/ropensci/osmextract/issues/270
 
+En oplossing in steekproefkader.R
