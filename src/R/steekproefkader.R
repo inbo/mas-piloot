@@ -40,6 +40,31 @@ read_legend_lum <- function(file) {
     ))
 }
 
+check_osm_data <- function(gebied, update_osm_layer) {
+  # Download periferie van osm België
+  provider_file <- file.path(osmextract::oe_download_directory(),
+                             "belgium_periferie_osm.kml")
+
+  if (!file.exists(provider_file) | update_osm_layer) {
+    download.file("https://download.geofabrik.de/europe/belgium.kml",
+                  provider_file)
+  } else {
+    message("The chosen file was already detected in the download directory. Skip downloading.")
+  }
+  provider_data <- st_read(provider_file, quiet = TRUE) %>%
+    st_zm(drop = TRUE, what = "ZM")
+
+  # Valt het gebied binnen de periferie van osm België?
+  matched_zones = provider_data[st_transform(gebied,
+   crs = sf::st_crs(provider_data)), op = sf::st_contains]
+  if (nrow(matched_zones) != 0L) {
+    osmextract::oe_download("https://download.geofabrik.de/europe/belgium-latest.osm.pbf",
+                            force_download = update_osm_layer)
+  } else {
+    stop("Gebied valt buiten België!", call. = FALSE)
+  }
+}
+
 exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
   # which keys are present to exclude
   keys <- names(layer)
@@ -61,25 +86,25 @@ exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
   )
 
   if (geom_type == "lines") {
-    exclusie_landgebruik <- osmextract::oe_get(
-      place = gebied %>% st_buffer(buffer),
+    exclusie_landgebruik <- osmextract::oe_read(
+      file_path = osmdata,
       layer = geom_type,
-      extra_tags = keys,
+      download_directory = dirname(osmdata),
       vectortranslate_options = buffer_exclusie_vectortranslate,
+      extra_tags = keys,
       boundary = gebied %>% st_buffer(buffer),
-      boundary_type = "clipsrc",
-      download_directory = dirname(osmdata)) %>%
+      boundary_type = "clipsrc") %>%
       st_buffer(buffer)
   }
 
   if (geom_type == "multipolygons") {
-    exclusie_landgebruik <- osmextract::oe_get(
-      place = gebied %>% st_buffer(buffer),
+    exclusie_landgebruik <- osmextract::oe_read(
+      file_path = osmdata,
       layer = geom_type,
+      download_directory = dirname(osmdata),
       vectortranslate_options = buffer_exclusie_vectortranslate,
       boundary = gebied %>% st_buffer(buffer),
-      boundary_type = "clipsrc",
-      download_directory = dirname(osmdata)) %>%
+      boundary_type = "clipsrc") %>%
       st_buffer(buffer)
   }
 
@@ -106,7 +131,11 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
    landuse = c('residential', 'military', 'industrial', 'cemetery'),
    leisure = c('park'),
    buffer_poly = NULL, layer_poly = NULL,
-   buffer_line = NULL, layer_line = NULL) {
+   buffer_line = NULL, layer_line = NULL,
+   update_osm_layer) {
+
+  # Controleer of gebied binnen osm België valt
+  check_osm_data(gebied, update_osm_layer)
 
   # Create string to exclude landuse and leisure variables
   exclusion_landuse <- paste0("('", paste(landuse, collapse = "', '"), "')")
@@ -126,13 +155,15 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
     "-nlt", "PROMOTE_TO_MULTI"
   )
 
-  exclusie_landgebruik <- osmextract::oe_get(
-    place = gebied,
+  # Exclusie landgebruik
+  exclusie_landgebruik <- osmextract::oe_read(
+    file_path = osmdata,
     layer = "multipolygons",
+    download_directory = dirname(osmdata),
     vectortranslate_options = landuse_exclusie_vectortranslate,
     boundary = gebied,
-    boundary_type = "clipsrc",
-    download_directory = dirname(osmdata))
+    boundary_type = "clipsrc")
+
 
   exclusie_landgebruik <- exclusie_landgebruik %>%
     st_cast("GEOMETRYCOLLECTION") %>%
@@ -188,7 +219,11 @@ extract_osm_paden <- function(gebied, exclusie, osmdata,
                     'tertiary', 'tertiary_link', 'unclassified'),
   cutting_exclude = c('yes', 'both', 'hollow_way'),
   historic_exclude = c('hollow_way'),
-  waterway = c('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch')) {
+  waterway = c('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch'),
+  update_osm_layer) {
+
+  # Controleer of gebied binnen osm België valt
+  check_osm_data(gebied, update_osm_layer)
 
   # Create string include
   inclusion_paths <- paste0("('", paste(paths_include,
@@ -235,13 +270,13 @@ extract_osm_paden <- function(gebied, exclusie, osmdata,
   )
 
   # Read-in data
-  paden <- oe_get(
-    place = gebied,
-    extra_tags = c("historic", "cutting"),
+  paden <- osmextract::oe_read(
+    file_path = osmdata,
+    download_directory = dirname(osmdata),
     vectortranslate_options = my_vectortranslate,
+    extra_tags = c("historic", "cutting"),
     boundary = gebied,
-    boundary_type = "spat",
-    download_directory = dirname(osmdata))
+    boundary_type = "spat")
 
   paden <- paden %>%
     mutate(key = ifelse(is.na(highway), "waterway", "highway"),

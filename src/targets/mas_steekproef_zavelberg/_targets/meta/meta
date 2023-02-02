@@ -1,5 +1,5 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|525ed0f557b6e2b8|||||||||||||||
+.Random.seed|object|ba43f05529f16936|||||||||||||||
 add_bo_to_frame|function|13caf901404892cd|||||||||||||||
 add_bo2021_to_frame|function|b3f03a141605c9fc|||||||||||||||
 add_openheid_landschap_to_frame|function|e8372aad7792bbf7|||||||||||||||
@@ -12,20 +12,21 @@ bereken_vvi|function|0abbdeccbbd13eed|||||||||||||||
 bereken_zichtbaarheid|function|54f797b41085e494|||||||||||||||
 bo_file|stem|7e0d21cf5606c794|359c1b4c7990a9fd|298b5355cf1ca6d6|-1038609820|C:/R/git_repositories/mbag/data/bo_vlm/BO_2022_VLM_EXTERN.shp|t19017.4542941954s|ad0af8073b51b807|10303232|file|local|vector|||0||
 calc_lbg|function|55e1beb2d858f76b|||||||||||||||
+check_osm_data|function|64d9aa3f8ff11bc7|||||||||||||||
 draw_sample|function|297e4f7115ca88a0|||||||||||||||
 dsm|object|ecf0b92ed66e1b16|||||||||||||||
 dtm|object|c47c7d4b3d7938d9|||||||||||||||
-exclusie_buffer_osm|function|f47b54aa966b23fe|||||||||||||||
-exclusie_landgebruik_osm|function|f83bb08e14a42ac6|||||||||||||||
+exclusie_buffer_osm|function|25af9d416aced2b1|||||||||||||||
+exclusie_landgebruik_osm|function|18daa2328804f848|||||||||||||||
 exclusie_osm_landgebruiken|pattern|d373c34eacd2894f|30defcb582b51728||-1395235820||||5130|qs|local|vector||exclusie_osm_landgebruiken_6dfb9303|215.42||
-exclusie_osm_landgebruiken_6dfb9303|branch|2e427a702db2de49|30defcb582b51728|b096eb09ae724a3b|-1340550281||t19382.6020291189s|0fc8136c1a99b1a7|5130|qs|local|vector|exclusie_osm_landgebruiken||215.42|attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries|
-extract_osm_paden|function|526d857ea8066934|||||||||||||||
+exclusie_osm_landgebruiken_6dfb9303|branch|2e427a702db2de49|43f4650431144c82|5166c738f3f2714f|-1340550281||t19382.6020291189s||5130|qs|local|vector|exclusie_osm_landgebruiken||92.67|GDAL Error 1 sqlite3_execDELETE FROM gpkg_extensions WHERE lowertable_namelowermultipolygons AND lowercolumn_namelowergeometry AND extension_namegpkg_rtree_index failed database is locked. GDAL Error 1 sqlite3_execDROP TABLE rtree_multipolygons_geometry failed database is locked. GDAL Error 1 sqlite3_execDROP TRIGGER rtree_multipolygons_geometry_insertDROP TRIGGER rtree_multipolygons_geometry_update1DROP TRIGGER rtree_multipolygons_geometry_update2DROP TRIGGER rtree_multipolygons_geometry_update3DROP TRIGGER rtree_multipolygons_geometry_update4DROP TRIGGER rtree_multipolygons_geometry_delete failed database is locked. GDAL Error 1 sqlite3_execDELETE FROM gpkg_geometry_columns WHERE lowertable_name  lowermultipolygons failed database is locked. GDAL Error 1 DeleteLayer failed when overwrite requested.|gdal_utils vectortranslate an error occured
+extract_osm_paden|function|ec96959e28ed5f77|||||||||||||||
 file_dsm|object|d60c2a4a51a21765|||||||||||||||
 file_dtm|object|43871ca25f311fd7|||||||||||||||
 filename|object|26d077a5f8a8fe4e|||||||||||||||
 filename_dsm|object|4f1475a1374d2b45|||||||||||||||
 filename_dtm|object|ee355bf2e74c33d1|||||||||||||||
-filter_zichtbaarheid|function|c0881118e559aea7|||||||||||||||
+filter_zichtbaarheid|function|05abf68aebe56e8d|||||||||||||||
 gebied|object|86e124abcfe90d1e|||||||||||||||
 get_coverage_wcs|function|23171b77b88b9707|||||||||||||||
 get_feature_wfs|function|867bf0bf51023891|||||||||||||||
@@ -43,7 +44,7 @@ min_cvvi|object|8a0059b814463716|||||||||||||||
 name|object|26d077a5f8a8fe4e|||||||||||||||
 nn_steekproef|function|04e18ded90bdbb1c|||||||||||||||
 openheid_landschap_file|stem|209fc30a2f51ca7a|5747555e9d5be752|0a93b2ba5b04fab3|1011586389|C:/R/git_repositories/mbag/data/dem/openness300m_chm_res25_c300_mean_vlaanderen.tif|t19072.3925462963s|67065bf5b4b15cab|120678615|file|local|vector|||0||
-osm_belgium|stem|862c177d6c739c37|b6dad0f51c49b73b|404f59bf50dfbf49|-932366199|C:\R\osmdata/geofabrik_belgium-latest.osm.pbf|t19045.6525694444s|eab69190422e56b8|481497732|file|local|vector|||0||
+osm_belgium|stem|adac31813fdce720|b6dad0f51c49b73b|404f59bf50dfbf49|-932366199|C:\R\osmdata/geofabrik_belgium-latest.osm.pbf|t19389.5738104896s|9aa0012b971d3109|529799124|file|local|vector|||2.32|package terra was built under R version 4.2.2|
 paden|pattern|78e4136e853e94b7|315d91481e08e411||207914040||||13710|qs|local|vector||paden_39bcb51a|44.97||
 paden_39bcb51a|branch|2c013d0a3a1c9f5c|315d91481e08e411|471bc4aa7f8d80fe|74738754||t19382.6025551802s|be874ccbd36ba5e0|13710|qs|local|vector|paden||44.97|attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries|
 paden_naar_punten|function|42fdde41bc21a4d7|||||||||||||||
@@ -57,7 +58,7 @@ path_to_osm_download|function|6ad7e48367119170|||||||||||||||
 path_to_perimeters|function|22187d181ce5b65a|||||||||||||||
 path_to_sbp_akkervogels|function|be46bd1f767f9150|||||||||||||||
 perimeters_data|stem|718e3fa444229e96|259acd2099d9d883|b37ef90222a8c939|916414819||t19375.6302343051s|9beb9dfb9530a642|3503|qs|local|vector||perimeters_data_be223b15|0.05||
-perimeters_file|stem|41b4bf4fd3b388c4|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19388.3535891137s|22c04e6244b71b04|98304|file|local|vector|||0||
+perimeters_file|stem|41b4bf4fd3b388c4|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19389.6388351668s|22c04e6244b71b04|98304|file|local|vector|||0||
 plus_openheid_landschap|pattern|9ce49381287c4966|1685890019eb64eb||-1021060035||||5452|qs|local|vector||plus_openheid_landschap_55d55bad|0.14||
 plus_openheid_landschap_55d55bad|branch|52a3ffc8c63af135|1685890019eb64eb|fe51eeafdcafd4c9|-316560747||t19384.6103606823s|c1e1f13c7ed7bfd2|5452|qs|local|vector|plus_openheid_landschap||0.14||
 plus_sb|pattern|91cd189a46156d9c|7799087a2c101254||-387737101||||4742|qs|local|vector||plus_sb_6b098b3c|1.47||
