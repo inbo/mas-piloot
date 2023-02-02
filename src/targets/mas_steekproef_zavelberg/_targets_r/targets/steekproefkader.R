@@ -9,7 +9,8 @@ list(
                layer_poly = list(aeroway = c("aerodrome")),
                buffer_line = 50, 
                layer_line = list(highway = c("motorway", "motorway_link"),
-                                 railway = c("rail"))
+                                 railway = c("rail")),
+               update_osm_layer = FALSE
                ),
              pattern = map(perimeters_data)
   ),
@@ -22,7 +23,8 @@ list(
                 'bridleway', 'tertiary', 'tertiary_link', 'unclassified'),
                cutting_exclude = NULL,
                historic_exclude = NULL,
-               waterway = NULL
+               waterway = NULL,
+               update_osm_layer = FALSE
                ),
              pattern = map(perimeters_data, exclusie_osm_landgebruiken)
              ),
