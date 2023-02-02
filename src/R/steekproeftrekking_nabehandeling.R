@@ -69,3 +69,15 @@ filter_zichtbaarheid <- function(sample, min_cvvi) {
   sample %>%
     filter(cvvi >= min_cvvi)
 }
+
+output_finaal <- function(files, write_out) {
+  if (write_out) {
+    lapply(seq_along(files), function(i) {
+      name <- names(files)[i]
+      object <- files[[i]]
+
+      save(object,
+           file = paste0("output/", name))
+    })
+  }
+}
