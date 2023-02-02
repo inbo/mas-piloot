@@ -40,11 +40,12 @@ read_legend_lum <- function(file) {
     ))
 }
 
-check_osm_data <- function(gebied) {
+check_osm_data <- function(gebied, update_osm_layer) {
   # Download periferie van osm België
   provider_file <- file.path(osmextract::oe_download_directory(),
                              "belgium_periferie_osm.kml")
-  if (!file.exists(provider_file)) {
+
+  if (!file.exists(provider_file) | update_osm_layer) {
     download.file("https://download.geofabrik.de/europe/belgium.kml",
                   provider_file)
   } else {
@@ -57,7 +58,8 @@ check_osm_data <- function(gebied) {
   matched_zones = provider_data[st_transform(gebied,
    crs = sf::st_crs(provider_data)), op = sf::st_contains]
   if (nrow(matched_zones) != 0L) {
-    osmextract::oe_download("https://download.geofabrik.de/europe/belgium-latest.osm.pbf")
+    osmextract::oe_download("https://download.geofabrik.de/europe/belgium-latest.osm.pbf",
+                            force_download = update_osm_layer)
   } else {
     stop("Gebied valt buiten België!", call. = FALSE)
   }
@@ -129,10 +131,11 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
    landuse = c('residential', 'military', 'industrial', 'cemetery'),
    leisure = c('park'),
    buffer_poly = NULL, layer_poly = NULL,
-   buffer_line = NULL, layer_line = NULL) {
+   buffer_line = NULL, layer_line = NULL,
+   update_osm_layer) {
 
   # Controleer of gebied binnen osm België valt
-  check_osm_data(gebied)
+  check_osm_data(gebied, update_osm_layer)
 
   # Create string to exclude landuse and leisure variables
   exclusion_landuse <- paste0("('", paste(landuse, collapse = "', '"), "')")
@@ -216,10 +219,11 @@ extract_osm_paden <- function(gebied, exclusie, osmdata,
                     'tertiary', 'tertiary_link', 'unclassified'),
   cutting_exclude = c('yes', 'both', 'hollow_way'),
   historic_exclude = c('hollow_way'),
-  waterway = c('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch')) {
+  waterway = c('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch'),
+  update_osm_layer) {
 
   # Controleer of gebied binnen osm België valt
-  check_osm_data(gebied)
+  check_osm_data(gebied, update_osm_layer)
 
   # Create string include
   inclusion_paths <- paste0("('", paste(paths_include,
