@@ -1954,12 +1954,12 @@ conversion_factor_2018_2022 <- convert_units("meter", NULL, "Square kilometer")
 ```
 
 
-## 2022
+### 2022
 
 
 
-# Data selectie voor model specificatie
-## 2018-2022
+## Data selectie voor model specificatie
+### 2018-2022
 
 We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 
@@ -2070,8 +2070,11 @@ do.call(rbind, list) %>%
   kable()
 ```
 
+### 2022
 
-# Model specificatie distance sampling
+
+## Model specificatie distance sampling
+### 2018-2022
 
 ```{r}
 match_variables_2018_2022 <- c("regio", "jaar")
@@ -2192,7 +2195,7 @@ names(all_models) <- all_model_names
 ```
 
 
-## 2022
+### 2022
 
 ```{r}
 match_variables_2022 <- c("regio", "sbp", "openheid")
@@ -2222,8 +2225,8 @@ forms2 <- forms2[-match("~regio*openheid", forms2)]
 forms_2022 <- c("~1", forms1, forms2)
 ```
 
-# Densiteitschattingen 2018-2022
-## Model selectie per soort
+## Densiteitschattingen 2018-2022
+### Model selectie per soort
 
 ```{r, results = 'asis'}
 for (naam in names(all_models)) {
@@ -2275,7 +2278,7 @@ final_models <- list(Blauwborst = Blauwborst_distmod_2022_hn1,
 ```
 
 
-## Model fit per soort
+### Model fit per soort
 
 ```{r}
 for (naam in names(final_models)) {
@@ -2296,12 +2299,12 @@ for (naam in names(final_models)) {
 ```
 
 
-### Problematische soorten
+#### Problematische soorten
 
 De data voor Bruine kiekendief, Ekster, GroeneSpecht, Holenduif, Kievit, Koolmees en TurkseTortel passen niet voor distance sampling. Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand. Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
 
 
-### Binned distance sampling
+#### Binned distance sampling
 
 De detectiekans voor Blauwborst, Gaai, Kwartel, Patrijs, Torenvalk, Veldleeuwerik neemt soms weer toe na een bepaalde afstand. Voor deze soorten groeperen we de afstanden per 100 meter voor Kwartel en 50 meter voor de andere soorten. 
 
@@ -2389,6 +2392,16 @@ for (naam in names(final_models_binned)) {
                              n_breaks = spec_to_bin[[naam]]) +
     labs(title = titel))
 }
+```
+
+
+### Resultaten
+
+We hebben de densiteiten kunnen schatten van `r length(final_models_update)` soorten. De volgende tabel geeft een overzicht van de soorten en modellen die gefit zijn.
+
+```{r}
+k <- ds_model$ddf$ds$aux$ddfobj$type
+f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
 ```
 
 
