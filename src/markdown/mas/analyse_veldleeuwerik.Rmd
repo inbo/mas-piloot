@@ -2313,99 +2313,82 @@ spec_to_bin <- list(Blauwborst = 6,
                     Torenvalk = 6,
                     Veldleeuwerik = 6)
 
-distance_data <- distance_dfs_2018_2022_final[["Blauwborst"]]
-sample_table_2018_2022 <- sample_tables_2018_2022[["Blauwborst"]]
-obs_table_2018_2022 <- obs_tables_2018_2022[["Blauwborst"]]
-Blauwborst_distmod_2022_hn1_binned <- ds(data = distance_data, key = "hn", 
-  max_adjustments = 2, 
-  monotonicity = "strict", cutpoints = c(0, 50, 100, 150, 200, 250, 300),
-  truncation = 300, transect = "point", dht_group = FALSE, 
-  convert_units = conversion_factor_2018_2022, 
-  region_table = region_table_2018_2022, 
-  sample_table = sample_table_2018_2022, 
-  obs_table = obs_table_2018_2022)
+final_models_update <- final_models
+final_models_binned <- list()
+final_models_binned_names <- c()
 
-plot(Blauwborst_distmod_2022_hn1_binned, pdf = TRUE)
-plot_detection_curve(Blauwborst_distmod_2022_hn1_binned, n_breaks = 6)
+for (spec in names(spec_to_bin)) {
+  distance_data <- distance_dfs_2018_2022_final[[spec]]
+  sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
+  obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
+  ds_model <- final_models[[spec]]
+  
+  k <- ds_model$ddf$ds$aux$ddfobj$type
+  f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+  i <- which(as.character(forms_2018_2022) == gsub("\\s", "", f))
+  cp <- seq(0, 300, length.out = spec_to_bin[[spec]] + 1)
+  
+  # Naam voor model
+  mod_name <- paste0(spec, "_distmod_2022_", k, i, "_binned")
+  file <- paste0(model_path, mod_name, ".rds")
+  
+  # Sla model op als het nog niet bestaat en lees het in anderzijds
+  if (file.exists(file)) {
+    det_model <- readRDS(file)
+    assign(mod_name, det_model)
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+  } else {
+    if (f == "~1") {
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), max_adjustments = 2, 
+        monotonicity = "strict", cutpoints = cp,
+        truncation = 300, transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor_2018_2022, 
+        region_table = region_table_2018_2022, 
+        sample_table = sample_table_2018_2022, 
+        obs_table = obs_table_2018_2022)
+    } else {
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, cutpoints = cp,
+        convert_units = conversion_factor_2018_2022, 
+        region_table = region_table_2018_2022, 
+        sample_table = sample_table_2018_2022, 
+        obs_table = obs_table_2018_2022)
+    }
+    
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+    
+    # Sla gefitte model op
+    assign(mod_name, det_model)
+    saveRDS(det_model, file = file)
+  }
+  # Put models and model names in list 
+  final_models_update[[spec]] <- det_model
+  
+  final_models_binned <- c(final_models_binned, list(det_model))
+  final_models_binned_names <- c(final_models_binned_names, spec)
+}
+names(final_models_binned) <- final_models_binned_names
+```
 
+We controleren nieuwe fit.
 
-distance_data <- distance_dfs_2018_2022_final[["Gaai"]]
-sample_table_2018_2022 <- sample_tables_2018_2022[["Gaai"]]
-obs_table_2018_2022 <- obs_tables_2018_2022[["Gaai"]]
-Gaai_distmod_2022_hn1_binned <- ds(data = distance_data, key = "hn", 
-  max_adjustments = 2, 
-  monotonicity = "strict", cutpoints = c(0, 50, 100, 150, 200, 250, 300),
-  truncation = 300, transect = "point", dht_group = FALSE, 
-  convert_units = conversion_factor_2018_2022, 
-  region_table = region_table_2018_2022, 
-  sample_table = sample_table_2018_2022, 
-  obs_table = obs_table_2018_2022)
-
-plot(Gaai_distmod_2022_hn1_binned, pdf = TRUE)
-plot_detection_curve(Gaai_distmod_2022_hn1_binned, n_breaks = 6)
-
-
-distance_data <- distance_dfs_2018_2022_final[["Kwartel"]]
-sample_table_2018_2022 <- sample_tables_2018_2022[["Kwartel"]]
-obs_table_2018_2022 <- obs_tables_2018_2022[["Kwartel"]]
-Kwartel_distmod_2022_hn1_binned <- ds(data = distance_data, key = "hn", 
-  max_adjustments = 2, 
-  monotonicity = "strict", cutpoints = c(0, 100, 200, 300),
-  truncation = 300, transect = "point", dht_group = FALSE, 
-  convert_units = conversion_factor_2018_2022, 
-  region_table = region_table_2018_2022, 
-  sample_table = sample_table_2018_2022, 
-  obs_table = obs_table_2018_2022)
-
-plot(Kwartel_distmod_2022_hn1_binned, pdf = TRUE)
-plot_detection_curve(Kwartel_distmod_2022_hn1_binned, n_breaks = 3)
-
-
-distance_data <- distance_dfs_2018_2022_final[["Patrijs"]]
-sample_table_2018_2022 <- sample_tables_2018_2022[["Patrijs"]]
-obs_table_2018_2022 <- obs_tables_2018_2022[["Patrijs"]]
-Patrijs_distmod_2022_hn1_binned <- ds(data = distance_data, key = "hn", 
-  max_adjustments = 2, 
-  monotonicity = "strict", cutpoints = c(0, 50, 100, 150, 200, 250, 300),
-  truncation = 300, transect = "point", dht_group = FALSE, 
-  convert_units = conversion_factor_2018_2022, 
-  region_table = region_table_2018_2022, 
-  sample_table = sample_table_2018_2022, 
-  obs_table = obs_table_2018_2022)
-
-plot(Patrijs_distmod_2022_hn1_binned, pdf = TRUE)
-plot_detection_curve(Patrijs_distmod_2022_hn1_binned, n_breaks = 6)
-
-
-distance_data <- distance_dfs_2018_2022_final[["Torenvalk"]]
-sample_table_2018_2022 <- sample_tables_2018_2022[["Torenvalk"]]
-obs_table_2018_2022 <- obs_tables_2018_2022[["Torenvalk"]]
-Torenvalk_distmod_2022_hn1_binned <- ds(data = distance_data, key = "hn", 
-  max_adjustments = 2, 
-  monotonicity = "strict", cutpoints = c(0, 50, 100, 150, 200, 250, 300),
-  truncation = 300, transect = "point", dht_group = FALSE, 
-  convert_units = conversion_factor_2018_2022, 
-  region_table = region_table_2018_2022, 
-  sample_table = sample_table_2018_2022, 
-  obs_table = obs_table_2018_2022)
-
-plot(Torenvalk_distmod_2022_hn1_binned, pdf = TRUE)
-plot_detection_curve(Torenvalk_distmod_2022_hn1_binned, n_breaks = 6)
-
-distance_data <- distance_dfs_2018_2022_final[["Veldleeuwerik"]]
-sample_table_2018_2022 <- sample_tables_2018_2022[["Veldleeuwerik"]]
-obs_table_2018_2022 <- obs_tables_2018_2022[["Veldleeuwerik"]]
-Veldleeuwerik_distmod_2022_hr4_binned <- ds(data = distance_data, key = "hr", 
-            formula = ~regio + jaar, adjustment = NULL, truncation = 300, 
-            transect = "point", dht_group = FALSE, 
-            cutpoints = c(0, 50, 100, 150, 200, 250, 300),
-            convert_units = conversion_factor_2018_2022, 
-            region_table = region_table_2018_2022, 
-            sample_table = sample_table_2018_2022, 
-            obs_table = obs_table_2018_2022)
-
-plot(Veldleeuwerik_distmod_2022_hr4_binned, pdf = TRUE)
-plot_detection_curve(Veldleeuwerik_distmod_2022_hr4_binned, n_breaks = 6)
+```{r}
+for (naam in names(final_models_binned)) {
+  ds_model_2018_2022 <- final_models_binned[[naam]]
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  
+  plot(ds_model_2018_2022 , pdf = TRUE, showpoints = FALSE,
+       main = titel)
+  
+  print(plot_detection_curve(ds_model_2018_2022, 
+                             n_breaks = spec_to_bin[[naam]]) +
+    labs(title = titel))
+}
 ```
 
 
