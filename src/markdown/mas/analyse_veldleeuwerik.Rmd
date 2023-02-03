@@ -1964,9 +1964,8 @@ conversion_factor_2018_2022 <- convert_units("meter", NULL, "Square kilometer")
 We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 
 -   behoud strata als aantal waarnemingen per stratum >= 10
--   behoud datasets als totaal aantal waarnemingen >= 20
+-   behoud datasets als totaal aantal waarnemingen >= 30
 
-Dat impliceert dat na selectie: Als voor een soort slechts 1 stratum overblijft (jaar, regio), zijn er minstens 20 waarnemingen. Bij twee strata zijn dit er ook minstens 20, bij 3 strata minstens 30, 4 strata minstens 40 ... In totaal zijn er 10 strata mogelijk (5 jaren, 2 regio's).
 
 > Als we deze getallen aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
 
@@ -1988,7 +1987,7 @@ filter_dist_df <- function(data, stratum_filter, dataset_filter) {
   return(select_df)
 }
 
-distance_dfs_2018_2022_final <- filter_dist_df(distance_dfs_2018_2022, 10, 20)
+distance_dfs_2018_2022_final <- filter_dist_df(distance_dfs_2018_2022, 10, 30)
 ```
 
 De meeste soorten zijn in meerdere jaren gezien. De meeste soorten hebben waarnemingen van slechts een enkele regio. Een interactie tussen regio en jaar zal slechts in een beperkt aantal gevallen gefit kunnen worden.
@@ -1996,21 +1995,28 @@ De meeste soorten zijn in meerdere jaren gezien. De meeste soorten hebben waarne
 ```{r}
 stratum_cijfers_lijst <- lapply(seq_along(distance_dfs_2018_2022_final), 
   function(i) {
-    if (nrow(distance_dfs_2018_2022_final[[i]]) == 0) {
-      out <- tibble(soort = names(distance_dfs_2018_2022_final[i]),
-                    n = 0, n_jaar = 0, n_regio = 0, n_interactie = 0)
-    } else {
-      out <- distance_dfs_2018_2022_final[[i]] %>% 
-        mutate(soort = names(distance_dfs_2018_2022_final[i])) %>%
-        mutate(n = nrow(distance_dfs_2018_2022_final[[i]]),
-               n_jaar = n_distinct(jaar) > 1,
-               n_regio = n_distinct(regio) > 1) %>%
-        group_by(regio) %>%
-        mutate(n_interactie = n_distinct(jaar)) %>%
-        ungroup() %>%
-        mutate(n_interactie = !(min(n_interactie) == 1 | n_regio == FALSE)) %>%
-        distinct(soort, n, n_jaar, n_regio, n_interactie)
-    }
+    out <- distance_dfs_2018_2022_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2018_2022_final[i])) %>%
+      mutate(n = nrow(distance_dfs_2018_2022_final[[i]]),
+             n_jaar = n_distinct(jaar) > 1,
+             n_regio = n_distinct(regio) > 1) %>%
+      group_by(regio) %>%
+      mutate(n_interactie = n_distinct(jaar)) %>%
+      ungroup() %>%
+      mutate(n_interactie = !(min(n_interactie) == 1 | n_regio == FALSE)) %>%
+      distinct(soort, n, n_jaar, n_regio, n_interactie)
+    
+     min <- distance_dfs_2018_2022_final[[i]] %>% 
+       mutate(soort = names(distance_dfs_2018_2022_final[i])) %>%
+       group_by(soort, regio, jaar) %>% 
+       summarise(n = n(), .groups = "drop") %>%
+       pull(n) %>%
+       min()
+     
+     if (min <= 11){
+       out$n_interactie <- FALSE
+     }
+    
     return(out)
   })
 
@@ -2104,8 +2110,11 @@ keys <- c("hn", "hr")
 # Sla de gefitte models op op deze locatie
 model_path <- "./src/markdown/mas/distance_models/"
 
+# Verwijder BruineKiekendief
+index_kiek <- which(names(distance_dfs_2018_2022_final) == "BruineKiekendief")
+
 # Loop over species
-for (spec in names(distance_dfs_2018_2022_final)[-which(names(distance_dfs_2018_2022_final) %in% c("BruineKiekendief", "Houtduif", "Huismus", "WitteKwikstaart"))]) {
+for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
   distance_data <- distance_dfs_2018_2022_final[[spec]]
   sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
   obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
@@ -2237,35 +2246,30 @@ final_models <- list(Blauwborst = Blauwborst_distmod_2022_hn1,
                      Geelgors = Geelgors_distmod_2022_hr1,
                      GeleKwikstaart = GeleKwikstaart_distmod_2022_hr3,
                      Grasmus = Grasmus_distmod_2022_hn1,
-                     Graspieper = Graspieper_distmod_2022_hn1,
                      GrauweGors = GrauweGors_distmod_2022_hn1,
                      GroeneSpecht = GroeneSpecht_distmod_2022_hn1,
-                     GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hn1,
                      Heggenmus = Heggenmus_distmod_2022_hn1,
                      Holenduif = Holenduif_distmod_2022_hn1,
-                     Kauw = Kauw_distmod_2022_hr1,
+                     Houtduif = Houtduif_distmod_2022_hn3,
+                     Huismus = Huismus_distmod_2022_hn3,
                      Kievit = Kievit_distmod_2022_hr1,
                      KleineKarekiet = KleineKarekiet_distmod_2022_hn1,
                      Kneu = Kneu_distmod_2022_hn1,
                      Koolmees = Koolmees_distmod_2022_hr1,
                      Kwartel = Kwartel_distmod_2022_hn1,
-                     Meerkoet = Meerkoet_distmod_2022_hn1,
                      Merel = Merel_distmod_2022_hr1,
                      Patrijs = Patrijs_distmod_2022_hn1,
-                     Pimpelmees = Pimpelmees_distmod_2022_hn1,
                      Rietzanger = Rietzanger_distmod_2022_hn1,
-                     Roek = Roek_distmod_2022_hr1,
                      Spotvogel = Spotvogel_distmod_2022_hn1,
                      Spreeuw = Spreeuw_distmod_2022_hr1,
                      Tjiftjaf = Tjiftjaf_distmod_2022_hr2,
                      Torenvalk = Torenvalk_distmod_2022_hn1,
-                     Tuinfluiter = Tuinfluiter_distmod_2022_hr1,
-                     TurkseTortel_distmod_2022 = TurkseTortel_distmod_2022_hr1,
+                     TurkseTortel = TurkseTortel_distmod_2022_hr1,
                      Veldleeuwerik = Veldleeuwerik_distmod_2022_hr4,
                      Vink = Vink_distmod_2022_hn1,
                      WildeEend = WildeEend_distmod_2022_hn1,
                      Winterkoning = Winterkoning_distmod_2022_hn1,
-                     Zanglijster = Zanglijster_distmod_2022_hr1,
+                     WitteKwikstaart = WitteKwikstaart_distmod_2022_hn1,
                      ZwarteKraai = ZwarteKraai_distmod_2022_hr1,
                      Zwartkop = Zwartkop_distmod_2022_hn1)
 ```
@@ -2292,6 +2296,117 @@ for (naam in names(final_models)) {
 ```
 
 
+### Problematische soorten
+
+De data voor Bruine kiekendief, Ekster, GroeneSpecht, Holenduif, Kievit, Koolmees en TurkseTortel passen niet voor distance sampling. Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand. Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
+
+
+### Binned distance sampling
+
+De detectiekans voor Blauwborst, Gaai, Kwartel, Patrijs, Torenvalk, Veldleeuwerik neemt soms weer toe na een bepaalde afstand. Voor deze soorten groeperen we de afstanden per 100 meter voor Kwartel en 50 meter voor de andere soorten. 
+
+```{r}
+spec_to_bin <- list(Blauwborst = 6, 
+                    Gaai = 6, 
+                    Kwartel = 3,
+                    Patrijs = 6,
+                    Torenvalk = 6,
+                    Veldleeuwerik = 6)
+
+distance_data <- distance_dfs_2018_2022_final[["Blauwborst"]]
+sample_table_2018_2022 <- sample_tables_2018_2022[["Blauwborst"]]
+obs_table_2018_2022 <- obs_tables_2018_2022[["Blauwborst"]]
+Blauwborst_distmod_2022_hn1_binned <- ds(data = distance_data, key = "hn", 
+  max_adjustments = 2, 
+  monotonicity = "strict", cutpoints = c(0, 50, 100, 150, 200, 250, 300),
+  truncation = 300, transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor_2018_2022, 
+  region_table = region_table_2018_2022, 
+  sample_table = sample_table_2018_2022, 
+  obs_table = obs_table_2018_2022)
+
+plot(Blauwborst_distmod_2022_hn1_binned, pdf = TRUE)
+plot_detection_curve(Blauwborst_distmod_2022_hn1_binned, n_breaks = 6)
+
+
+distance_data <- distance_dfs_2018_2022_final[["Gaai"]]
+sample_table_2018_2022 <- sample_tables_2018_2022[["Gaai"]]
+obs_table_2018_2022 <- obs_tables_2018_2022[["Gaai"]]
+Gaai_distmod_2022_hn1_binned <- ds(data = distance_data, key = "hn", 
+  max_adjustments = 2, 
+  monotonicity = "strict", cutpoints = c(0, 50, 100, 150, 200, 250, 300),
+  truncation = 300, transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor_2018_2022, 
+  region_table = region_table_2018_2022, 
+  sample_table = sample_table_2018_2022, 
+  obs_table = obs_table_2018_2022)
+
+plot(Gaai_distmod_2022_hn1_binned, pdf = TRUE)
+plot_detection_curve(Gaai_distmod_2022_hn1_binned, n_breaks = 6)
+
+
+distance_data <- distance_dfs_2018_2022_final[["Kwartel"]]
+sample_table_2018_2022 <- sample_tables_2018_2022[["Kwartel"]]
+obs_table_2018_2022 <- obs_tables_2018_2022[["Kwartel"]]
+Kwartel_distmod_2022_hn1_binned <- ds(data = distance_data, key = "hn", 
+  max_adjustments = 2, 
+  monotonicity = "strict", cutpoints = c(0, 100, 200, 300),
+  truncation = 300, transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor_2018_2022, 
+  region_table = region_table_2018_2022, 
+  sample_table = sample_table_2018_2022, 
+  obs_table = obs_table_2018_2022)
+
+plot(Kwartel_distmod_2022_hn1_binned, pdf = TRUE)
+plot_detection_curve(Kwartel_distmod_2022_hn1_binned, n_breaks = 3)
+
+
+distance_data <- distance_dfs_2018_2022_final[["Patrijs"]]
+sample_table_2018_2022 <- sample_tables_2018_2022[["Patrijs"]]
+obs_table_2018_2022 <- obs_tables_2018_2022[["Patrijs"]]
+Patrijs_distmod_2022_hn1_binned <- ds(data = distance_data, key = "hn", 
+  max_adjustments = 2, 
+  monotonicity = "strict", cutpoints = c(0, 50, 100, 150, 200, 250, 300),
+  truncation = 300, transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor_2018_2022, 
+  region_table = region_table_2018_2022, 
+  sample_table = sample_table_2018_2022, 
+  obs_table = obs_table_2018_2022)
+
+plot(Patrijs_distmod_2022_hn1_binned, pdf = TRUE)
+plot_detection_curve(Patrijs_distmod_2022_hn1_binned, n_breaks = 6)
+
+
+distance_data <- distance_dfs_2018_2022_final[["Torenvalk"]]
+sample_table_2018_2022 <- sample_tables_2018_2022[["Torenvalk"]]
+obs_table_2018_2022 <- obs_tables_2018_2022[["Torenvalk"]]
+Torenvalk_distmod_2022_hn1_binned <- ds(data = distance_data, key = "hn", 
+  max_adjustments = 2, 
+  monotonicity = "strict", cutpoints = c(0, 50, 100, 150, 200, 250, 300),
+  truncation = 300, transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor_2018_2022, 
+  region_table = region_table_2018_2022, 
+  sample_table = sample_table_2018_2022, 
+  obs_table = obs_table_2018_2022)
+
+plot(Torenvalk_distmod_2022_hn1_binned, pdf = TRUE)
+plot_detection_curve(Torenvalk_distmod_2022_hn1_binned, n_breaks = 6)
+
+distance_data <- distance_dfs_2018_2022_final[["Veldleeuwerik"]]
+sample_table_2018_2022 <- sample_tables_2018_2022[["Veldleeuwerik"]]
+obs_table_2018_2022 <- obs_tables_2018_2022[["Veldleeuwerik"]]
+Veldleeuwerik_distmod_2022_hr4_binned <- ds(data = distance_data, key = "hr", 
+            formula = ~regio + jaar, adjustment = NULL, truncation = 300, 
+            transect = "point", dht_group = FALSE, 
+            cutpoints = c(0, 50, 100, 150, 200, 250, 300),
+            convert_units = conversion_factor_2018_2022, 
+            region_table = region_table_2018_2022, 
+            sample_table = sample_table_2018_2022, 
+            obs_table = obs_table_2018_2022)
+
+plot(Veldleeuwerik_distmod_2022_hr4_binned, pdf = TRUE)
+plot_detection_curve(Veldleeuwerik_distmod_2022_hr4_binned, n_breaks = 6)
+```
 
 
 
