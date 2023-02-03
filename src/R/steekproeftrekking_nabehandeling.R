@@ -72,12 +72,12 @@ filter_zichtbaarheid <- function(sample, min_cvvi) {
 
 output_finaal <- function(files, write_out) {
   if (write_out) {
-    lapply(seq_along(files), function(i) {
+    for (i in seq_along(files)) {
       name <- names(files)[i]
       object <- files[[i]]
 
-      save(object,
-           file = paste0("output/", name))
-    })
+      qs::qsave(object, file = paste0("output/", name))
+    }
   }
+  return(write_out)
 }
