@@ -69,3 +69,16 @@ filter_zichtbaarheid <- function(sample, min_cvvi) {
   sample %>%
     filter(cvvi >= min_cvvi)
 }
+
+output_finaal <- function(files, write_out) {
+  if (write_out) {
+    fs::dir_create("output")
+    for (i in seq_along(files)) {
+      name <- names(files)[i]
+      object <- files[[i]]
+
+      qs::qsave(object, file = paste0("output/", name))
+    }
+  }
+  return(write_out)
+}
