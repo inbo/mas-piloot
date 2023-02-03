@@ -72,6 +72,7 @@ filter_zichtbaarheid <- function(sample, min_cvvi) {
 
 output_finaal <- function(files, write_out) {
   if (write_out) {
+    fs::dir_create("output")
     for (i in seq_along(files)) {
       name <- names(files)[i]
       object <- files[[i]]

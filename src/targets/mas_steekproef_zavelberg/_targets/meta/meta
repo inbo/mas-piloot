@@ -1,5 +1,5 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|105a0ff129818dd9|||||||||||||||
+.Random.seed|object|3c715fcaaf033a00|||||||||||||||
 add_bo_to_frame|function|13caf901404892cd|||||||||||||||
 add_bo2021_to_frame|function|b3f03a141605c9fc|||||||||||||||
 add_openheid_landschap_to_frame|function|e8372aad7792bbf7|||||||||||||||
@@ -45,7 +45,7 @@ name|object|26d077a5f8a8fe4e|||||||||||||||
 nn_steekproef|function|04e18ded90bdbb1c|||||||||||||||
 openheid_landschap_file|stem|209fc30a2f51ca7a|5747555e9d5be752|0a93b2ba5b04fab3|1011586389|C:/R/git_repositories/mbag/data/dem/openness300m_chm_res25_c300_mean_vlaanderen.tif|t19072.3925462963s|67065bf5b4b15cab|120678615|file|local|vector|||0||
 osm_belgium|stem|adac31813fdce720|b6dad0f51c49b73b|404f59bf50dfbf49|-932366199|C:\R\osmdata/geofabrik_belgium-latest.osm.pbf|t19389.5738104896s|9aa0012b971d3109|529799124|file|local|vector|||0||
-output_finaal|function|cd114f786e3a217b|||||||||||||||
+output_finaal|function|f2e33cddefbd174f|||||||||||||||
 output_objecten|stem|e51d8d193be16a87|b5dc1e0e23c91e3b|f2b6f08c7448e3bf|744489450||t19391.383491497s|506f9f6b3747f807|42|qs|local|vector|||0.03||
 paden|pattern|ad8985d7b5d39e50|dfa64fbdf797d34f||207914040||||13508|qs|local|vector||paden_39bcb51a|46||
 paden_39bcb51a|branch|a43449ecbf377817|dfa64fbdf797d34f|bfb9ccc84bc96b26|74738754||t19390.4637151899s|8826edc441c1d973|13508|qs|local|vector|paden||46|attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries|
@@ -60,7 +60,7 @@ path_to_osm_download|function|6ad7e48367119170|||||||||||||||
 path_to_perimeters|function|22187d181ce5b65a|||||||||||||||
 path_to_sbp_akkervogels|function|be46bd1f767f9150|||||||||||||||
 perimeters_data|stem|718e3fa444229e96|259acd2099d9d883|b37ef90222a8c939|916414819||t19390.4595678082s|9beb9dfb9530a642|3503|qs|local|vector||perimeters_data_be223b15|0.05||
-perimeters_file|stem|41b4bf4fd3b388c4|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19390.4426099732s|22c04e6244b71b04|98304|file|local|vector|||0||
+perimeters_file|stem|41b4bf4fd3b388c4|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19391.4942112333s|22c04e6244b71b04|98304|file|local|vector|||0||
 plus_openheid_landschap|pattern|b1c32e9a7f897db6|1685890019eb64eb||-1021060035||||5401|qs|local|vector||plus_openheid_landschap_55d55bad|0.39||
 plus_openheid_landschap_55d55bad|branch|ad3251c170aaf3f0|1685890019eb64eb|7041015fb4def9ca|-316560747||t19390.4647484276s|a426cf928458924a|5401|qs|local|vector|plus_openheid_landschap||0.39||
 plus_sb|pattern|0f5e0de974a9df52|7799087a2c101254||-387737101||||4709|qs|local|vector||plus_sb_6b098b3c|3.89||
