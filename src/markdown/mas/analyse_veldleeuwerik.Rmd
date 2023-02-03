@@ -2301,7 +2301,16 @@ for (naam in names(final_models)) {
 
 #### Problematische soorten
 
-De data voor Bruine kiekendief, Ekster, GroeneSpecht, Holenduif, Kievit, Koolmees en TurkseTortel passen niet voor distance sampling. Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand. Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
+De data voor BruineKiekendief, Ekster, GroeneSpecht, Holenduif, Kievit, Koolmees en TurkseTortel passen niet voor distance sampling. Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand. Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
+
+```{r}
+spec_to_remove <- c("Ekster", "GroeneSpecht", "Holenduif", 
+                    "Kievit", "Koolmees", "TurkseTortel")
+indices_to_remove <- which(names(final_models) %in% spec_to_remove)
+
+# Remove
+final_models[indices_to_remove] <- NULL
+```
 
 
 #### Binned distance sampling
@@ -2400,8 +2409,22 @@ for (naam in names(final_models_binned)) {
 We hebben de densiteiten kunnen schatten van `r length(final_models_update)` soorten. De volgende tabel geeft een overzicht van de soorten en modellen die gefit zijn.
 
 ```{r}
-k <- ds_model$ddf$ds$aux$ddfobj$type
-f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+results <- lapply(seq_along(final_models_update), 
+  function(i) {
+    ds_model <- final_models_update[[i]]
+    k <- ds_model$ddf$ds$aux$ddfobj$type
+    f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+    b <- ds_model$ddf$meta.data$binned
+    p <- ds_model$dht$individuals$average.p
+    se <- as.numeric(summary(ds_model)$ds$average.p.se)
+    
+    data.frame(soort = names(final_models_update[i]),
+               key = k, formule = f, binned = b, Pa_hat = p, SE = se)
+  })
+
+
+do.call(rbind, results) %>%
+  kable(digits = 3)
 ```
 
 
