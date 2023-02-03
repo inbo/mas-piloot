@@ -1,7 +1,7 @@
 list(
   tarchetypes::tar_file(
     perimeters_file,
-    path_to_perimeters("zandleemstreek_perimeters.gpkg")
+    path_to_perimeters("leefdaal_perimeters.gpkg")
     ),
   tar_target(
     perimeters_data,
