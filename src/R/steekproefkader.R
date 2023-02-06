@@ -49,6 +49,7 @@ selectie_openheid <- function(gebied, ol_strata,
 
   openheid_gebied <- crop(openheid, st_buffer(gebied, 100))
 
+  # Classify raster
   matvec <- c(0, rep(cutlevels, each = 2), +Inf)
   nclass <- length(matvec) / 2
 
@@ -60,12 +61,21 @@ selectie_openheid <- function(gebied, ol_strata,
     openheid_gebied,
     rcl = rclasmat,
     include.lowest = TRUE)
-  levels(openheid_gebied_klassen) <- data.frame(1:4, class_labels)
+  levels(openheid_gebied_klassen) <- data.frame(1:4,
+                                       openheid_klassen = class_labels)
 
+  # Raster naar polygoon en selecteer openheid
   openheid_gebied_sf <- as.polygons(openheid_gebied_klassen) %>%
     st_as_sf() %>%
+    filter(openheid_klassen %in% ol_strata)
 
+  # Maak intersectie met perimeters
+  openheid_gebied_intersect <- st_intersection(gebied, openheid_gebied_sf)
+  out <- openheid_gebied_intersect %>%
+    group_by(Naam, section) %>%
+    summarise(.groups = "drop")
 
+  return(out)
 }
 
 check_osm_data <- function(gebied, update_osm_layer) {
