@@ -40,7 +40,14 @@ read_legend_lum <- function(file) {
     ))
 }
 
-selectie_openheid <- function(gebied, ol_strata) {
+selectie_openheid <- function(gebied, ol_strata,
+                              cutlevels = c(1.25, 1.35, 1.51),
+                              class_labels = c("GL", "HGL", "HOL", "OL")) {
+  # Lees openheid laag
+  openheid <- rast(path_to_openheid_landschap()) %>%
+    project("epsg:31370")
+
+
 
 }
 
