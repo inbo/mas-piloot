@@ -184,14 +184,18 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
     exclude_buffer <- exclusie_buffer_osm(gebied, osmdata, buffer = buffer_poly,
       layer = layer_poly, geom_type = "multipolygons")
 
-    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+    out <- bind_rows(exclusie_landgebruik, exclude_buffer)
+    out <- st_union(st_make_valid(out)) %>%
+      st_as_sf() %>%
       select(x) %>%
       mutate(Naam = gebied$Naam)
   } else if (is.null(layer_poly) & !is.null(layer_line)) {
     exclude_buffer <- exclusie_buffer_osm(gebied, osmdata, buffer = buffer_line,
       layer = layer_line, geom_type = "lines")
 
-    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+    out <- bind_rows(exclusie_landgebruik, exclude_buffer)
+    out <- st_union(st_make_valid(out)) %>%
+      st_as_sf() %>%
       select(x) %>%
       mutate(Naam = gebied$Naam)
   } else if (!is.null(layer_poly) & !is.null(layer_line)) {
@@ -203,7 +207,9 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
       select(x) %>%
       mutate(Naam = gebied$Naam)
 
-    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+    out <- bind_rows(exclusie_landgebruik, exclude_buffer)
+    out <- st_union(st_make_valid(out)) %>%
+      st_as_sf() %>%
       select(x) %>%
       mutate(Naam = gebied$Naam)
   } else {
