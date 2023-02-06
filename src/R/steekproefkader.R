@@ -40,6 +40,10 @@ read_legend_lum <- function(file) {
     ))
 }
 
+selectie_openheid <- function(gebied, ol_strata) {
+
+}
+
 check_osm_data <- function(gebied, update_osm_layer) {
   # Download periferie van osm België
   provider_file <- file.path(osmextract::oe_download_directory(),
