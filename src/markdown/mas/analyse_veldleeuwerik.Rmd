@@ -2412,7 +2412,7 @@ We hebben de densiteiten kunnen schatten van `r length(final_models_update)` soo
 results <- lapply(seq_along(final_models_update), 
   function(i) {
     ds_model <- final_models_update[[i]]
-    k <- ds_model$ddf$ds$aux$ddfobj$type
+    k <- gsub(" key function", "", Distance:::model.description(ds_model$ddf))
     f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
     b <- ds_model$ddf$meta.data$binned
     p <- ds_model$dht$individuals$average.p
