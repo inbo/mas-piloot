@@ -47,6 +47,23 @@ selectie_openheid <- function(gebied, ol_strata,
   openheid <- rast(path_to_openheid_landschap()) %>%
     project("epsg:31370")
 
+  openheid_gebied <- crop(openheid, st_buffer(gebied, 100))
+
+  matvec <- c(0, rep(cutlevels, each = 2), +Inf)
+  nclass <- length(matvec) / 2
+
+  rclasmat <- matvec %>%
+    matrix(ncol = 2, byrow = TRUE)
+  rclasmat <- cbind(rclasmat, 1:nclass)
+
+  openheid_gebied_klassen <- terra::classify(
+    openheid_gebied,
+    rcl = rclasmat,
+    include.lowest = TRUE)
+  levels(openheid_gebied_klassen) <- data.frame(1:4, class_labels)
+
+  openheid_gebied_sf <- as.polygons(openheid_gebied_klassen) %>%
+    st_as_sf() %>%
 
 
 }
