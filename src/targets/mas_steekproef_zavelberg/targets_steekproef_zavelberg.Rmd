@@ -247,14 +247,14 @@ list(
   tar_target(name = exclusie_osm_landgebruiken,
              command = exclusie_landgebruik_osm(
                gebied = perimeters_data,
-               osmdata = osm_belgium,
-               landuse = c("residential", "commercial", "railway"),
-               leisure = NULL,
-               buffer_poly = 50, 
-               layer_poly = list(aeroway = c("aerodrome")),
-               buffer_line = 50, 
-               layer_line = list(highway = c("motorway", "motorway_link"),
-                                 railway = c("rail")),
+          	   osmdata = osm_belgium,
+          	   landuse = c("residential", "military", "industrial", "cemetery", 
+          	               "railway", "commercial"),
+          	   leisure = c("park"),
+          	   buffer_poly = 0, 
+          	   layer_poly = list(aeroway = c("aerodrome")),
+          	   buffer_line = 50, 
+          	   layer_line = list(highway = c("motorway", "motorway_link")),
                update_osm_layer = FALSE
                ),
              pattern = map(perimeters_data)
