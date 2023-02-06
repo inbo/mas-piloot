@@ -244,6 +244,12 @@ Degenen met duidelijk te lage zichtbaarheid kunnen we er dan al op voorhand uit 
 
 ```{targets steekproefkader}
 list(
+  tar_target(name = selectie_openheid_klasses,
+             command = selectie_openheid(
+               gebied = perimeters_data,
+               ol_strata = c("OL", "HOL")
+             )
+  ),
   tar_target(name = exclusie_osm_landgebruiken,
              command = exclusie_landgebruik_osm(
                gebied = perimeters_data,
