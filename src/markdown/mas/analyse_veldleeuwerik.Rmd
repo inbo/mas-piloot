@@ -2005,7 +2005,7 @@ stratum_cijfers_lijst <- lapply(seq_along(distance_dfs_2018_2022_final),
   function(i) {
     out <- distance_dfs_2018_2022_final[[i]] %>% 
       mutate(soort = names(distance_dfs_2018_2022_final[i])) %>%
-      mutate(n = nrow(distance_dfs_2018_2022_final[[i]]),
+      mutate(n = sum(distance_dfs_2018_2022_final[[i]]$size),
              n_jaar = n_distinct(jaar) > 1,
              n_regio = n_distinct(regio) > 1) %>%
       group_by(regio) %>%
@@ -2066,7 +2066,7 @@ list <- lapply(seq_along(distance_dfs_2018_2022_final),
   function(i) {
     distance_dfs_2018_2022_final[[i]] %>% 
       mutate(soort = names(distance_dfs_2018_2022_final[i])) %>%
-      mutate(n_obs = nrow(distance_dfs_2018_2022_final[[i]]),
+      mutate(n_obs = sum(distance_dfs_2018_2022_final[[i]]$size),
              n_jaren = n_distinct(jaar),
              n_regios = n_distinct(regio),
              strata = paste0(regio, jaar),
