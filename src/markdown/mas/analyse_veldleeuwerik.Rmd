@@ -1966,6 +1966,7 @@ We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 -   behoud strata als aantal waarnemingen per stratum >= 10
 -   behoud datasets als totaal aantal waarnemingen >= 30
 
+Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten. Een observatie van 2 individuen telt hier als 2 waarnemingen!
 
 > Als we deze getallen aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
 
