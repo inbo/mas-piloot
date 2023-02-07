@@ -1975,14 +1975,21 @@ filter_dist_df <- function(data, stratum_filter, dataset_filter) {
   select_df <- lapply(data, function(i) {
     i %>% 
       group_by(regio, jaar) %>% 
-      mutate(n = n()) %>%
+      mutate(n = sum(size)) %>%
       filter(n >= stratum_filter) %>%
       ungroup() %>%
       select(-n)
   })
   
   # Selectie datasets
-  select_df <- select_df[sapply(select_df, nrow) >= dataset_filter]
+  n_obs <- sapply(select_df, function(i) {
+      if (nrow(i) == 0) {
+        return(0)
+      } else {
+        return(sum(i$size))
+      }
+    })
+  select_df <- select_df[n_obs >= dataset_filter]
   
   return(select_df)
 }
