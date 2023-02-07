@@ -2302,37 +2302,17 @@ for (naam in names(final_models)) {
   print(von_mises)
   
   if (f == "~jaar") {
-    par(mfrow = c(3, 2))
-      
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = jaar == "2018",
-         main = "2018", pl.col = alpha("blue", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "blue",
-      data = data.frame(jaar = "2018"), pdf = TRUE)
+    par(mfrow = c(1, 2))
     
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = jaar == "2019",
-         main = "2019", pl.col = alpha("darkgreen", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "darkgreen",
-      data = data.frame(jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = jaar == "2020",
-         main = "2020", pl.col = alpha("brown", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "brown",
-      data = data.frame(jaar = "2020"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = jaar == "2021",
-         main = "2021", pl.col = alpha("salmon", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "salmon",
-      data = data.frame(jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = jaar == "2022",
-         main = "2022", pl.col = alpha("gold", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "gold",
-      data = data.frame(jaar = "2022"), pdf = TRUE)
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
+      j <- sort(unique(ds_model_2018_2022$ddf$data$jaar))[i]
+      plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = jaar == j,
+         main = j, pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(jaar = j), pdf = TRUE)
+    }
     
     par(mfrow = c(1, 1))
   }
@@ -2354,67 +2334,24 @@ for (naam in names(final_models)) {
     par(mfrow = c(1, 1))
   }
   if (f %in% c("~regio + jaar", "~regio * jaar")) {
-    par(mfrow = c(5, 2))
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    
+    
+    for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
+      j <- sort(unique(ds_model_2018_2022$ddf$data$jaar))[i]
       
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "De Moeren" & jaar == "2018",
-         main = "De Moeren - 2018", pl.col = alpha("blue", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "blue",
-      data = data.frame(regio = "De Moeren", jaar = "2018"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "Oostelijke leemstreek" & jaar == "2018",
-         main = "Oostelijke leemstreek - 2018", pl.col = alpha("darkgreen", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "darkgreen",
-      data = data.frame(regio = "Oostelijke leemstreek", jaar = "2018"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "De Moeren" & jaar == "2019",
-         main = "De Moeren - 2019", pl.col = alpha("darkgreen", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "darkgreen",
-      data = data.frame(regio = "De Moeren", jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "Oostelijke leemstreek" & jaar == "2019",
-         main = "Oostelijke leemstreek - 2019", pl.col = alpha("darkgreen", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "darkgreen",
-      data = data.frame(regio = "Oostelijke leemstreek", jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "De Moeren" & jaar == "2020",
-         main = "De Moeren - 2020", pl.col = alpha("brown", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "brown",
-      data = data.frame(regio = "De Moeren", jaar = "2020"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "Oostelijke leemstreek" & jaar == "2020",
-         main = "Oostelijke leemstreek - 2020", pl.col = alpha("brown", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "brown",
-      data = data.frame(regio = "Oostelijke leemstreek", jaar = "2020"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "De Moeren" & jaar == "2021",
-         main = "De Moeren - 2021", pl.col = alpha("salmon", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "salmon",
-      data = data.frame(regio = "De Moeren", jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "Oostelijke leemstreek" & jaar == "2021",
-         main = "Oostelijke leemstreek - 2021", pl.col = alpha("salmon", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "salmon",
-      data = data.frame(regio = "Oostelijke leemstreek", jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "De Moeren" & jaar == "2022",
-         main = "De Moeren - 2022", pl.col = alpha("gold", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "gold",
-      data = data.frame(regio = "De Moeren", jaar = "2022"), pdf = TRUE)
-  
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "Oostelijke leemstreek" & jaar == "2022",
-         main = "Oostelijke leemstreek - 2022", pl.col = alpha("gold", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "gold",
-      data = data.frame(regio = "Oostelijke leemstreek", jaar = "2022"), pdf = TRUE)
+      for (k in seq_along(unique(ds_model_2018_2022$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2018_2022$ddf$data$regio))[k]
+      
+      plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & jaar == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, jaar = j), pdf = TRUE)
+      }
+    }
     
     par(mfrow = c(1, 1))
   }
@@ -2526,37 +2463,17 @@ for (naam in names(final_models_binned)) {
        main = paste(titel, f, sep = " - "))
   
   if (f == "~jaar") {
-    par(mfrow = c(3, 2))
-      
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = jaar == "2018",
-         main = "2018", pl.col = alpha("blue", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "blue",
-      data = data.frame(jaar = "2018"), pdf = TRUE)
+    par(mfrow = c(1, 2))
     
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = jaar == "2019",
-         main = "2019", pl.col = alpha("darkgreen", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "darkgreen",
-      data = data.frame(jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = jaar == "2020",
-         main = "2020", pl.col = alpha("brown", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "brown",
-      data = data.frame(jaar = "2020"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = jaar == "2021",
-         main = "2021", pl.col = alpha("salmon", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "salmon",
-      data = data.frame(jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = jaar == "2022",
-         main = "2022", pl.col = alpha("gold", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "gold",
-      data = data.frame(jaar = "2022"), pdf = TRUE)
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
+      j <- sort(unique(ds_model_2018_2022$ddf$data$jaar))[i]
+      plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = jaar == j,
+         main = j, pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(jaar = j), pdf = TRUE)
+    }
     
     par(mfrow = c(1, 1))
   }
@@ -2578,67 +2495,24 @@ for (naam in names(final_models_binned)) {
     par(mfrow = c(1, 1))
   }
   if (f %in% c("~regio + jaar", "~regio * jaar")) {
-    par(mfrow = c(5, 2))
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    
+    
+    for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
+      j <- sort(unique(ds_model_2018_2022$ddf$data$jaar))[i]
       
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "De Moeren" & jaar == "2018",
-         main = "De Moeren - 2018", pl.col = alpha("blue", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "blue",
-      data = data.frame(regio = "De Moeren", jaar = "2018"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "Oostelijke leemstreek" & jaar == "2018",
-         main = "Oostelijke leemstreek - 2018", pl.col = alpha("darkgreen", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "darkgreen",
-      data = data.frame(regio = "Oostelijke leemstreek", jaar = "2018"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "De Moeren" & jaar == "2019",
-         main = "De Moeren - 2019", pl.col = alpha("darkgreen", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "darkgreen",
-      data = data.frame(regio = "De Moeren", jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "Oostelijke leemstreek" & jaar == "2019",
-         main = "Oostelijke leemstreek - 2019", pl.col = alpha("darkgreen", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "darkgreen",
-      data = data.frame(regio = "Oostelijke leemstreek", jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "De Moeren" & jaar == "2020",
-         main = "De Moeren - 2020", pl.col = alpha("brown", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "brown",
-      data = data.frame(regio = "De Moeren", jaar = "2020"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "Oostelijke leemstreek" & jaar == "2020",
-         main = "Oostelijke leemstreek - 2020", pl.col = alpha("brown", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "brown",
-      data = data.frame(regio = "Oostelijke leemstreek", jaar = "2020"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "De Moeren" & jaar == "2021",
-         main = "De Moeren - 2021", pl.col = alpha("salmon", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "salmon",
-      data = data.frame(regio = "De Moeren", jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "Oostelijke leemstreek" & jaar == "2021",
-         main = "Oostelijke leemstreek - 2021", pl.col = alpha("salmon", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "salmon",
-      data = data.frame(regio = "Oostelijke leemstreek", jaar = "2019"), pdf = TRUE)
-    
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "De Moeren" & jaar == "2022",
-         main = "De Moeren - 2022", pl.col = alpha("gold", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "gold",
-      data = data.frame(regio = "De Moeren", jaar = "2022"), pdf = TRUE)
-  
-    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
-         subset = regio == "Oostelijke leemstreek" & jaar == "2022",
-         main = "Oostelijke leemstreek - 2022", pl.col = alpha("gold", 0.5))
-    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "gold",
-      data = data.frame(regio = "Oostelijke leemstreek", jaar = "2022"), pdf = TRUE)
+      for (k in seq_along(unique(ds_model_2018_2022$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2018_2022$ddf$data$regio))[k]
+      
+      plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & jaar == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, jaar = j), pdf = TRUE)
+      }
+    }
     
     par(mfrow = c(1, 1))
   }
