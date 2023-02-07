@@ -2364,11 +2364,10 @@ for (naam in names(final_models)) {
 
 #### Problematische soorten
 
-De data voor BruineKiekendief, Ekster, GroeneSpecht, Holenduif, Kievit, Koolmees en TurkseTortel passen niet voor distance sampling. Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand. Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
+De data voor BruineKiekendief en GroeneSpecht passen niet voor distance sampling. Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand. Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
 
 ```{r}
-spec_to_remove <- c("Ekster", "GroeneSpecht", "Holenduif", 
-                    "Kievit", "Koolmees", "TurkseTortel")
+spec_to_remove <- c("GroeneSpecht")
 indices_to_remove <- which(names(final_models) %in% spec_to_remove)
 
 # Remove
