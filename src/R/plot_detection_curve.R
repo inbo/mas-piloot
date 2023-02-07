@@ -296,7 +296,7 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
     out <- out +
       geom_point(data = distance_data, aes(x = dist,
                                            y = rep(0, nrow(distance_data))),
-                 shape = "|", col = "brown")
+                 shape = "|", col = "brown", size = 3)
   }
 
   # Return plot
