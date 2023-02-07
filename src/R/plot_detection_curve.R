@@ -40,6 +40,8 @@
 #' @param n_breaks number of breaks for the bar graph
 #' @param plot_average_fit logical used to indicate whether the fitted average
 #' detection curve should be plotted (default is TRUE)
+#' @param show_data logical used to indicate whether the distance data should be
+#' plotted (default is TRUE)
 #'
 #' @return
 #' For \code{scalevalue}, vector of the scale parameters
@@ -72,7 +74,8 @@ keyfct.hn <- function(distance, key.scale) {
 
 
 plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
-                                 n_breaks = 15, plot_average_fit = TRUE) {
+                                 n_breaks = 15, plot_average_fit = TRUE,
+                                 show_data = TRUE) {
   require(mrds)
   require(tidyverse)
 
@@ -286,6 +289,14 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
               legend.justification = c(1, 1),
               legend.background = element_rect(fill = "white", color = "white"))
     }
+  }
+
+  if (show_data) {
+    distance_data <- data.frame(dist = sort(unique(dist_model$ddf$data$distance)))
+    out <- out +
+      geom_point(data = distance_data, aes(x = dist,
+                                           y = rep(0, nrow(distance_data))),
+                 shape = "|", col = "brown")
   }
 
   # Return plot
