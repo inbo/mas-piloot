@@ -2152,7 +2152,7 @@ for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
     
     for (k in keys) {
       # Naam voor model
-      mod_name <- paste0(spec, "_distmod_2022_", k, i)
+      mod_name <- paste0(spec, "_distmod_2018_2022_", k, i)
       file <- paste0(model_path, mod_name, ".rds")
       
       # Sla model op als het nog niet bestaat en lees het in anderzijds
@@ -2366,10 +2366,10 @@ for (naam in names(final_models)) {
 
 #### Problematische soorten
 
-De data voor BruineKiekendief en GroeneSpecht passen niet voor distance sampling. Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand. Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
+De data voor BruineKiekendief, GroeneSpecht en Roek passen niet voor distance sampling. Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand. Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
 
 ```{r}
-spec_to_remove <- c("GroeneSpecht")
+spec_to_remove <- c("GroeneSpecht", "Kauw", "Roek")
 indices_to_remove <- which(names(final_models) %in% spec_to_remove)
 
 # Remove
@@ -2382,8 +2382,7 @@ final_models[indices_to_remove] <- NULL
 De detectiekans voor Blauwborst, Gaai, Kwartel, Patrijs, Torenvalk, Veldleeuwerik neemt soms weer toe na een bepaalde afstand. Voor deze soorten groeperen we de afstanden per 100 meter voor Kwartel en 50 meter voor de andere soorten. 
 
 ```{r}
-spec_to_bin <- list(Blauwborst = 6, 
-                    Gaai = 6, 
+spec_to_bin <- list(Blauwborst = 6,
                     Kwartel = 3,
                     Patrijs = 6,
                     Torenvalk = 6,
@@ -2405,7 +2404,7 @@ for (spec in names(spec_to_bin)) {
   cp <- seq(0, 300, length.out = spec_to_bin[[spec]] + 1)
   
   # Naam voor model
-  mod_name <- paste0(spec, "_distmod_2022_", k, i, "_binned")
+  mod_name <- paste0(spec, "_distmod_2018_2022_", k, i, "_binned")
   file <- paste0(model_path, mod_name, ".rds")
   
   # Sla model op als het nog niet bestaat en lees het in anderzijds
@@ -2545,6 +2544,12 @@ results <- lapply(seq_along(final_models_update),
 
 do.call(rbind, results) %>%
   kable(digits = 3)
+```
+
+Ten slotte schrijven de de finale modellen weg.
+
+```{r}
+saveRDS(final_models_update, file = paste0(model_path, "models_2018_2022.rds"))
 ```
 
 
