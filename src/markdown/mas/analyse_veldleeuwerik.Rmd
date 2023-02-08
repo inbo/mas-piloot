@@ -1146,7 +1146,7 @@ Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_2018_2022_hr4, plot_average_fit = FALSE, 
-                     n_breaks = 60, show_data = FALSE)
+                     show_data = FALSE)
 ```
 
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
@@ -1255,7 +1255,7 @@ design_plot %>%
   kable()
 
 plot_detection_curve(veldleeuwerik_dist_2018_2022_model, design_mat = design_plot, 
-                     labels = labels_plot, n_breaks = 6) +
+                     labels = labels_plot) +
   scale_colour_manual(values = c(inbo_palette(), "red"))
 ```
 
@@ -1673,7 +1673,7 @@ Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_2022_hr6, plot_average_fit = FALSE, 
-                     n_breaks = 60)
+                     show_data = FALSE)
 ```
 
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
@@ -1727,7 +1727,7 @@ Deze kunnen we als volgt visualiseren:
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_2022_model, 
-                     plot_average_fit = TRUE, n_breaks = 6)
+                     plot_average_fit = TRUE)
 ```
 
 ```{r}
@@ -2520,8 +2520,7 @@ for (naam in names(final_models_binned)) {
     par(mfrow = c(1, 1))
   }
   
-  print(plot_detection_curve(ds_model_2018_2022, 
-                             n_breaks = spec_to_bin[[naam]]) +
+  print(plot_detection_curve(ds_model_2018_2022) +
     labs(title = titel))
 }
 ```
