@@ -996,7 +996,7 @@ ds_model <- ds(dist_data$d, key = "hn", truncation = 300, transect = "point",
                dht_group = FALSE, convert_units = conversion_factor)
 
 # Plot detection curve
-plot_detection_curve(ds_model) +
+plot_detection_curve(ds_model, show_data = FALSE) +
   geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = 1),
             colour = "red", fill = alpha("white", 0)) +
   geom_text(aes(x = 150, y = 0.6), label = expression(italic("g(r;"*theta*")")))
@@ -1145,7 +1145,7 @@ Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_2018_2022_hr4, plot_average_fit = FALSE, 
-                     n_breaks = 60)
+                     n_breaks = 60, show_data = FALSE)
 ```
 
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
@@ -1891,6 +1891,9 @@ distance_dfs_2018_2022 <- lapply(df_obs_list, function(df) {
              regio, jaar) %>%
       mutate(jaar = as.character(jaar))
   })
+
+design_2018_2022_mas_reduced <- design_2018_2022_mas %>%
+  filter(plotnaam %in% plots_old)
 ```
 
 `sample_table` geeft aan welke plots in welke regio’s voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
@@ -1904,7 +1907,7 @@ efforts_2018_2022 <- lapply(df_obs_list, function(df) {
   })
 
 sample_tables_2018_2022 <- lapply(efforts_2018_2022, function(effort) {
-    design_2018_2022_mas %>%
+    design_2018_2022_mas_reduced %>%
       distinct(plotnaam, regio, jaar) %>%
       mutate(Region.Label = paste(regio, jaar, sep = " - "),
              Effort = effort) %>%
@@ -1943,7 +1946,7 @@ areas <- perimeters_strata %>%
   select(regio = Naam, Area) %>%
   st_drop_geometry()
 
-region_table_2018_2022 <- design_2018_2022_mas %>%
+region_table_2018_2022 <- design_2018_2022_mas_reduced %>%
   distinct(regio, jaar) %>%
   full_join(areas, by = "regio") %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - ")) %>%
