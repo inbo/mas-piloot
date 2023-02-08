@@ -981,9 +981,9 @@ $p$ is dus de oppervlakte onder de detectiecurve.
 Figuur \@ref(fig:detectie-plot) toont een fictief voorbeeld van een histogram met afstanden van 0 tot 300 meter ($w = 300$).
 Hoe groter de afstand, hoe minder waarnemingen en dus lager de detectiekans.
 Moest het aantal waarnemingen niet afnemen over de afstand, zouden de afstanden uniform verdeeld zijn zoals de rode box.
-Alles zou gezien zijn en de detectiekans $p = 1$.
+Alles zou gezien zijn en de detectiekans op elke afstand is gelijk aan 1.
 De blauwe curve is een half-normale detectiecurve gefit op de data.
-De oppervlakte onder de curve binnen de box is de gemiddelde detectiekans (de geschatte fractie dieren die gezien zijn).
+De oppervlakte onder de curve binnen de box is de gemiddelde detectiekans $p$ (de geschatte fractie dieren die gezien zijn).
 De oppervlakte boven de curve binnen de box de geschatte fractie dieren die gemist zijn.
 Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over de telcirkel (zie verder).
 We controleren er dus voor dat het moeilijker is om dieren te detecteren op grotere afstand, terwijl we er van uitgaan dat er in werkelijkheid evenveel zitten op grotere als op kleinere afstanden.
