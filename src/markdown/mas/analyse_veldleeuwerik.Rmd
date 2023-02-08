@@ -63,15 +63,16 @@ knitr::write_bib(c("base", "Distance"), here("src", "markdown", "mas",
 Een robuuste en reproduceerbare workflow creëren om de densiteit van akkervogels te schatten rekening houdend met de detectiekans.
 Omwille van het verschil in design tussen 2022 en de voorgaande jaren, zullen we densiteiten schatten voor twee datasets:
 
-1.  2018-2022: 
+1.  2018-2022:
     -   schatting per stratum: jaar, regio
     -   zou allemaal (grotendeels) OL en binnen sbp moeten zijn
     -   voeg enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren
 2.  2022
     -   schatting per stratum: regio, sbp, openheid
     -   volledige dataset 2022
-  
-Eerst voor Veldleeuwerik. Later generalisatie.
+
+Eerst voor Veldleeuwerik.
+Later generalisatie.
 
 # Inlezen data {#inlezen-data}
 
@@ -413,7 +414,8 @@ veldleeuwerik_presences %>%
   theme(legend.position = "bottom")
 ```
 
-Alle telperiodes bevinden zich wel binnen de datumgrenzen (maar binnen in de oude: 1 april tot 15 juni [@veldleeuwerikSovon]). We nemen alle telperiode dus mee in de analyses.
+Alle telperiodes bevinden zich wel binnen de datumgrenzen (maar binnen in de oude: 1 april tot 15 juni [@veldleeuwerikSovon]).
+We nemen alle telperiode dus mee in de analyses.
 
 ```{r}
 datumgrenzen_mas %>%
@@ -1003,7 +1005,7 @@ plot_detection_curve(ds_model, show_data = FALSE) +
 ```
 
 Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio en jaar.
-Dit wordt ook wel multiple-covariate distance sampling (MCDS) genoemd.
+Dit wordt ook wel multiple-covariate distance sampling (MCDS) genoemd [@marques2007].
 De detectiekans wordt dan berekend conditioneel aan de waargenomen waarden van de covariaten.
 
 ```{r}
@@ -1034,8 +1036,8 @@ $$
 \sigma(\mathbf{z}) = \exp{\left( \beta_0 + \sum_{j = 1}^{J} \beta_j z_j \right)}
 $$
 
-De hazard-rate key function heeft naast de scale parameter ook nog de shape parameter $b$.  
-  
+De hazard-rate key function heeft naast de scale parameter ook nog de shape parameter $b$.
+
 We fitten beide sleutelfuncties met de `ds()` functie in een for-loop.
 We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen ook tweewegsinteracties tussen de covariaten.
 De interactie regio met openheid kan niet gefit worden omdat HOL niet in De Moeren voorkomt.
@@ -1105,7 +1107,6 @@ veldleeuwerik_dist_2018_2022_hr4 <- ds(data = veldleeuwerik_distance,
   sample_table = sample_table, obs_table = obs_table)
 ```
 
-
 ## Model selectie {#selectie-distance}
 
 We vergelijken de AIC van de verschillende modellen met de functie `summarize_ds_models()`.
@@ -1165,8 +1166,7 @@ De fit ziet er beter uit dan voordien.
 plot(veldleeuwerik_dist_2018_2022_hr4_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
-We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van 
-regio en jaar in interactie als finale model.
+We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van regio en jaar in interactie als finale model.
 
 ```{r}
 veldleeuwerik_dist_2018_2022_model <- veldleeuwerik_dist_2018_2022_hr4_binned
@@ -1391,8 +1391,8 @@ veldleeuwerik_df %>%
       ), scales = "free_y")
 ```
 
-
 # Densiteitsschattingen 2022 {#dens-2022}
+
 ## Data selectie en preparatie {#preparatie-distance2022}
 
 We beschouwen alle plots van 2022.
@@ -1416,7 +1416,8 @@ veldleeuwerik_distance <- veldleeuwerik_2022 %>%
 ```
 
 Om abundanties te schatten, moeten we de oppervlakte van de strata berekenen voor extrapolatie.
-We trekken een buffer van 300 m rond het steekproefkader: half-open landschap (HOL) in De Moeren, en open (OL) en half-open landschap in de Oostelijke leemstreek. We beschouwen de strata:
+We trekken een buffer van 300 m rond het steekproefkader: half-open landschap (HOL) in De Moeren, en open (OL) en half-open landschap in de Oostelijke leemstreek.
+We beschouwen de strata:
 
 -   De Moeren, OL, buiten sbp
 -   De Moeren, OL, binnen sbp
@@ -1424,7 +1425,6 @@ We trekken een buffer van 300 m rond het steekproefkader: half-open landschap (H
 -   Oostelijke leemstreek, OL, buiten sbp
 -   Oostelijke leemstreek, HOL, binnen sbp
 -   Oostelijke leemstreek, HOL, buiten sbp
-
 
 ```{r}
 # Lees steekproefkader in
@@ -1608,12 +1608,11 @@ for (i in seq_len(length(forms))) {
 names(out_models) <- model_names
 ```
 
-
 ## Model selectie {#selectie-distance2022}
 
 We vergelijken de AIC van de verschillende modellen.
 Als het verschil tussen AIC's kleiner is dan 2, kiezen we het eenvoudigste van deze modellen (model met minste parameters).
-We tonen enkel de modellen met $\Delta$AIC <= 20.
+We tonen enkel de modellen met $\Delta$AIC \<= 20.
 
 ```{r, cache=TRUE}
 summarize_ds_models2(out_models) %>%
@@ -1707,7 +1706,6 @@ veldleeuwerik_dist_2022_model <- veldleeuwerik_dist_2022_hr6_binned
 veldleeuwerik_covars <- c("sbp", "openheid")
 ```
 
-
 ## Resultaten {#resultaten-distance2022}
 
 De detectiekansen en standard errors zijn verschillend per sbp en openheid van het landschap:
@@ -1785,14 +1783,14 @@ summary_results_veldleeuwerik_dist %>%
 
 ## Discussie {#discussie-distance2022}
 
-Net zoals voordien hadden we problemen om een passende detectiecurve te fitten (zie discussie \@ref(discussie-distance)).  
-  
-We zien een duidelijk verschil in densiteiten tussen de strata. Het is steeds hoger binnen dan buiten soortbeschermingszones en in OL dan in HOL.
+Net zoals voordien hadden we problemen om een passende detectiecurve te fitten (zie discussie \@ref(discussie-distance)).
 
+We zien een duidelijk verschil in densiteiten tussen de strata.
+Het is steeds hoger binnen dan buiten soortbeschermingszones en in OL dan in HOL.
 
 # Meedere soorten
 
-Hoe kunnen we deze workflow zo correct, efficiënt en snel toepassen op alle soorten?  
+Hoe kunnen we deze workflow zo correct, efficiënt en snel toepassen op alle soorten?
 
 1.  Opruimen en voorbereiden basis dataframes met algemene data
 2.  Filter algemene dataframes
@@ -1801,16 +1799,17 @@ Hoe kunnen we deze workflow zo correct, efficiënt en snel toepassen op alle soo
 5.  Data selectie voor model specificatie
 6.  Model specificatie distance sampling
 
-Vanaf model selectie en fit zal geen of beperkte automatisatie meer kunnen toegepast worden. We selecteren voor elke soort het finale model en slaan deze op. Deze finale modellen kunnen dan in het rapport gebruikt worden voor het genereren van plots en tabellen.
-
+Vanaf model selectie en fit zal geen of beperkte automatisatie meer kunnen toegepast worden.
+We selecteren voor elke soort het finale model en slaan deze op.
+Deze finale modellen kunnen dan in het rapport gebruikt worden voor het genereren van plots en tabellen.
 
 ## Opruimen en voorbereiden basis dataframes met algemene data
 
-We hebben 3 belangrijke dataframes. 
+We hebben 3 belangrijke dataframes.
 
 1.  `mas_clean` met alle observaties
 2.  `design_2018_2022_mas` met alle bezochte plots
-    - selecteer OL in De Moeren en OL en HOL in Oostelijke leemstreek
+    -   selecteer OL in De Moeren en OL en HOL in Oostelijke leemstreek
 3.  `datum_grenzen_mas` met de datumgrenzen voor elke soort
 
 ```{r}
@@ -1822,10 +1821,10 @@ design_2018_2022_mas <- design_2018_2022_sf %>%
 datumgrenzen_mas <- datumgrenzen_mas 
 ```
 
-
 ## Filter algemene dataframes
 
-We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode > 0, geen afstanden > 300 m en dat ze binnen telperiodes vallen. We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
+We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0, geen afstanden \> 300 m en dat ze binnen telperiodes vallen.
+We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
 
 ```{r}
 mas_observations <- mas_clean %>%
@@ -1838,7 +1837,6 @@ mas_observations <- mas_clean %>%
          naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
                        naam))
 ```
-
 
 ## Genereer dataframes voor elke soort
 
@@ -1872,11 +1870,12 @@ for (i in seq_along(unique(mas_observations$naam))) {
 names(df_obs_list) <- df_obs_names
 ```
 
-
 ## Genereer dataframes voor distance sampling
+
 ### 2018-2022
 
-We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren. We zetten alle datasets om om te gebruiken om de detectiecurve te fitten.
+We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
+We zetten alle datasets om om te gebruiken om de detectiecurve te fitten.
 
 ```{r}
 plots_old <- design_2018_2022_mas %>%
@@ -1896,7 +1895,7 @@ design_2018_2022_mas_reduced <- design_2018_2022_mas %>%
   filter(plotnaam %in% plots_old)
 ```
 
-`sample_table` geeft aan welke plots in welke regio’s voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
+`sample_table` geeft aan welke plots in welke regio's voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
 
 ```{r}
 efforts_2018_2022 <- lapply(df_obs_list, function(df) {
@@ -1925,7 +1924,8 @@ obs_tables_2018_2022 <- lapply(df_obs_list, function(df) {
   })
 ```
 
-De `region_table` en de conversiefactor zijn gemeenschappelijk voor alle soorten. `region_table` bevat de oppervlaktes per stratum (regio-jaar).
+De `region_table` en de conversiefactor zijn gemeenschappelijk voor alle soorten.
+`region_table` bevat de oppervlaktes per stratum (regio-jaar).
 
 ```{r}
 # Lees steekproefkader in
@@ -1956,20 +1956,19 @@ region_table_2018_2022 <- design_2018_2022_mas_reduced %>%
 conversion_factor_2018_2022 <- convert_units("meter", NULL, "Square kilometer")
 ```
 
-
 ### 2022
 
-
-
 ## Data selectie voor model specificatie
+
 ### 2018-2022
 
 We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 
--   behoud strata als aantal waarnemingen per stratum >= 10
--   behoud datasets als totaal aantal waarnemingen >= 30
+-   behoud strata als aantal waarnemingen per stratum \>= 10
+-   behoud datasets als totaal aantal waarnemingen \>= 30
 
-Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten. Een observatie van 2 individuen telt hier als 2 waarnemingen!
+Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten.
+Een observatie van 2 individuen telt hier als 2 waarnemingen!
 
 > Als we deze getallen aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
 
@@ -2001,7 +2000,9 @@ filter_dist_df <- function(data, stratum_filter, dataset_filter) {
 distance_dfs_2018_2022_final <- filter_dist_df(distance_dfs_2018_2022, 10, 30)
 ```
 
-De meeste soorten zijn in meerdere jaren gezien. De meeste soorten hebben waarnemingen van slechts een enkele regio. Een interactie tussen regio en jaar zal slechts in een beperkt aantal gevallen gefit kunnen worden.
+De meeste soorten zijn in meerdere jaren gezien.
+De meeste soorten hebben waarnemingen van slechts een enkele regio.
+Een interactie tussen regio en jaar zal slechts in een beperkt aantal gevallen gefit kunnen worden.
 
 ```{r}
 stratum_cijfers_lijst <- lapply(seq_along(distance_dfs_2018_2022_final), 
@@ -2083,8 +2084,8 @@ do.call(rbind, list) %>%
 
 ### 2022
 
-
 ## Model specificatie distance sampling
+
 ### 2018-2022
 
 ```{r}
@@ -2112,7 +2113,6 @@ forms2[sapply(forms2, is.null)] <- NULL
 # Voeg combinaties samen
 forms_2018_2022 <- c("~1", forms1, forms2)
 ```
-
 
 ```{r}
 all_models <- list()
@@ -2205,7 +2205,6 @@ for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
 names(all_models) <- all_model_names
 ```
 
-
 ### 2022
 
 ```{r}
@@ -2237,6 +2236,7 @@ forms_2022 <- c("~1", forms1, forms2)
 ```
 
 ## Densiteitschattingen 2018-2022
+
 ### Model selectie per soort
 
 ```{r, results = 'asis'}
@@ -2289,7 +2289,6 @@ final_models <- list(Blauwborst = Blauwborst_distmod_2018_2022_hn1,
                      ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1,
                      Zwartkop = Zwartkop_distmod_2018_2022_hn1)
 ```
-
 
 ### Model fit per soort
 
@@ -2366,10 +2365,11 @@ for (naam in names(final_models)) {
 }
 ```
 
-
 #### Problematische soorten
 
-De data voor BruineKiekendief, GroeneSpecht en Roek passen niet voor distance sampling. Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand. Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
+De data voor BruineKiekendief, GroeneSpecht en Roek passen niet voor distance sampling.
+Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand.
+Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
 
 ```{r}
 spec_to_remove <- c("GroeneSpecht", "Kauw", "Roek")
@@ -2379,10 +2379,10 @@ indices_to_remove <- which(names(final_models) %in% spec_to_remove)
 final_models[indices_to_remove] <- NULL
 ```
 
-
 #### Binned distance sampling
 
-De detectiekans voor Blauwborst, Gaai, Kwartel, Patrijs, Torenvalk, Veldleeuwerik neemt soms weer toe na een bepaalde afstand. Voor deze soorten groeperen we de afstanden per 100 meter voor Kwartel en 50 meter voor de andere soorten. 
+De detectiekans voor Blauwborst, Gaai, Kwartel, Patrijs, Torenvalk, Veldleeuwerik neemt soms weer toe na een bepaalde afstand.
+Voor deze soorten groeperen we de afstanden per 100 meter voor Kwartel en 50 meter voor de andere soorten.
 
 ```{r}
 spec_to_bin <- list(Blauwborst = 6,
@@ -2526,10 +2526,10 @@ for (naam in names(final_models_binned)) {
 }
 ```
 
-
 ### Resultaten
 
-We hebben de densiteiten kunnen schatten van `r length(final_models_update)` soorten. De volgende tabel geeft een overzicht van de soorten en modellen die gefit zijn.
+We hebben de densiteiten kunnen schatten van `r length(final_models_update)` soorten.
+De volgende tabel geeft een overzicht van de soorten en modellen die gefit zijn.
 
 ```{r}
 results <- lapply(seq_along(final_models_update), 
@@ -2555,9 +2555,6 @@ Ten slotte schrijven de de finale modellen weg.
 saveRDS(final_models_update, file = paste0(model_path, "models_2018_2022.rds"))
 ```
 
-
 ## Densiteitschattingen 2022
-
-
 
 # Referenties
