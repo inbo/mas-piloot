@@ -268,7 +268,7 @@ list(
   ),
   tar_target(name = paden,
              command = extract_osm_paden(
-               gebied = perimeters_data,
+               gebied = selectie_openheid_klasses,
                exclusie = exclusie_osm_landgebruiken,
                osmdata = osm_belgium,
                paths_include = c('track', 'footway', 'path', 'cycleway', 
@@ -278,7 +278,7 @@ list(
                waterway = NULL,
                update_osm_layer = FALSE
                ),
-             pattern = map(perimeters_data, exclusie_osm_landgebruiken)
+             pattern = map(selectie_openheid_klasses, exclusie_osm_landgebruiken)
              ),
   tar_target(name = punten,
              command = paden_naar_punten(
