@@ -49,7 +49,7 @@ add_bo2021_to_frame <- function(
 add_bo_to_frame <- function(
     punten_df,
     path_bo
-) {
+    ) {
 
   bo_layer <- read_bo(path = path_bo)
 
