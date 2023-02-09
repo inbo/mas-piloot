@@ -189,7 +189,7 @@ list(
     ),
   tarchetypes::tar_file(
     lbg_file,
-    path_to_lbg(jaar = 2021)
+    path_to_lbg(jaar = 2022)
   ),
   tarchetypes::tar_file(
     sbp_akkervogels_file,
