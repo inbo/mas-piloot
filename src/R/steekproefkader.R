@@ -40,6 +40,44 @@ read_legend_lum <- function(file) {
     ))
 }
 
+selectie_openheid <- function(gebied, ol_strata,
+                              cutlevels = c(1.25, 1.35, 1.51),
+                              class_labels = c("GL", "HGL", "HOL", "OL")) {
+  # Lees openheid laag
+  openheid <- rast(path_to_openheid_landschap()) %>%
+    project("epsg:31370")
+
+  openheid_gebied <- crop(openheid, st_buffer(gebied, 100))
+
+  # Classify raster
+  matvec <- c(0, rep(cutlevels, each = 2), +Inf)
+  nclass <- length(matvec) / 2
+
+  rclasmat <- matvec %>%
+    matrix(ncol = 2, byrow = TRUE)
+  rclasmat <- cbind(rclasmat, 1:nclass)
+
+  openheid_gebied_klassen <- terra::classify(
+    openheid_gebied,
+    rcl = rclasmat,
+    include.lowest = TRUE)
+  levels(openheid_gebied_klassen) <- data.frame(1:4,
+                                       openheid_klassen = class_labels)
+
+  # Raster naar polygoon en selecteer openheid
+  openheid_gebied_sf <- as.polygons(openheid_gebied_klassen) %>%
+    st_as_sf() %>%
+    filter(openheid_klassen %in% ol_strata)
+
+  # Maak intersectie met perimeters
+  openheid_gebied_intersect <- st_intersection(gebied, openheid_gebied_sf)
+  out <- openheid_gebied_intersect %>%
+    group_by(Naam, section) %>%
+    summarise(.groups = "drop")
+
+  return(out)
+}
+
 check_osm_data <- function(gebied, update_osm_layer) {
   # Download periferie van osm België
   provider_file <- file.path(osmextract::oe_download_directory(),
