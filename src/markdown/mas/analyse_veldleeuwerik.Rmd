@@ -1975,8 +1975,16 @@ conversion_factor_2018_2022 <- convert_units("meter", NULL, "Square kilometer")
 
 We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 
+We maken 2 datasets:
+
+1.  Simpele modellen (zonder covariaten)
+-   behoud datasets als totaal aantal waarnemingen \>= 20
+
+2.  Complexere modellen (met covariaten)
 -   behoud strata als aantal waarnemingen per stratum \>= 10
 -   behoud datasets als totaal aantal waarnemingen \>= 30
+
+Eerst fitten we alle modellen met *2.*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1.*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten.
 
 Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten.
 Een observatie van 2 individuen telt hier als 2 waarnemingen!
@@ -2008,10 +2016,11 @@ filter_dist_df <- function(data, stratum_filter, dataset_filter) {
   return(select_df)
 }
 
+distance_dfs_2018_2022_simpel <- filter_dist_df(distance_dfs_2018_2022, 0, 20)
 distance_dfs_2018_2022_final <- filter_dist_df(distance_dfs_2018_2022, 10, 30)
 ```
 
-De meeste soorten zijn in meerdere jaren gezien.
+In de complexe dataset zijn de meeste soorten zijn in meerdere jaren gezien.
 De meeste soorten hebben waarnemingen van slechts een enkele regio.
 Een interactie tussen regio en jaar zal slechts in een beperkt aantal gevallen gefit kunnen worden.
 
@@ -2074,7 +2083,26 @@ stratum_cijfers_df %>%
         y = "Aantal soorten")
 ```
 
-De volgende soorten blijven over:
+De volgende soorten blijven over voor de simpele dataset:
+
+```{r}
+list <- lapply(seq_along(distance_dfs_2018_2022_simpel), 
+  function(i) {
+    distance_dfs_2018_2022_simpel[[i]] %>% 
+      mutate(soort = names(distance_dfs_2018_2022_simpel[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2018_2022_simpel[[i]]$size),
+             n_jaren = n_distinct(jaar),
+             n_regios = n_distinct(regio),
+             strata = paste0(regio, jaar),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_jaren, n_regios, n_strata)
+  })
+
+do.call(rbind, list) %>%
+  kable()
+```
+
+De volgende soorten blijven over voor de complexere dataset:
 
 ```{r}
 list <- lapply(seq_along(distance_dfs_2018_2022_final), 
