@@ -2373,7 +2373,7 @@ for (spec in names(distance_dfs_2018_2022_simpel_new)) {
     
   for (k in keys) {
     # Naam voor model
-    mod_name <- paste0(spec, "_distmod_2018_2022_", k, i, "_simpel")
+    mod_name <- paste0(spec, "_distmod_2018_2022_", k, 1, "_simpel")
     file <- paste0(model_path, mod_name, ".rds")
     
     # Sla model op als het nog niet bestaat en lees het in anderzijds
@@ -2426,59 +2426,60 @@ for (naam in names(final_models_simpel)) {
 ```
 
 ```{r}
-final_models <- list(Blauwborst = Blauwborst_distmod_2018_2022_hr1_simpel,
-                     Bosretzanger = Bosrietzanger_distmod_2018_2022_hn1_simpel,
-                     BruineKiekendief = BruineKiekendief_distmod_2018_2022_hn1_simpel,
-                     Buizerd = Buizerd_distmod_2018_2022_hn1_simpel,
-                     Ekster = Ekster_distmod_2018_2022_hr1_simpel,
-                     Fazant = Fazant_distmod_2018_2022_hr1_simpel,
-                     Gaai = Gaai_distmod_2018_2022_hn1_simpel,
-                     Geelgors = Geelgors_distmod_2018_2022_hr1_simpel,
-                     GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
-                     Grasmus = Grasmus_distmod_2018_2022_hn1_simpel,
-                     Graspieper = Graspieper_distmod_2018_2022_hn1_simpel,
-                     GrauweGors = GrauweGors_distmod_2018_2022_hn1_simpel,
-                     GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1_simpel,
-                     Groenling = Groenling_distmod_2018_2022_hn1_simpel,
-                     GroteBonteSpecht = GroteBonteSpecht_distmod_2018_2022_hn1_simpel,
-                     Haas = Haas_distmod_2018_2022_hr1_simpel,
-                     Heggenmus = Heggenmus_distmod_2018_2022_hn1_simpel,
-                     Holenduif = Holenduif_distmod_2018_2022_hn1_simpel,
-                     Houtduif = Houtduif_distmod_2018_2022_hn3,
-                     Huismus = Huismus_distmod_2018_2022_hn3,
-                     Kauw = Kauw_distmod_2018_2022_hn1_simpel,
-                     Kievit = Kievit_distmod_2018_2022_hr1_simpel,
-                     KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1_simpel,
-                     Kneu = Kneu_distmod_2018_2022_hn1_simpel,
-                     Knobbelzwaan = Knobbelzwaan_distmod_2018_2022_hn1_simpel,
-                     Koolmees = Koolmees_distmod_2018_2022_hn1_simpel,
-                     Kwartel = Kwartel_distmod_2018_2022_hn1_simpel,
-                     Meerkoet = Meerkoet_distmod_2018_2022_hn1_simpel,
-                     Merel = Merel_distmod_2018_2022_hr1_simpel,
-                     Patrijs = Patrijs_distmod_2018_2022_hn1_simpel,
-                     Pimpelmees = Pimpelmees_distmod_2018_2022_hn1_simpel,
-                     Putter = Putter_distmod_2018_2022_hn1_simpel,
-                     Rietgors = Rietgors_distmod_2018_2022_hn1_simpel,
-                     Rietzanger = Rietzanger_distmod_2018_2022_hn1_simpel,
-                     Ringmus = Ringmus_distmod_2018_2022_hr1_simpel,
-                     Roek = Roek_distmod_2018_2022_hr1_simpel,
-                     Roodborst = Roodborst_distmod_2018_2022_hn1_simpel,
-                     Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hn1_simpel,
-                     Spotvogel = Spotvogel_distmod_2018_2022_hn1_simpel,
-                     Spreeuw = Spreeuw_distmod_2018_2022_hr1_hn1_simpel,
-                     Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
-                     Torenvalk = Torenvalk_distmod_2018_2022_hn1_simpel,
-                     Tuinfluiter = Tuinfluiter_distmod_2018_2022_hn1_simpel,
-                     TurkseTortel = TurkseTortel_distmod_2018_2022_hr1_simpel,
-                     Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
-                     Vink = Vink_distmod_2018_2022_hn1_simpel,
-                     WildeEend = WildeEend_distmod_2018_2022_hn1_simpel,
-                     Winterkoning = Winterkoning_distmod_2018_2022_hn1_simpel,
-                     WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1_simpel,
-                     Zanglijster = Zanglijster_distmod_2018_2022_hr1_simpel,
-                     ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1_simpel,
-                     ZwarteRoodstaart = ZwarteRoodstaart_distmod_2018_2022_hn1_simpel,
-                     Zwartkop = Zwartkop_distmod_2018_2022_hn1_simpel)
+final_models <- list(
+  Blauwborst = Blauwborst_distmod_2018_2022_hr1_simpel,
+  Bosrietzanger = Bosrietzanger_distmod_2018_2022_hn1_simpel,
+  BruineKiekendief = BruineKiekendief_distmod_2018_2022_hn1_simpel,
+  Buizerd = Buizerd_distmod_2018_2022_hn1_simpel,
+  Ekster = Ekster_distmod_2018_2022_hr1_simpel,
+  Fazant = Fazant_distmod_2018_2022_hr1_simpel,
+  Gaai = Gaai_distmod_2018_2022_hn1_simpel,
+  Geelgors = Geelgors_distmod_2018_2022_hr1_simpel,
+  GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
+  Grasmus = Grasmus_distmod_2018_2022_hn1_simpel,
+  Graspieper = Graspieper_distmod_2018_2022_hn1_simpel,
+  GrauweGors = GrauweGors_distmod_2018_2022_hn1_simpel,
+  GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1_simpel,
+  Groenling = Groenling_distmod_2018_2022_hn1_simpel,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2018_2022_hn1_simpel,
+  Haas = Haas_distmod_2018_2022_hr1_simpel,
+  Heggenmus = Heggenmus_distmod_2018_2022_hn1_simpel,
+  Holenduif = Holenduif_distmod_2018_2022_hn1_simpel,
+  Houtduif = Houtduif_distmod_2018_2022_hn3,
+  Huismus = Huismus_distmod_2018_2022_hn3,
+  Kauw = Kauw_distmod_2018_2022_hn1_simpel,
+  Kievit = Kievit_distmod_2018_2022_hr1_simpel,
+  KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1_simpel,
+  Kneu = Kneu_distmod_2018_2022_hn1_simpel,
+  Knobbelzwaan = Knobbelzwaan_distmod_2018_2022_hn1_simpel,
+  Koolmees = Koolmees_distmod_2018_2022_hn1_simpel,
+  Kwartel = Kwartel_distmod_2018_2022_hn1_simpel,
+  Meerkoet = Meerkoet_distmod_2018_2022_hn1_simpel,
+  Merel = Merel_distmod_2018_2022_hr1_simpel,
+  Patrijs = Patrijs_distmod_2018_2022_hn1_simpel,
+  Pimpelmees = Pimpelmees_distmod_2018_2022_hn1_simpel,
+  Putter = Putter_distmod_2018_2022_hn1_simpel,
+  Rietgors = Rietgors_distmod_2018_2022_hn1_simpel,
+  Rietzanger = Rietzanger_distmod_2018_2022_hn1_simpel,
+  Ringmus = Ringmus_distmod_2018_2022_hr1_simpel,
+  Roek = Roek_distmod_2018_2022_hr1_simpel,
+  Roodborst = Roodborst_distmod_2018_2022_hn1_simpel,
+  Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hn1_simpel,
+  Spotvogel = Spotvogel_distmod_2018_2022_hn1_simpel,
+  Spreeuw = Spreeuw_distmod_2018_2022_hr1_simpel,
+  Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
+  Torenvalk = Torenvalk_distmod_2018_2022_hn1_simpel,
+  Tuinfluiter = Tuinfluiter_distmod_2018_2022_hn1_simpel,
+  TurkseTortel = TurkseTortel_distmod_2018_2022_hr1_simpel,
+  Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
+  Vink = Vink_distmod_2018_2022_hn1_simpel,
+  WildeEend = WildeEend_distmod_2018_2022_hn1_simpel,
+  Winterkoning = Winterkoning_distmod_2018_2022_hn1_simpel,
+  WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1_simpel,
+  Zanglijster = Zanglijster_distmod_2018_2022_hr1_simpel,
+  ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1_simpel,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2018_2022_hn1_simpel,
+  Zwartkop = Zwartkop_distmod_2018_2022_hn1_simpel)
 ```
 
 ### Model fit per soort
@@ -2558,12 +2559,12 @@ for (naam in names(final_models)) {
 
 #### Problematische soorten
 
-De data voor BruineKiekendief, GroeneSpecht en Roek passen niet voor distance sampling.
+De data voor GroeneSpecht, GroteBonteSpecht passen niet voor distance sampling.
 Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand.
 Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
 
 ```{r}
-spec_to_remove <- c("GroeneSpecht", "Kauw", "Roek")
+spec_to_remove <- c("GroeneSpecht", "GroteBonteSpecht")
 indices_to_remove <- which(names(final_models) %in% spec_to_remove)
 
 # Remove
@@ -2572,15 +2573,19 @@ final_models[indices_to_remove] <- NULL
 
 #### Binned distance sampling
 
-De detectiekans voor Blauwborst, Haas, Kwartel, Patrijs, Torenvalk, Veldleeuwerik neemt soms weer toe na een bepaalde afstand.
+De detectiekans voor Blauwborst, Bosrietzanger, Graspieper, Groenling, Haas, Holenduif, Roodborsttapuit, Torenvalk, Tuinfluiter en Veldleeuwerik neemt soms weer toe na een bepaalde afstand.
 Voor deze soorten groeperen we de afstanden per 100 meter voor Kwartel en 50 meter voor de andere soorten.
 
 ```{r}
 spec_to_bin <- list(Blauwborst = 6,
+                    Bosrietzanger = 3,
+                    Graspieper = 4,
+                    Groenling = 3,
                     Haas = 4,
-                    Kwartel = 3,
-                    Patrijs = 6,
+                    Holenduif = 3,
+                    Roodborsttapuit = 4,
                     Torenvalk = 6,
+                    Tuinfluiter = 3,
                     Veldleeuwerik = 6)
 
 final_models_update <- final_models
