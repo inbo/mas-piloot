@@ -929,7 +929,7 @@ grid.arrange(p_moeren, p_leemstreek, table_area,
 We willen een schatting voor elke regio in elk jaar.
 We definiëren dus de strata regio-jaar.
 We maken daarom dataframes om de abundanties en densiteiten te berekenen.
-`Region_table` met de oppervlaktes per stratum (regio-jaar), `sample_table` geeft aan welke plots in welke regio's voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata zitten.
+`Region_table` met de oppervlaktes per stratum (regio-jaar), `sample_table` geeft aan welke plots in welke regio's voorkomen en welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata zitten.
 
 ```{r}
 # Oppervlakte per stratum
@@ -1906,7 +1906,7 @@ design_2018_2022_mas_reduced <- design_2018_2022_mas %>%
   filter(plotnaam %in% plots_old)
 ```
 
-`sample_table` geeft aan welke plots in welke regio's voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
+`sample_table` geeft aan welke plots in welke regio's voorkomen en welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
 
 ```{r}
 efforts_2018_2022 <- lapply(df_obs_list, function(df) {
@@ -1968,6 +1968,86 @@ conversion_factor_2018_2022 <- convert_units("meter", NULL, "Square kilometer")
 ```
 
 ### 2022
+
+We beschouwen alle plots van 2022.
+We filteren alle datasets om te gebruiken om de detectiecurve te fitten.
+
+```{r}
+distance_dfs_2022 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2022) %>% 
+      select(object = oid, size = aantal, distance = distance2plot, 
+             regio, sbp, openheid)
+  })
+
+design_2022_mas <- design_2018_2022_mas %>%
+  filter(jaar == 2022)
+```
+
+`sample_table` geeft aan welke plots in welke regio's voorkomen en welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
+
+```{r}
+efforts_2022 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2022) %>% 
+      pull(periode_in_jaar) %>%
+      unique() %>%
+      length()
+  })
+
+sample_tables_2022 <- lapply(efforts_2022, function(effort) {
+    design_2022_mas %>%
+      distinct(plotnaam, regio, openheid, sbp) %>%
+      mutate(Region.Label = paste(regio, openheid, sbp, sep = " - "),
+             Effort = effort) %>%
+      select(Sample.Label = plotnaam, Region.Label, Effort)
+  })
+```
+
+`obs_table` geeft aan welke waarnemingen in welke plots en strata zitten.
+
+```{r}
+obs_tables_2022 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2022) %>%  
+      mutate(Region.Label = paste(regio, openheid, sbp, sep = " - ")) %>%
+      select(object = oid, Region.Label, Sample.Label = plotnaam)
+  })
+```
+
+De `region_table` en de conversiefactor zijn gemeenschappelijk voor alle soorten.
+`region_table` bevat de oppervlaktes per stratum (regio-openheid-sbp).
+
+```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+# Selectie en buffer
+perimeters_strata_2022 <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  group_by(Naam, openheid_klasse, is_sbp) %>%
+  st_buffer(dist = 300) %>%
+  summarize() %>%
+  mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
+                         sep = " - "))
+
+# Bereken oppervlaktes van de strata
+areas_2022 <- perimeters_strata_2022 %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
+  select(regio = Naam, stratum, Area) %>%
+  st_drop_geometry()
+
+region_table_2022 <- design_2022_mas %>%
+  distinct(regio, openheid, sbp) %>%
+  mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
+  full_join(areas_2022, by = c("regio", "stratum")) %>%
+  mutate(Region.Label = paste(regio, openheid, sbp, sep = " - ")) %>%
+  select(Region.Label, Area)
+
+# Conversiefactor van meter naar 100 hectare
+conversion_factor_2022 <- convert_units("meter", NULL, "Square kilometer")
+```
 
 ## Data selectie voor model specificatie
 
