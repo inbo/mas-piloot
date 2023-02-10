@@ -239,7 +239,6 @@ bereken_vvi <- function(point,
 }
 
 add_visibility_to_frame <- function(punten_sf,
-                                    name,
                                     resolution,
                                     spacing,
                                     dist = 300,
