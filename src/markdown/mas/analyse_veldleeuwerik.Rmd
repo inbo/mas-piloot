@@ -2530,6 +2530,97 @@ forms2 <- forms2[-match("~regio*openheid", forms2)]
 forms_2022 <- c("~1", forms1, forms2)
 ```
 
+```{r}
+all_models_2022 <- list()
+all_model_2022_names <- c()
+
+# Key functions
+keys <- c("hn", "hr")
+
+# Sla de gefitte models op op deze locatie
+model_path <- "./src/markdown/mas/distance_models/"
+
+# Loop over species
+for (spec in names(distance_dfs_2022_final)) {
+  distance_data_2022 <- distance_dfs_2022_final[[spec]]
+  sample_table_2022 <- sample_tables_2022[[spec]]
+  obs_table_2022 <- obs_tables_2022[[spec]]
+  
+  out_models <- list()
+  model_names <- c()
+  
+  # Select possible formulas per species
+  form_spec <- forms_2022
+  form_df <- stratum_cijfers_df_2022 %>% filter(soort == spec)
+  if (!pull(form_df[,"n_regio"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_openheid"])) {
+    form_spec[sapply(form_spec, function(i) grepl("openheid", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio*sbp", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_int_openheid_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("sbp*openheid", i))] <- NULL
+  }
+
+  # Loop over formules en over key functions
+  for (i in seq_len(length(form_spec))) {
+    f <- as.character(form_spec[i]) # f is de formule
+    
+    for (k in keys) {
+      # Naam voor model
+      mod_name <- paste0(spec, "_distmod_2022_", k, i)
+      file <- paste0(model_path, mod_name, ".rds")
+      
+      # Sla model op als het nog niet bestaat en lees het in anderzijds
+      if (file.exists(file)) {
+        det_model <- readRDS(file)
+        assign(mod_name, det_model)
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+      } else {
+        if (f == "~1") {
+          det_model <- ds(data = distance_data_2022, key = k, 
+            formula = as.formula(f), max_adjustments = 2, 
+            monotonicity = "strict", 
+            truncation = 300, transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2022, 
+            region_table = region_table_2022, 
+            sample_table = sample_table_2022, 
+            obs_table = obs_table_2022)
+        } else {
+          det_model <- ds(data = distance_data_2022, key = k, 
+            formula = as.formula(f), adjustment = NULL, truncation = 300, 
+            transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2022, 
+            region_table = region_table_2022, 
+            sample_table = sample_table_2022, 
+            obs_table = obs_table_2022)
+        }
+        
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+        
+        # Sla gefitte model op
+        assign(mod_name, det_model)
+        saveRDS(det_model, file = file)
+      }
+      # Put models and model names in list 
+      out_models <- c(out_models, list(det_model))
+      model_names <- c(model_names, mod_name)
+    }
+  }
+  names(out_models) <- model_names
+  
+  # Put models and model names in list 
+  all_models_2022 <- c(all_models_2022, list(out_models))
+  all_model_2022_names <- c(all_model_2022_names, spec)
+}
+names(all_models_2022) <- all_model_2022_names
+```
+
 ## Densiteitschattingen 2018-2022
 
 ### Model selectie per soort
