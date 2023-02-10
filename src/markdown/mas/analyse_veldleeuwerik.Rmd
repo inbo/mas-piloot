@@ -2166,7 +2166,7 @@ stratum_cijfers_df %>%
 De volgende soorten blijven over voor de simpele dataset:
 
 ```{r}
-list <- lapply(seq_along(distance_dfs_2018_2022_simpel), 
+list_simpel <- lapply(seq_along(distance_dfs_2018_2022_simpel), 
   function(i) {
     distance_dfs_2018_2022_simpel[[i]] %>% 
       mutate(soort = names(distance_dfs_2018_2022_simpel[i])) %>%
@@ -2178,7 +2178,7 @@ list <- lapply(seq_along(distance_dfs_2018_2022_simpel),
       distinct(soort, n_obs, n_jaren, n_regios, n_strata)
   })
 
-do.call(rbind, list) %>%
+do.call(rbind, list_simpel) %>%
   kable()
 ```
 
@@ -2202,6 +2202,182 @@ do.call(rbind, list) %>%
 ```
 
 ### 2022
+
+We hebben bepaalde regels nodig om de modellen te kunnen fitten:
+
+We maken 2 datasets:
+
+1.  Simpele modellen (zonder covariaten)
+-   behoud datasets als totaal aantal waarnemingen \>= 20
+
+2.  Complexere modellen (met covariaten)
+-   behoud strata als aantal waarnemingen per stratum \>= 10
+-   behoud datasets als totaal aantal waarnemingen \>= 30
+
+Eerst fitten we alle modellen met *2.*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1.*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten.
+
+Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten.
+Een observatie van 2 individuen telt hier als 2 waarnemingen!
+
+> Als we deze getallen aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
+
+```{r}
+filter_dist_df_2022 <- function(data, stratum_filter, dataset_filter) {
+  # Selectie strata
+  select_df <- lapply(data, function(i) {
+    i %>% 
+      group_by(regio, openheid, sbp) %>% 
+      mutate(n = sum(size)) %>%
+      filter(n >= stratum_filter) %>%
+      ungroup() %>%
+      select(-n)
+  })
+  
+  # Selectie datasets
+  n_obs <- sapply(select_df, function(i) {
+      if (nrow(i) == 0) {
+        return(0)
+      } else {
+        return(sum(i$size))
+      }
+    })
+  select_df <- select_df[n_obs >= dataset_filter]
+  
+  return(select_df)
+}
+
+distance_dfs_2022_simpel <- filter_dist_df_2022(distance_dfs_2022, 0, 20)
+distance_dfs_2022_final <- filter_dist_df_2022(distance_dfs_2022, 10, 30)
+```
+
+In de complexe dataset zijn de meeste soorten zijn in meerdere openheidsklasses gezien.
+De meeste soorten hebben waarnemingen van slechts een enkele regio.
+De meeste soorten hebben waarnemingen zowel binnen als buiten sbp.
+Een interacties tussen regio en sbp en openheid en sbp zal meestal niet gefit kunnen worden.
+
+```{r}
+stratum_cijfers_lijst_2022 <- lapply(seq_along(distance_dfs_2022_final), 
+  function(i) {
+    out <- distance_dfs_2022_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2022_final[i])) %>%
+      mutate(n = sum(distance_dfs_2022_final[[i]]$size),
+             n_regio = n_distinct(regio) > 1,
+             n_openheid = n_distinct(openheid) > 1,
+             n_sbp = n_distinct(sbp) > 1) %>%
+      group_by(sbp) %>%
+      mutate(n_interactie = n_distinct(openheid)) %>%
+      ungroup() %>%
+      mutate(n_int_openheid_sbp = !(min(n_interactie) == 1 | n_sbp == FALSE)) %>%
+      mutate(n_int_regio_sbp = ifelse(n_regio == TRUE & n_sbp == TRUE, TRUE, FALSE)) %>%
+      distinct(soort, n, n_regio, n_openheid, n_sbp, n_int_openheid_sbp, 
+               n_int_regio_sbp)
+    
+     min_openheid_sbp <- distance_dfs_2022_final[[i]] %>% 
+       mutate(soort = names(distance_dfs_2022_final[i])) %>%
+       group_by(soort, openheid, sbp) %>% 
+       summarise(n = n(), .groups = "drop") %>%
+       pull(n) %>%
+       min()
+     
+     min_regio_sbp <- distance_dfs_2022_final[[i]] %>% 
+       mutate(soort = names(distance_dfs_2022_final[i])) %>%
+       group_by(soort, regio, sbp) %>% 
+       summarise(n = n(), .groups = "drop") %>%
+       pull(n) %>%
+       min()
+     
+     if (min_openheid_sbp <= 11){
+       out$n_int_openheid_sbp <- FALSE
+     }
+     
+     if (min_regio_sbp <= 11){
+       out$n_int_regio_sbp <- FALSE
+     }
+    
+    return(out)
+  })
+
+stratum_cijfers_df_2022 <- do.call(rbind, stratum_cijfers_lijst_2022)
+```
+
+```{r}
+stratum_cijfers_df_2022 %>% 
+  mutate(n = factor(n, levels = sort(unique(n)), ordered = TRUE)) %>%
+  ggplot() +
+   geom_bar(aes(x = n)) +
+   labs(x = "Aantal waarnemingen", y = "Aantal soorten") +
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, 
+                                    size = 6))
+```
+
+```{r}
+stratum_cijfers_df_2022 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_regio)) +
+   labs(x = "In meer dan 1 regio gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2022 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_openheid)) +
+   labs(x = "In meer dan 1 openheidsklasse gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2022 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_sbp)) +
+   labs(x = "Zowel binnen als buiten sbp gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2022 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_int_openheid_sbp)) +
+   labs(x = "In meerdere openheidsklasses binnen en buiten sbp gezien (interactie)", 
+        y = "Aantal soorten")
+
+stratum_cijfers_df_2022 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_int_regio_sbp)) +
+   labs(x = "In meerdere regio's binnen en buiten sbp gezien (interactie)",  
+        y = "Aantal soorten")
+```
+
+De volgende soorten blijven over voor de simpele dataset:
+
+```{r}
+list_2022_simpel <- lapply(seq_along(distance_dfs_2022_simpel), 
+  function(i) {
+    distance_dfs_2022_simpel[[i]] %>% 
+      mutate(soort = names(distance_dfs_2022_simpel[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2022_simpel[[i]]$size),
+             n_regios = n_distinct(regio),
+             n_openheid = n_distinct(openheid),
+             n_sbp = n_distinct(sbp),
+             strata = paste0(regio, openheid, sbp),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_regios, n_openheid, n_sbp, n_strata)
+  })
+
+do.call(rbind, list_2022_simpel) %>%
+  kable()
+```
+
+De volgende soorten blijven over voor de complexere dataset:
+
+```{r}
+list_2022 <- lapply(seq_along(distance_dfs_2022_final), 
+  function(i) {
+    distance_dfs_2022_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2022_final[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2022_final[[i]]$size),
+             n_regios = n_distinct(regio),
+             n_openheid = n_distinct(openheid),
+             n_sbp = n_distinct(sbp),
+             strata = paste0(regio, openheid, sbp),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_regios, n_openheid, n_sbp, n_strata)
+  })
+
+do.call(rbind, list_2022) %>%
+  kable()
+```
 
 ## Model specificatie distance sampling
 
