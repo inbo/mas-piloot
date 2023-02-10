@@ -2330,7 +2330,7 @@ final_models_complex <- list(Blauwborst = Blauwborst_distmod_2018_2022_hn1,
                      Zwartkop = Zwartkop_distmod_2018_2022_hn1)
 ```
 
-Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met waarnemingen tussen 20 en 30.
+Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen.
 
 ```{r}
 # Welke soorten moeten niet opnieuw gefit worden?
