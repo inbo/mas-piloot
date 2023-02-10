@@ -2588,7 +2588,6 @@ final_models_binned <- list()
 final_models_binned_names <- c()
 
 for (spec in names(spec_to_bin)) {
-  distance_data <- distance_dfs_2018_2022_final[[spec]]
   sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
   obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
   ds_model <- final_models[[spec]]
@@ -2610,6 +2609,7 @@ for (spec in names(spec_to_bin)) {
                  "Formula: '", f, "'. Key: '", k, "'."))
   } else {
     if (f == "~1") {
+      distance_data <- distance_dfs_2018_2022_simpel_new[[spec]]
       det_model <- ds(data = distance_data, key = k, 
         formula = as.formula(f), max_adjustments = 2, 
         monotonicity = "strict", cutpoints = cp,
@@ -2619,6 +2619,7 @@ for (spec in names(spec_to_bin)) {
         sample_table = sample_table_2018_2022, 
         obs_table = obs_table_2018_2022)
     } else {
+      distance_data <- distance_dfs_2018_2022_final[[spec]]
       det_model <- ds(data = distance_data, key = k, 
         formula = as.formula(f), adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, cutpoints = cp,
