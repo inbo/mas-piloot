@@ -1825,6 +1825,7 @@ datumgrenzen_mas <- datumgrenzen_mas
 
 We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0, geen afstanden \> 300 m en dat ze binnen telperiodes vallen.
 We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
+We voegen ook Haas toe (geen broedcodes).
 
 ```{r}
 mas_observations <- mas_clean %>%
@@ -1836,11 +1837,17 @@ mas_observations <- mas_clean %>%
                        naam),
          naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
                        naam))
+haas_observations <- mas_clean %>%
+  filter(naam == "Haas", distance2plot <= 300, !is.na(periode_in_jaar)) %>%  
+  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "))
+
+mas_observations <- bind_rows(mas_observations, haas_observations)
 ```
 
 ## Genereer dataframes voor elke soort
 
-We maken in een for-loop een dataframe voor elke soort waar we ook filteren op de datumgrenzen.
+We maken in een for-loop een dataframe voor elke soort waar we ook filteren op de datumgrenzen. Voor Haas behouden we alle telperiodes.
 
 ```{r}
 df_obs_list <- vector("list", length = length(unique(mas_observations$naam)))
@@ -1855,6 +1862,10 @@ for (i in seq_along(unique(mas_observations$naam))) {
     select(R1:R4)
   telperiodes_df <- unlist(telperiodes_df[1,])
   telperiodes <- names(telperiodes_df[which(telperiodes_df == TRUE)])
+  
+  if (spec == "Haas") {
+    telperiodes <- c("R1", "R2", "R3", "R4")
+  }
   
   # selecteer waarnemingen
   df_obs <- mas_observations %>% 
@@ -2262,6 +2273,7 @@ final_models <- list(Blauwborst = Blauwborst_distmod_2018_2022_hn1,
                      Grasmus = Grasmus_distmod_2018_2022_hn1,
                      GrauweGors = GrauweGors_distmod_2018_2022_hn1,
                      GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1,
+                     Haas = Haas_distmod_2018_2022_hr1,
                      Heggenmus = Heggenmus_distmod_2018_2022_hn1,
                      Holenduif = Holenduif_distmod_2018_2022_hn1,
                      Houtduif = Houtduif_distmod_2018_2022_hn3,
@@ -2381,11 +2393,12 @@ final_models[indices_to_remove] <- NULL
 
 #### Binned distance sampling
 
-De detectiekans voor Blauwborst, Gaai, Kwartel, Patrijs, Torenvalk, Veldleeuwerik neemt soms weer toe na een bepaalde afstand.
+De detectiekans voor Blauwborst, Haas, Kwartel, Patrijs, Torenvalk, Veldleeuwerik neemt soms weer toe na een bepaalde afstand.
 Voor deze soorten groeperen we de afstanden per 100 meter voor Kwartel en 50 meter voor de andere soorten.
 
 ```{r}
 spec_to_bin <- list(Blauwborst = 6,
+                    Haas = 4,
                     Kwartel = 3,
                     Patrijs = 6,
                     Torenvalk = 6,
@@ -2537,7 +2550,7 @@ results <- lapply(seq_along(final_models_update),
     k <- gsub(" key function", "", Distance:::model.description(ds_model$ddf))
     f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
     b <- ds_model$ddf$meta.data$binned
-    p <- ds_model$dht$individuals$average.p
+    p <- as.numeric(summary(ds_model)$ds$average.p)
     se <- as.numeric(summary(ds_model)$ds$average.p.se)
     
     data.frame(soort = names(final_models_update[i]),
