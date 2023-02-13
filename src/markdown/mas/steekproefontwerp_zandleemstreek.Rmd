@@ -332,3 +332,58 @@ punten %>%
   kable()
 ```
 
+
+## Exclusie van potentiële telpunten / telcirkels
+### Exclusie op basis van landgebruiksamenstelling
+
+Voor elk potentieel telpunt / telcirkel:
+
+- landgebruik oppervlaktes
+
+> VITO 2019 landgebruikskaart (update elke 3 jaar)
+
+
+```{r}
+telcirkels_selectie_landgebruik <- tar_read(telcirkels_selectie_landgebruik,
+                                   store = targets_store)
+```
+
+We gebruiken volgende regel als criterium voor telpunten die in aanmerkingen komen voor wat betreft de samenstelling van het landgebruik in een buffer van 300 m rond het punt:
+
+- Akker + Grasland > 40% én Grasland + Bos + Struikgewas + Akker > 50%
+
+
+De gebruikte landgebruikskaart dekt enkel het Vlaamse grondgebied.
+Indien de telcirkel deels in een andere gewest / land gelegen is, zal het landgebruik daar ontbreken.
+In de momenteel gebruikte berekening is dit "ontbrekend" landgebruik weggefilterd en slaat het oppervlakte-aandeel enkel op het deel van de telcirkel waar we data voor hebben.
+Het kan dus zijn dat op de volledige telcirkel deze oppervlakte-aandelen verschillend zijn (en al dan niet zouden moeten uitgesloten worden volgens het criterium).
+
+```{r}
+telcirkels_selectie_landgebruik %>%
+  ggtern::ggtern(aes(x = Akker + Grasland,
+                     y = Bos + Struikgewas,
+                     z = Overige)) + 
+  geom_point(alpha = 0.1,
+             aes(colour = selectie2))
+```
+
+De kaart toont de punten die op deze manier niet meer in aanmerkingen komen.
+
+```{r map-exclusie-landgebruik-vito}
+exclusie_punten <- punten %>%
+  left_join(telcirkels_selectie_landgebruik %>%
+              group_by(pointid) %>%
+              summarize(selectie2 = any(selectie2)),
+            by = "pointid") %>%
+  filter(!selectie2)
+
+mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
+        legend = FALSE) +
+  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
+  mapview(st_crop(selectie_openheid_klasses, detail), col.regions = "red", 
+          legend = FALSE) +
+  mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
+          legend = FALSE) +
+  mapview(st_crop(paden, detail), legend = FALSE) +
+  mapview(st_crop(exclusie_punten, detail), col.regions = "black", legend = FALSE)
+```
