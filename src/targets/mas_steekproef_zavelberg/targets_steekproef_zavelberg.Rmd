@@ -256,7 +256,7 @@ list(
                gebied = selectie_openheid_klasses,
           	   osmdata = osm_belgium,
           	   landuse = c("residential", "military", "industrial", "cemetery", 
-          	               "railway", "commercial"),
+          	               "railway", "commercial", "farmyard"),
           	   leisure = c("park"),
           	   buffer_poly = 0, 
           	   layer_poly = list(aeroway = c("aerodrome")),
