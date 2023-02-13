@@ -66,7 +66,52 @@ st_write(obj = zandleem_vlaanderen,
          dsn = path_to_perimeters("zandleemstreek_perimeters.gpkg"))
 ```
 
+In geel: prioritaire gebieden voor akkervogels.
+
 ```{r}
-perimeters <- tar_read(perimeters_data, store = targets_store)
-mapview(perimeters)
+perimeters_data <- tar_read(perimeters_data, store = targets_store)
+sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store)
+
+mapview(perimeters_data, color = "red", alpha.regions = 0) +
+  mapview(sbp_akkervogels, col.regions = "yellow")
+```
+
+```{r}
+binnen_sbp <- perimeters_data %>%
+  st_intersection(sbp_akkervogels) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "binnen sbp")
+
+buiten_sbp <- perimeters_data %>%
+  st_difference(sbp_akkervogels %>%
+                  st_union() %>%
+                  st_combine()) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "buiten sbp")
+
+opps <- bind_rows(buiten_sbp, binnen_sbp) %>% 
+  st_drop_geometry()
+
+opps %>%
+  mutate(opp = units::set_units(opp, "ha")) %>%
+  group_by(Naam) %>%
+  mutate(opp_aandeel = opp / sum(opp)) %>%
+  units::drop_units() %>%
+  rename(opp_ha = opp) %>%
+  relocate(is_sbp, .before = opp_ha) %>%
+  arrange(Naam, is_sbp) %>%
+  kable(digits = 2)
+```
+
+
+## Selectie openheid landschap
+
+We selecteren OL en HOL binnen de perimeters.
+
+```{r}
+selectie_openheid_klasses <- tar_read(selectie_openheid_klasses, store = targets_store)
+mapview(perimeters_data, color = "red", alpha.regions = 0) +
+  mapview(selectie_openheid_klasses)
 ```
