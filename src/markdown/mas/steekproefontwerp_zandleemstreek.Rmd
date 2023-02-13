@@ -29,6 +29,7 @@ library(tidyverse)
 library(targets)
 library(sf)
 library(mapview)
+library(terra)
 
 # globals
 source(here("src", "R", "steekproefkader.R"))
@@ -66,47 +67,26 @@ st_write(obj = zandleem_vlaanderen,
          dsn = path_to_perimeters("zandleemstreek_perimeters.gpkg"))
 ```
 
-In geel: prioritaire gebieden voor akkervogels.
-
 ```{r}
 perimeters_data <- tar_read(perimeters_data, store = targets_store)
-sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store)
 
-mapview(perimeters_data, color = "red", alpha.regions = 0) +
-  mapview(sbp_akkervogels, col.regions = "yellow")
-```
-
-```{r}
-binnen_sbp <- perimeters_data %>%
-  st_intersection(sbp_akkervogels) %>%
-  select(Naam) %>%
-  mutate(opp = st_area(.),
-         is_sbp = "binnen sbp")
-
-buiten_sbp <- perimeters_data %>%
-  st_difference(sbp_akkervogels %>%
-                  st_union() %>%
-                  st_combine()) %>%
-  select(Naam) %>%
-  mutate(opp = st_area(.),
-         is_sbp = "buiten sbp")
-
-opps <- bind_rows(buiten_sbp, binnen_sbp) %>% 
-  st_drop_geometry()
-
-opps %>%
-  mutate(opp = units::set_units(opp, "ha")) %>%
-  group_by(Naam) %>%
-  mutate(opp_aandeel = opp / sum(opp)) %>%
-  units::drop_units() %>%
-  rename(opp_ha = opp) %>%
-  relocate(is_sbp, .before = opp_ha) %>%
-  arrange(Naam, is_sbp) %>%
-  kable(digits = 2)
+mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
 ```
 
 
 ## Selectie openheid landschap
+
+We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie.
+Werkwijze:
+
+- berekening "canopy height model" (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, ...).
+- berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
+- met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 300 m.
+- deze gemiddelden zijn daarna ingedeeld in drie klassen:
+    - OL open landschap (> 86,5°), 
+    - HOL halfopen landschap (77,3° - 86,5°),
+    - HGL halfgesloten landschap (71,6° - 77,3°)
+    - GL (< 71,6°) gesloten landschap
 
 We selecteren OL en HOL binnen de perimeters.
 
@@ -387,3 +367,260 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
   mapview(st_crop(paden, detail), legend = FALSE) +
   mapview(st_crop(exclusie_punten, detail), col.regions = "black", legend = FALSE)
 ```
+
+
+## Berekening volledig gekende variabelen die relatie hebben met respons
+
+Dit zijn interessante variabelen om in rekening te brengen bij het steekproefdesign.
+Dit kan bijvoorbeeld door middel van stratificatie of door te zorgen dat de steekproef op een homogene manier de gradiënt van deze hulpvariabele(n) afdekt.
+
+Voor elk potentieel telpunt / telcirkel:
+
+- Beheerovereenkomst oppervlaktes: vooral de soortbeschermingsmaatregelen
+- maat voor openheid van het landschap (cf. OLA, HOLA, KLA)
+- oppervlakte-aandelen van hoofdteelten (landbouwgebruikspercelen)
+
+
+### Oppervlakte-aandeel beheerovereenkomsten
+
+Toestand beheerovereenkomsten 2022.
+
+Indeling voor niet-productieve gewassen / beheerovereenkomsten (instrumenten):
+
+- soortbeschermingsmaatregelen
+    - perceelsniveau
+    - randen
+- erosiemaatregelen
+- bufferstroken
+
+Voor de steekproeftrekking zijn vooral de oppervlakte aan soortbeschermingsmaatregelen van belang.
+Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
+
+
+```{r bo-sbp}
+steekproefkader_finaal <- tar_read(steekproefkader_finaal, store = targets_store)
+```
+
+```{r}
+steekproefkader_finaal %>%
+  ggplot() +
+  geom_histogram(aes(x = area_prop_sb)) +
+  labs(
+    x = "Oppervlakte-aandeel soortbeschermingsmaatregelen binnen 300 m buffer",
+    y = "Aantal potentiële telpunten (steekproefkader)")
+```
+
+Verdeling zonder nullen.
+
+```{r}
+steekproefkader_finaal %>%
+  filter(area_prop_sb != 0) %>%
+  ggplot() +
+  geom_histogram(aes(x = area_prop_sb)) +
+  labs(
+    x = "Oppervlakte-aandeel soortbeschermingsmaatregelen binnen 300 m buffer",
+    y = "Aantal potentiële telpunten (steekproefkader)")
+```
+
+### Oppervlakte-aandeel hoofdteelt
+
+```{r lbg-stats}
+lbg_statistieken <- tar_read(lbg_statistics, store = targets_store)
+```
+
+Belangrijkste teelten in 2022:
+
+```{r lbg-per-hoofdteelt}
+lbg_statistieken %>%
+  ungroup() %>%
+  left_join(steekproefkader_finaal %>% st_drop_geometry() %>%
+              select(pointid, Naam),
+            by = "pointid") %>%
+  select(Naam, pointid, LBLHFDTLT, area_prop) %>%
+  pivot_wider(names_from = LBLHFDTLT,
+              values_from = area_prop,
+              values_fill = list(area_prop = 0),
+              values_fn = list(area_prop = sum)) %>%
+  pivot_longer(cols = -c(Naam, pointid)) %>%
+  group_by(Naam, name) %>%
+  summarise(prop_n_points = sum(value > 0) / n(),
+            mean_prop = mean(value),
+            mean_prop_present = mean(value[value > 0]),
+            .groups = "drop_last") %>%
+  filter(mean_prop > 0.01) %>%
+  pivot_longer(cols = c(prop_n_points, mean_prop, mean_prop_present),
+               names_to = "variable",
+               values_to = "value") %>%
+  ggplot() +
+  geom_point(aes(y = forcats::fct_reorder(name, value, mean),
+                 x = value, colour = variable)) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_color_discrete(labels = c("Gemiddeld oppervlakteperc.",
+                                  "Gemiddeld oppervlakteperc.\nwaar aanwezig",
+                                  "Percentage pot. telpunten\n aanwezig")) +
+  labs(x = "Percentage in telcirkel") + 
+  theme(axis.title.y = element_blank())
+```
+
+Een logische en veelgebruikte opdeling voor gewassen is:
+
+- graangewassen (monocotylen zoals tarwe, gerst, etc..) 
+- grasland (opdelen permanent en tijdelijk)
+- mais
+- aardappelen
+- wortelgewassen (biet, chicorei, wortel)
+- peulvruchten (erwt)
+- groententeelt (kolen zoals bloemkool, brocolli, spruiten, prei, ajuin, sla)
+- groenbemester (klavers, luzerne, mosterd) of koolzaad
+- meerjarige fruitteelt (appel, peer, kers, ea)
+- vlas
+- andere (vb eenjarig fruitteelt) 
+
+Hier gebruiken we de indeling volgens 'gewasgroep' zoals deze in de landbouwgebruikspercelenkaart zit.
+
+```{r lbg-per-gewasgroep, warning=FALSE}
+lbg_statistieken %>%
+  ungroup() %>%
+  left_join(steekproefkader_finaal %>% st_drop_geometry() %>%
+              select(pointid, Naam),
+            by = "pointid") %>%
+  select(pointid, Naam, GEWASGROEP, area_prop) %>%
+  pivot_wider(names_from = GEWASGROEP,
+              values_from = area_prop,
+              values_fill = list(area_prop = 0),
+              values_fn = list(area_prop = sum)) %>%
+  pivot_longer(cols = -c(Naam, pointid)) %>%
+  group_by(Naam, name) %>%
+  summarise(prop_n_points = sum(value > 0) / n(),
+            mean_prop = mean(value),
+            mean_prop_present = mean(value[value > 0]),
+            .groups = "drop_last") %>%
+  pivot_longer(cols = c(prop_n_points, mean_prop, mean_prop_present),
+               names_to = "variable",
+               values_to = "value") %>%
+  ggplot() +
+  geom_point(aes(y = forcats::fct_reorder(name, value, mean),
+                 x = value, colour = variable)) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_color_discrete(labels = c("Gemiddeld oppervlakteperc.",
+                                  "Gemiddeld oppervlakteperc.\nwaar aanwezig",
+                                  "Percentage pot. telpunten\n aanwezig")) +
+  labs(x = "Percentage in telcirkel") + 
+  theme(axis.title.y = element_blank())
+```
+
+
+### Openheid landschap
+
+We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie.
+Werkwijze:
+
+- berekening "canopy height model" (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, ...).
+- berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
+- met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 300 m.
+- deze gemiddelden zijn daarna ingedeeld in drie klassen:
+    - OL open landschap (> 86,5°), 
+    - HOL halfopen landschap (77,3° - 86,5°),
+    - HGL halfgesloten landschap (71,6° - 77,3°)
+    - GL (< 71,6°) gesloten landschap
+
+Akkervogelgemeenschappen worden vaak ingedeeld volgens hun affiniteit met open landschap (OLA - Open landschap Akkervogels), half-open landschap (HOLA) en kleinschalig landschap (KLA).
+Onder kleinschalig landschap verstaat men een landschap waar de percelen relatief klein zijn en het landschap in sterke mate dooraderd is door hagen, rietkragen en andere lijn- of puntvormige kleine landschapselementen (KLE's).
+De manier waarop we openheid van het landschap hebben bepaald laat niet toe om KLA te bepalen zonder bijkomende berekeningen.
+KLA zullen een subset zijn van wat wij HOL noemen, met name HOL waar de gemiddelde perceelsgrootte relatief klein is.
+
+We hadden in de eerste stap al OL en HOL geselecteerd. Toch is er nog een beetje HGL over maar in de allocatie zullen deze punten wegvallen.
+
+```{r landschap-openheid}
+openheid_classified <- rast(
+  here("data", "dem",
+       "openness300m_chm_res25_c300_mean_vlaanderen_classified.tif")) %>%
+  crop(perimeters) %>%
+  mask(terra::vect(perimeters))
+```
+
+```{r landschapsopenheid, warning=FALSE}
+openheid_raster <- raster::raster(openheid_classified)
+openheid_raster <- raster::ratify(openheid_raster)
+levels(openheid_raster)[[1]]$LO <- c("GL", "HGL", "HOL", "OL")
+
+openheid_raster %>%
+  mapview(alpha = 0.3)
+```
+
+```{r openheid-points}
+steekproefkader_finaal %>%
+  ggplot() +
+  geom_histogram(aes(x = openheid_waarde * 180 / pi,
+                     fill = openheid_klasse),
+                 binwidth = 0.5) +
+  facet_wrap(~Naam, scales = "free_y") +
+  labs(x = "Gemiddelde openheid landschap binnen 300 m buffer (in graden)",
+       y = "Aantal potentiële telpunten (steekproefkader)")
+```
+
+
+### Soortbeschermingsplan
+
+Zowel binnen kerngebied als zoekzones zijn er soortbeschermende maatregelen (SB BO's) gelegd (zie kaart VLM BO's). In theorie waren deze maatregelen vooral bedoeld voor kerngebied, en zal daar een hogere dichtheid (bedekkingsgraad) liggen, maar de VLM heeft het toegelaten om ook in zoekzones deze maatregelen te sluiten (al was dat minder de prioriteit). Daar werd bv in de Moeren geen rekening mee gehouden, en werden erg veel SB BOs gelegd, ook omdat dit gebied wél kerngebied is  In de toekomst heeft VLM beloofd om meer/enkel rekening te houden met kerngebied, en dus nog meer te sturen op.  
+  
+We nemen kerngebieden en zoekzones samen als onderzoeksgebied en alles hierbuiten beschouwen we als controle. Als SBP laag gebruiken we perimeter SBP akkervogels, SBP grauwe kiekendief en SBP hamster.
+
+> SBP grauwe kiekendief en SBP hamster nog implementeren
+
+```{r}
+sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store)
+
+mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
+  mapview(sbp_akkervogels, col.regions = "yellow", legend = FALSE)
+```
+
+```{r}
+binnen_sbp <- perimeters_data %>%
+  st_intersection(sbp_akkervogels) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "binnen sbp")
+
+buiten_sbp <- perimeters_data %>%
+  st_difference(sbp_akkervogels %>%
+                  st_union() %>%
+                  st_combine()) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "buiten sbp")
+
+opps <- bind_rows(buiten_sbp, binnen_sbp) %>% 
+  st_drop_geometry()
+
+opps %>%
+  mutate(opp = units::set_units(opp, "ha")) %>%
+  group_by(Naam) %>%
+  mutate(opp_aandeel = opp / sum(opp)) %>%
+  units::drop_units() %>%
+  rename(opp_ha = opp) %>%
+  relocate(is_sbp, .before = opp_ha) %>%
+  arrange(Naam, is_sbp) %>%
+  kable(digits = 2)
+```
+
+
+### Overzicht
+
+```{r}
+steekproefkader_finaal_strata <- steekproefkader_finaal %>%
+  mutate(stratum = ifelse(is_sbp, paste0(openheid_klasse, " binnen sbp"),
+                                  paste0(openheid_klasse, " buiten sbp")))
+
+mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
+        legend = FALSE) +
+  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
+  mapview(st_crop(selectie_openheid_klasses, detail), col.regions = "red", 
+          legend = FALSE) +
+  mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
+          legend = FALSE) +
+  mapview(st_crop(paden, detail), legend = FALSE) +
+  mapview(st_crop(steekproefkader_finaal_strata, detail), zcol = "stratum",
+          layer = "stratum")
+```
+
