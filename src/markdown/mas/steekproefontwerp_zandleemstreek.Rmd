@@ -113,8 +113,8 @@ We selecteren OL en HOL binnen de perimeters.
 ```{r}
 selectie_openheid_klasses <- tar_read(selectie_openheid_klasses, 
                                       store = targets_store)
-mapview(perimeters_data, color = "red", alpha.regions = 0) +
-  mapview(selectie_openheid_klasses, col.regions = "red")
+mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
+  mapview(selectie_openheid_klasses, col.regions = "red", legend = FALSE)
 ```
 
 
@@ -214,8 +214,10 @@ detail_sf <- st_as_sfc(st_bbox(detail)) %>% st_set_crs(31370) %>% st_as_sf()
 mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
         legend = FALSE) +
   mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
-  mapview(st_crop(selectie_openheid_klasses, detail), col.regions = "red") +
-  mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green")
+  mapview(st_crop(selectie_openheid_klasses, detail), col.regions = "red", 
+          legend = FALSE) +
+  mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
+          legend = FALSE)
 ```
 
 ## Bepalen geldige plaatsen waar telling kan uitgevoerd worden
@@ -280,8 +282,53 @@ paden <- tar_read(paden, store = targets_store)
 mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
         legend = FALSE) +
   mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
-  mapview(st_crop(selectie_openheid_klasses, detail), col.regions = "red") +
-  mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green") +
-  mapview(st_crop(paden, detail))
+  mapview(st_crop(selectie_openheid_klasses, detail), col.regions = "red", 
+          legend = FALSE) +
+  mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
+          legend = FALSE) +
+  mapview(st_crop(paden, detail), legend = FALSE) +
+```
+
+Overzicht totale lengte per categorie:
+
+```{r lengte-paden}
+paden %>%
+  group_by(Naam, key, value) %>%
+  summarise(.groups = "drop") %>%
+  mutate(lengte_km = as.numeric(st_length(.)) / 1e3) %>%
+  st_drop_geometry() %>%
+  kable(digits = 1)
+```
+
+
+## Punten langs de wegen en paden
+
+Werkwijze:
+
+- Langs alle paden worden op regelmatige afstanden van 50 m punten gelegd
+- Daarna worden punten die op minder dan 40 m van elkaar liggen ruimtelijk gegroepeerd (dit gebeurt wanneer verschillende paden elkaar kruisen of op korte afstand parallel aan elkaar liggen) en uit elk van deze clusters wordt één punt overgehouden
+- potentiële telpunten moeten op minstens 300 m van de grens van de perimeter gelegen zijn
+
+```{r}
+punten <- tar_read(punten, store = targets_store)
+
+mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
+        legend = FALSE) +
+  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
+  mapview(st_crop(selectie_openheid_klasses, detail), col.regions = "red", 
+          legend = FALSE) +
+  mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
+          legend = FALSE) +
+  mapview(st_crop(paden, detail), legend = FALSE) +
+  mapview(st_crop(punten, detail), zcol = "value", layer = "Type weg/pad")
+```
+
+Overzicht aantal punten per categorie:
+
+```{r}
+punten %>%
+  st_drop_geometry() %>%
+  count(Naam, key, value, name = "Aantal punten") %>%
+  kable()
 ```
 
