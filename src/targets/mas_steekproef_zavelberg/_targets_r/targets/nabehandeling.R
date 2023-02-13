@@ -2,7 +2,9 @@ list(
   tar_target(
     steekproef_zichtbaarheid,
     filter_zichtbaarheid(sample = steekproef,
-                         min_cvvi = 0.1),
+                         min_cvvi = 0.1,
+                         resolution = 5,
+                         spacing = 10),
     pattern = map(steekproef)
   ),
   tar_target(

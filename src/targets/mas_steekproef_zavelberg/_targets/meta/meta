@@ -13,9 +13,7 @@ filename|object|26d077a5f8a8fe4e|||||||||||||||
 filename_dsm|object|4f1475a1374d2b45|||||||||||||||
 filename_dtm|object|ee355bf2e74c33d1|||||||||||||||
 gebied|object|86e124abcfe90d1e|||||||||||||||
-lbg_statistics|pattern|bb281077b7651856|4d61f715514a7b95||-1474013382||||29232230|qs|local|vector||lbg_statistics_9404a90b|290.7||
 lbg_statistics_6b098b3c|branch|af7369875e9d1439|4d61f715514a7b95|e7912ac93374c141|-1743291174||t19390.4646663122s|382758f531a1129f|39807|qs|local|vector|lbg_statistics||71.61|attribute variables are assumed to be spatially constant throughout all geometries. Missing values are always removed in SQL aggregation functions.Use na.rm  TRUE to silence this warningThis warning is displayed once every 8 hours.|
-lbg_statistics_9404a90b|branch|f3e4bf954855ab96|4d61f715514a7b95|584e2461a1c13e23|418636502||t19399.6800981418s|aa84d966ae5cc70d|29232230|qs|local|vector|lbg_statistics||290.7|attribute variables are assumed to be spatially constant throughout all geometries. Missing values are always removed in SQL aggregation functions.Use na.rm  TRUE to silence this warningThis warning is displayed once every 8 hours.|
 legend_lum|stem|90073c16d0482e41|1a84f4c749b9099b|8e12c9a99758e245|-828663790||t19399.4470095653s|5c9527f6accbdfd1|1341|qs|local|vector|||0.23||
 legend_lum_file|stem|2fd1e804a10c6e7c|2255d422802ce21e|95c57ca861a3452f|-119466115|C:/R/git_repositories/mbag/data/landgebruik/legende_landgebruik.csv|t19277.3564121484s|e685cd6549872275|5726|file|local|vector|||0||
 min_cvvi|object|8a0059b814463716|||||||||||||||
@@ -70,11 +68,12 @@ telcirkels_selectie_landgebruik_18e60625|branch|1feea2565eac556c|ef4f2279b6344c9
 telcirkels_selectie_landgebruik_602f30de|branch|91c5bf3a7c6e811d|ef4f2279b6344c96|741525145a279999|1174039348||t19390.4638223357s|8c0f6722fdfec657|5988|qs|local|vector|telcirkels_selectie_landgebruik||0.16||
 test|object|3acb07242e805351|||||||||||||||
 vito_lum_2019_file|stem|e562a9788de76291|6200b6036f557b4d|7654f7ab9f80a925|-632092389|C:/R/git_repositories/mbag/data/landgebruik/vito/lu_landgebruik_vlaa_2019_v2.tif|t18823.6266666667s|51d7bcac44afca0a|57051741|file|local|vector|||3.41|package terra was built under R version 4.2.2|
+lbg_file|stem|449ce5846c75ac33|e6fabec41af2bd65|8c878d1438e5d100|-1844626288|C:/R/git_repositories/mbag/data/landbouwgebruikspercelen/parquet/lbgbrprc2022.parquet|t19401.3545110169s|13006d563f9ffbd5|123306275|file|local|vector|||3.62|package terra was built under R version 4.2.2|
 target_dir|object|6fa814d1e4388b90|||||||||||||||
 st_crs.SpatRaster|function|70c89432d6566dd5|||||||||||||||
 unpack_mht|function|6460af0636392b31|||||||||||||||
 lum_download|function|6824f1f1ddc0e360|||||||||||||||
-.Random.seed|object|df00c7e7ce762890|||||||||||||||
+.Random.seed|object|730ed5d9d3d4204a|||||||||||||||
 read_lum_rast|function|ab1941e8592097df|||||||||||||||
 landusemetrics_grid_cell|function|63bf35761ccad345|||||||||||||||
 read_bo|function|13920fd20ecbac61|||||||||||||||
@@ -119,12 +118,13 @@ extract_osm_paden|function|ec96959e28ed5f77|||||||||||||||
 nn_steekproef|function|04e18ded90bdbb1c|||||||||||||||
 bereken_zichtbaarheid|function|54f797b41085e494|||||||||||||||
 selectie_openheid|function|22dcafc711eac148|||||||||||||||
-lbg_file|stem|449ce5846c75ac33|e6fabec41af2bd65|8c878d1438e5d100|-1844626288|C:/R/git_repositories/mbag/data/landbouwgebruikspercelen/parquet/lbgbrprc2022.parquet|t19401.3545110169s|13006d563f9ffbd5|123306275|file|local|vector|||3.62|package terra was built under R version 4.2.2|
+lbg_statistics_9404a90b|branch|e56a4c6918f56e27|4d61f715514a7b95|1aac707a8a79f1f0|418636502||t19401.359788882s|2538dc0cb667e291|28893807|qs|local|vector|lbg_statistics||376.13|attribute variables are assumed to be spatially constant throughout all geometries. 1m22mMissing values are always removed in SQL aggregation functions.Use na.rm  TRUE to silence this warning90mThis warning is displayed once every 8 hours.39m|
+lbg_statistics|pattern|e9c29abf8baf9cbf|4d61f715514a7b95||-1474013382||||28893807|qs|local|vector||lbg_statistics_9404a90b|376.13||
 target_dir|object|6fa814d1e4388b90
 st_crs.SpatRaster|function|70c89432d6566dd5
 unpack_mht|function|6460af0636392b31
 lum_download|function|6824f1f1ddc0e360
-.Random.seed|object|730ed5d9d3d4204a
+.Random.seed|object|3a76cecf8d6ce022
 read_lum_rast|function|ab1941e8592097df
 landusemetrics_grid_cell|function|63bf35761ccad345
 read_bo|function|13920fd20ecbac61
@@ -142,12 +142,11 @@ selectie_landgebruik_vito|function|48a4042b1ae57018
 add_stratum_sbp|function|ab305f23cf121949
 st_bbox.SpatRaster|function|af80857fe302b9bd
 get_feature_wfs|function|867bf0bf51023891
-filter_zichtbaarheid|function|05abf68aebe56e8d
 path_to_osm_download|function|6ad7e48367119170
 add_openheid_landschap_to_frame|function|e8372aad7792bbf7
 draw_sample|function|297e4f7115ca88a0
 steekproef_uitdunnen|function|150bfcd4f4b84182
-read_sbp_akkervogels|function|65ee89fac71388be
+read_sbp_akkervogels|function|06337bac0a115598
 punten_selectie_landgebruik|function|4c2aaf8166092a1b
 lum_read_from_vito|function|e0da637d68abe823
 get_coverage_wcs|function|23171b77b88b9707
@@ -169,5 +168,17 @@ extract_osm_paden|function|ec96959e28ed5f77
 nn_steekproef|function|04e18ded90bdbb1c
 bereken_zichtbaarheid|function|54f797b41085e494
 selectie_openheid|function|22dcafc711eac148
-lbg_statistics_9404a90b|branch|e56a4c6918f56e27|4d61f715514a7b95|1aac707a8a79f1f0|418636502||t19401.359788882s|2538dc0cb667e291|28893807|qs|local|vector|lbg_statistics||376.13|attribute variables are assumed to be spatially constant throughout all geometries. 1m22mMissing values are always removed in SQL aggregation functions.Use na.rm  TRUE to silence this warning90mThis warning is displayed once every 8 hours.39m|
-lbg_statistics|pattern|e9c29abf8baf9cbf|4d61f715514a7b95||-1474013382||||28893807|qs|local|vector||lbg_statistics_9404a90b|376.13||
+filter_zichtbaarheid|function|e2d0698505c288d3
+sbp_akkervogels_360ba51b|branch|24594863dc2080d3|acc906648dcad49b|0466427109ff33c7|1230428450||t19401.4145389055s|be37ad0eb5d5a9ef|91671|qs|local|vector|sbp_akkervogels||0.91|attribute variables are assumed to be spatially constant throughout all geometries|
+sbp_akkervogels|pattern|7f9f69207fa8f90e|acc906648dcad49b||-205952475||||91671|qs|local|vector||sbp_akkervogels_360ba51b|0.91||
+steekproefkader_finaal_41e6eae8|branch|2dbd4c8bb68f6a49|dba75116b3510d73|d494ddc2a6e50152|-451222671||t19401.4145989341s|cc9cc05fe8ef13d3|2322123|qs|local|vector|steekproefkader_finaal||0.81||
+steekproefkader_finaal|pattern|c0b60a1699a5c48c|dba75116b3510d73||-238515416||||2322123|qs|local|vector||steekproefkader_finaal_41e6eae8|0.81||
+allocatie_df|stem|65933b8070762652|c09c7e965c72b49a|a0819d29ff7ee904|-878230153||t19401.4146237678s|d6f6cb245ef27b75|356|qs|local|vector|||0.08||
+steekproefkader_per_stratum|stem|2fddcbfee6dd5084|1b4b7a6940d03d94|15af196a24629a1b|1615914461||t19401.4146459168s|2bb203bf850b5061|2329975|qs|local|group||steekproefkader_per_stratum_e83cc2cb*steekproefkader_per_stratum_3216e789*steekproefkader_per_stratum_7150cdd4*steekproefkader_per_stratum_36cde9f8|0.17||
+allocatie_per_stratum|stem|81e3ba587f417194|8ac2a374e9065b64|31aa0731b1a1e5f8|-786416839||t19401.4146513178s|4e0d852cb5b9829e|373|qs|local|group||allocatie_per_stratum_51d13440*allocatie_per_stratum_baf601c3*allocatie_per_stratum_b27bb1ef*allocatie_per_stratum_27c66dc8|0||
+steekproef_aece9fff|branch|7cb575cc37348dec|7707690ded9c178f|d6af798bcc741658|-312056811||t19401.4147106723s|85de114663b0fcde|91162|qs|local|vector|steekproef||4.5||
+steekproef_928b611c|branch|fb6d4ec879908059|7707690ded9c178f|154e197096a21aa1|499073862||t19401.4147220461s|69ee25eb7334cc32|30413|qs|local|vector|steekproef||0.56||
+steekproef_078dd3c6|branch|cf70f88e970aa325|7707690ded9c178f|59e410a0ae1a48e8|-535698404||t19401.4147365594s|306f7e8148265204|75928|qs|local|vector|steekproef||0.86||
+steekproef_84288246|branch|4c08db12a78fa1c8|7707690ded9c178f|37f25c76d0ffd80e|-125312442||t19401.4147483345s|eb1bce9d5cc393a6|68659|qs|local|vector|steekproef||0.63||
+steekproef|pattern|58acb0c965bf2dc6|7707690ded9c178f||-2088542330||||266162|qs|local|vector||steekproef_aece9fff*steekproef_928b611c*steekproef_078dd3c6*steekproef_84288246|6.55||
+steekproef_zichtbaarheid_393f3f91|branch|3b935207144143ba|c68ce4ec28e9643f|104972ef49164a46|398892027||t19401.4264608921s|b4d04140c78faeed|117052|qs|local|vector|steekproef_zichtbaarheid||1011.31||
