@@ -175,7 +175,6 @@ read_sbp_akkervogels <- function(
   } else {
     out <- st_read(path) %>%
       st_transform(crs = 31370) %>%
-      filter(Prioriteit != "Zoekzone") %>%
       st_intersection(gebied)
   }
 
