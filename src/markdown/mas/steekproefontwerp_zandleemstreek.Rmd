@@ -190,3 +190,29 @@ We knippen we onderstaande landgebruiken uit de openheid selectie. Rond autosnel
 -   OSM definitie: `highway = motorway_link`
 -   Objecttype: invoegstroken en afritten van autosnelwegen
 -   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:highway%3Dmotorway_link
+
+Verder vereenvoudigen van de polygonenkaart door:
+
+-   alle polygonen samen te voegen tot 1 multipolygon (union)
+-   bufferen met straal 20 m
+-   overtollige vertices verwijderen met tolerantie 10 m
+-   alle gaten (polygon holes) verwijderen
+
+```{r}
+exclusie_osm_landgebruiken <- tar_read(exclusie_osm_landgebruiken,
+                                       store = targets_store)
+
+detail <- c("xmin" = 150000,
+            "ymin" = 160000,
+            "xmax" = 177000,
+            "ymax" = 180000)
+detail_sf <- st_as_sfc(st_bbox(detail)) %>% st_set_crs(31370) %>% st_as_sf()
+
+mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
+        legend = F) +
+  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = F) +
+  mapview(st_crop(selectie_openheid_klasses, detail), alpha.regions = 0.4) +
+  mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green")
+```
+
+## 
