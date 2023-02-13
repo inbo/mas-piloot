@@ -1,0 +1,27 @@
+---
+title: "MAS steekproefontwerp zandleemstreek"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+bibliography: mas.json
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  out.width = "100%")
+opts_knit$set(root.dir = here::here())
+
+source(here("src", "R", "wfs_wcs.R"))
+targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+```
+
