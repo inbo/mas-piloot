@@ -43,7 +43,7 @@ targets_store <- here("src", "targets", "mas_steekproef_zavelberg", "_targets")
 
 Intersectie landbouwstreek zandleemstreek in België met contour Vlaanderen. Nieuwe file geschreven "zandleemstreek_perimeters.gpkg" met enkel de zandleemstreek multipolygoon.
 
-```{r, eval=FALSE}
+```
 # Code uitvoeren in mas_steekproef_zavelberg.Rproj
 # na laden van globals in targets_steekproef_zavelberg.Rmd
 
@@ -189,8 +189,13 @@ detail <- c("xmin" = 150000,
             "ymin" = 160000,
             "xmax" = 177000,
             "ymax" = 180000)
-detail_sf <- st_as_sfc(st_bbox(detail)) %>% st_set_crs(31370) %>% st_as_sf()
 
+detail_sf <- tibble(geometry = st_as_sfc(st_bbox(detail))) %>% 
+  st_as_sf() %>%
+  st_set_crs(31370)
+```
+
+```{r}
 mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
         legend = FALSE) +
   mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
@@ -266,7 +271,7 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
           legend = FALSE) +
   mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
           legend = FALSE) +
-  mapview(st_crop(paden, detail), legend = FALSE) +
+  mapview(st_crop(paden, detail), legend = FALSE)
 ```
 
 Overzicht totale lengte per categorie:
@@ -622,5 +627,158 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
   mapview(st_crop(paden, detail), legend = FALSE) +
   mapview(st_crop(steekproefkader_finaal_strata, detail), zcol = "stratum",
           layer = "stratum")
+```
+
+
+# Trekking steekproef zandleemstreek
+## Stratificatie steekproef
+
+- Stratificatie:
+    - binnen vs. buiten SBP perimeter
+        - allocatiefactor 50 %
+    - OL vs. HOL landschap
+        - allocatiefactor proportioneel aan aantal potentiële telpunten (~ stratumoppervlakte)
+- Gebalanceerde en goed gespreide trekking:
+        - ruimtelijk (x- en y-coördinaten)
+        - oppervlakte aandeel beheerovereenkomsten
+
+Allocatie van de steekproefgrootte over de verschillende strata:
+
+- Hier moeten we afweging maken tussen de precisie per stratum en precisie voor de leemstreek in zijn geheel.
+    - Voor het geheel zou een allocatie evenredig een de oppervlakte van elk stratum wellicht de voorkeur hebben.
+    - Indien we echter ook geïnteresseerd zijn in uitspraken voor elk stratum apart en in onderlinge vergelijkingen tussen de strata, dan is een allocatie waarbij in elk stratum evenveel punten liggen meer aangewezen.
+
+Tussen deze twee scenario's zijn er veel tussenposities.
+In het algemeen kunnen we voor een kostenoptimale allocatie gebruik maken van een formule die stelt dat de allocatie recht evenredig is met de oppervlakte van een stratum en de variabilitiet in een stratum en omgekeerd evenredig is met de vierkantswortel van de kosten van het veldwerk in het stratum.
+
+***Hoe is het nu gedaan?***  
+  
+Target sample size is het maximaal aantal plots die binnen de OL, HOL perimeters kunnen gelegd worden.
+
+```{r}
+st_area(selectie_openheid_klasses) / units::set_units(300 * 300 * pi, m^2)
+```
+
+Minima onder $\times$4 scenario. 4 strata (OL, HOL en binnen, buiten sbp) met minstens 50 telpunten per stratum. $\times$4 betekend halvering betrouwbaarheidsinterval $\rightarrow$ minimum sample size is 200 telpunten per stratum. Population size minimum is op $200 / 0.05 = 4000$ gezet.
+
+```{r}
+allocatie <- tar_read(allocatie_df, store = targets_store) %>%
+   mutate(openheid_sbp = paste(openheid_klasse,
+                             ifelse(is_sbp,
+                                    "binnen plan",
+                                    "buiten plan"))
+         )
+
+allocatie %>%
+  select(-openheid_sbp) %>%
+  kable(digits = 3)
+```
+
+
+## Steekproeftrekking
+
+We trekken geen veelvoud van het vooropgestelde aantal telpunten getrokken worden (enkel eerste batch van punten).
+Elk telpunt zal een volgnummer hebben.
+De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de zandleemstreek, die kan verdeeld worden over de medewerkers.
+Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
+De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
+
+Temporeel design:
+
+- elk punt wordt elk jaar opnieuw bezocht
+
+N.B. voor de steekproef over Vlaanderen is het best mogelijk dat een ander temporeel design nodig is zoals een 'rotating panel design' of een 'augmented panel design'.
+
+```{r trekking}
+steekproef <- tar_read(steekproef_zichtbaarheid, store = targets_store) %>%
+  mutate(openheid_sbp = paste(openheid_klasse,
+                             ifelse(is_sbp,
+                                    "binnen plan",
+                                    "buiten plan"))
+         )
+```
+
+Kaart van de steekproef:
+
+```{r kaart-steekproef, warning=FALSE}
+steekproef %>%
+  st_buffer(dist = 300) %>%
+  mapview(zcol = "openheid_sbp", layer = "stratum") +
+  mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
+```
+
+De meest open landschappen zitten volledig binnen de perimeter van het SBP plan.
+De vergelijking van HOL binnen vs. buiten plan en OL binnen vs. buiten plan is dus bemoeilijkt omdat de gemiddelde openheid systematisch hoger zal liggen binnen de SBP perimeter.
+
+```{r check-balans}
+balansvergelijking <- steekproef %>%
+  mutate(puntenset = "steekproef") %>%
+  bind_rows(steekproefkader_finaal %>%
+              filter(openheid_klasse %in% c("OL", "HOL")) %>% 
+              mutate(puntenset = "volledige steekproefkader")) %>%
+  mutate(sbp_akkervogels = ifelse(is_sbp,
+                                  "binnen sbp",
+                                  "buiten sbp")) %>%
+  cbind(st_coordinates(.)) %>%
+  mutate(fillvar = ifelse(!is.na(batch),
+                          paste("steekproef", batch),
+                          puntenset))
+
+balansvergelijking %>%
+  ggplot() +
+  geom_boxplot(aes(x = sbp_akkervogels, y = openheid_waarde,
+                   fill = fillvar)) +
+  facet_grid(Naam~openheid_klasse) +
+  theme(legend.title = element_blank())
+```
+
+Een confounding probleem is dat HOL gemiddeld oostelijker gelegen is dan OL binnen en buiten de SBP perimeter. Ook is HOL gemiddeld iets zuidelijker gelegen binnen de SBP perimeter dan OL.
+
+```{r}
+balansvergelijking %>%
+  ggplot() + 
+  geom_boxplot(aes(x = sbp_akkervogels,
+                   y = X,
+                   fill = fillvar)) +
+  facet_grid(Naam~openheid_klasse, scales = "free") +
+  theme(legend.title = element_blank())
+
+balansvergelijking %>%
+  ggplot() + 
+  geom_boxplot(aes(x = sbp_akkervogels,
+                   y = Y,
+                   fill = fillvar)) +
+  facet_grid(Naam~openheid_klasse, scales = "free") +
+  theme(legend.title = element_blank())
+```
+
+Verder is ook duidelijk te zien dat de meeste SB beheerovereenkomsten afgesloten zijn binnen de SBP perimeter.
+De stratificatie binnen vs. buiten SBP kunnen we dus effectief gebruiken als factor om na te gaan of er een effect is van deze maatregelen.
+We zullen wel moeten corrigeren voor de confounders door de confounders op te nemen in een model en/of door de data te filteren met behulp van statistical matching technieken in functie van specifieke vraagstellingen over de effectiviteit van beheerovereenkomsten.
+
+```{r}
+balansvergelijking %>%
+  ggplot() +
+  geom_boxplot(aes(x = sbp_akkervogels,
+                   y = area_prop_sb,
+                   fill = fillvar)) +
+  scale_y_sqrt() +
+  facet_grid(~openheid_klasse) +
+  labs(y = "Oppervlakte-aandeel SB beheerovereenkomsten") +
+  theme(legend.title = element_blank())
+```
+
+We zien wel dat de steekproef een goede afspiegeling is van de volledige populatie (boxplots voor steekproef en populatie zijn zeer gelijkend).
+
+> Hier niet van toepassing. Steekproef is volledige populatie.
+
+```{r}
+balansvergelijking %>%
+  ggplot() + 
+  geom_boxplot(aes(x = sbp_akkervogels,
+                   y = Y,
+                   fill = fillvar)) +
+  facet_grid(Naam~openheid_klasse, scales = "free") +
+  theme(legend.title = element_blank())
 ```
 
