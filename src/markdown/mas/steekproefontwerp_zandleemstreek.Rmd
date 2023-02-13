@@ -782,3 +782,19 @@ balansvergelijking %>%
   theme(legend.title = element_blank())
 ```
 
+
+# Nabehandeling steekproef
+## Filteren op basis van zichtbaarheid
+
+...
+
+
+## Uitdunnen
+
+...
+
+
+## Overlap met bestaande telpunten
+
+...
+
