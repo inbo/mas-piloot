@@ -115,3 +115,78 @@ selectie_openheid_klasses <- tar_read(selectie_openheid_klasses, store = targets
 mapview(perimeters_data, color = "red", alpha.regions = 0) +
   mapview(selectie_openheid_klasses)
 ```
+
+
+## Exclusie van bepaalde landgebruiken
+
+We gebruiken kenmerken uit [OpenStreetMap](https://www.openstreetmap.org) om bepaalde landgebruiken uit te sluiten voor de steekproeftrekking. We gebruiken hiervoor de kenmerken [landuse](https://wiki.openstreetmap.org/wiki/NL:Key:landuse) (grondgebruik), [leisure](https://wiki.openstreetmap.org/wiki/NL:Key:leisure) (vrije tijd), [aeroway](https://wiki.openstreetmap.org/wiki/Key:aeroway) (luchthaven) en [highway](https://wiki.openstreetmap.org/wiki/Key:highway) (wegen). De links in voorgaande zin verwijzen naar de volledige lijst van mogelijke klassen.  
+  
+We knippen we onderstaande landgebruiken uit de openheid selectie. Rond autosnelwegen en invoegstroken en afritten van autosnelwegen trekken we een buffer van 50 m.
+  
+### Woongebied
+
+-   OSM definitie: `landuse = residential`
+-   Objecttype: woongebied
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:landuse%3Dresidential
+
+### Militair terrein
+
+-   OSM definitie: `landuse = military`
+-   Objecttype: militair terrein
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:landuse%3Dmilitary
+  
+### Industriegebied
+
+-   OSM definitie: `landuse = industrial`
+-   Objecttype: industriegebied
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:landuse%3Dindustrial
+
+### Begraafplaats
+
+-   OSM definitie: `landuse = cemetary`
+-   Objecttype: begraafplaats
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:landuse%3Dcemetery
+  
+### Spoorwegemplacement, spoorbedding
+
+-   OSM definitie: `landuse = railway`
+-   Objecttype: spoorwegemplacement, spoorbedding
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:landuse%3Drailway
+
+### Commercieel
+
+-   OSM definitie: `landuse = commercial`
+-   Objecttype: commercieel
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:landuse%3Dcommercial
+
+### Boerenerf
+
+-   OSM definitie: `landuse = farmyard`
+-   Objecttype: boerenerf
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:landuse%3Dfarmyard
+
+### Park
+
+-   OSM definitie: `leisure = park`
+-   Objecttype: park
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:leisure%3Dpark
+
+### Vliegveld
+
+-   OSM definitie: `aeroway = aerodrome`
+-   Objecttype: vliegveld
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:aeroway%3Daerodrome
+
+
+### Autosnelweg
+
+-   OSM definitie: `highway = motorway`
+-   Objecttype: autosnelweg
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:highway%3Dmotorway
+
+
+### Invoegstroken en afritten van autosnelwegen
+
+-   OSM definitie: `highway = motorway_link`
+-   Objecttype: invoegstroken en afritten van autosnelwegen
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:highway%3Dmotorway_link
