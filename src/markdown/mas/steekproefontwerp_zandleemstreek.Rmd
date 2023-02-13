@@ -111,9 +111,10 @@ opps %>%
 We selecteren OL en HOL binnen de perimeters.
 
 ```{r}
-selectie_openheid_klasses <- tar_read(selectie_openheid_klasses, store = targets_store)
+selectie_openheid_klasses <- tar_read(selectie_openheid_klasses, 
+                                      store = targets_store)
 mapview(perimeters_data, color = "red", alpha.regions = 0) +
-  mapview(selectie_openheid_klasses)
+  mapview(selectie_openheid_klasses, col.regions = "red")
 ```
 
 
@@ -198,6 +199,8 @@ Verder vereenvoudigen van de polygonenkaart door:
 -   overtollige vertices verwijderen met tolerantie 10 m
 -   alle gaten (polygon holes) verwijderen
 
+In groen de exclusiekaart en blauw OL en HOL binnen de perimeter.
+
 ```{r}
 exclusie_osm_landgebruiken <- tar_read(exclusie_osm_landgebruiken,
                                        store = targets_store)
@@ -209,10 +212,76 @@ detail <- c("xmin" = 150000,
 detail_sf <- st_as_sfc(st_bbox(detail)) %>% st_set_crs(31370) %>% st_as_sf()
 
 mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
-        legend = F) +
-  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = F) +
-  mapview(st_crop(selectie_openheid_klasses, detail), alpha.regions = 0.4) +
+        legend = FALSE) +
+  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
+  mapview(st_crop(selectie_openheid_klasses, detail), col.regions = "red") +
   mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green")
 ```
 
-## 
+## Bepalen geldige plaatsen waar telling kan uitgevoerd worden
+
+We gebruiken kenmerken uit [OpenStreetMap](https://www.openstreetmap.org) om geldige locaties te extraheren waar tellingen kunnen uitgevoerd worden. We gebruiken hiervoor het kenmerk [highway](https://wiki.openstreetmap.org/wiki/Key:highway) (wegen).  
+  
+We selecteren de volgende wegen.
+
+### Veldwegen en boswegen
+
+-   OSM definitie: `highway = track`
+-   Objecttype: veldwegen en boswegen
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:highway%3Dtrack
+
+### Voetpad
+
+-   OSM definitie: `highway = footway`
+-   Objecttype: voetpad
+-   OSM Wiki: https://en.wikipedia.org/wiki/nl:Voetpad
+
+### (Bos)Pad
+
+-   OSM definitie: `highway = path`
+-   Objecttype: (bos)pad
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/NL:Tag:highway%3Dpath
+
+### Fietspad
+
+-   OSM definitie: `highway = cycleway`
+-   Objecttype: fietspad
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/NL:Tag:highway%3Dcycleway
+
+### Ruiterpad
+
+-   OSM definitie: `highway = bridleway`
+-   Objecttype: ruiterpad
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:highway%3Dbridleway
+
+### Tertiare wegen
+
+-   OSM definitie: `highway = tertiary`
+-   Objecttype: tertiare wegen
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:highway%3Dtertiary
+
+### Afslagen tertiare wegen
+
+-   OSM definitie: `highway = tertiary_link`
+-   Objecttype: afslagen tertiare wegen
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:highway%3Dtertiary_link
+
+### Lokale wegen
+
+-   OSM definitie: `highway = unclassified`
+-   Objecttype: lokale wegen
+-   OSM Wiki: https://wiki.openstreetmap.org/wiki/Tag:highway%3Dunclassified
+
+We verwijderen wegen die overlappen met de exclusiekaart en verwijderen overlappende wegen.
+
+```{r}
+paden <- tar_read(paden, store = targets_store)
+
+mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
+        legend = FALSE) +
+  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
+  mapview(st_crop(selectie_openheid_klasses, detail), col.regions = "red") +
+  mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green") +
+  mapview(st_crop(paden, detail))
+```
+
