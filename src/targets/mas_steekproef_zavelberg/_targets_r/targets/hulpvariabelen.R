@@ -26,7 +26,6 @@ list(
     name = plus_visibility,
     command = add_visibility_to_frame(
       punten_sf = plus_openheid_landschap,
-      name = "leefdaal",
       resolution = 5,
       spacing = 10),
     pattern = map(plus_openheid_landschap)

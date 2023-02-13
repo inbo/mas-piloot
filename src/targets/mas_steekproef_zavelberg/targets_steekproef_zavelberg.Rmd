@@ -383,9 +383,9 @@ list(
   tar_target(
     allocatie_df,
     allocatie(steekproefkader = steekproefkader_finaal,
-              min_samplesize = 0,
-              target_samplesize = 50,
-              popsize_minimum = 0,
+              min_samplesize = 200,
+              target_samplesize = 9887,
+              popsize_minimum = 9887,
               allocatie_binnen_sbp = 0.5,
               allocatie_leemstreek = 0,
               ol_strata = c("OL", "HOL"))
@@ -412,7 +412,7 @@ list(
     steekproef,
     draw_sample(sampling_frame = steekproefkader_per_stratum,
                 sample_size = allocatie_per_stratum$samplesize,
-                sample_size_multiplication = 2),
+                sample_size_multiplication = 1),
     pattern = map(steekproefkader_per_stratum, allocatie_per_stratum)
   )
 )

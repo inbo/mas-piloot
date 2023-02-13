@@ -1,22 +1,29 @@
 list(
+  tar_target(name = selectie_openheid_klasses,
+             command = selectie_openheid(
+               gebied = perimeters_data,
+               ol_strata = c("OL", "HOL")
+             ),
+             pattern = map(perimeters_data)
+  ),
   tar_target(name = exclusie_osm_landgebruiken,
              command = exclusie_landgebruik_osm(
-               gebied = perimeters_data,
-               osmdata = osm_belgium,
-               landuse = c("residential", "commercial", "railway"),
-               leisure = NULL,
-               buffer_poly = 50, 
-               layer_poly = list(aeroway = c("aerodrome")),
-               buffer_line = 50, 
-               layer_line = list(highway = c("motorway", "motorway_link"),
-                                 railway = c("rail")),
+               gebied = selectie_openheid_klasses,
+          	   osmdata = osm_belgium,
+          	   landuse = c("residential", "military", "industrial", "cemetery", 
+          	               "railway", "commercial"),
+          	   leisure = c("park"),
+          	   buffer_poly = 0, 
+          	   layer_poly = list(aeroway = c("aerodrome")),
+          	   buffer_line = 50, 
+          	   layer_line = list(highway = c("motorway", "motorway_link")),
                update_osm_layer = FALSE
                ),
-             pattern = map(perimeters_data)
+             pattern = map(selectie_openheid_klasses)
   ),
   tar_target(name = paden,
              command = extract_osm_paden(
-               gebied = perimeters_data,
+               gebied = selectie_openheid_klasses,
                exclusie = exclusie_osm_landgebruiken,
                osmdata = osm_belgium,
                paths_include = c('track', 'footway', 'path', 'cycleway', 
@@ -26,7 +33,7 @@ list(
                waterway = NULL,
                update_osm_layer = FALSE
                ),
-             pattern = map(perimeters_data, exclusie_osm_landgebruiken)
+             pattern = map(selectie_openheid_klasses, exclusie_osm_landgebruiken)
              ),
   tar_target(name = punten,
              command = paden_naar_punten(

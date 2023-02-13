@@ -1,7 +1,7 @@
 list(
   tarchetypes::tar_file(
     perimeters_file,
-    path_to_perimeters("leefdaal_perimeters.gpkg")
+    path_to_perimeters("zandleemstreek_perimeters.gpkg")
     ),
   tar_target(
     perimeters_data,
@@ -33,7 +33,7 @@ list(
     ),
   tarchetypes::tar_file(
     lbg_file,
-    path_to_lbg(jaar = 2021)
+    path_to_lbg(jaar = 2022)
   ),
   tarchetypes::tar_file(
     sbp_akkervogels_file,
