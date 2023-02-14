@@ -177,7 +177,7 @@ Verder vereenvoudigen van de polygonenkaart door:
 -   overtollige vertices verwijderen met tolerantie 10 m
 -   alle gaten (polygon holes) verwijderen
 
-In groen de exclusiekaart en blauw OL en HOL binnen de perimeter.
+In groen de exclusiekaart en groen OL en HOL binnen de perimeter.
 
 ```{r}
 exclusie_osm_landgebruiken <- tar_read(exclusie_osm_landgebruiken,
@@ -813,7 +813,22 @@ balansvergelijking %>%
 
 ## Uitdunnen
 
-...
+```{r}
+steekproef_nn <- tar_read(steekproef_nn, store = targets_store) %>%
+  mutate(openheid_sbp = paste(openheid_klasse,
+                             ifelse(is_sbp,
+                                    "binnen plan",
+                                    "buiten plan"))
+         )
+```
+
+```{r}
+steekproef_nn %>%
+  st_buffer(dist = 300) %>%
+  mapview(zcol = "openheid_sbp", layer = "stratum") +
+  mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
+```
+
 
 ## Overlap met bestaande telpunten
 
