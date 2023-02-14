@@ -680,7 +680,6 @@ st_area(selectie_openheid_klasses) / units::set_units(300 * 300 * pi, m^2)
 Minima onder $\times 4$ scenario.
 4 strata (OL, HOL en binnen, buiten sbp) met minstens 50 telpunten per stratum.
 $\times 4$ betekend halvering betrouwbaarheidsinterval $\rightarrow$ minimum sample size is 200 telpunten per stratum.
-Population size minimum is op $200 / 0.05 = 4000$ gezet.
 
 ```{r}
 allocatie <- tar_read(allocatie_df, store = targets_store) %>%
