@@ -191,6 +191,36 @@ read_sbp_akkervogels <- function(
   return(out)
 }
 
+read_sbp_others <- function(
+    soorten,
+    gebied) {
+
+  capitalize <- function(string) {
+    capped <- grep("^[A-Z]", string, invert = TRUE)
+    substr(string[capped], 1, 1) <- toupper(substr(string[capped], 1, 1))
+    return(string)
+  }
+
+  sbp_others <- st_read(path_to_sbp_akkervogels(file = "lu_sbp_pgs.shp")) %>%
+    st_transform(crs = 31370) %>%
+    filter(soort %in% capitalize(soorten)) %>%
+    st_intersection(gebied)
+
+  if (nrow(sbp_others) >= 1) {
+    out <- sbp_others %>%
+      st_union() %>%
+      st_buffer(dist = 20) %>%
+      st_simplify(dTolerance = 10) %>%
+      st_remove_holes() %>%
+      st_as_sf() %>%
+      mutate(Naam = gebied$Naam) %>%
+      rename(geometry = x)
+  } else {
+    out <- sbp_others
+  }
+  return(out)
+}
+
 add_stratum_sbp <- function(punten_sf, sbp) {
 
   telpunten <- punten_sf %>%
