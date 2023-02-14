@@ -719,6 +719,8 @@ steekproef <- tar_read(steekproef_zichtbaarheid, store = targets_store) %>%
          )
 ```
 
+> Overlopen eerste 50, 100, 200 en vergelijken.
+
 Kaart van de steekproef:
 
 ```{r kaart-steekproef, warning=FALSE}
