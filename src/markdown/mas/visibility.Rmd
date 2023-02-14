@@ -182,6 +182,33 @@ ggplot() +
   labs(title = paste("Cumulatieve VVI = ", round(cvvi_res5sp10, 2)))
 ```
 
+### Spacing 25 m, raster resolutie 5 m
+
+
+```{r}
+vvi_res5sp25 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "VVI", resolution = 5, spacing = 25)
+
+cvvi_res5sp25 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "cumulative", resolution = 5, spacing = 25)
+
+sviewshed_res5sp25 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "viewshed", resolution = 5, spacing = 25)
+
+
+ggplot() +
+  tidyterra::geom_spatraster(data = sviewshed_res5sp25) +
+  geom_sf(data = cirkel_300m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = cirkel_25m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = vvi_res5sp25, aes(colour =  VVI)) +
+  tidyterra::scale_fill_terrain_c() +
+  labs(title = paste("Cumulatieve VVI = ", round(cvvi_res5sp25, 2)))
+```
+
+
 
 ## Test op groter aantal punten
 
@@ -271,9 +298,10 @@ ol_25mpoly <- steekproef %>%
 ```
 
 ```{r vvi-dm}
+start <- proc.time()
 vvi_dm <- vvi_from_sf(
     observer = dm_25mpoly,
-    spacing = 10,
+    spacing = 25,
     cores = 1,
     progress = TRUE,
     max_distance = 300,
@@ -283,12 +311,15 @@ vvi_dm <- vvi_from_sf(
     raster_res = 5,
     output_type = "cumulative",
     by_row = TRUE)
+stop <- proc.time()
+stop - start
 ```
 
 ```{r vvi-ol}
+start <- proc.time()
 vvi_ol <- vvi_from_sf(
     observer = ol_25mpoly,
-    spacing = 10,
+    spacing = 25,
     cores = 1,
     progress = TRUE,
     max_distance = 300,
@@ -298,14 +329,15 @@ vvi_ol <- vvi_from_sf(
     raster_res = 5,
     output_type = "cumulative",
     by_row = TRUE)
-
+stop <- proc.time()
+stop - start
 ```
 
 
 ```{r}
 vvi_dm_viewshed <- vvi_from_sf(
     observer = dm_25mpoly,
-    spacing = 10,
+    spacing = 25,
     cores = 1,
     progress = TRUE,
     max_distance = 300,
@@ -371,7 +403,7 @@ vvi_ol %>%
 steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
 ```
 
-Berekening op volledige steekproefkader (Moeren en Leemstreek) zou minimaal `r round(nrow(steekproefkader) * 25 * 5 * 1e-3 /3600, 1)` uur duren bij resolutie van 5 m en spacing van 10 m.
+Berekening op volledige steekproefkader (Moeren en Leemstreek) zou minimaal `r round(nrow(steekproefkader) * 4 * 5 * 1e-3 /3600, 1)` uur duren bij resolutie van 5 m en spacing van 25 m.
 
 ## Wanneer is zichtbaarheid te laag?
 
