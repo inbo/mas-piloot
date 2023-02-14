@@ -431,27 +431,28 @@ steekproefkader_finaal %>%
 lbg_statistieken <- tar_read(lbg_statistics, store = targets_store)
 ```
 
-Belangrijkste teelten in 2022. Voorlopige kaart. Finale kaart wordt eind maart gepubliceerd. Omzetten naar .parquet file.
+Belangrijkste teelten in 2022.
+Voorlopige kaart.
+Finale kaart wordt eind maart gepubliceerd.
+Omzetten naar .parquet file.
 
-```
-# Code uitvoeren in mas_steekproef_zavelberg.Rproj
-# na laden van globals in targets_steekproef_zavelberg.Rmd
-    
-file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
-                              "Lbgbrprc22.shp"), query = NA)
+    # Code uitvoeren in mas_steekproef_zavelberg.Rproj
+    # na laden van globals in targets_steekproef_zavelberg.Rmd
+        
+    file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
+                                  "Lbgbrprc22.shp"), query = NA)
 
-temp <- file %>%
-  mutate(OIDN = NA, 
-         UIDN = NA,
-         LENGTE = NA,
-         OPPERVL = NA) %>%
-  select(OIDN, UIDN, ALVID = REF_ID, HFDTLT = GWSCOD_H, LBLHFDTLT = GWSNAM_H, 
-         GEWASGROEP = GWSGRPH_LB, PM = GESP_PM, LBLPM = GESP_PM_LB, LENGTE, OPPERVL)
+    temp <- file %>%
+      mutate(OIDN = NA, 
+             UIDN = NA,
+             LENGTE = NA,
+             OPPERVL = NA) %>%
+      select(OIDN, UIDN, ALVID = REF_ID, HFDTLT = GWSCOD_H, LBLHFDTLT = GWSNAM_H, 
+             GEWASGROEP = GWSGRPH_LB, PM = GESP_PM, LBLPM = GESP_PM_LB, LENGTE, OPPERVL)
 
-sfarrow::st_write_parquet(obj = temp, 
-  dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
-                  "lbgbrprc2022.parquet"), chunk_size = 10000)
-```
+    sfarrow::st_write_parquet(obj = temp, 
+      dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
+                      "lbgbrprc2022.parquet"), chunk_size = 10000)
 
 ```{r lbg-per-hoofdteelt}
 lbg_statistieken %>%
@@ -591,7 +592,7 @@ Daar werd bv in de Moeren geen rekening mee gehouden, en werden erg veel SB BOs 
 We nemen kerngebieden en zoekzones samen als onderzoeksgebied en alles hierbuiten beschouwen we als controle.
 Als SBP laag gebruiken we perimeter SBP akkervogels, SBP grauwe kiekendief en SBP hamster.
 
-> SBP grauwe kiekendief en SBP hamster nog implementeren
+> SBP grauwe kiekendief, hamster en zomertortel nog implementeren
 
 ```{r}
 sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store)
@@ -809,7 +810,14 @@ balansvergelijking %>%
 
 ## Filteren op basis van zichtbaarheid
 
-...
+cvvi \< 0.10
+
+```{r}
+ggplot(steekproef) +
+  geom_histogram(aes(x = cvvi, fill = openheid_klasse)) +
+  coord_cartesian(c(0, 1)) +
+  scale_x_continuous(breaks = seq(0, 1, 0.1))
+```
 
 ## Uitdunnen
 
@@ -828,7 +836,6 @@ steekproef_nn %>%
   mapview(zcol = "openheid_sbp", layer = "stratum") +
   mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
 ```
-
 
 ## Overlap met bestaande telpunten
 
