@@ -663,7 +663,7 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
 Allocatie van de steekproefgrootte over de verschillende strata:
 
 -   Hier moeten we afweging maken tussen de precisie per stratum en precisie voor de leemstreek in zijn geheel.
-    -   Voor het geheel zou een allocatie evenredig een de oppervlakte van elk stratum wellicht de voorkeur hebben.
+    -   Voor het geheel zou een allocatie evenredig aan het steekproefkader van elk stratum wellicht de voorkeur hebben.
     -   Indien we echter ook geïnteresseerd zijn in uitspraken voor elk stratum apart en in onderlinge vergelijkingen tussen de strata, dan is een allocatie waarbij in elk stratum evenveel punten liggen meer aangewezen.
 
 Tussen deze twee scenario's zijn er veel tussenposities.
