@@ -1,12 +1,12 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|cf4d1e1515a3567d|||||||||||||||
+.Random.seed|object|1455f48f85647ce3|||||||||||||||
 add_bo_to_frame|function|13caf901404892cd|||||||||||||||
 add_bo2021_to_frame|function|b3f03a141605c9fc|||||||||||||||
 add_openheid_landschap_to_frame|function|e8372aad7792bbf7|||||||||||||||
 add_stratum_sbp|function|ab305f23cf121949|||||||||||||||
 add_visibility_to_frame|function|5a70542edd85754c|||||||||||||||
 allocatie|function|41bddde22d780063|||||||||||||||
-allocatie_df|stem|18e4a244be4eb8e0|c09c7e965c72b49a|cb53a7a842313bc2|-878230153||t19401.954646088s|a28d2cbb8a8abbab|369|qs|local|vector|||0.03||
+allocatie_df|stem|18e4a244be4eb8e0|8106027f5969129f|25a6a8c5bd08bf7c|-878230153||t19402.6389331662s|a28d2cbb8a8abbab|369|qs|local|vector|||0.06||
 allocatie_per_stratum|stem|e89982885864d0c8|8ac2a374e9065b64|972c80578b220400|-786416839||t19401.9546646086s|c047e2a96adccb67|386|qs|local|group||allocatie_per_stratum_4335713d*allocatie_per_stratum_ab86af55*allocatie_per_stratum_97aecd3c*allocatie_per_stratum_87785bfe|0||
 bereken_vvi|function|0abbdeccbbd13eed|||||||||||||||
 bereken_zichtbaarheid|function|54f797b41085e494|||||||||||||||
@@ -63,7 +63,7 @@ path_to_osm_download|function|6ad7e48367119170|||||||||||||||
 path_to_perimeters|function|22187d181ce5b65a|||||||||||||||
 path_to_sbp_akkervogels|function|be46bd1f767f9150|||||||||||||||
 perimeters_data|stem|f2d319daa22f8b74|259acd2099d9d883|bc0415a4c203c833|916414819||t19399.4470117637s|27f3a19f17d8073d|323770|qs|local|vector||perimeters_data_aca7ab61|0.03||
-perimeters_file|stem|810c51bfd0922f8f|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19401.7373417161s|5ac6369e5ab07008|585728|file|local|vector|||0||
+perimeters_file|stem|810c51bfd0922f8f|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19402.6380991268s|5ac6369e5ab07008|585728|file|local|vector|||0||
 plus_openheid_landschap|pattern|79393ffd8c9b888f|1685890019eb64eb||-1021060035||||2062091|qs|local|vector||plus_openheid_landschap_a9fe353b|2.44||
 plus_openheid_landschap_55d55bad|branch|ad3251c170aaf3f0|1685890019eb64eb|7041015fb4def9ca|-316560747||t19390.4647484276s|a426cf928458924a|5401|qs|local|vector|plus_openheid_landschap||0.39||
 plus_openheid_landschap_a9fe353b|branch|12688c1a76f9518f|1685890019eb64eb|ba63910893a4ddb2|679147278||t19401.9546171439s|9159aa61eaa49552|2062091|qs|local|vector|plus_openheid_landschap||2.44||

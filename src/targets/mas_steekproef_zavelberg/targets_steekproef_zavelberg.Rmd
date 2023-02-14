@@ -377,7 +377,7 @@ list(
     allocatie(steekproefkader = steekproefkader_finaal,
               min_samplesize = 200,
               target_samplesize = 9887,
-              popsize_minimum = 200/0.05,
+              popsize_minimum = 200,
               allocatie_binnen_sbp = 0.5,
               allocatie_leemstreek = 0,
               ol_strata = c("OL", "HOL"))
