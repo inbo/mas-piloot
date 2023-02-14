@@ -55,7 +55,7 @@ Nieuwe file geschreven "zandleemstreek_perimeters.gpkg" met enkel de zandleemstr
       st_transform(crs = 31370)
 
     # Behoud Zandleemstreek
-    vlaanderen <- read_sf("S:/Vlaanderen/Grenzen/Administratief/Vlaanderen.shp") |>
+    vlaanderen <- read_sf("S:/Vlaanderen/Grenzen/Administratief/Vlaanderen_met_kust_EEZ.shp") |>
       st_transform(crs = 31370)
 
     zandleem_vlaanderen <- st_intersection(landbouwstreken, vlaanderen) |>
