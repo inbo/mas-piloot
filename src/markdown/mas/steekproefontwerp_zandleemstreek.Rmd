@@ -590,9 +590,9 @@ In theorie waren deze maatregelen vooral bedoeld voor kerngebied, en zal daar ee
 Daar werd bv in de Moeren geen rekening mee gehouden, en werden erg veel SB BOs gelegd, ook omdat dit gebied wél kerngebied is In de toekomst heeft VLM beloofd om meer/enkel rekening te houden met kerngebied, en dus nog meer te sturen op.
 
 We nemen kerngebieden en zoekzones samen als onderzoeksgebied en alles hierbuiten beschouwen we als controle.
-Als SBP laag gebruiken we perimeter SBP akkervogels, SBP grauwe kiekendief en SBP hamster.
+Als SBP laag gebruiken we perimeter SBP akkervogels, SBP grauwe kiekendief, sBP bruine kiekendief, SBP zomertortel en SBP hamster.
 
-> SBP grauwe kiekendief, hamster en zomertortel nog implementeren
+> SBP grauwe kiekendief, bruine kiekendief, hamster en zomertortel nog implementeren
 
 ```{r}
 sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store)
