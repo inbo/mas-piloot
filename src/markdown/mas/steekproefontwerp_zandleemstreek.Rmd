@@ -32,6 +32,7 @@ library(mapview)
 library(terra)
 
 # globals
+mbag_dir <- here()
 source(here("src", "R", "steekproefkader.R"))
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
@@ -626,15 +627,36 @@ st_write(layer_sbp,
 ```
 
 ```{r}
-sbp_overig <- path_to_sbp_akkervogels("sbp_overige_soorten.shp")
+sbp_overig <- 
+  st_read(path_to_sbp_akkervogels("sbp_overige_soorten.shp")) %>%
+  filter(soort %in% c("Hamster", "Bruine kiekendief", "Grauwe kiekendief", 
+                      "Zomertortel")) %>%
+  mutate(soort = ifelse(soort == "Grauwe kiekendief" & gebied == "nieuw 2023", 
+                        "Grauwe kiekendief 2023", soort)) %>%
+  select(soort)
+sbp_akkergvogels <- 
+  st_read(path_to_sbp_akkervogels("akkervogelgebieden2022.shp")) %>%
+  mutate(soort = "akkervogels2022") %>%
+  select(soort)
+
+mapview(bind_rows(sbp_overig, sbp_akkergvogels), zcol = "soort", 
+        layer = "soort(engroep)")
+```
+
+In de zandleemstreek hebben we:
+
+```{r}
+mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
+mapview(st_intersection(bind_rows(sbp_overig, sbp_akkergvogels), 
+                        perimeters_data), 
+        zcol = "soort", layer = "soort(engroep)")
 ```
 
 ```{r}
 sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store)
-
-mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
-  mapview(sbp_akkervogels, col.regions = "yellow", legend = FALSE)
 ```
+
+Het oppervlakte aandeel aan SBP's binnen de zandleemstreek:
 
 ```{r}
 binnen_sbp <- perimeters_data %>%
@@ -656,6 +678,112 @@ opps <- bind_rows(buiten_sbp, binnen_sbp) %>%
 
 opps %>%
   mutate(opp = units::set_units(opp, "ha")) %>%
+  group_by(Naam) %>%
+  mutate(opp_aandeel = opp / sum(opp)) %>%
+  units::drop_units() %>%
+  rename(opp_ha = opp) %>%
+  relocate(is_sbp, .before = opp_ha) %>%
+  arrange(Naam, is_sbp) %>%
+  kable(digits = 2)
+```
+
+Het oppervlakte aandeel aan SBP's binnen OL en HOL in de zandleemstreek:
+
+```{r}
+binnen_sbp <- selectie_openheid_klasses %>%
+  st_intersection(sbp_akkervogels) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "binnen sbp")
+
+buiten_sbp <- selectie_openheid_klasses %>%
+  st_difference(sbp_akkervogels %>%
+                  st_union() %>%
+                  st_combine()) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "buiten sbp")
+
+opps <- bind_rows(buiten_sbp, binnen_sbp) %>% 
+  st_drop_geometry()
+
+opps %>%
+  mutate(opp = units::set_units(opp, "ha"),
+         Naam = "Zandleemstreek (OL en HOL)") %>%
+  group_by(Naam) %>%
+  mutate(opp_aandeel = opp / sum(opp)) %>%
+  units::drop_units() %>%
+  rename(opp_ha = opp) %>%
+  relocate(is_sbp, .before = opp_ha) %>%
+  arrange(Naam, is_sbp) %>%
+  kable(digits = 2)
+```
+
+Het oppervlakte aandeel aan SBP's binnen het steekproefkader. Som per telcirkel:
+
+```{r}
+binnen_sbp <- st_buffer(steekproefkader_finaal, 300) %>%
+  st_intersection(sbp_akkervogels) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "binnen sbp")
+
+buiten_sbp <- st_buffer(steekproefkader_finaal, 300) %>%
+  st_difference(sbp_akkervogels %>%
+                  st_union() %>%
+                  st_combine()) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "buiten sbp")
+
+opps <- bind_rows(buiten_sbp, binnen_sbp) %>% 
+  st_drop_geometry() %>%
+  group_by(Naam, is_sbp) %>%
+  summarise(opp = sum(opp)) %>%
+  ungroup()
+
+opps %>%
+  mutate(opp = units::set_units(opp, "ha"),
+         Naam = "Steekproefkader") %>%
+  group_by(Naam) %>%
+  mutate(opp_aandeel = opp / sum(opp)) %>%
+  units::drop_units() %>%
+  rename(opp_ha = opp) %>%
+  relocate(is_sbp, .before = opp_ha) %>%
+  arrange(Naam, is_sbp) %>%
+  kable(digits = 2)
+```
+
+Het oppervlakte aandeel aan SBP's binnen het steekproefkader. Union van telcirkels:
+
+```{r}
+binnen_sbp <- st_buffer(steekproefkader_finaal, 300) %>%
+  group_by(Naam) %>%
+  summarise(.groups = "drop") %>%
+  st_intersection(sbp_akkervogels) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "binnen sbp")
+
+buiten_sbp <- st_buffer(steekproefkader_finaal, 300) %>%
+  group_by(Naam) %>%
+  summarise(.groups = "drop") %>%
+  st_difference(sbp_akkervogels %>%
+                  st_union() %>%
+                  st_combine()) %>%
+  select(Naam) %>%
+  mutate(opp = st_area(.),
+         is_sbp = "buiten sbp")
+
+opps <- bind_rows(buiten_sbp, binnen_sbp) %>% 
+  st_drop_geometry() %>%
+  group_by(Naam, is_sbp) %>%
+  summarise(opp = sum(opp)) %>%
+  ungroup()
+
+opps %>%
+  mutate(opp = units::set_units(opp, "ha"),
+         Naam = "Steekproefkader") %>%
   group_by(Naam) %>%
   mutate(opp_aandeel = opp / sum(opp)) %>%
   units::drop_units() %>%
@@ -714,7 +842,7 @@ st_area(selectie_openheid_klasses) / units::set_units(300 * 300 * pi, m^2)
 
 Minima onder $\times 4$ scenario.
 4 strata (OL, HOL en binnen, buiten sbp) met minstens 50 telpunten per stratum.
-$\times 4$ betekend halvering betrouwbaarheidsinterval $\rightarrow$ minimum sample size is 200 telpunten per stratum.
+$\times 4$ betekend halvering betrouwbaarheidsinterval $\rightarrow$ minimum sample size is 200 telpunten per stratum. Niet echt belangrijk hier omdat we een maximum steekproefkader trekken en de tellers gewoon zoveel mogelijk punten laten doen (volgnummer).
 
 ```{r}
 allocatie <- tar_read(allocatie_df, store = targets_store) %>%
@@ -746,7 +874,7 @@ N.B.
 voor de steekproef over Vlaanderen is het best mogelijk dat een ander temporeel design nodig is zoals een 'rotating panel design' of een 'augmented panel design'.
 
 ```{r trekking}
-steekproef <- tar_read(steekproef_zichtbaarheid, store = targets_store) %>%
+steekproef <- tar_read(steekproef, store = targets_store) %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
