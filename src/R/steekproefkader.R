@@ -585,21 +585,7 @@ add_visibility_to_frame <- function(punten_sf,
   return(punten_sf)
 }
 
-filter_zichtbaarheid <- function(sample, min_cvvi,
-                                 resolution,
-                                 spacing,
-                                 viewshed_dist = 300,
-                                 observer_dist = 25,
-                                 obs_height = 1.7) {
-
-  plus_visibility  <- add_visibility_to_frame(
-    punten_sf = sample,
-    resolution = resolution,
-    spacing = spacing,
-    viewshed_dist = viewshed_dist,
-    observer_dist = observer_dist,
-    obs_height = obs_height)
-
-  plus_visibility %>%
+filter_zichtbaarheid <- function(sample, min_cvvi) {
+  sample %>%
     filter(cvvi >= min_cvvi)
 }
