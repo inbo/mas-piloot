@@ -194,6 +194,10 @@ list(
   tarchetypes::tar_file(
     sbp_akkervogels_file,
     path_to_sbp_akkervogels(file = "akkervogelgebieden2022.shp")
+  ),
+  tarchetypes::tar_file(
+    sbp_overige_file,
+    path_to_sbp_akkervogels(file = "sbp_overige_soorten.shp")
   )
 )
 ```
@@ -256,7 +260,7 @@ list(
                gebied = selectie_openheid_klasses,
           	   osmdata = osm_belgium,
           	   landuse = c("residential", "military", "industrial", "cemetery", 
-          	               "railway", "commercial"),
+          	               "railway", "commercial", "farmyard"),
           	   leisure = c("park"),
           	   buffer_poly = 0, 
           	   layer_poly = list(aeroway = c("aerodrome")),
@@ -348,25 +352,20 @@ list(
       class_labels = c("GL", "HGL", "HOL", "OL")),
     pattern = map(perimeters_data, plus_sb)
   ),
-  tar_target(
-    name = plus_visibility,
-    command = add_visibility_to_frame(
-      punten_sf = plus_openheid_landschap,
-      resolution = 5,
-      spacing = 10),
-    pattern = map(plus_openheid_landschap)
-  ),
   tar_target(name = sbp_akkervogels,
              command = read_sbp_akkervogels(
                path = sbp_akkervogels_file,
-               gebied = perimeters_data
+               gebied = perimeters_data,
+               path_extra_soorten = sbp_overige_file,
+               extra_soorten = c("hamster", "bruine kiekendief", "zomertortel", 
+                                 "grauwe kiekendief")
              ),
              pattern = map(perimeters_data)),
   tar_target(
     name = steekproefkader_finaal,
-    command = add_stratum_sbp(punten_sf = plus_visibility,
+    command = add_stratum_sbp(punten_sf = plus_openheid_landschap,
                               sbp = sbp_akkervogels),
-    pattern = map(sbp_akkervogels, plus_visibility)
+    pattern = map(sbp_akkervogels, plus_openheid_landschap)
   )
 )
 ```
@@ -381,11 +380,15 @@ deze ad-hoc instelling zullen moeten aangepast worden
 ```{targets steekproeftrekking}
 list(
   tar_target(
+    name = target_size,
+    command = calc_target_samplesize(gebied = selectie_openheid_klasses)
+  ),
+  tar_target(
     allocatie_df,
     allocatie(steekproefkader = steekproefkader_finaal,
               min_samplesize = 200,
-              target_samplesize = 9887,
-              popsize_minimum = 9887,
+              target_samplesize = target_size,
+              popsize_minimum = 200,
               allocatie_binnen_sbp = 0.5,
               allocatie_leemstreek = 0,
               ol_strata = c("OL", "HOL"))
@@ -423,7 +426,9 @@ list(
   tar_target(
     steekproef_zichtbaarheid,
     filter_zichtbaarheid(sample = steekproef,
-                         min_cvvi = 0.1),
+                         min_cvvi = 0.1,
+                         resolution = 5,
+                         spacing = 10),
     pattern = map(steekproef)
   ),
   tar_target(

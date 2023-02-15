@@ -164,23 +164,50 @@ path_to_sbp_akkervogels <- function(file = "akkervogelgebieden.shp") {
   file.path(mbag_dir, "data", "bo_vlm", file)
 }
 
+read_sbp_others <- function(
+    path,
+    soorten,
+    gebied) {
+
+  sbp_others <- st_read(path) %>%
+    st_transform(crs = 31370) %>%
+    filter(tolower(soort) %in% tolower(soorten)) %>%
+    st_intersection(gebied)
+
+  if (nrow(sbp_others) >= 1) {
+    out <- sbp_others %>%
+      st_union() %>%
+      st_buffer(dist = 20) %>%
+      st_simplify(dTolerance = 10) %>%
+      st_remove_holes() %>%
+      st_as_sf() %>%
+      mutate(Naam = gebied$Naam) %>%
+      rename(geometry = x)
+  } else {
+    out <- sbp_others
+  }
+  return(out)
+}
+
 read_sbp_akkervogels <- function(
   path,
-  gebied) {
+  gebied,
+  path_extra_soorten = NULL,
+  extra_soorten = NULL) {
+
   if (gebied$Naam == "De Moeren") {
-    out <- st_read(path) %>%
+    sbp_akkervogels <- st_read(path) %>%
       st_transform(crs = 31370) %>%
       filter(OBJECTID == 44) %>%
       st_intersection(gebied)
   } else {
-    out <- st_read(path) %>%
+    sbp_akkervogels <- st_read(path) %>%
       st_transform(crs = 31370) %>%
-      filter(Prioriteit != "Zoekzone") %>%
       st_intersection(gebied)
   }
 
-  if (nrow(out) >= 1) {
-    out <- out %>%
+  if (nrow(sbp_akkervogels) >= 1) {
+    sbp_akkervogels_final <- sbp_akkervogels %>%
       st_union() %>%
       st_buffer(dist = 20) %>%
       st_simplify(dTolerance = 10) %>%
@@ -189,6 +216,21 @@ read_sbp_akkervogels <- function(
       mutate(Naam = gebied$Naam) %>%
       rename(geometry = x)
   }
+
+  if (!is.null(path_extra_soorten)) {
+    if (is.null(extra_soorten)) {
+      stop(paste0("Specificeer welke extra soorten moeten worden toegevoegd! ",
+                  "Argument 'extra_soorten'."), call. = FALSE)
+    }
+
+    sbp_others <- read_sbp_others(path_extra_soorten, extra_soorten, gebied)
+    out <- bind_rows(sbp_akkervogels_final, sbp_others) %>%
+      group_by(Naam) %>%
+      summarise()
+  } else {
+    out <- sbp_akkervogels_final
+  }
+
   return(out)
 }
 
@@ -203,72 +245,3 @@ add_stratum_sbp <- function(punten_sf, sbp) {
 
   return(telpunten)
 }
-
-bereken_vvi <- function(point,
-                        dist,
-                        obs_height,
-                        resolution,
-                        spacing,
-                        output_type) {
-
-  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
-
-  # use get_coverage_wcs() from inbospatial not from source wfs_scs.R!
-  dsm_r1 <- inbospatial::get_coverage_wcs(wcs = "dsm",
-                             bbox = bbox_buffer,
-                             layername = "EL.GridCoverage.DSM",
-                             resolution = resolution)
-  dtm_r1 <- inbospatial::get_coverage_wcs(wcs = "dtm",
-                             bbox = bbox_buffer,
-                             layername = "EL.GridCoverage.DTM",
-                             resolution = resolution)
-
-  poly25 <- point %>% st_buffer(dist = 25)
-
-  vvi_from_sf(
-    observer = poly25,
-    spacing = spacing,
-    cores = 1,
-    progress = TRUE,
-    max_distance = dist,
-    dsm_rast = dsm_r1,
-    dtm_rast = dtm_r1,
-    observer_height = obs_height,
-    raster_res = resolution,
-    output_type = output_type)
-}
-
-add_visibility_to_frame <- function(punten_sf,
-                                    resolution,
-                                    spacing,
-                                    dist = 300,
-                                    obs_height = 1.7) {
-
-  filename_dsm <- "DHMVIIDSMRAS5m.tif"
-  file_dsm <- file.path(mbag_dir, "data", "dem", filename_dsm)
-  dsm <- terra::rast(file_dsm)
-  crs(dsm) <- "epsg:31370"
-
-  filename_dtm <- "DHMVIIDTMRAS5m.tif"
-  file_dtm <- file.path(mbag_dir, "data", "dem", filename_dtm)
-  dtm <- terra::rast(file_dtm)
-  crs(dtm) <- "epsg:31370"
-
-  vvi_dm <- vvi_from_sf(
-    observer = punten_sf %>% st_buffer(dist = 25),
-    spacing = spacing,
-    cores = 1,
-    progress = TRUE,
-    max_distance = dist,
-    dsm_rast = dsm,
-    dtm_rast = dtm,
-    observer_height = obs_height,
-    raster_res = resolution,
-    output_type = "cumulative",
-    by_row = TRUE)
-
-  punten_sf$cvvi <- vvi_dm$cvvi
-
-  return(punten_sf)
-}
-

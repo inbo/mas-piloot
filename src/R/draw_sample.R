@@ -76,6 +76,14 @@ draw_sample <- function(
   return(sample_df)
 }
 
+calc_target_samplesize <- function(gebied, telcirkel_radius = 300) {
+  opp_telcirkel <- units::set_units(telcirkel_radius * telcirkel_radius * pi,
+                                    m^2)
+  target_size <- round(st_area(gebied) / opp_telcirkel, 0)
+
+  return(units::drop_units(target_size))
+}
+
 allocatie <- function(steekproefkader,
                       min_samplesize = 0,
                       target_samplesize = 410,

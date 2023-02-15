@@ -38,5 +38,9 @@ list(
   tarchetypes::tar_file(
     sbp_akkervogels_file,
     path_to_sbp_akkervogels(file = "akkervogelgebieden2022.shp")
+  ),
+  tarchetypes::tar_file(
+    sbp_overige_file,
+    path_to_sbp_akkervogels(file = "sbp_overige_soorten.shp")
   )
 )
