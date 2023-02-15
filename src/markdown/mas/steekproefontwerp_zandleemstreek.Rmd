@@ -628,14 +628,16 @@ st_write(layer_sbp,
 
 ```{r}
 sbp_overig <- 
-  st_read(path_to_sbp_akkervogels("sbp_overige_soorten.shp")) %>%
+  st_read(path_to_sbp_akkervogels("sbp_overige_soorten.shp"), 
+          quiet = TRUE) %>%
   filter(soort %in% c("Hamster", "Bruine kiekendief", "Grauwe kiekendief", 
                       "Zomertortel")) %>%
   mutate(soort = ifelse(soort == "Grauwe kiekendief" & gebied == "nieuw 2023", 
                         "Grauwe kiekendief 2023", soort)) %>%
   select(soort)
 sbp_akkergvogels <- 
-  st_read(path_to_sbp_akkervogels("akkervogelgebieden2022.shp")) %>%
+  st_read(path_to_sbp_akkervogels("akkervogelgebieden2022.shp"),
+          quiet = TRUE) %>%
   mutate(soort = "akkervogels2022") %>%
   select(soort)
 
@@ -881,8 +883,6 @@ steekproef <- tar_read(steekproef, store = targets_store) %>%
                                     "buiten plan"))
          )
 ```
-
-> Overlopen eerste 50, 100, 200 en vergelijken.
 
 Kaart van de steekproef:
 
