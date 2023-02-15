@@ -164,34 +164,8 @@ path_to_sbp_akkervogels <- function(file = "akkervogelgebieden.shp") {
   file.path(mbag_dir, "data", "bo_vlm", file)
 }
 
-read_sbp_akkervogels <- function(
-  path,
-  gebied) {
-  if (gebied$Naam == "De Moeren") {
-    out <- st_read(path) %>%
-      st_transform(crs = 31370) %>%
-      filter(OBJECTID == 44) %>%
-      st_intersection(gebied)
-  } else {
-    out <- st_read(path) %>%
-      st_transform(crs = 31370) %>%
-      st_intersection(gebied)
-  }
-
-  if (nrow(out) >= 1) {
-    out <- out %>%
-      st_union() %>%
-      st_buffer(dist = 20) %>%
-      st_simplify(dTolerance = 10) %>%
-      st_remove_holes() %>%
-      st_as_sf() %>%
-      mutate(Naam = gebied$Naam) %>%
-      rename(geometry = x)
-  }
-  return(out)
-}
-
 read_sbp_others <- function(
+    path,
     soorten,
     gebied) {
 
@@ -201,7 +175,7 @@ read_sbp_others <- function(
     return(string)
   }
 
-  sbp_others <- st_read(path_to_sbp_akkervogels(file = "lu_sbp_pgs.shp")) %>%
+  sbp_others <- st_read(path) %>%
     st_transform(crs = 31370) %>%
     filter(soort %in% capitalize(soorten)) %>%
     st_intersection(gebied)
@@ -218,6 +192,46 @@ read_sbp_others <- function(
   } else {
     out <- sbp_others
   }
+  return(out)
+}
+
+read_sbp_akkervogels <- function(
+  path,
+  gebied,
+  path_extra_soorten,
+  extra_soorten = NULL) {
+
+  if (gebied$Naam == "De Moeren") {
+    sbp_akkervogels <- st_read(path) %>%
+      st_transform(crs = 31370) %>%
+      filter(OBJECTID == 44) %>%
+      st_intersection(gebied)
+  } else {
+    sbp_akkervogels <- st_read(path) %>%
+      st_transform(crs = 31370) %>%
+      st_intersection(gebied)
+  }
+
+  if (nrow(sbp_akkervogels) >= 1) {
+    sbp_akkervogels_final <- sbp_akkervogels %>%
+      st_union() %>%
+      st_buffer(dist = 20) %>%
+      st_simplify(dTolerance = 10) %>%
+      st_remove_holes() %>%
+      st_as_sf() %>%
+      mutate(Naam = gebied$Naam) %>%
+      rename(geometry = x)
+  }
+
+  if (!is.null(extra_soorten)) {
+    sbp_others <- read_sbp_others(path_extra_soorten, extra_soorten, gebied)
+    out <- bind_rows(sbp_akkervogels_final, sbp_others) %>%
+      group_by(Naam) %>%
+      summarise()
+  } else {
+    out <- sbp_akkervogels_final
+  }
+
   return(out)
 }
 
