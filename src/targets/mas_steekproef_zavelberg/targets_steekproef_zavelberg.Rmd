@@ -194,6 +194,10 @@ list(
   tarchetypes::tar_file(
     sbp_akkervogels_file,
     path_to_sbp_akkervogels(file = "akkervogelgebieden2022.shp")
+  ),
+  tarchetypes::tar_file(
+    sbp_overige_file,
+    path_to_sbp_akkervogels(file = "sbp_overige_soorten.shp")
   )
 )
 ```
@@ -351,7 +355,10 @@ list(
   tar_target(name = sbp_akkervogels,
              command = read_sbp_akkervogels(
                path = sbp_akkervogels_file,
-               gebied = perimeters_data
+               gebied = perimeters_data,
+               path_extra_soorten = sbp_overige_file,
+               extra_soorten = c("hamster", "bruine kiekendief", "zomertortel", 
+                                 "grauwe kiekendief")
              ),
              pattern = map(perimeters_data)),
   tar_target(

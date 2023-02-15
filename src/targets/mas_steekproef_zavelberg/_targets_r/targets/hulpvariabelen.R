@@ -25,7 +25,10 @@ list(
   tar_target(name = sbp_akkervogels,
              command = read_sbp_akkervogels(
                path = sbp_akkervogels_file,
-               gebied = perimeters_data
+               gebied = perimeters_data,
+               path_extra_soorten = sbp_overige_file,
+               extra_soorten = c("hamster", "bruine kiekendief", "zomertortel", 
+                                 "grauwe kiekendief")
              ),
              pattern = map(perimeters_data)),
   tar_target(
