@@ -169,15 +169,9 @@ read_sbp_others <- function(
     soorten,
     gebied) {
 
-  capitalize <- function(string) {
-    capped <- grep("^[A-Z]", string, invert = TRUE)
-    substr(string[capped], 1, 1) <- toupper(substr(string[capped], 1, 1))
-    return(string)
-  }
-
   sbp_others <- st_read(path) %>%
     st_transform(crs = 31370) %>%
-    filter(soort %in% capitalize(soorten)) %>%
+    filter(tolower(soort) %in% tolower(soorten)) %>%
     st_intersection(gebied)
 
   if (nrow(sbp_others) >= 1) {

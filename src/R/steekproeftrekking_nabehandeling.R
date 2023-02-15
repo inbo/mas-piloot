@@ -102,7 +102,8 @@ bereken_vvi <- function(point,
 add_visibility_to_frame <- function(punten_sf,
                                     resolution,
                                     spacing,
-                                    dist = 300,
+                                    viewshed_dist = 300,
+                                    observer_dist = 25,
                                     obs_height = 1.7) {
 
   filename_dsm <- "DHMVIIDSMRAS5m.tif"
@@ -116,11 +117,11 @@ add_visibility_to_frame <- function(punten_sf,
   crs(dtm) <- "epsg:31370"
 
   vvi_dm <- vvi_from_sf(
-    observer = punten_sf %>% st_buffer(dist = 25),
+    observer = punten_sf %>% st_buffer(dist = observer_dist),
     spacing = spacing,
     cores = 1,
     progress = TRUE,
-    max_distance = dist,
+    max_distance = viewshed_dist,
     dsm_rast = dsm,
     dtm_rast = dtm,
     observer_height = obs_height,
@@ -136,10 +137,17 @@ add_visibility_to_frame <- function(punten_sf,
 filter_zichtbaarheid <- function(sample, min_cvvi,
                                  resolution,
                                  spacing,
-                                 dist = 300,
+                                 viewshed_dist = 300,
+                                 observer_dist = 25,
                                  obs_height = 1.7) {
 
-  plus_visibility  <- add_visibility_to_frame(sample, resolution, spacing)
+  plus_visibility  <- add_visibility_to_frame(
+      punten_sf = sample,
+      resolution = resolution,
+      spacing = spacing,
+      viewshed_dist = viewshed_dist,
+      observer_dist = observer_dist,
+      obs_height = obs_height)
 
   plus_visibility %>%
     filter(cvvi >= min_cvvi)
