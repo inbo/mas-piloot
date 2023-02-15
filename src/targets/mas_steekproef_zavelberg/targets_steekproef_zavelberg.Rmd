@@ -316,7 +316,16 @@ list(
                punten_sf = punten,
                selectie_df = telcirkels_selectie_landgebruik
              ),
-             pattern = map(punten, telcirkels_selectie_landgebruik))
+             pattern = map(punten, telcirkels_selectie_landgebruik)
+  ),
+  tar_target(
+    punten_steekproefkader_zichtbaarheid,
+    filter_zichtbaarheid(sample = punten_steekproefkader,
+                         min_cvvi = 0.1,
+                         resolution = 5,
+                         spacing = 10),
+    pattern = map(punten_steekproefkader)
+  )
 )
 ```
 
@@ -332,9 +341,9 @@ list(
   tar_target(
     name = plus_sb,
     command = add_bo_to_frame(
-      punten_df = punten_steekproefkader,
+      punten_df = punten_steekproefkader_zichtbaarheid,
       path_bo = bo_file),
-    pattern = map(punten_steekproefkader)
+    pattern = map(punten_steekproefkader_zichtbaarheid)
     ),
   tar_target(
     name = lbg_statistics,
@@ -424,18 +433,10 @@ list(
 ```{targets nabehandeling}
 list(
   tar_target(
-    steekproef_zichtbaarheid,
-    filter_zichtbaarheid(sample = steekproef,
-                         min_cvvi = 0.1,
-                         resolution = 5,
-                         spacing = 10),
-    pattern = map(steekproef)
-  ),
-  tar_target(
     steekproef_nn,
-    nn_steekproef(sample = steekproef_zichtbaarheid,
+    nn_steekproef(sample = steekproef,
                   max_dist = 300),
-    pattern = map(steekproef_zichtbaarheid)
+    pattern = map(steekproef)
   ),
   tar_target(
     output_objecten,
