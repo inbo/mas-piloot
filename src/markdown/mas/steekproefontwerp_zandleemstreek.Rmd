@@ -897,8 +897,16 @@ De meest open landschappen zitten volledig binnen de perimeter van het SBP plan.
 De vergelijking van HOL binnen vs. buiten plan en OL binnen vs. buiten plan is dus bemoeilijkt omdat de gemiddelde openheid systematisch hoger zal liggen binnen de SBP perimeter.
 
 ```{r check-balans}
-balansvergelijking <- steekproef %>%
-  mutate(puntenset = "steekproef") %>%
+first_samples <- function(steekproef_df, n) {
+  steekproef_df %>%
+    filter(sample_order <= n) %>%
+    mutate(puntenset = paste("steekproef eerste", n, "per stratum", sep = " "))
+}
+
+balansvergelijking <- first_samples(steekproef, 200) %>%
+  bind_rows(first_samples(steekproef, 100)) %>%
+  bind_rows(first_samples(steekproef, 50)) %>%
+  bind_rows(first_samples(steekproef, 20)) %>%
   bind_rows(steekproefkader_finaal %>%
               filter(openheid_klasse %in% c("OL", "HOL")) %>% 
               mutate(puntenset = "volledige steekproefkader")) %>%
@@ -906,9 +914,10 @@ balansvergelijking <- steekproef %>%
                                   "binnen sbp",
                                   "buiten sbp")) %>%
   cbind(st_coordinates(.)) %>%
-  mutate(fillvar = ifelse(!is.na(batch),
-                          paste("steekproef", batch),
-                          puntenset))
+  mutate(fillvar = factor(puntenset, levels = c(paste("steekproef eerste", 
+                                                    c(20, 50, 100, 200), 
+                                                    "per stratum", sep = " "),
+                                                "volledige steekproefkader")))
 
 balansvergelijking %>%
   ggplot() +
@@ -919,7 +928,7 @@ balansvergelijking %>%
 ```
 
 Een confounding probleem is dat HOL gemiddeld oostelijker gelegen is dan OL binnen en buiten de SBP perimeter.
-Ook is HOL gemiddeld iets zuidelijker gelegen binnen de SBP perimeter dan OL.
+Ook lijken de SBP's gemiddeld iets zuidelijker gelegen.
 
 ```{r}
 balansvergelijking %>%
@@ -955,20 +964,8 @@ balansvergelijking %>%
   theme(legend.title = element_blank())
 ```
 
-We zien wel dat de steekproef een goede afspiegeling is van de volledige populatie (boxplots voor steekproef en populatie zijn zeer gelijkend).
+We zien dat de steekproef vanaf de eerste 50 en nog beter de eerste 100 punten per stratum een goede afspiegeling is van de volledige populatie (boxplots voor steekproef eerste punten en volledig steekproefkader zijn zeer gelijkend).
 
-> Hier niet van toepassing.
-> Steekproef is volledige populatie.
-
-```{r}
-balansvergelijking %>%
-  ggplot() + 
-  geom_boxplot(aes(x = sbp_akkervogels,
-                   y = Y,
-                   fill = fillvar)) +
-  facet_grid(Naam~openheid_klasse, scales = "free") +
-  theme(legend.title = element_blank())
-```
 
 # Nabehandeling steekproef
 
