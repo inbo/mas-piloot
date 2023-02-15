@@ -198,7 +198,7 @@ read_sbp_others <- function(
 read_sbp_akkervogels <- function(
   path,
   gebied,
-  path_extra_soorten,
+  path_extra_soorten = NULL,
   extra_soorten = NULL) {
 
   if (gebied$Naam == "De Moeren") {
@@ -223,7 +223,12 @@ read_sbp_akkervogels <- function(
       rename(geometry = x)
   }
 
-  if (!is.null(extra_soorten)) {
+  if (!is.null(path_extra_soorten)) {
+    if (is.null(extra_soorten)) {
+      stop(paste0("Specificeer welke extra soorten moeten worden toegevoegd! ",
+                  "Argument 'extra_soorten'."), call. = FALSE)
+    }
+
     sbp_others <- read_sbp_others(path_extra_soorten, extra_soorten, gebied)
     out <- bind_rows(sbp_akkervogels_final, sbp_others) %>%
       group_by(Naam) %>%
