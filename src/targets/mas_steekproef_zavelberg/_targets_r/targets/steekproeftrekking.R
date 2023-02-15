@@ -1,9 +1,13 @@
 list(
   tar_target(
+    name = target_size,
+    command = calc_target_samplesize(gebied = selectie_openheid_klasses)
+  ),
+  tar_target(
     allocatie_df,
     allocatie(steekproefkader = steekproefkader_finaal,
               min_samplesize = 200,
-              target_samplesize = 9887,
+              target_samplesize = target_size,
               popsize_minimum = 200,
               allocatie_binnen_sbp = 0.5,
               allocatie_leemstreek = 0,
