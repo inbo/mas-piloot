@@ -182,6 +182,33 @@ ggplot() +
   labs(title = paste("Cumulatieve VVI = ", round(cvvi_res5sp10, 2)))
 ```
 
+### Spacing 25 m, raster resolutie 5 m
+
+
+```{r}
+vvi_res5sp25 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "VVI", resolution = 5, spacing = 25)
+
+cvvi_res5sp25 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "cumulative", resolution = 5, spacing = 25)
+
+sviewshed_res5sp25 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "viewshed", resolution = 5, spacing = 25)
+
+
+ggplot() +
+  tidyterra::geom_spatraster(data = sviewshed_res5sp25) +
+  geom_sf(data = cirkel_300m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = cirkel_25m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = vvi_res5sp25, aes(colour =  VVI)) +
+  tidyterra::scale_fill_terrain_c() +
+  labs(title = paste("Cumulatieve VVI = ", round(cvvi_res5sp25, 2)))
+```
+
+
 
 ## Test op groter aantal punten
 
@@ -271,9 +298,10 @@ ol_25mpoly <- steekproef %>%
 ```
 
 ```{r vvi-dm}
+start <- proc.time()
 vvi_dm <- vvi_from_sf(
     observer = dm_25mpoly,
-    spacing = 10,
+    spacing = 25,
     cores = 1,
     progress = TRUE,
     max_distance = 300,
@@ -283,10 +311,32 @@ vvi_dm <- vvi_from_sf(
     raster_res = 5,
     output_type = "cumulative",
     by_row = TRUE)
+stop <- proc.time()
+stop - start
 ```
 
-```{r vvi-ol}
-vvi_ol <- vvi_from_sf(
+```{r vvi-ol-25}
+start <- proc.time()
+vvi_ol_25 <- vvi_from_sf(
+    observer = ol_25mpoly,
+    spacing = 25,
+    cores = 1,
+    progress = TRUE,
+    max_distance = 300,
+    dsm_rast = dsm_ol,
+    dtm_rast = dtm_ol,
+    observer_height = 1.7,
+    raster_res = 5,
+    output_type = "cumulative",
+    by_row = TRUE)
+stop <- proc.time()
+ol_time <- stop - start
+ol_time
+```
+
+```{r vvi-ol-10}
+start <- proc.time()
+vvi_ol_10 <- vvi_from_sf(
     observer = ol_25mpoly,
     spacing = 10,
     cores = 1,
@@ -298,14 +348,15 @@ vvi_ol <- vvi_from_sf(
     raster_res = 5,
     output_type = "cumulative",
     by_row = TRUE)
-
+stop <- proc.time()
+ol_time_10 <- stop - start
+ol_time_10
 ```
-
 
 ```{r}
 vvi_dm_viewshed <- vvi_from_sf(
     observer = dm_25mpoly,
-    spacing = 10,
+    spacing = 25,
     cores = 1,
     progress = TRUE,
     max_distance = 300,
@@ -345,12 +396,22 @@ dm_25mpoly %>%
 
 ```{r}
 ol_25mpoly %>%
-  bind_cols(vvi_ol) %>%
+  bind_cols(vvi_ol_25 %>% rename(cvvi_25 = cvvi)) %>%
+  bind_cols(vvi_ol_10 %>% rename(cvvi_10 = cvvi)) %>%
   ggplot() +
   geom_sf(data = ol) +
   geom_sf(aes(fill = cvvi, colour = cvvi))
 ```
 
+```{r}
+ol_25mpoly %>%
+  bind_cols(vvi_ol_25 %>% rename(cvvi_25 = cvvi)) %>%
+  bind_cols(vvi_ol_10 %>% rename(cvvi_10 = cvvi)) %>%
+  ggplot() +
+  geom_point(aes(x = cvvi_25, y = cvvi_10)) +
+  geom_abline() +
+  labs(x = "cvvi 25m spacing", y = "cvvi 10m spacing")
+```
 
 ```{r}
 vvi_dm %>%
@@ -359,7 +420,7 @@ vvi_dm %>%
 ```
 
 ```{r}
-vvi_ol %>%
+vvi_ol_25 %>%
   bind_cols(ol_25mpoly) %>%
   ggplot() + 
   geom_density(aes(x = cvvi, fill = openheid_klasse), alpha = 0.2)
@@ -371,7 +432,7 @@ vvi_ol %>%
 steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
 ```
 
-Berekening op volledige steekproefkader (Moeren en Leemstreek) zou minimaal `r round(nrow(steekproefkader) * 25 * 5 * 1e-3 /3600, 1)` uur duren bij resolutie van 5 m en spacing van 10 m.
+Berekening op volledige steekproefkader (Moeren en Leemstreek) zou ongeveer `r round(nrow(steekproefkader) / nrow(ol_25mpoly) * ol_time["elapsed"] /3600, 1)` uur duren bij resolutie van 5 m en spacing van 25 m en batch size van `r nrow(ol_25mpoly)`. Een wat kleinere batch size is waarschijnlijk sneller.
 
 ## Wanneer is zichtbaarheid te laag?
 
@@ -392,7 +453,7 @@ En in de Oostelijke leemstreek:
 
 ```{r}
 ol_25mpoly %>%
-  bind_cols(vvi_ol) %>%
+  bind_cols(vvi_ol_25) %>%
   ungroup() %>%
   mutate(pointid = reorder(pointid, cvvi, mean)) %>%
   ggplot() +

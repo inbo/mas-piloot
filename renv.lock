@@ -102,8 +102,8 @@
       "RemoteUsername": "hansvancalster",
       "RemoteRepo": "GVI",
       "RemoteRef": "visibility-from-sf",
-      "RemoteSha": "e63b121da46fd7941911d5b207349e276540ede9",
-      "Hash": "52e2d8690ab93997c539a1dcffd2ff8f",
+      "RemoteSha": "58e2fded65552f863da1490da923a557ba25ad6f",
+      "Hash": "a5dab940e7a729994377b319b293cf40",
       "Requirements": [
         "Rcpp",
         "RcppProgress",
