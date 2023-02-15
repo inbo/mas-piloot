@@ -330,7 +330,8 @@ vvi_ol <- vvi_from_sf(
     output_type = "cumulative",
     by_row = TRUE)
 stop <- proc.time()
-stop - start
+ol_time <- stop - start
+ol_time
 ```
 
 
@@ -403,7 +404,7 @@ vvi_ol %>%
 steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
 ```
 
-Berekening op volledige steekproefkader (Moeren en Leemstreek) zou minimaal `r round(nrow(steekproefkader) * 4 * 5 * 1e-3 /3600, 1)` uur duren bij resolutie van 5 m en spacing van 25 m.
+Berekening op volledige steekproefkader (Moeren en Leemstreek) zou ongeveer `r round(nrow(steekproefkader) / nrow(ol_25mpoly) * ol_time["elapsed"] /3600, 1)` uur duren bij resolutie van 5 m en spacing van 25 m en batch size van `nrow(ol_25mpoly)`. Een wat kleinere batch size is waarschijnlijk sneller.
 
 ## Wanneer is zichtbaarheid te laag?
 
