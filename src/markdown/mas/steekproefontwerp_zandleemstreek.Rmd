@@ -33,6 +33,7 @@ library(terra)
 
 # globals
 source(here("src", "R", "steekproefkader.R"))
+source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
 targets_store <- here("src", "targets", "mas_steekproef_zavelberg", "_targets")
 ```
@@ -590,9 +591,43 @@ In theorie waren deze maatregelen vooral bedoeld voor kerngebied, en zal daar ee
 Daar werd bv in de Moeren geen rekening mee gehouden, en werden erg veel SB BOs gelegd, ook omdat dit gebied wél kerngebied is In de toekomst heeft VLM beloofd om meer/enkel rekening te houden met kerngebied, en dus nog meer te sturen op.
 
 We nemen kerngebieden en zoekzones samen als onderzoeksgebied en alles hierbuiten beschouwen we als controle.
-Als SBP laag gebruiken we perimeter SBP akkervogels, SBP grauwe kiekendief, sBP bruine kiekendief, SBP zomertortel en SBP hamster.
+Als SBP laag gebruiken we perimeter SBP akkervogels, SBP grauwe kiekendief, SBP bruine kiekendief, SBP zomertortel en SBP hamster.
+De SBP laag voor de specifieke soorten werd als volgt samengesteld:  
 
-> SBP grauwe kiekendief, bruine kiekendief, hamster en zomertortel nog implementeren
+-   De nieuwe (door INBO voorgestelde) nieuwe perimeter voor SBP Grauwe kiekendief. Dat is nog niet goedgekeurd, en nog niet van kracht, dus enkel ter voorbereiding van de toekomstige steekproef. (mail Johannes 2023-02-14)
+-   De oude perimeter van SBP Grauwe kiekendief (in gebruik van 2018 t/m 2022). (mail Johannes 2023-02-14)
+-   SPB's andere soorten (download 2023-02-14): https://www.vlaanderen.be/datavindplaats/catalogus/soortenbeschermingsprogrammas
+
+
+De kaartlagen bevinden zich in de MAS drive map onder layers > perimeters SBPs  
+  
+Deze werden tot 1 bestand samengevoegd met volgende code:  
+  
+```
+layer1 <- st_read("C:/Users/ward_langeraert/Downloads/INBO.A.4291_bijlage1/Kerngebied_SBP_2_INBO.shp")
+layer2 <- st_read("C:/Users/ward_langeraert/Downloads/INBO.A.4291_bijlage1/PM_SBP_2_INBO.shp")
+layer3 <- st_read("C:/Users/ward_langeraert/Downloads/PMZ_Kernzone_Grauwe_kiek_sbp/lu_sbp_pgs.shp")
+layer4 <- st_read("C:/Users/ward_langeraert/Downloads/lu_sbp_pgs/lu_sbp_pgs.shp")
+
+layer12 <- bind_rows(layer1, layer2) %>% 
+  summarise() %>%
+  mutate(soort = "Grauwe kiekendief", 
+         gebied = "nieuw 2023") %>%
+  select(everything(), geometry)
+layer123 <- bind_rows(layer12, layer3 %>% 
+                        filter(soort == "Grauwe kiekendief") %>%
+                        select(soort, gebied))
+
+layer_sbp <- bind_rows(layer123, layer4 %>% 
+                         select(soort, gebied))
+
+st_write(layer_sbp,
+         path_to_sbp_akkervogels("sbp_overige_soorten.shp"))
+```
+
+```{r}
+sbp_overig <- path_to_sbp_akkervogels("sbp_overige_soorten.shp")
+```
 
 ```{r}
 sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store)
