@@ -2,9 +2,9 @@ list(
   tar_target(
     name = plus_sb,
     command = add_bo_to_frame(
-      punten_df = punten_steekproefkader,
+      punten_df = punten_selectie_zichtbaarheid,
       path_bo = bo_file),
-    pattern = map(punten_steekproefkader)
+    pattern = map(punten_selectie_zichtbaarheid)
     ),
   tar_target(
     name = lbg_statistics,

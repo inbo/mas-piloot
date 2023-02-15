@@ -62,10 +62,33 @@ list(
                ),
              pattern = map(telcirkels_landgebruik)
   ),
-  tar_target(name = punten_steekproefkader,
+  tar_target(name = punten_selectie_landgebruik,
              command = selectie_landgebruik_vito(
                punten_sf = punten,
                selectie_df = telcirkels_selectie_landgebruik
              ),
-             pattern = map(punten, telcirkels_selectie_landgebruik))
+             pattern = map(punten, telcirkels_selectie_landgebruik)
+  ),
+  tarchetypes::tar_group_size(
+    name = punten_selectie_landgebruik_per_size,
+    command = punten_selectie_landgebruik,
+    size = 200
+  ),
+  tar_target(
+    name = punten_zichtbaarheid,
+    command = add_visibility_to_frame(
+      punten_sf = punten_selectie_landgebruik_per_size,
+      resolution = 5,
+      spacing = 10
+    ),
+    pattern = map(punten_selectie_landgebruik_per_size)
+  ),
+  tar_target(
+    name = punten_selectie_zichtbaarheid,
+    command = filter_zichtbaarheid(
+      punten_sf = punten_zichtbaarheid,
+                         min_cvvi = 0.1
+    ),
+    pattern = map(punten_zichtbaarheid)
+  )
 )
