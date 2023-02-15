@@ -974,7 +974,7 @@ We zien dat de steekproef vanaf de eerste 50 en nog beter de eerste 100 punten p
 cvvi \< 0.10
 
 ```{r}
-ggplot(steekproef) +
+ggplot(tar_read(steekproef_zichtbaarheid, store = targets_store)) +
   geom_histogram(aes(x = cvvi, fill = openheid_klasse)) +
   coord_cartesian(c(0, 1)) +
   scale_x_continuous(breaks = seq(0, 1, 0.1))
