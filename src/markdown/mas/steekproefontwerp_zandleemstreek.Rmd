@@ -973,6 +973,13 @@ We zien dat de steekproef vanaf de eerste 50 en nog beter de eerste 100 punten p
 
 cvvi \< 0.10
 
+https://github.com/inbo/mbag/pull/46  
+  
+The speedup here is not very huge, but should be enough to allow cumulative visibility for 100K points if we make some changes to the targets pipeline:
+
+-   setting spacing = 25 (which corresponds to 4 points inside the 25 m radius circle)
+-   use batching to calculate the target via https://docs.ropensci.org/tarchetypes/reference/tar_group_size.html - I suggest to try size = 200. I think this will also allow you to stop the target pipeline and inspect intermediate results (and tar_meta() for timings), after which calculation can resume from where it was stopped (skipping already calculated batches).
+
 ```{r}
 ggplot(tar_read(steekproef_zichtbaarheid, store = targets_store)) +
   geom_histogram(aes(x = cvvi, fill = openheid_klasse)) +
