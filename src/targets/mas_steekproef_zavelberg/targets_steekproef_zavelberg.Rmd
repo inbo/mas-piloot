@@ -8,6 +8,8 @@ output:
     toc: true
     toc_float: true
     toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include = FALSE}
@@ -27,10 +29,11 @@ knitr::opts_knit$set(
 # Inleiding
 
 Dit document beschrijft de analyse-workflow voor het opstellen van het steekproefkader en de steekproeftrekking voor de extra tellingen die in 2023 toegevoegd worden aan de pilootfase van het MAS project.
-Het gaat om tellingen in kerngebied Zavelberg (Leefdaal) en bijhorend controlegebied.
+Het gaat om tellingen in kerngebied Zavelberg (Leefdaal) en bijhorend controlegebied (Kortenberg).
 Deze tellingen worden dus toegevoegd aan de andere steekproeftrekking, die werd uitgevoerd in het kader van het pilootproject, in de Oostelijke leemstreek en de Moeren (2022-2023).
 
 We maken voor het steekproefontwerp gebruik van het `targets` package in combinatie met `RMarkdown`.
+
 
 # Packages
 
@@ -47,6 +50,7 @@ De onderstaande chunk wordt best in interactieve modus uitgevoerd.
 ```{r renv-restore, eval = FALSE}
 renv::restore()
 ```
+
 
 # Setup
 
@@ -71,10 +75,10 @@ Voeg deze lijn toe aan `.Renviron`:
 `OSMEXT_DOWNLOAD_DIRECTORY="C:/R/osmdata"`
 -->
 
+
 ```{r eval = interactive() && osmextract::oe_download_directory() != "C:\\R\\osmdata"}
 usethis::edit_r_environ()
 ```
-
 
 
 # Globals
@@ -96,16 +100,19 @@ tar_option_set(packages = c("dplyr",
                             "exactextractr",
                             "arrow",
                             "httr",
-                            "sf"),
+                            "sf",
+                            "GVI"),
                format = "qs",
                memory = "transient",
                garbage_collection = TRUE,
                workspace_on_error = TRUE)
+
 target_dir <- rprojroot::find_root_file(
     "src", "targets", "mas_steekproef_zavelberg",
     criterion = rprojroot::is_git_root)
 mbag_dir <- rprojroot::find_root_file(
     criterion = rprojroot::is_git_root)
+
 source(file.path(mbag_dir, "src", "R", "landuse_maps.R"))
 source(file.path(mbag_dir, "src", "R", "geocomputations.R"))
 source(file.path(mbag_dir, "src", "R", "draw_sample.R"))
@@ -113,7 +120,6 @@ source(file.path(mbag_dir, "src", "R", "steekproefkader.R"))
 source(file.path(mbag_dir, "src", "R", "berekening_hulpvariabelen.R"))
 source(file.path(mbag_dir, "src", "R", "steekproeftrekking_nabehandeling.R"))
 source(file.path(mbag_dir, "src", "R", "wfs_wcs.R"))
-
 ```
 
 
@@ -130,7 +136,7 @@ Dit geldt dan eveneens voor alle stroomafwaartse targets die ervan afhankelijk z
 "piloot_perimeters.gpkg", de layer "piloot_perimeters" wijziging.
 Deze bevat momenteel een rij voor Oostelijke leemstreek en een rij voor De Moeren.
 Hier moet een rij aan toegevoegd worden voor Zavelberg en zijn controlegebied.
-Misschien dit Naam == "zandleemstreek" geven?
+Misschien dit Naam == "Zandleemstreek" geven?
 
 Daarna hebben we de optie:
 
@@ -146,11 +152,12 @@ target "lbg_file"
 wellicht aan te passen naar jaar == 2021 of 2022?
 -->
 
+
 ```{targets raw-data}
 list(
   tarchetypes::tar_file(
     perimeters_file,
-    path_to_perimeters()
+    path_to_perimeters("zandleemstreek_perimeters.gpkg")
     ),
   tar_target(
     perimeters_data,
@@ -178,15 +185,19 @@ list(
     ),
   tarchetypes::tar_file(
     bo_file,
-    path_to_bo2021()
+    path_to_bo(jaar = 2022)
     ),
   tarchetypes::tar_file(
     lbg_file,
-    path_to_lbg(jaar = "2020")
+    path_to_lbg(jaar = 2022)
   ),
   tarchetypes::tar_file(
     sbp_akkervogels_file,
-    path_to_sbp_akkervogels()
+    path_to_sbp_akkervogels(file = "akkervogelgebieden2022.shp")
+  ),
+  tarchetypes::tar_file(
+    sbp_overige_file,
+    path_to_sbp_akkervogels(file = "sbp_overige_soorten.shp")
   )
 )
 ```
@@ -194,7 +205,7 @@ list(
 <!--
 target "exclusie_osm_landgebruiken"
 
-exclusie_landgebruik_osm() functie extra argument landuse leisure toevoegen met als default:
+exclusie_landgebruik_osm() functie extra argument landuse en leisure toevoegen met als default:
 
 exclusie_landgebruik_osm <- function(
   gebied, osmdata,
@@ -203,7 +214,7 @@ exclusie_landgebruik_osm <- function(
   ) {}
 
 
-Zodat we dit indien nodig kunnen uitbreiden met andere landgebruiken die we willen uitsluiten
+Zodat we dit ook andere landgebruiken kunnen uitsluiten indien nodig
 -->
 
 <!--
@@ -223,10 +234,7 @@ extract_osm_paden <- function(
   ) {}
 
 Aan te passen conform afspraken gemaakt met Johannes (geen water etc)
-
-
 -->
-
 
 <!--
 Hier kunnen we een extra target toevoegen dat voor elk van de steekproefpunten in het steekproefkader op voorhand inschat wat de zichtbaarheid is. Zie src/markdown/mas/visibility.Rmd
@@ -236,24 +244,45 @@ Nu hebben we een index op verschillende punten in 25m cirkel, maar je kan hier m
 Het kan bv zijn dat door je te verplaatsen je in totaal een goed overzicht hebt, maar op individuele punten eerder slecht zicht.
 
 Degenen met duidelijk te lage zichtbaarheid kunnen we er dan al op voorhand uit filteren.
-
 -->
 
 ```{targets steekproefkader}
 list(
+  tar_target(name = selectie_openheid_klasses,
+             command = selectie_openheid(
+               gebied = perimeters_data,
+               ol_strata = c("OL", "HOL")
+             ),
+             pattern = map(perimeters_data)
+  ),
   tar_target(name = exclusie_osm_landgebruiken,
              command = exclusie_landgebruik_osm(
-               gebied = perimeters_data,
-               osmdata = osm_belgium),
-             pattern = map(perimeters_data)
+               gebied = selectie_openheid_klasses,
+          	   osmdata = osm_belgium,
+          	   landuse = c("residential", "military", "industrial", "cemetery", 
+          	               "railway", "commercial", "farmyard"),
+          	   leisure = c("park"),
+          	   buffer_poly = 0, 
+          	   layer_poly = list(aeroway = c("aerodrome")),
+          	   buffer_line = 50, 
+          	   layer_line = list(highway = c("motorway", "motorway_link")),
+               update_osm_layer = FALSE
+               ),
+             pattern = map(selectie_openheid_klasses)
   ),
   tar_target(name = paden,
              command = extract_osm_paden(
-               gebied = perimeters_data,
+               gebied = selectie_openheid_klasses,
                exclusie = exclusie_osm_landgebruiken,
-               osmdata = osm_belgium
+               osmdata = osm_belgium,
+               paths_include = c('track', 'footway', 'path', 'cycleway', 
+                'bridleway', 'tertiary', 'tertiary_link', 'unclassified'),
+               cutting_exclude = NULL,
+               historic_exclude = NULL,
+               waterway = NULL,
+               update_osm_layer = FALSE
                ),
-             pattern = map(perimeters_data, exclusie_osm_landgebruiken)
+             pattern = map(selectie_openheid_klasses, exclusie_osm_landgebruiken)
              ),
   tar_target(name = punten,
              command = paden_naar_punten(
@@ -298,13 +327,11 @@ Check bij Johannes of er al een update afbakening is van de soortbeschermingspla
 -->
 
 
-
-
 ```{targets hulpvariabelen}
 list(
   tar_target(
     name = plus_sb,
-    command = add_bo2021_to_frame(
+    command = add_bo_to_frame(
       punten_df = punten_steekproefkader,
       path_bo = bo_file),
     pattern = map(punten_steekproefkader)
@@ -328,7 +355,10 @@ list(
   tar_target(name = sbp_akkervogels,
              command = read_sbp_akkervogels(
                path = sbp_akkervogels_file,
-               gebied = perimeters_data
+               gebied = perimeters_data,
+               path_extra_soorten = sbp_overige_file,
+               extra_soorten = c("hamster", "bruine kiekendief", "zomertortel", 
+                                 "grauwe kiekendief")
              ),
              pattern = map(perimeters_data)),
   tar_target(
@@ -345,7 +375,6 @@ list(
 target "allocatie_df"
 
 deze ad-hoc instelling zullen moeten aangepast worden
-
 -->
 
 ```{targets steekproeftrekking}
@@ -353,11 +382,11 @@ list(
   tar_target(
     allocatie_df,
     allocatie(steekproefkader = steekproefkader_finaal,
-              min_samplesize = 30,
-              target_samplesize = 410,
-              popsize_minimum = 410,
+              min_samplesize = 200,
+              target_samplesize = 9887,
+              popsize_minimum = 200,
               allocatie_binnen_sbp = 0.5,
-              allocatie_leemstreek = 350/410,
+              allocatie_leemstreek = 0,
               ol_strata = c("OL", "HOL"))
   ),
   tarchetypes::tar_group_by(
@@ -382,7 +411,7 @@ list(
     steekproef,
     draw_sample(sampling_frame = steekproefkader_per_stratum,
                 sample_size = allocatie_per_stratum$samplesize,
-                sample_size_multiplication = 2),
+                sample_size_multiplication = 1),
     pattern = map(steekproefkader_per_stratum, allocatie_per_stratum)
   )
 )
@@ -391,20 +420,28 @@ list(
 ```{targets nabehandeling}
 list(
   tar_target(
-    steekproef_nn,
-    nn_steekproef(sample = steekproef,
-                  max_dist = 300)
+    steekproef_zichtbaarheid,
+    filter_zichtbaarheid(sample = steekproef,
+                         min_cvvi = 0.1,
+                         resolution = 5,
+                         spacing = 10),
+    pattern = map(steekproef)
   ),
   tar_target(
-    steekproef_zichtbaarheid,
-    bereken_zichtbaarheid(steekproef_nn,
-                          dist = 300,
-                          obs_height = 1.7,
-                          resolution = 1),
-    pattern = map(steekproef_nn)
+    steekproef_nn,
+    nn_steekproef(sample = steekproef_zichtbaarheid,
+                  max_dist = 300),
+    pattern = map(steekproef_zichtbaarheid)
+  ),
+  tar_target(
+    output_objecten,
+    output_finaal(files = list(steekproefkader = steekproefkader_finaal, 
+                               steekproef = steekproef_nn),
+                  write_out = FALSE)
   )
 )
 ```
+
 
 # Analysestramien uitvoeren
 
@@ -435,7 +472,7 @@ failed <- tar_meta(fields = error) %>%
 failed
 
 tar_load_globals()
-tar_workspace(punten_6c6b6262)
+tar_workspace("steekproef_98295cec")
 tar_traceback(failed, characters = 80)
 ```
 

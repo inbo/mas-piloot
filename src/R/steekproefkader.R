@@ -9,8 +9,8 @@ st_crs.SpatRaster = function(x, ...) {
 }
 
 
-path_to_perimeters <- function() {
-  file.path(mbag_dir, "data", "processed", "piloot_perimeters.gpkg")
+path_to_perimeters <- function(file = "piloot_perimeters.gpkg") {
+  file.path(mbag_dir, "data", "processed", file)
 }
 
 path_to_osm_download <- function() {
@@ -40,22 +40,168 @@ read_legend_lum <- function(file) {
     ))
 }
 
-exclusie_landgebruik_osm <- function(gebied, osmdata) {
-  landuse_exclusie_vectortranslate = c(
+selectie_openheid <- function(gebied, ol_strata,
+                              cutlevels = c(1.25, 1.35, 1.51),
+                              class_labels = c("GL", "HGL", "HOL", "OL")) {
+  # Lees openheid laag
+  openheid <- rast(path_to_openheid_landschap()) %>%
+    project("epsg:31370")
+
+  openheid_gebied <- crop(openheid, st_buffer(gebied, 100))
+
+  # Classify raster
+  matvec <- c(0, rep(cutlevels, each = 2), +Inf)
+  nclass <- length(matvec) / 2
+
+  rclasmat <- matvec %>%
+    matrix(ncol = 2, byrow = TRUE)
+  rclasmat <- cbind(rclasmat, 1:nclass)
+
+  openheid_gebied_klassen <- terra::classify(
+    openheid_gebied,
+    rcl = rclasmat,
+    include.lowest = TRUE)
+  levels(openheid_gebied_klassen) <- data.frame(1:4,
+                                       openheid_klassen = class_labels)
+
+  # Raster naar polygoon en selecteer openheid
+  openheid_gebied_sf <- as.polygons(openheid_gebied_klassen) %>%
+    st_as_sf() %>%
+    filter(openheid_klassen %in% ol_strata)
+
+  # Maak intersectie met perimeters
+  openheid_gebied_intersect <- st_intersection(gebied, openheid_gebied_sf)
+  out <- openheid_gebied_intersect %>%
+    group_by(Naam, section) %>%
+    summarise(.groups = "drop")
+
+  return(out)
+}
+
+check_osm_data <- function(gebied, update_osm_layer) {
+  # Download periferie van osm België
+  provider_file <- file.path(osmextract::oe_download_directory(),
+                             "belgium_periferie_osm.kml")
+
+  if (!file.exists(provider_file) | update_osm_layer) {
+    download.file("https://download.geofabrik.de/europe/belgium.kml",
+                  provider_file)
+  } else {
+    message("The chosen file was already detected in the download directory. Skip downloading.")
+  }
+  provider_data <- st_read(provider_file, quiet = TRUE) %>%
+    st_zm(drop = TRUE, what = "ZM")
+
+  # Valt het gebied binnen de periferie van osm België?
+  matched_zones = provider_data[st_transform(gebied,
+   crs = sf::st_crs(provider_data)), op = sf::st_contains]
+  if (nrow(matched_zones) != 0L) {
+    osmextract::oe_download("https://download.geofabrik.de/europe/belgium-latest.osm.pbf",
+                            force_download = update_osm_layer)
+  } else {
+    stop("Gebied valt buiten België!", call. = FALSE)
+  }
+}
+
+exclusie_buffer_osm <- function(gebied, osmdata, buffer, layer, geom_type) {
+  # which keys are present to exclude
+  keys <- names(layer)
+  selection <- paste(keys, collapse = ", ")
+
+  # create list with exclusion strings per key
+  exclusion_list <- lapply(seq_along(layer), function(i) {
+      paste0(keys[[i]], " IN ('", paste(layer[[i]], collapse = "', '"), "')")
+    })
+
+  # collapse exclusion strings in list to a single where clause
+  exclusion_str <- paste(unlist(exclusion_list), collapse = " OR ")
+
+  buffer_exclusie_vectortranslate = c(
     "-t_srs", "EPSG:31370",
-    "-select", "landuse",
-    "-where", "landuse IN ('residential', 'military', 'industrial', 'cemetery')
-    OR leisure IN ('park')",
+    "-select", selection,
+    "-where", exclusion_str,
     "-nlt", "PROMOTE_TO_MULTI"
   )
 
-  exclusie_landgebruik <- osmextract::oe_get(
-    place = gebied,
+  if (geom_type == "lines") {
+    exclusie_landgebruik <- osmextract::oe_read(
+      file_path = osmdata,
+      layer = geom_type,
+      download_directory = dirname(osmdata),
+      vectortranslate_options = buffer_exclusie_vectortranslate,
+      extra_tags = keys,
+      boundary = gebied %>% st_buffer(buffer),
+      boundary_type = "clipsrc") %>%
+      st_buffer(buffer)
+  }
+
+  if (geom_type == "multipolygons") {
+    exclusie_landgebruik <- osmextract::oe_read(
+      file_path = osmdata,
+      layer = geom_type,
+      download_directory = dirname(osmdata),
+      vectortranslate_options = buffer_exclusie_vectortranslate,
+      boundary = gebied %>% st_buffer(buffer),
+      boundary_type = "clipsrc") %>%
+      st_buffer(buffer)
+  }
+
+  out <- exclusie_landgebruik %>%
+    st_cast("MULTIPOLYGON") %>%
+    st_cast("GEOMETRYCOLLECTION") %>%
+    mutate(id = seq_len(nrow(.))) %>%
+    st_collection_extract("POLYGON") %>%
+    aggregate(list(.$id), first, do_union = FALSE) %>%
+    select(-id, -Group.1) %>%
+    as_tibble %>%
+    st_as_sf() %>%
+    st_union() %>%
+    st_simplify(dTolerance = 10) %>%
+    st_remove_holes() %>%
+    st_as_sf() %>%
+    mutate(Naam = gebied$Naam)
+
+  return(out)
+}
+
+# Set landuse or leisure to NULL if you don't want to exclude from these
+exclusie_landgebruik_osm <- function(gebied, osmdata,
+   landuse = c('residential', 'military', 'industrial', 'cemetery'),
+   leisure = c('park'),
+   buffer_poly = NULL, layer_poly = NULL,
+   buffer_line = NULL, layer_line = NULL,
+   update_osm_layer) {
+
+  # Controleer of gebied binnen osm België valt
+  check_osm_data(gebied, update_osm_layer)
+
+  # Create string to exclude landuse and leisure variables
+  exclusion_landuse <- paste0("('", paste(landuse, collapse = "', '"), "')")
+  exclusion_leisure <- paste0("('", paste(leisure, collapse = "', '"), "')")
+
+  if (is.null(leisure)) {
+    exclusion_str <- paste("landuse IN", exclusion_landuse, sep = " ")
+  } else {
+    exclusion_str <- paste("landuse IN", exclusion_landuse,
+                           "OR leisure IN", exclusion_leisure, sep = " ")
+  }
+
+  landuse_exclusie_vectortranslate = c(
+    "-t_srs", "EPSG:31370",
+    "-select", "landuse",
+    "-where", exclusion_str,
+    "-nlt", "PROMOTE_TO_MULTI"
+  )
+
+  # Exclusie landgebruik
+  exclusie_landgebruik <- osmextract::oe_read(
+    file_path = osmdata,
     layer = "multipolygons",
+    download_directory = dirname(osmdata),
     vectortranslate_options = landuse_exclusie_vectortranslate,
     boundary = gebied,
-    boundary_type = "clipsrc",
-    download_directory = dirname(osmdata))
+    boundary_type = "clipsrc")
+
 
   exclusie_landgebruik <- exclusie_landgebruik %>%
     st_cast("GEOMETRYCOLLECTION") %>%
@@ -72,34 +218,109 @@ exclusie_landgebruik_osm <- function(gebied, osmdata) {
     st_as_sf() %>%
     mutate(Naam = gebied$Naam)
 
-  return(exclusie_landgebruik)
+  if (!is.null(layer_poly) & is.null(layer_line)) {
+    exclude_buffer <- exclusie_buffer_osm(gebied, osmdata, buffer = buffer_poly,
+      layer = layer_poly, geom_type = "multipolygons")
+
+    out <- bind_rows(exclusie_landgebruik, exclude_buffer)
+    out <- st_union(st_make_valid(out)) %>%
+      st_as_sf() %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+  } else if (is.null(layer_poly) & !is.null(layer_line)) {
+    exclude_buffer <- exclusie_buffer_osm(gebied, osmdata, buffer = buffer_line,
+      layer = layer_line, geom_type = "lines")
+
+    out <- bind_rows(exclusie_landgebruik, exclude_buffer)
+    out <- st_union(st_make_valid(out)) %>%
+      st_as_sf() %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+  } else if (!is.null(layer_poly) & !is.null(layer_line)) {
+    exclude_buffer_poly <- exclusie_buffer_osm(gebied, osmdata,
+      buffer = buffer_poly, layer = layer_poly, geom_type = "multipolygons")
+    exclude_buffer_line <- exclusie_buffer_osm(gebied, osmdata,
+      buffer = buffer_line, layer = layer_line, geom_type = "lines")
+    exclude_buffer <- st_union(exclude_buffer_poly, exclude_buffer_line) %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+
+    out <- bind_rows(exclusie_landgebruik, exclude_buffer)
+    out <- st_union(st_make_valid(out)) %>%
+      st_as_sf() %>%
+      select(x) %>%
+      mutate(Naam = gebied$Naam)
+  } else {
+    out <- exclusie_landgebruik
+  }
+
+  return(out)
 }
 
-extract_osm_paden <- function(gebied, exclusie, osmdata) {
+# Set waterway to NULL if you don't want to include any waterway
+extract_osm_paden <- function(gebied, exclusie, osmdata,
+  paths_include = c('track', 'footway', 'path', 'cycleway', 'bridleway',
+                    'tertiary', 'tertiary_link', 'unclassified'),
+  cutting_exclude = c('yes', 'both', 'hollow_way'),
+  historic_exclude = c('hollow_way'),
+  waterway = c('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch'),
+  update_osm_layer) {
+
+  # Controleer of gebied binnen osm België valt
+  check_osm_data(gebied, update_osm_layer)
+
+  # Create string include
+  inclusion_paths <- paste0("('", paste(paths_include,
+                                        collapse = "', '"), "')")
+  exclusion_cutting <- paste0("('", paste(cutting_exclude,
+                                        collapse = "', '"), "'))")
+  exclusion_historic <- paste0("('", paste(historic_exclude,
+                                        collapse = "', '"), "'))))")
+  inclusion_waterway <- paste0("('", paste(waterway,
+                                        collapse = "', '"), "'))")
+
+  if (is.null(waterway) & is.null(historic_exclude) &
+      is.null(cutting_exclude)) {
+
+    inclusion_str <- paste("highway IN", inclusion_paths, sep = " ")
+
+  } else if (is.null(waterway) & !is.null(historic_exclude) &
+      !is.null(cutting_exclude)) {
+
+    inclusion_str <- paste("(highway IN", inclusion_paths,
+                           "AND NOT ((cutting IN ", exclusion_cutting,
+                           "OR (historic IN", exclusion_historic,
+                           sep = " ")
+
+  } else if (!is.null(waterway) & is.null(historic_exclude) &
+             is.null(cutting_exclude)) {
+
+    inclusion_str <- paste("(highway IN", inclusion_paths,
+                           "OR (waterway IN", inclusion_waterway, sep = " ")
+
+  } else {
+    inclusion_str <- paste("(highway IN", inclusion_paths,
+                           "AND NOT ((cutting IN ", exclusion_cutting,
+                           "OR (historic IN", exclusion_historic,
+                           "OR (waterway IN", inclusion_waterway, sep = " ")
+  }
+
   my_vectortranslate = c(
     "-t_srs", "EPSG:31370",
     "-select",
     "highway, waterway",
-    "-where",
-    "(highway IN
-    ('track', 'footway', 'path', 'cycleway', 'bridleway', 'tertiary',
-    'tertiary_link', 'unclassified') AND NOT
-    ((cutting IN ('yes', 'both', 'hollow_way')) OR (historic IN ('hollow_way')))
-  ) OR
-  (waterway IN
-    ('river', 'stream', 'tidal channel', 'canal', 'drain', 'ditch')
-  )",
+    "-where", inclusion_str,
     "-nlt", "PROMOTE_TO_MULTI"
   )
 
   # Read-in data
-  paden <- oe_get(
-    place = gebied,
-    extra_tags = c("historic", "cutting"),
+  paden <- osmextract::oe_read(
+    file_path = osmdata,
+    download_directory = dirname(osmdata),
     vectortranslate_options = my_vectortranslate,
+    extra_tags = c("historic", "cutting"),
     boundary = gebied,
-    boundary_type = "spat",
-    download_directory = dirname(osmdata))
+    boundary_type = "spat")
 
   paden <- paden %>%
     mutate(key = ifelse(is.na(highway), "waterway", "highway"),
