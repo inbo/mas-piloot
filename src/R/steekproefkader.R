@@ -585,7 +585,7 @@ add_visibility_to_frame <- function(punten_sf,
   return(punten_sf)
 }
 
-filter_zichtbaarheid <- function(sample, min_cvvi) {
-  sample %>%
+filter_zichtbaarheid <- function(punten_sf, min_cvvi) {
+  punten_sf %>%
     filter(cvvi >= min_cvvi)
 }
