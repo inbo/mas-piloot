@@ -994,27 +994,21 @@ balansvergelijking %>%
 
 We zien dat de steekproef vanaf de eerste 50 en nog beter de eerste 100 punten per stratum een goede afspiegeling is van de volledige populatie (boxplots voor steekproef eerste punten en volledig steekproefkader zijn zeer gelijkend).
 
+## Visualisatie
 
-# Nabehandeling steekproef
-
-## Filteren op basis van zichtbaarheid
-
-cvvi \< 0.10
-
-https://github.com/inbo/mbag/pull/46  
-  
-The speedup here is not very huge, but should be enough to allow cumulative visibility for 100K points if we make some changes to the targets pipeline:
-
--   setting spacing = 25 (which corresponds to 4 points inside the 25 m radius circle)
--   use batching to calculate the target via https://docs.ropensci.org/tarchetypes/reference/tar_group_size.html - I suggest to try size = 200. I think this will also allow you to stop the target pipeline and inspect intermediate results (and tar_meta() for timings), after which calculation can resume from where it was stopped (skipping already calculated batches).
+Waar liggen de punten?
 
 ```{r}
-ggplot(tar_read(steekproef_zichtbaarheid, store = targets_store)) +
-  geom_histogram(aes(x = cvvi, fill = openheid_klasse)) +
-  coord_cartesian(c(0, 1)) +
-  scale_x_continuous(breaks = seq(0, 1, 0.1))
+mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
+  mapview(first_samples(steekproef, 200), alpha.regions = 1) +
+  mapview(first_samples(steekproef, 100), col.regions = "green", 
+          alpha.regions = 1) +
+  mapview(first_samples(steekproef, 50), col.regions = "red", 
+          alpha.regions = 1) 
 ```
 
+
+# Nabehandeling steekproef
 ## Uitdunnen
 
 ```{r}
@@ -1035,4 +1029,5 @@ steekproef_nn %>%
 
 ## Overlap met bestaande telpunten
 
-...
+We willen een lijst met alle bestaande punten en hun historie (vanaf wanneer beginnen tellen). Zo kunnen we een regel verzinnen om bestaande telpunten over te nemen bij een nieuwe trekking. Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand punt en deze behoort tot hetzelfde stratum, dan wordt het nieuwe punt vervangen door het bestaande punt.
+
