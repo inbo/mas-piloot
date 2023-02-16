@@ -2211,7 +2211,7 @@ We maken 2 datasets:
 -   behoud datasets als totaal aantal waarnemingen \>= 20
 
 2.  Complexere modellen (met covariaten)
--   behoud strata als aantal waarnemingen per stratum \>= 15
+-   behoud strata als aantal waarnemingen per stratum \>= 10
 -   behoud datasets als totaal aantal waarnemingen \>= 30
 
 Eerst fitten we alle modellen met *2.*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1.*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten.
@@ -2247,7 +2247,7 @@ filter_dist_df_2022 <- function(data, stratum_filter, dataset_filter) {
 }
 
 distance_dfs_2022_simpel <- filter_dist_df_2022(distance_dfs_2022, 0, 20)
-distance_dfs_2022_final <- filter_dist_df_2022(distance_dfs_2022, 15, 30)
+distance_dfs_2022_final <- filter_dist_df_2022(distance_dfs_2022, 10, 30)
 ```
 
 In de complexe dataset zijn de meeste soorten zijn in meerdere openheidsklasses gezien.
@@ -2540,8 +2540,11 @@ keys <- c("hn", "hr")
 # Sla de gefitte models op op deze locatie
 model_path <- "./src/markdown/mas/distance_models/"
 
+# Verwijder BruineKiekendief
+index_to_remove <- which(names(distance_dfs_2022_final) %in% c("Buizerd", "Gaai", "GroeneSpecht", "Kauw", "Koolmees", "Spreeuw", "Tjiftjaf", "Winterkoning", "Zanglijster", "ZwarteRoodstaart"))
+
 # Loop over species
-for (spec in names(distance_dfs_2022_final)) {
+for (spec in names(distance_dfs_2022_final)[-index_to_remove]) {
   distance_data_2022 <- distance_dfs_2022_final[[spec]]
   sample_table_2022 <- sample_tables_2022[[spec]]
   obs_table_2022 <- obs_tables_2022[[spec]]
@@ -2559,10 +2562,13 @@ for (spec in names(distance_dfs_2022_final)) {
     form_spec[sapply(form_spec, function(i) grepl("openheid", i))] <- NULL
   }
   if (!pull(form_df[,"n_sbp"])) {
-    form_spec[sapply(form_spec, function(i) grepl("regio*sbp", i))] <- NULL
+    form_spec[sapply(form_spec, function(i) grepl("sbp", i))] <- NULL
   }
   if (!pull(form_df[,"n_int_openheid_sbp"])) {
-    form_spec[sapply(form_spec, function(i) grepl("sbp*openheid", i))] <- NULL
+    form_spec[sapply(form_spec, function(i) grepl("sbp\\*openheid", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_int_regio_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\*sbp", i))] <- NULL
   }
 
   # Loop over formules en over key functions
