@@ -87,7 +87,7 @@ list(
     name = punten_selectie_zichtbaarheid,
     command = filter_zichtbaarheid(
       punten_sf = punten_zichtbaarheid,
-                         min_cvvi = 0.1
+      min_cvvi = 0.1
     ),
     pattern = map(punten_zichtbaarheid)
   )
