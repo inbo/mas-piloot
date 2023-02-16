@@ -2540,8 +2540,9 @@ keys <- c("hn", "hr")
 # Sla de gefitte models op op deze locatie
 model_path <- "./src/markdown/mas/distance_models/"
 
-# Verwijder BruineKiekendief
-index_to_remove <- which(names(distance_dfs_2022_final) %in% c("Buizerd", "Gaai", "GroeneSpecht", "Kauw", "Koolmees", "Spreeuw", "Tjiftjaf", "Winterkoning", "Zanglijster", "ZwarteRoodstaart"))
+# Verwijder
+index_to_remove <- which(names(distance_dfs_2022_final) %in% c("Buizerd", "GroeneSpecht", "Kauw", "Winterkoning", "ZwarteRoodstaart"))
+#[-index_to_remove]
 
 # Loop over species
 for (spec in names(distance_dfs_2022_final)[-index_to_remove]) {
