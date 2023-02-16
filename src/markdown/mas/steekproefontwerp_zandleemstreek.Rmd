@@ -376,6 +376,34 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
   mapview(st_crop(exclusie_punten, detail), col.regions = "black", legend = FALSE)
 ```
 
+### Exclusie op basis van zichtbaarheid
+
+Berekening cumulatieve zichtbaarheidsindex binnen straal van 25 m rond telpunt (zone bewegingsvrijheid van de waarnemer) in een raster (resolutie 5 m) van locaties die 10 m van elkaar liggen. Door middel van Digital Surface Model (DSM) en Digital Terrain Model (DTM). Aanpassing aan **GVI** package. Zie: `visibility.Rmd`.
+
+In de pipeline werd gebruik gemaakt van batching per 200 telpunten om rekentijd in te perken. Zie:  
+https://docs.ropensci.org/tarchetypes/reference/tar_group_size.html  
+https://books.ropensci.org/targets/dynamic.html#performance-and-batching  
+  
+We verwijderen telpunten waar de cumulatieve 'viewshed of visibility' kleiner is dan 0.10.
+
+```{r}
+punten_zichtbaarheid <- tar_read(punten_zichtbaarheid, store = targets_store)
+plus_visibility <- add_openheid_landschap_to_frame(
+      path = path_to_openheid_landschap(),
+      punten_sf = punten_zichtbaarheid,
+      gebied = perimeters_data,
+      cutlevels = c(1.25, 1.35, 1.51),
+      class_labels = c("GL", "HGL", "HOL", "OL"))
+```
+
+```{r}
+ggplot(plus_visibility) +
+  geom_histogram(aes(x = cvvi, fill = openheid_klasse)) +
+  geom_vline(xintercept = 0.1, colour = "firebrick") +
+  scale_x_continuous(breaks = seq(0, 1, 0.1))
+```
+
+
 ## Berekening volledig gekende variabelen die relatie hebben met respons
 
 Dit zijn interessante variabelen om in rekening te brengen bij het steekproefdesign.
