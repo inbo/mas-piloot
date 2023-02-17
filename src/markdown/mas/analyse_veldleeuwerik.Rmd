@@ -2721,10 +2721,10 @@ specs_to_remove[sapply(specs_to_remove, is.null)] <- NULL
 specs_to_remove <- unlist(specs_to_remove)
 
 # Verwijder soorten uit simpele dataset
-distance_dfs_2018_2022_simpel_new <- 
+distance_dfs_2022_simpel_new <- 
   distance_dfs_2018_2022_simpel[!names(distance_dfs_2018_2022_simpel) %in% 
                                 specs_to_remove]
-names(distance_dfs_2018_2022_simpel_new)
+names(distance_dfs_2022_simpel_new)
 ```
 
 ```{r}
@@ -2735,8 +2735,8 @@ final_models_simpel <- list()
 final_models_simpel_names <- c()
 
 # Fit opnieuw met simpele dataset
-for (spec in names(distance_dfs_2018_2022_simpel_new)) {
-  distance_data_new <- distance_dfs_2018_2022_simpel_new[[spec]]
+for (spec in names(distance_dfs_2022_simpel_new)) {
+  distance_data_new <- distance_dfs_2022_simpel_new[[spec]]
   sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
   obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
   
@@ -2753,7 +2753,7 @@ for (spec in names(distance_dfs_2018_2022_simpel_new)) {
       det_model <- readRDS(file)
       assign(mod_name, det_model)
       print(paste0("Model '", mod_name, "' fitted. ", 
-                   "Formula: '", f, "'. Key: '", k, "'."))
+                   "Formula: '~1'. Key: '", k, "'."))
     } else {
       det_model <- ds(data = distance_data_new, key = k, 
         formula = ~1, max_adjustments = 2, 
@@ -2766,7 +2766,7 @@ for (spec in names(distance_dfs_2018_2022_simpel_new)) {
     }
       
     print(paste0("Model '", mod_name, "' fitted. ", 
-                 "Formula: '", f, "'. Key: '", k, "'."))
+                 "Formula: '~1'. Key: '", k, "'."))
     
     # Sla gefitte model op
     assign(mod_name, det_model)
@@ -2986,7 +2986,7 @@ for (spec in names(spec_to_bin)) {
                  "Formula: '", f, "'. Key: '", k, "'."))
   } else {
     if (f == "~1") {
-      distance_data <- distance_dfs_2018_2022_simpel_new[[spec]]
+      distance_data <- distance_dfs_2022_simpel_new[[spec]]
       det_model <- ds(data = distance_data, key = k, 
         formula = as.formula(f), max_adjustments = 2, 
         monotonicity = "strict", cutpoints = cp,
@@ -3190,9 +3190,9 @@ final_models_2022_complex <- list(
 
 Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen.
 
-```{r, eval=FALSE}
+```{r}
 # Welke soorten moeten niet opnieuw gefit worden?
-specs_to_remove <- lapply(seq_along(final_models_2022_complex), function(i) {
+specs_to_remove_2022 <- lapply(seq_along(final_models_2022_complex), function(i) {
     soort <- names(final_models_2022_complex)[i]
     ds_model <- final_models_2022_complex[[i]]
     f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
@@ -3203,35 +3203,35 @@ specs_to_remove <- lapply(seq_along(final_models_2022_complex), function(i) {
       return(NULL)
     }
   })
-specs_to_remove[sapply(specs_to_remove, is.null)] <- NULL
-specs_to_remove <- unlist(specs_to_remove)
+specs_to_remove_2022[sapply(specs_to_remove_2022, is.null)] <- NULL
+specs_to_remove_2022 <- unlist(specs_to_remove_2022)
 
 # Verwijder soorten uit simpele dataset
-distance_dfs_2018_2022_simpel_new <- 
-  distance_dfs_2018_2022_simpel[!names(distance_dfs_2018_2022_simpel) %in% 
-                                specs_to_remove]
-names(distance_dfs_2018_2022_simpel_new)
+distance_dfs_2022_simpel_new <- 
+  distance_dfs_2022_simpel[!names(distance_dfs_2022_simpel) %in% 
+                                specs_to_remove_2022]
+names(distance_dfs_2022_simpel_new)
 ```
 
-```{r, eval=FALSE}
+```{r}
 # Key functions
 keys <- c("hn", "hr")
 
-final_models_simpel <- list()
-final_models_simpel_names <- c()
+final_models_simpel_2022 <- list()
+final_models_simpel_2022_names <- c()
 
 # Fit opnieuw met simpele dataset
-for (spec in names(distance_dfs_2018_2022_simpel_new)) {
-  distance_data_new <- distance_dfs_2018_2022_simpel_new[[spec]]
-  sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
-  obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
+for (spec in names(distance_dfs_2022_simpel_new)) {
+  distance_data_new <- distance_dfs_2022_simpel_new[[spec]]
+  sample_table_2022 <- sample_tables_2022[[spec]]
+  obs_table_2022 <- obs_tables_2022[[spec]]
   
   out_models <- list()
   model_names <- c()
     
   for (k in keys) {
     # Naam voor model
-    mod_name <- paste0(spec, "_distmod_2018_2022_", k, 1, "_simpel")
+    mod_name <- paste0(spec, "_distmod_2022_", k, 1, "_simpel")
     file <- paste0(model_path, mod_name, ".rds")
     
     # Sla model op als het nog niet bestaat en lees het in anderzijds
@@ -3239,20 +3239,20 @@ for (spec in names(distance_dfs_2018_2022_simpel_new)) {
       det_model <- readRDS(file)
       assign(mod_name, det_model)
       print(paste0("Model '", mod_name, "' fitted. ", 
-                   "Formula: '", f, "'. Key: '", k, "'."))
+                   "Formula: '~1'. Key: '", k, "'."))
     } else {
       det_model <- ds(data = distance_data_new, key = k, 
         formula = ~1, max_adjustments = 2, 
         monotonicity = "strict", 
         truncation = 300, transect = "point", dht_group = FALSE, 
-        convert_units = conversion_factor_2018_2022, 
-        region_table = region_table_2018_2022, 
-        sample_table = sample_table_2018_2022, 
-        obs_table = obs_table_2018_2022)
+        convert_units = conversion_factor_2022, 
+        region_table = region_table_2022, 
+        sample_table = sample_table_2022, 
+        obs_table = obs_table_2022)
     }
       
     print(paste0("Model '", mod_name, "' fitted. ", 
-                 "Formula: '", f, "'. Key: '", k, "'."))
+                 "Formula: '~1'. Key: '", k, "'."))
     
     # Sla gefitte model op
     assign(mod_name, det_model)
@@ -3265,18 +3265,18 @@ for (spec in names(distance_dfs_2018_2022_simpel_new)) {
   names(out_models) <- model_names
   
   # Put models and model names in list 
-  final_models_simpel <- c(final_models_simpel, list(out_models))
-  final_models_simpel_names <- c(final_models_simpel_names, spec)
+  final_models_simpel_2022 <- c(final_models_simpel_2022, list(out_models))
+  final_models_simpel_2022_names <- c(final_models_simpel_2022_names, spec)
 }
-names(final_models_simpel) <- final_models_simpel_names
+names(final_models_simpel_2022) <- final_models_simpel_2022_names
 ```
 
-```{r, results = 'asis', eval=FALSE}
-for (naam in names(final_models_simpel)) {
+```{r, results = 'asis'}
+for (naam in names(final_models_simpel_2022)) {
   titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
                                  perl = TRUE)), collapse = " ")
   print(
-  summarize_ds_models2(final_models_simpel[[naam]]) %>%
+  summarize_ds_models2(final_models_simpel_2022[[naam]]) %>%
     kable(caption = titel)
   )
   cat("\n")
@@ -3284,60 +3284,51 @@ for (naam in names(final_models_simpel)) {
 ```
 
 ```{r, eval=FALSE}
-final_models <- list(
-  Blauwborst = Blauwborst_distmod_2018_2022_hr1_simpel,
-  Bosrietzanger = Bosrietzanger_distmod_2018_2022_hn1_simpel,
-  BruineKiekendief = BruineKiekendief_distmod_2018_2022_hn1_simpel,
-  Buizerd = Buizerd_distmod_2018_2022_hn1_simpel,
-  Ekster = Ekster_distmod_2018_2022_hr1_simpel,
-  Fazant = Fazant_distmod_2018_2022_hr1_simpel,
-  Gaai = Gaai_distmod_2018_2022_hn1_simpel,
-  Geelgors = Geelgors_distmod_2018_2022_hr1_simpel,
-  GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
-  Grasmus = Grasmus_distmod_2018_2022_hn1_simpel,
-  Graspieper = Graspieper_distmod_2018_2022_hn1_simpel,
-  GrauweGors = GrauweGors_distmod_2018_2022_hn1_simpel,
-  GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1_simpel,
-  Groenling = Groenling_distmod_2018_2022_hn1_simpel,
-  GroteBonteSpecht = GroteBonteSpecht_distmod_2018_2022_hn1_simpel,
-  Haas = Haas_distmod_2018_2022_hr1_simpel,
-  Heggenmus = Heggenmus_distmod_2018_2022_hn1_simpel,
-  Holenduif = Holenduif_distmod_2018_2022_hn1_simpel,
-  Houtduif = Houtduif_distmod_2018_2022_hn3,
-  Huismus = Huismus_distmod_2018_2022_hn3,
-  Kauw = Kauw_distmod_2018_2022_hn1_simpel,
-  Kievit = Kievit_distmod_2018_2022_hr1_simpel,
-  KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1_simpel,
-  Kneu = Kneu_distmod_2018_2022_hn1_simpel,
-  Knobbelzwaan = Knobbelzwaan_distmod_2018_2022_hn1_simpel,
-  Koolmees = Koolmees_distmod_2018_2022_hn1_simpel,
-  Kwartel = Kwartel_distmod_2018_2022_hn1_simpel,
-  Meerkoet = Meerkoet_distmod_2018_2022_hn1_simpel,
-  Merel = Merel_distmod_2018_2022_hr1_simpel,
-  Patrijs = Patrijs_distmod_2018_2022_hn1_simpel,
-  Pimpelmees = Pimpelmees_distmod_2018_2022_hn1_simpel,
-  Putter = Putter_distmod_2018_2022_hn1_simpel,
-  Rietgors = Rietgors_distmod_2018_2022_hn1_simpel,
-  Rietzanger = Rietzanger_distmod_2018_2022_hn1_simpel,
-  Ringmus = Ringmus_distmod_2018_2022_hr1_simpel,
-  Roek = Roek_distmod_2018_2022_hr1_simpel,
-  Roodborst = Roodborst_distmod_2018_2022_hn1_simpel,
-  Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hn1_simpel,
-  Spotvogel = Spotvogel_distmod_2018_2022_hn1_simpel,
-  Spreeuw = Spreeuw_distmod_2018_2022_hr1_simpel,
-  Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
-  Torenvalk = Torenvalk_distmod_2018_2022_hn1_simpel,
-  Tuinfluiter = Tuinfluiter_distmod_2018_2022_hn1_simpel,
-  TurkseTortel = TurkseTortel_distmod_2018_2022_hr1_simpel,
-  Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
-  Vink = Vink_distmod_2018_2022_hn1_simpel,
-  WildeEend = WildeEend_distmod_2018_2022_hn1_simpel,
-  Winterkoning = Winterkoning_distmod_2018_2022_hn1_simpel,
-  WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1_simpel,
-  Zanglijster = Zanglijster_distmod_2018_2022_hr1_simpel,
-  ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1_simpel,
-  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2018_2022_hn1_simpel,
-  Zwartkop = Zwartkop_distmod_2018_2022_hn1_simpel)
+final_models_2022 <- list(
+  Buizerd = Buizerd_distmod_2022_hr1,
+  Ekster = Ekster_distmod_2022_hr1,
+  Fazant = Fazant_distmod_2022_hr7,
+  Gaai = Gaai_distmod_2022_hn1,
+  Geelgors = Geelgors_distmod_2022_hr1,
+  GeleKwikstaart = GeleKwikstaart_distmod_2022_hr1,
+  Grasmus = Grasmus_distmod_2022_hr10,
+  GrauweGors = GrauweGors_distmod_2022_hn1,
+  GroeneSpecht = GroeneSpecht_distmod_2022_hr1,
+  Groenling = Groenling_distmod_2022_hn1,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hn1,
+  GroteLijster = GroteLijster_distmod_2022_hn1,
+  Haas = Haas_distmod_2022_hn3,
+  Heggenmus = Heggenmus_distmod_2022_hn1,
+  Holenduif = Holenduif_distmod_2022_hn1,
+  Houtduif = Houtduif_distmod_2022_hr7,
+  Huismus = Huismus_distmod_2022_hn6,
+  Kauw = Kauw_distmod_2022_hn1,
+  Kievit = Kievit_distmod_2022_hr1,
+  KleineKarekiet = KleineKarekiet_distmod_2022_hr1,
+  Kneu = Kneu_distmod_2022_hn6,
+  Koolmees = Koolmees_distmod_2022_hn1,
+  Kwartel = Kwartel_distmod_2022_hn1,
+  Meerkoet = Meerkoet_distmod_2022_hr1,
+  Merel = Merel_distmod_2022_hn7,
+  Pimpelmees = Pimpelmees_distmod_2022_hr1,
+  Rietzanger = Rietzanger_distmod_2022_hr1,
+  Ringmus = Ringmus_distmod_2022_hn1,
+  Roodborst = Roodborst_distmod_2022_hn1,
+  Roodborsttapuit = Roodborsttapuit_distmod_2022_hr1,
+  Spreeuw = Spreeuw_distmod_2022_hn1,
+  Tjiftjaf = Tjiftjaf_distmod_2022_hn2,
+  Torenvalk = Torenvalk_distmod_2022_hr5,
+  TurkseTortel = TurkseTortel_distmod_2022_hr1,
+  Veldleeuwerik = Veldleeuwerik_distmod_2022_hr7,
+  Vink = Vink_distmod_2022_hn8,
+  WildeEend = WildeEend_distmod_2022_hn1,
+  Winterkoning = Winterkoning_distmod_2022_hr8,
+  WitteKwikstaart = WitteKwikstaart_distmod_2022_hn2,
+  Zanglijster = Zanglijster_distmod_2022_hn2,
+  ZwarteKraai = ZwarteKraai_distmod_2022_hr3,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2022_hn2,
+  Zwartkop = Zwartkop_distmod_2022_hn2
+)
 ```
 
 ### Model fit per soort
