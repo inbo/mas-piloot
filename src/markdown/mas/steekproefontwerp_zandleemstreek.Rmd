@@ -378,12 +378,16 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
 
 ### Exclusie op basis van zichtbaarheid
 
-Berekening cumulatieve zichtbaarheidsindex binnen straal van 25 m rond telpunt (zone bewegingsvrijheid van de waarnemer) in een raster (resolutie 5 m) van locaties die 10 m van elkaar liggen. Door middel van Digital Surface Model (DSM) en Digital Terrain Model (DTM). Aanpassing aan **GVI** package. Zie: `visibility.Rmd`.
+Berekening cumulatieve zichtbaarheidsindex binnen straal van 25 m rond telpunt (zone bewegingsvrijheid van de waarnemer) in een raster (resolutie 5 m) van locaties die 10 m van elkaar liggen.
+Door middel van Digital Surface Model (DSM) en Digital Terrain Model (DTM).
+Aanpassing aan **GVI** package.
+Zie: `visibility.Rmd`.
 
-In de pipeline werd gebruik gemaakt van batching per 200 telpunten om rekentijd in te perken. Zie:  
-https://docs.ropensci.org/tarchetypes/reference/tar_group_size.html  
-https://books.ropensci.org/targets/dynamic.html#performance-and-batching  
-  
+In de pipeline werd gebruik gemaakt van batching per 200 telpunten om rekentijd in te perken.
+Zie:\
+<https://docs.ropensci.org/tarchetypes/reference/tar_group_size.html>\
+<https://books.ropensci.org/targets/dynamic.html#performance-and-batching>
+
 We verwijderen telpunten waar de cumulatieve 'viewshed of visibility' kleiner is dan 0.10.
 
 ```{r}
@@ -402,7 +406,6 @@ ggplot(plus_visibility) +
   geom_vline(xintercept = 0.1, colour = "firebrick") +
   scale_x_continuous(breaks = seq(0, 1, 0.1))
 ```
-
 
 ## Berekening volledig gekende variabelen die relatie hebben met respons
 
@@ -621,38 +624,35 @@ Daar werd bv in de Moeren geen rekening mee gehouden, en werden erg veel SB BOs 
 
 We nemen kerngebieden en zoekzones samen als onderzoeksgebied en alles hierbuiten beschouwen we als controle.
 Als SBP laag gebruiken we perimeter SBP akkervogels, SBP grauwe kiekendief, SBP bruine kiekendief, SBP zomertortel en SBP hamster.
-De SBP laag voor de specifieke soorten werd als volgt samengesteld:  
+De SBP laag voor de specifieke soorten werd als volgt samengesteld:
 
 -   De nieuwe (door INBO voorgestelde) nieuwe perimeter voor SBP Grauwe kiekendief. Dat is nog niet goedgekeurd, en nog niet van kracht, dus enkel ter voorbereiding van de toekomstige steekproef. (mail Johannes 2023-02-14)
 -   De oude perimeter van SBP Grauwe kiekendief (in gebruik van 2018 t/m 2022). (mail Johannes 2023-02-14)
--   SPB's andere soorten (download 2023-02-14): https://www.vlaanderen.be/datavindplaats/catalogus/soortenbeschermingsprogrammas
+-   SPB's andere soorten (download 2023-02-14): <https://www.vlaanderen.be/datavindplaats/catalogus/soortenbeschermingsprogrammas>
 
+De kaartlagen bevinden zich in de MAS drive map onder layers \> perimeters SBPs
 
-De kaartlagen bevinden zich in de MAS drive map onder layers > perimeters SBPs  
-  
-Deze werden tot 1 bestand samengevoegd met volgende code:  
-  
-```
-layer1 <- st_read("C:/Users/ward_langeraert/Downloads/INBO.A.4291_bijlage1/Kerngebied_SBP_2_INBO.shp")
-layer2 <- st_read("C:/Users/ward_langeraert/Downloads/INBO.A.4291_bijlage1/PM_SBP_2_INBO.shp")
-layer3 <- st_read("C:/Users/ward_langeraert/Downloads/PMZ_Kernzone_Grauwe_kiek_sbp/lu_sbp_pgs.shp")
-layer4 <- st_read("C:/Users/ward_langeraert/Downloads/lu_sbp_pgs/lu_sbp_pgs.shp")
+Deze werden tot 1 bestand samengevoegd met volgende code:
 
-layer12 <- bind_rows(layer1, layer2) %>% 
-  summarise() %>%
-  mutate(soort = "Grauwe kiekendief", 
-         gebied = "nieuw 2023") %>%
-  select(everything(), geometry)
-layer123 <- bind_rows(layer12, layer3 %>% 
-                        filter(soort == "Grauwe kiekendief") %>%
-                        select(soort, gebied))
+    layer1 <- st_read("C:/Users/ward_langeraert/Downloads/INBO.A.4291_bijlage1/Kerngebied_SBP_2_INBO.shp")
+    layer2 <- st_read("C:/Users/ward_langeraert/Downloads/INBO.A.4291_bijlage1/PM_SBP_2_INBO.shp")
+    layer3 <- st_read("C:/Users/ward_langeraert/Downloads/PMZ_Kernzone_Grauwe_kiek_sbp/lu_sbp_pgs.shp")
+    layer4 <- st_read("C:/Users/ward_langeraert/Downloads/lu_sbp_pgs/lu_sbp_pgs.shp")
 
-layer_sbp <- bind_rows(layer123, layer4 %>% 
-                         select(soort, gebied))
+    layer12 <- bind_rows(layer1, layer2) %>% 
+      summarise() %>%
+      mutate(soort = "Grauwe kiekendief", 
+             gebied = "nieuw 2023") %>%
+      select(everything(), geometry)
+    layer123 <- bind_rows(layer12, layer3 %>% 
+                            filter(soort == "Grauwe kiekendief") %>%
+                            select(soort, gebied))
 
-st_write(layer_sbp,
-         path_to_sbp_akkervogels("sbp_overige_soorten.shp"))
-```
+    layer_sbp <- bind_rows(layer123, layer4 %>% 
+                             select(soort, gebied))
+
+    st_write(layer_sbp,
+             path_to_sbp_akkervogels("sbp_overige_soorten.shp"))
 
 ```{r}
 sbp_overig <- 
@@ -749,7 +749,8 @@ opps %>%
   kable(digits = 2)
 ```
 
-Het oppervlakte aandeel aan SBP's binnen het steekproefkader. Som per telcirkel:
+Het oppervlakte aandeel aan SBP's binnen het steekproefkader.
+Som per telcirkel:
 
 ```{r}
 binnen_sbp <- st_buffer(steekproefkader_finaal, 300) %>%
@@ -784,7 +785,8 @@ opps %>%
   kable(digits = 2)
 ```
 
-Het oppervlakte aandeel aan SBP's binnen het steekproefkader. Union van telcirkels:
+Het oppervlakte aandeel aan SBP's binnen het steekproefkader.
+Union van telcirkels:
 
 ```{r}
 binnen_sbp <- st_buffer(steekproefkader_finaal, 300) %>%
@@ -872,7 +874,8 @@ st_area(selectie_openheid_klasses) / units::set_units(300 * 300 * pi, m^2)
 
 Minima onder $\times 4$ scenario.
 4 strata (OL, HOL en binnen, buiten sbp) met minstens 50 telpunten per stratum.
-$\times 4$ betekend halvering betrouwbaarheidsinterval $\rightarrow$ minimum sample size is 200 telpunten per stratum. Niet echt belangrijk hier omdat we een maximum steekproefkader trekken en de tellers gewoon zoveel mogelijk punten laten doen (volgnummer).
+$\times 4$ betekend halvering betrouwbaarheidsinterval $\rightarrow$ minimum sample size is 200 telpunten per stratum.
+Niet echt belangrijk hier omdat we een maximum steekproefkader trekken en de tellers gewoon zoveel mogelijk punten laten doen (volgnummer).
 
 ```{r}
 allocatie <- tar_read(allocatie_df, store = targets_store) %>%
@@ -1007,27 +1010,38 @@ mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
           alpha.regions = 1) 
 ```
 
-
 # Nabehandeling steekproef
-## Uitdunnen
 
-```{r}
-steekproef_nn <- tar_read(steekproef_nn, store = targets_store) %>%
-  mutate(openheid_sbp = paste(openheid_klasse,
-                             ifelse(is_sbp,
-                                    "binnen plan",
-                                    "buiten plan"))
-         )
-```
+## Version control steekproef(kader)
 
-```{r}
-steekproef_nn %>%
-  st_buffer(dist = 300) %>%
-  mapview(zcol = "openheid_sbp", layer = "stratum") +
-  mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
-```
+Er zijn verschillende opties voor version control in de `targets` pipeline.
+Enkele nuttige links:\
+<https://books.ropensci.org/targets/targets.html#return-value>\
+<https://books.ropensci.org/targets/data.html#cloud-storage>\
+<https://books.ropensci.org/targets/data.html#data-version-control>\
+<https://docs.ropensci.org/gittargets/>\
+<https://docs.ropensci.org/gittargets/articles/git.html>
+
+1.  Hard coding
+    -   Voeg op einde target toe met argument `TRUE` of `FALSE` om bepaalde bestanden weg te schrijven
+    -   Verander argument naar `TRUE` als je finale steekproef wil runnen en zet daarna ev. terug naar `FALSE`
+    -   Versiecontrole met git (check .gitignore)
+2.  Cloud storage
+    -   Amazon of Google
+        -   Account?
+        -   Kosten?
+        -   Lange termijn?
+    -   Vooral voor grote projecten
+3.  Gittargets
+    -   Kan ook voor specifieke objecten: <https://docs.ropensci.org/gittargets/#performance>
+    -   Is het de moeite? Manueel werk --\> waarom niet ineens hard coden? Komt op zelfde neer?
+
+We kiezen voor optie 1.
 
 ## Overlap met bestaande telpunten
 
-We willen een lijst met alle bestaande punten en hun historie (vanaf wanneer beginnen tellen). Zo kunnen we een regel verzinnen om bestaande telpunten over te nemen bij een nieuwe trekking. Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand punt en deze behoort tot hetzelfde stratum, dan wordt het nieuwe punt vervangen door het bestaande punt.
+We willen een lijst met alle bestaande punten en hun historie (vanaf wanneer beginnen tellen).
+Zo kunnen we een regel verzinnen om bestaande telpunten over te nemen bij een nieuwe trekking.
+Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand punt en deze behoort tot hetzelfde stratum, dan wordt het nieuwe punt vervangen door het bestaande punt.
 
+> Opvragen bij SOVON?
