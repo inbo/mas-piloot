@@ -3309,7 +3309,7 @@ final_models_2022 <- list(
   Huismus = Huismus_distmod_2022_hn6,
   Kauw = Kauw_distmod_2022_hn1_simpel,
   Kievit = Kievit_distmod_2022_hr1_simpel,
-  KleineKarekiet = KleineKarekiet_distmod_2022_hr1_simpel,
+  KleineKarekiet = KleineKarekiet_distmod_2022_hn1_simpel,
   Kneu = Kneu_distmod_2022_hn6,
   Koolmees = Koolmees_distmod_2022_hn1_simpel,
   Kwartel = Kwartel_distmod_2022_hn1_simpel,
@@ -3507,7 +3507,7 @@ for (naam in names(final_models_2022)) {
 
 De data voor BruineKiekendief, Roek passen niet voor distance sampling.
 Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand.
-Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
+Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten. Ook hebben ze vaak maar weinig data.
 
 ```{r}
 spec_to_remove <- c("BruineKiekendief", "Roek")
@@ -3519,37 +3519,37 @@ final_models_2022[indices_to_remove] <- NULL
 
 #### Binned distance sampling
 
-De detectiekans voor Blauwborst, Bosrietzanger, Graspieper, Groenling, Haas, Holenduif, Roodborsttapuit, Torenvalk, Tuinfluiter en Veldleeuwerik neemt soms weer toe na een bepaalde afstand.
+```{r}
+spec_to_bin_2022 <- list(GeleKwikstaart = 4,
+                      Graspieper = 3,
+                      GrauweGors = 3,
+                      GroteBonteSpecht = 4,
+                      GroteLijster = 3,
+                      Haas = 4,
+                      Holenduif = 4,
+                      Kauw = 3,
+                      Kievit = 4,
+                      Kwartel = 6,
+                      Rietzanger = 4,
+                      Ringmus = 3,
+                      Veldleeuwerik = 6,
+                      WildeEend = 4,
+                      WitteKwikstaart = 6,
+                      Zanglijster = 4,
+                      ZwarteKraai = 6,
+                      ZwarteRoodstaart = 4,
+                      Zwartkop = 6)
+```
+
+De detectiekans voor `r names(spec_to_bin_2022)` neemt soms weer toe na een bepaalde afstand.
 Voor deze soorten groeperen we de afstanden per 50 (6 bins), 75 (4 bins) of 100 m (3 bins).
 
 ```{r}
-spec_to_bin <- list(Blauwborst = 3,
-                    GeleKwikstaart = 4,
-                    Graspieper = 3,
-                    GrauweGors = 3,
-                    GroteBonteSpecht = 4,
-                    GroteLijster = 3,
-                    Haas = 4,
-                    Holenduif = 4,
-                    Kauw = 3,
-                    Kievit = 4,
-                    KleineKarekiet = 3,
-                    Kwartel = 6,
-                    Rietzanger = 4,
-                    Ringmus = 3,
-                    Veldleeuwerik = 6,
-                    WildeEend = 4,
-                    WitteKwikstaart = 6,
-                    Zanglijster = 4,
-                    ZwarteKraai = 6,
-                    ZwarteRoodstaart = 4,
-                    Zwartkop = 6)
-
 final_models_2022_update <- final_models_2022
 final_models_2022_binned <- list()
 final_models_2022_binned_names <- c()
 
-for (spec in names(spec_to_bin)) {
+for (spec in names(spec_to_bin_2022)) {
   sample_table_2022 <- sample_tables_2022[[spec]]
   obs_table_2022 <- obs_tables_2022[[spec]]
   ds_model <- final_models_2022[[spec]]
@@ -3557,7 +3557,7 @@ for (spec in names(spec_to_bin)) {
   k <- ds_model$ddf$ds$aux$ddfobj$type
   f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
   i <- which(as.character(forms_2022) == gsub("\\s", "", f))
-  cp <- seq(0, 300, length.out = spec_to_bin[[spec]] + 1)
+  cp <- seq(0, 300, length.out = spec_to_bin_2022[[spec]] + 1)
   
   # Naam voor model
   mod_name <- paste0(spec, "_distmod_2022_", k, i, "_binned")
