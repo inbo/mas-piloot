@@ -3146,7 +3146,7 @@ plot_densiteit <- function(dsmodel, soort, analyse) {
         geom_point(size = 4) + 
         geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25) +
         scale_y_continuous(limits = c(0, NA)) +
-        facet_wrap(~regio, scales = "free_y") +
+        facet_wrap(~regio) +
         theme(legend.position = "")
   } else {
     summary_results_dsmodel <- summary_results_dsmodel %>%
@@ -3160,7 +3160,7 @@ plot_densiteit <- function(dsmodel, soort, analyse) {
         geom_point(size = 4) + 
         geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25) +
         scale_y_continuous(limits = c(0, NA)) +
-        facet_wrap(~regio, scales = "free_y") +
+        facet_wrap(~regio) +
         theme(legend.position = "")
   }
   
