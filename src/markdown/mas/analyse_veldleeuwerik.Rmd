@@ -3503,5 +3503,99 @@ for (naam in names(final_models_2022)) {
 }
 ```
 
+#### Problematische soorten
+
+De data voor GroeneSpecht, GroteBonteSpecht passen niet voor distance sampling.
+Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand.
+Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
+
+```{r}
+spec_to_remove <- c("GroeneSpecht", "GroteBonteSpecht")
+indices_to_remove <- which(names(final_models_2022) %in% spec_to_remove)
+
+# Remove
+final_models_2022[indices_to_remove] <- NULL
+```
+
+#### Binned distance sampling
+
+De detectiekans voor Blauwborst, Bosrietzanger, Graspieper, Groenling, Haas, Holenduif, Roodborsttapuit, Torenvalk, Tuinfluiter en Veldleeuwerik neemt soms weer toe na een bepaalde afstand.
+Voor deze soorten groeperen we de afstanden per 100 meter voor Kwartel en 50 meter voor de andere soorten.
+
+```{r}
+spec_to_bin <- list(Blauwborst = 6,
+                    Bosrietzanger = 3,
+                    Graspieper = 4,
+                    Groenling = 3,
+                    Haas = 4,
+                    Holenduif = 3,
+                    Roodborsttapuit = 4,
+                    Torenvalk = 6,
+                    Tuinfluiter = 3,
+                    Veldleeuwerik = 6)
+
+final_models_2022_update <- final_models_2022
+final_models_2022_binned <- list()
+final_models_2022_binned_names <- c()
+
+for (spec in names(spec_to_bin)) {
+  sample_table_2022 <- sample_tables_2022[[spec]]
+  obs_table_2022 <- obs_tables_2022[[spec]]
+  ds_model <- final_models_2022[[spec]]
+  
+  k <- ds_model$ddf$ds$aux$ddfobj$type
+  f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+  i <- which(as.character(forms_2022) == gsub("\\s", "", f))
+  cp <- seq(0, 300, length.out = spec_to_bin[[spec]] + 1)
+  
+  # Naam voor model
+  mod_name <- paste0(spec, "_distmod_2022_", k, i, "_binned")
+  file <- paste0(model_path, mod_name, ".rds")
+  
+  # Sla model op als het nog niet bestaat en lees het in anderzijds
+  if (file.exists(file)) {
+    det_model <- readRDS(file)
+    assign(mod_name, det_model)
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+  } else {
+    if (f == "~1") {
+      distance_data <- distance_dfs_2022_simpel_new[[spec]]
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), max_adjustments = 2, 
+        monotonicity = "strict", cutpoints = cp,
+        truncation = 300, transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor_2022, 
+        region_table = region_table_2022, 
+        sample_table = sample_table_2022, 
+        obs_table = obs_table_2022)
+    } else {
+      distance_data <- distance_dfs_2022_final[[spec]]
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, cutpoints = cp,
+        convert_units = conversion_factor_2022, 
+        region_table = region_table_2022, 
+        sample_table = sample_table_2022, 
+        obs_table = obs_table_2022)
+    }
+    
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+    
+    # Sla gefitte model op
+    assign(mod_name, det_model)
+    saveRDS(det_model, file = file)
+  }
+  # Put models and model names in list 
+  final_models_2022_update[[spec]] <- det_model
+  
+  final_models_2022_binned <- c(final_models_2022_binned, list(det_model))
+  final_models_2022_binned_names <- c(final_models_2022_binned_names, spec)
+}
+names(final_models_2022_binned) <- final_models_2022_binned_names
+```
+
+We controleren nieuwe fit.
 
 # Referenties
