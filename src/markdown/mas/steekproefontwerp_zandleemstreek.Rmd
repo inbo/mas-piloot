@@ -885,9 +885,9 @@ Target sample size is het maximaal aantal plots die binnen de OL, HOL perimeter 
 st_area(selectie_openheid_klasses) / units::set_units(300 * 300 * pi, m^2)
 ```
 
-Minima onder $\times 4$ scenario.
+Minima onder x4 scenario.
 4 strata (OL, HOL en binnen, buiten sbp) met minstens 50 telpunten per stratum.
-$\times 4$ betekend halvering betrouwbaarheidsinterval $\rightarrow$ minimum sample size is 200 telpunten per stratum.
+x4 betekend halvering betrouwbaarheidsinterval --> minimum sample size is 200 telpunten per stratum.
 Niet echt belangrijk hier omdat we een maximum steekproefkader trekken en de tellers gewoon zoveel mogelijk punten laten doen (volgnummer).
 
 ```{r}
