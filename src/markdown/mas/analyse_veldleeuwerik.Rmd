@@ -2265,10 +2265,11 @@ stratum_cijfers_lijst_2022 <- lapply(seq_along(distance_dfs_2022_final),
              n_openheid = n_distinct(openheid) > 1,
              n_sbp = n_distinct(sbp) > 1) %>%
       group_by(sbp) %>%
-      mutate(n_interactie = n_distinct(openheid)) %>%
+      mutate(n_interactie_openheid = n_distinct(openheid),
+             n_interactie_regio = n_distinct(regio)) %>%
       ungroup() %>%
-      mutate(n_int_openheid_sbp = !(min(n_interactie) == 1 | n_sbp == FALSE)) %>%
-      mutate(n_int_regio_sbp = ifelse(n_regio == TRUE & n_sbp == TRUE, TRUE, FALSE)) %>%
+      mutate(n_int_openheid_sbp = !(min(n_interactie_openheid) == 1 | n_sbp == FALSE),
+             n_int_regio_sbp = !(min(n_interactie_regio) == 1 | n_sbp == FALSE)) %>%
       distinct(soort, n, n_regio, n_openheid, n_sbp, n_int_openheid_sbp, 
                n_int_regio_sbp)
     
@@ -2541,7 +2542,8 @@ keys <- c("hn", "hr")
 model_path <- "./src/markdown/mas/distance_models/"
 
 # Verwijder
-index_to_remove <- which(names(distance_dfs_2022_final) %in% c("Buizerd", "GroeneSpecht", "Kauw", "Winterkoning", "ZwarteRoodstaart"))
+index_to_remove <- which(names(distance_dfs_2022_final) %in% c("Buizerd", "Winterkoning",
+                                                               "ZwarteRoodstaart"))
 #[-index_to_remove]
 
 # Loop over species
