@@ -41,7 +41,7 @@ targets_store <- here("src", "targets", "mas_steekproef_zavelberg", "_targets")
 
 # Vooraf
 
-Voeg dit toe aan .Renviron file:\
+Voeg dit toe aan het .Renviron bestand:  
 OSMEXT_DOWNLOAD_DIRECTORY="C:/R/osmdata"
 
 Dat bestand kan je openen met de volgende code:
@@ -1010,9 +1010,9 @@ balansvergelijking %>%
 
 We zien dat de steekproef vanaf de eerste 50 en nog beter de eerste 100 punten per stratum een goede afspiegeling is van de volledige populatie (boxplots voor steekproef eerste punten en volledig steekproefkader zijn zeer gelijkend).
 
-## Visualisatie
+## Visualisatie steekproef
 
-Waar liggen de punten?
+Waar liggen de eerste 50, 100, 200 punten?
 
 ```{r}
 mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
