@@ -3770,4 +3770,34 @@ for (naam in names(final_models_2022_binned)) {
 ```
 
 
+### Resultaten
+
+We hebben de densiteiten kunnen schatten van `r length(final_models_2022_update)` soorten.
+De volgende tabel geeft een overzicht van de soorten en modellen die gefit zijn.
+
+```{r}
+results <- lapply(seq_along(final_models_2022_update), 
+  function(i) {
+    ds_model <- final_models_2022_update[[i]]
+    k <- gsub(" key function", "", Distance:::model.description(ds_model$ddf))
+    f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+    b <- ds_model$ddf$meta.data$binned
+    p <- as.numeric(summary(ds_model)$ds$average.p)
+    se <- as.numeric(summary(ds_model)$ds$average.p.se)
+    
+    data.frame(soort = names(final_models_2022_update[i]),
+               key = k, formule = f, binned = b, Pa_hat = p, SE = se)
+  })
+
+do.call(rbind, results) %>%
+  kable(digits = 3)
+```
+
+Ten slotte schrijven de de finale modellen weg.
+
+```{r}
+saveRDS(final_models_2022_update, file = paste0(model_path, "models_2022.rds"))
+```
+
+
 # Referenties
