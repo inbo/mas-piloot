@@ -39,6 +39,15 @@ source(here("src", "R", "wfs_wcs.R"))
 targets_store <- here("src", "targets", "mas_steekproef_zavelberg", "_targets")
 ```
 
+# Vooraf
+
+Voeg dit toe aan .Renviron file:\
+OSMEXT_DOWNLOAD_DIRECTORY="C:/R/osmdata"
+
+Dat bestand kan je openen met de volgende code:
+
+`usethis::edit_r_environ()`
+
 # Afbakening steekproefkader
 
 ## Perimeter bepalen
@@ -88,7 +97,7 @@ Werkwijze:
     -   HGL halfgesloten landschap (71,6° - 77,3°)
     -   GL (\< 71,6°) gesloten landschap
 
-We selecteren OL en HOL binnen de perimeters.
+We selecteren OL en HOL binnen de perimeter.
 
 ```{r}
 selectie_openheid_klasses <- tar_read(selectie_openheid_klasses, 
@@ -179,7 +188,7 @@ Verder vereenvoudigen van de polygonenkaart door:
 -   overtollige vertices verwijderen met tolerantie 10 m
 -   alle gaten (polygon holes) verwijderen
 
-In groen de exclusiekaart en groen OL en HOL binnen de perimeter.
+In groen de exclusiekaart en rood OL en HOL binnen de perimeter.
 
 ```{r}
 exclusie_osm_landgebruiken <- tar_read(exclusie_osm_landgebruiken,
@@ -280,16 +289,20 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
   mapview(st_crop(paden, detail), legend = FALSE)
 ```
 
-Overzicht totale lengte per categorie:
+Overzicht lengte per categorie:
 
 ```{r lengte-paden}
-paden %>%
+paden_tabel <- paden %>%
   group_by(Naam, key, value) %>%
   summarise(.groups = "drop") %>%
   mutate(lengte_km = as.numeric(st_length(.)) / 1e3) %>%
-  st_drop_geometry() %>%
+  st_drop_geometry()
+
+paden_tabel %>%
   kable(digits = 1)
 ```
+
+De totale lengte aan paden is `r sum(paden_tabel$lengte_km)` km.
 
 ## Punten langs de wegen en paden
 
@@ -297,7 +310,7 @@ Werkwijze:
 
 -   Langs alle paden worden op regelmatige afstanden van 50 m punten gelegd
 -   Daarna worden punten die op minder dan 40 m van elkaar liggen ruimtelijk gegroepeerd (dit gebeurt wanneer verschillende paden elkaar kruisen of op korte afstand parallel aan elkaar liggen) en uit elk van deze clusters wordt één punt overgehouden
--   potentiële telpunten moeten op minstens 300 m van de grens van de perimeter gelegen zijn
+-   Potentiële telpunten moeten op minstens 300 m van de grens van de perimeter gelegen zijn
 
 ```{r}
 punten <- tar_read(punten, store = targets_store)
@@ -388,7 +401,7 @@ Zie:\
 <https://docs.ropensci.org/tarchetypes/reference/tar_group_size.html>\
 <https://books.ropensci.org/targets/dynamic.html#performance-and-batching>
 
-We verwijderen telpunten waar de cumulatieve 'viewshed of visibility' kleiner is dan 0.10.
+We verwijderen telpunten waar de cumulatieve 'viewshed of visibility' (cvvi) kleiner is dan 0.10.
 
 ```{r}
 punten_zichtbaarheid <- tar_read(punten_zichtbaarheid, store = targets_store)
@@ -825,7 +838,7 @@ opps %>%
   kable(digits = 2)
 ```
 
-### Overzicht
+### Overzicht deel van steekproefkader
 
 ```{r}
 steekproefkader_finaal_strata <- steekproefkader_finaal %>%
@@ -866,7 +879,7 @@ In het algemeen kunnen we voor een kostenoptimale allocatie gebruik maken van ee
 
 ***Hoe is het nu gedaan?***
 
-Target sample size is het maximaal aantal plots die binnen de OL, HOL perimeters kunnen gelegd worden.
+Target sample size is het maximaal aantal plots die binnen de OL, HOL perimeter kunnen gelegd worden.
 
 ```{r}
 st_area(selectie_openheid_klasses) / units::set_units(300 * 300 * pi, m^2)
