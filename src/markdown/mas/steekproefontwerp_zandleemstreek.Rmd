@@ -1012,11 +1012,12 @@ We zien dat de steekproef vanaf de eerste 50 en nog beter de eerste 100 punten p
 
 ## Visualisatie steekproef
 
-Waar liggen de eerste 50, 100, 200 punten?
+Waar liggen de eerste 50, 100, 200 punten per stratum?
 
 ```{r}
 mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
-  mapview(first_samples(steekproef, 200) %>% st_buffer(dist = 300), alpha.regions = 1) +
+  mapview(first_samples(steekproef, 200) %>% st_buffer(dist = 300), 
+          alpha.regions = 1) +
   mapview(first_samples(steekproef, 100) %>% st_buffer(dist = 300), 
           col.regions = "green", alpha.regions = 1) +
   mapview(first_samples(steekproef, 50) %>% st_buffer(dist = 300), 
