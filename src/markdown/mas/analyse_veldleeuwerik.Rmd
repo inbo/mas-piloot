@@ -3118,6 +3118,72 @@ do.call(rbind, results) %>%
   kable(digits = 3)
 ```
 
+Visueel voor elk stratum:
+
+```{r}
+plot_densiteit <- function(dsmodel, soort, analyse) {
+  summary_dsmodel <- summary(dsmodel)
+  
+  summary_results_dsmodel <- bind_rows(
+      summary_dsmodel$dht$individuals$D %>%
+        mutate(variable = "density",
+               type = "Aantal broedparen per 100 ha"),
+      summary_dsmodel$dht$individuals$N %>%
+        mutate(variable = "abundance",
+               type = "Totaal aantal broedparen")
+      ) %>%
+      filter(Label != "Total")
+  
+  if (analyse == "2018_2022") {
+     summary_results_dsmodel <- summary_results_dsmodel %>%
+      separate(Label, into = c("regio", "jaar"), sep = " - ")
+    
+    p <- summary_results_dsmodel %>%
+      filter(variable == "density") %>%
+      mutate(jaar = factor(jaar, ordered = TRUE)) %>%
+      replace(. == 0, NA) %>%
+      ggplot(aes(x = jaar, y = Estimate, colour = regio)) + 
+        geom_point(size = 4) + 
+        geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25) +
+        scale_y_continuous(limits = c(0, NA)) +
+        facet_wrap(~regio, scales = "free_y") +
+        theme(legend.position = "")
+  } else {
+    summary_results_dsmodel <- summary_results_dsmodel %>%
+      separate(Label, into = c("regio", "openheid", "sbp"), sep = " - ")
+    
+    p <- summary_results_dsmodel %>%
+      filter(variable == "density") %>%
+      mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
+      replace(. == 0, NA) %>%
+      ggplot(aes(x = stratum, y = Estimate, colour = regio)) + 
+        geom_point(size = 4) + 
+        geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25) +
+        scale_y_continuous(limits = c(0, NA)) +
+        facet_wrap(~regio, scales = "free_y") +
+        theme(legend.position = "")
+  }
+  
+  if (soort == "Haas") {
+    p + labs(x = "", y = "Aantal individuen per 100 ha",
+           title = soort)
+  } else {
+    p + labs(x = "", y = "Aantal broedparen per 100 ha",
+           title = soort)
+  }
+}
+```
+
+```{r}
+for (i in seq_along(final_models_update)) {
+  titel <- paste(unlist(strsplit(names(final_models_update)[i], 
+                 "(?<=[a-z])(?=[A-Z])", perl = TRUE)), collapse = " ")
+  p <- plot_densiteit(dsmodel = final_models_update[[i]], soort = titel, 
+                      analyse = "2018_2022")
+  print(p)
+}
+```
+
 Ten slotte schrijven de de finale modellen weg.
 
 ```{r}
@@ -3791,6 +3857,18 @@ results <- lapply(seq_along(final_models_2022_update),
 
 do.call(rbind, results) %>%
   kable(digits = 3)
+```
+
+Visueel voor elk stratum:
+
+```{r}
+for (i in seq_along(final_models_2022_update)) {
+  titel <- paste(unlist(strsplit(names(final_models_2022_update)[i], 
+                 "(?<=[a-z])(?=[A-Z])", perl = TRUE)), collapse = " ")
+  p <- plot_densiteit(dsmodel = final_models_2022_update[[i]], soort = titel, 
+                      analyse = "2022")
+  print(p)
+}
 ```
 
 Ten slotte schrijven de de finale modellen weg.
