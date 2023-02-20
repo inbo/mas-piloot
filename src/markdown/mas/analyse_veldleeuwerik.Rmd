@@ -2426,7 +2426,7 @@ forms2[sapply(forms2, is.null)] <- NULL
 forms_2018_2022 <- c("~1", forms1, forms2)
 ```
 
-Voor Bruine kiekendief kunnen we geen model fitten.
+Voor Bruine Kiekendief kunnen we geen model fitten. Voor Bruine Kiekendief zonder broedcode kunnen we ~regio*jaar niet fitten.
 
 ```{r}
 all_models <- list()
@@ -2460,6 +2460,10 @@ for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
     form_spec[sapply(form_spec, function(i) grepl("jaar", i))] <- NULL
   }
   if (!pull(form_df[,"n_interactie"])) {
+    form_spec[sapply(form_spec, function(i) grepl("\\*", i))] <- NULL
+  }
+  
+  if (spec == "BruineKiekendief_zonder_broedcode") {
     form_spec[sapply(form_spec, function(i) grepl("\\*", i))] <- NULL
   }
 
@@ -2551,7 +2555,7 @@ forms2 <- forms2[-match("~regio*openheid", forms2)]
 forms_2022 <- c("~1", forms1, forms2)
 ```
 
-Voor Buizerd en Winterkoning lukt het niet om ~regio+openheid en ~regio+sbp+openheid te fitten.
+Voor Bruine Kiekendief zonder broedcode kunnen we geen model fitten. Voor Buizerd en Winterkoning lukt het niet om ~regio+openheid en ~regio+sbp+openheid te fitten.
 
 ```{r}
 all_models_2022 <- list()
@@ -2563,12 +2567,11 @@ keys <- c("hn", "hr")
 # Sla de gefitte models op op deze locatie
 model_path <- "./src/markdown/mas/distance_models/"
 
-# Verwijder
-#index_to_remove <- which(names(distance_dfs_2022_final) %in% c("Winterkoning"))
-#[-index_to_remove]
+# Verwijder BruineKiekendief
+index_kiek_2022 <- which(names(distance_dfs_2022_final) == "BruineKiekendief_zonder_broedcode")
 
 # Loop over species
-for (spec in names(distance_dfs_2022_final)) {
+for (spec in names(distance_dfs_2022_final)[-index_kiek_2022]) {
   distance_data_2022 <- distance_dfs_2022_final[[spec]]
   sample_table_2022 <- sample_tables_2022[[spec]]
   obs_table_2022 <- obs_tables_2022[[spec]]
@@ -2684,46 +2687,50 @@ for (naam in names(all_models)) {
 ```
 
 ```{r}
-final_models_complex <- list(Blauwborst = Blauwborst_distmod_2018_2022_hn1,
-                     Buizerd = Buizerd_distmod_2018_2022_hn1,
-                     Ekster = Ekster_distmod_2018_2022_hr1,
-                     Fazant = Fazant_distmod_2018_2022_hr1,
-                     Gaai = Gaai_distmod_2018_2022_hn1,
-                     Geelgors = Geelgors_distmod_2018_2022_hr1,
-                     GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
-                     Grasmus = Grasmus_distmod_2018_2022_hn1,
-                     GrauweGors = GrauweGors_distmod_2018_2022_hn1,
-                     GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1,
-                     Haas = Haas_distmod_2018_2022_hr1,
-                     Heggenmus = Heggenmus_distmod_2018_2022_hn1,
-                     Holenduif = Holenduif_distmod_2018_2022_hn1,
-                     Houtduif = Houtduif_distmod_2018_2022_hn3,
-                     Huismus = Huismus_distmod_2018_2022_hn3,
-                     Kauw = Kauw_distmod_2018_2022_hr1,
-                     Kievit = Kievit_distmod_2018_2022_hr1,
-                     KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1,
-                     Kneu = Kneu_distmod_2018_2022_hn1,
-                     Koolmees = Koolmees_distmod_2018_2022_hr1,
-                     Kwartel = Kwartel_distmod_2018_2022_hn1,
-                     Merel = Merel_distmod_2018_2022_hr1,
-                     Patrijs = Patrijs_distmod_2018_2022_hn1,
-                     Rietzanger = Rietzanger_distmod_2018_2022_hn1,
-                     Roek = Roek_distmod_2018_2022_hr1,
-                     Spotvogel = Spotvogel_distmod_2018_2022_hn1,
-                     Spreeuw = Spreeuw_distmod_2018_2022_hr1,
-                     Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
-                     Torenvalk = Torenvalk_distmod_2018_2022_hn1,
-                     TurkseTortel = TurkseTortel_distmod_2018_2022_hr1,
-                     Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
-                     Vink = Vink_distmod_2018_2022_hn1,
-                     WildeEend = WildeEend_distmod_2018_2022_hn1,
-                     Winterkoning = Winterkoning_distmod_2018_2022_hn1,
-                     WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1,
-                     ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1,
-                     Zwartkop = Zwartkop_distmod_2018_2022_hn1)
+final_models_complex <- list(
+  Blauwborst = Blauwborst_distmod_2018_2022_hn1,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2022_hn1,                       
+  Buizerd = Buizerd_distmod_2018_2022_hn1,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2018_2022_hn1,
+  Ekster = Ekster_distmod_2018_2022_hr1,
+  Fazant = Fazant_distmod_2018_2022_hr1,
+  Gaai = Gaai_distmod_2018_2022_hn1,
+  Geelgors = Geelgors_distmod_2018_2022_hr1,
+  GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
+  Grasmus = Grasmus_distmod_2018_2022_hn1,
+  GrauweGors = GrauweGors_distmod_2018_2022_hn1,
+  GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1,
+  Haas = Haas_distmod_2018_2022_hr1,
+  Heggenmus = Heggenmus_distmod_2018_2022_hn1,
+  Holenduif = Holenduif_distmod_2018_2022_hn1,
+  Houtduif = Houtduif_distmod_2018_2022_hn3,
+  Huismus = Huismus_distmod_2018_2022_hn3,
+  Kauw = Kauw_distmod_2018_2022_hr1,
+  Kievit = Kievit_distmod_2018_2022_hr1,
+  KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1,
+  Kneu = Kneu_distmod_2018_2022_hn1,
+  Koolmees = Koolmees_distmod_2018_2022_hr1,
+  Kwartel = Kwartel_distmod_2018_2022_hn1,
+  Merel = Merel_distmod_2018_2022_hr1,
+  Patrijs = Patrijs_distmod_2018_2022_hn1,
+  Rietzanger = Rietzanger_distmod_2018_2022_hn1,
+  Roek = Roek_distmod_2018_2022_hr1,
+  Spotvogel = Spotvogel_distmod_2018_2022_hn1,
+  Spreeuw = Spreeuw_distmod_2018_2022_hr1,
+  Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
+  Torenvalk = Torenvalk_distmod_2018_2022_hn1,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2018_2022_hn1,
+  TurkseTortel = TurkseTortel_distmod_2018_2022_hr1,
+  Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
+  Vink = Vink_distmod_2018_2022_hn1,
+  WildeEend = WildeEend_distmod_2018_2022_hn1,
+  Winterkoning = Winterkoning_distmod_2018_2022_hn1,
+  WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1,
+  ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1,
+  Zwartkop = Zwartkop_distmod_2018_2022_hn1)
 ```
 
-Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen.
+Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen. Steenuil zonder broedcode kan niet gefit worden.
 
 ```{r}
 # Welke soorten moeten niet opnieuw gefit worden?
@@ -2755,8 +2762,11 @@ keys <- c("hn", "hr")
 final_models_simpel <- list()
 final_models_simpel_names <- c()
 
+# Verwijder 
+index_to_remove_simpel <- which(names(distance_dfs_2022_simpel_new) == "Steenuil_zonder_broedcode")
+     
 # Fit opnieuw met simpele dataset
-for (spec in names(distance_dfs_2022_simpel_new)) {
+for (spec in names(distance_dfs_2022_simpel_new)[-index_to_remove_simpel]) {
   distance_data_new <- distance_dfs_2022_simpel_new[[spec]]
   sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
   obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
@@ -2821,9 +2831,12 @@ for (naam in names(final_models_simpel)) {
 ```{r}
 final_models <- list(
   Blauwborst = Blauwborst_distmod_2018_2022_hr1_simpel,
+  BlauweKiekendief_zonder_broedcode = BlauweKiekendief_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Bosrietzanger = Bosrietzanger_distmod_2018_2022_hn1_simpel,
   BruineKiekendief = BruineKiekendief_distmod_2018_2022_hn1_simpel,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Buizerd = Buizerd_distmod_2018_2022_hn1_simpel,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Ekster = Ekster_distmod_2018_2022_hr1_simpel,
   Fazant = Fazant_distmod_2018_2022_hr1_simpel,
   Gaai = Gaai_distmod_2018_2022_hn1_simpel,
@@ -2858,10 +2871,13 @@ final_models <- list(
   Roek = Roek_distmod_2018_2022_hr1_simpel,
   Roodborst = Roodborst_distmod_2018_2022_hn1_simpel,
   Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hn1_simpel,
+  Slechtvalk_zonder_broedcode = Slechtvalk_zonder_broedcode_distmod_2018_2022_hn1_simpel,
+  Sperwer_zonder_broedcode = Sperwer_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Spotvogel = Spotvogel_distmod_2018_2022_hn1_simpel,
   Spreeuw = Spreeuw_distmod_2018_2022_hr1_simpel,
   Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
   Torenvalk = Torenvalk_distmod_2018_2022_hn1_simpel,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Tuinfluiter = Tuinfluiter_distmod_2018_2022_hn1_simpel,
   TurkseTortel = TurkseTortel_distmod_2018_2022_hr1_simpel,
   Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
@@ -3353,6 +3369,7 @@ for (naam in names(all_models_2022)) {
 ```{r}
 final_models_2022_complex <- list(
   Buizerd = Buizerd_distmod_2022_hr1,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2022_hr7,
   Ekster = Ekster_distmod_2022_hr1,
   Fazant = Fazant_distmod_2022_hr7,
   Gaai = Gaai_distmod_2022_hn1,
@@ -3385,6 +3402,7 @@ final_models_2022_complex <- list(
   Spreeuw = Spreeuw_distmod_2022_hn1,
   Tjiftjaf = Tjiftjaf_distmod_2022_hn2,
   Torenvalk = Torenvalk_distmod_2022_hr5,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2022_hr3,
   TurkseTortel = TurkseTortel_distmod_2022_hr1,
   Veldleeuwerik = Veldleeuwerik_distmod_2022_hr7,
   Vink = Vink_distmod_2022_hn8,
@@ -3499,6 +3517,7 @@ final_models_2022 <- list(
   Boomkruiper = Boomkruiper_distmod_2022_hn1_simpel,
   Bosrietzanger = Bosrietzanger_distmod_2022_hn1_simpel,
   BruineKiekendief = BruineKiekendief_distmod_2022_hn1_simpel,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2022_hr1_simpel,
   Buizerd = Buizerd_distmod_2022_hr1_simpel,
   Ekster = Ekster_distmod_2022_hn1_simpel,
   Fazant = Fazant_distmod_2022_hr7,
