@@ -40,6 +40,8 @@
 #' @param n_breaks number of breaks for the bar graph
 #' @param plot_average_fit logical used to indicate whether the fitted average
 #' detection curve should be plotted (default is TRUE)
+#' @param show_data logical used to indicate whether the distance data should be
+#' plotted (default is TRUE)
 #'
 #' @return
 #' For \code{scalevalue}, vector of the scale parameters
@@ -47,7 +49,7 @@
 #' For \code{plot_detection_curve}, ggplot object
 #'
 #' @examples
-#' plot_detection_curve(dist_model, n_breaks = 20)
+#' plot_detection_curve(dist_model)
 #' plot_detection_curve(dist_model, n_breaks = 20, plot_average_fit = FALSE)
 #' plot_detection_curve(dist_model, design_mat = plot_matrix,
 #'                      labels = plot_labels, n_breaks = 15)
@@ -72,7 +74,8 @@ keyfct.hn <- function(distance, key.scale) {
 
 
 plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
-                                 n_breaks = 15, plot_average_fit = TRUE) {
+                                 n_breaks = NULL, plot_average_fit = TRUE,
+                                 show_data = TRUE) {
   require(mrds)
   require(tidyverse)
 
@@ -183,9 +186,16 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
   dist_data <- dist_model$ddf$data
 
   # Right-truncating
-  # If you inspect the internal functions of the mrds package, you will find how
-  # the number of histogram breaks is calculated. In our case, it is a variable
-  # of the function
+
+  if (is.null(n_breaks)) {
+    if (dist_model$ddf$meta.data$binned) {
+      n_breaks <- length(dist_model$ddf$ds$aux$breaks) - 1
+    } else {
+      n <- length(dist_model$ddf$ds$aux$ddfobj$xmat$distance)
+      n_breaks <- round(sqrt(n), 0)
+    }
+  }
+
   breaks <- seq(0, trunc, trunc / n_breaks)
   dummy_hist <- hist(dist_data[dist_data$distance <= trunc,]$distance,
                      breaks = breaks, plot = FALSE)
@@ -286,6 +296,14 @@ plot_detection_curve <- function(dist_model, design_mat = NULL, labels = NULL,
               legend.justification = c(1, 1),
               legend.background = element_rect(fill = "white", color = "white"))
     }
+  }
+
+  if (show_data) {
+    distance_data <- data.frame(dist = sort(unique(dist_model$ddf$data$distance)))
+    out <- out +
+      geom_point(data = distance_data, aes(x = dist,
+                                           y = rep(0, nrow(distance_data))),
+                 shape = "|", col = "brown", size = 3)
   }
 
   # Return plot

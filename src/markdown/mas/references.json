@@ -381,5 +381,61 @@
         "providerkey": "Zotero",
         "title": "Veldleeuwerik | Sovon Vogelonderzoek",
         "type": "webpage"
+    },
+    {
+        "DOI": "10.1093/auk/124.4.1229",
+        "ISSN": "1938-4254",
+        "URL": "http://dx.doi.org/10.1093/auk/124.4.1229",
+        "author": [
+            {
+                "family": "Marques",
+                "given": "Tiago A."
+            },
+            {
+                "family": "Thomas",
+                "given": "Len"
+            },
+            {
+                "family": "Fancy",
+                "given": "Steven G."
+            },
+            {
+                "family": "Buckland",
+                "given": "Stephen T."
+            }
+        ],
+        "container-title": "The Auk",
+        "editor": [
+            {
+                "family": "Handel",
+                "given": "C. M."
+            }
+        ],
+        "id": "marques2007",
+        "is-referenced-by-count": "77",
+        "issue": "4",
+        "issued": {
+            "date-parts": [
+                [
+                    2007,
+                    10,
+                    1
+                ]
+            ]
+        },
+        "language": "en",
+        "member": "286",
+        "page": "1229-1243",
+        "prefix": "10.1093",
+        "providerkey": "doi",
+        "publisher": "Oxford University Press (OUP)",
+        "reference-count": "22",
+        "references-count": "22",
+        "score": "1",
+        "source": "Crossref",
+        "subject": "Animal Science and Zoology",
+        "title": "Improving Estimates of Bird Density Using Multiple- Covariate Distance Sampling",
+        "type": "article-journal",
+        "volume": "124"
     }
 ]

@@ -63,15 +63,16 @@ knitr::write_bib(c("base", "Distance"), here("src", "markdown", "mas",
 Een robuuste en reproduceerbare workflow creëren om de densiteit van akkervogels te schatten rekening houdend met de detectiekans.
 Omwille van het verschil in design tussen 2022 en de voorgaande jaren, zullen we densiteiten schatten voor twee datasets:
 
-1.  2018-2022: 
+1.  2018-2022:
     -   schatting per stratum: jaar, regio
     -   zou allemaal (grotendeels) OL en binnen sbp moeten zijn
     -   voeg enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren
 2.  2022
     -   schatting per stratum: regio, sbp, openheid
     -   volledige dataset 2022
-  
-Eerst voor Veldleeuwerik. Later generalisatie.
+
+Eerst voor Veldleeuwerik.
+Later generalisatie.
 
 # Inlezen data {#inlezen-data}
 
@@ -413,7 +414,8 @@ veldleeuwerik_presences %>%
   theme(legend.position = "bottom")
 ```
 
-Alle telperiodes bevinden zich wel binnen de datumgrenzen (maar binnen in de oude: 1 april tot 15 juni [@veldleeuwerikSovon]). We nemen alle telperiode dus mee in de analyses.
+Alle telperiodes bevinden zich wel binnen de datumgrenzen (maar binnen in de oude: 1 april tot 15 juni [@veldleeuwerikSovon]).
+We nemen alle telperiode dus mee in de analyses.
 
 ```{r}
 datumgrenzen_mas %>%
@@ -927,7 +929,7 @@ grid.arrange(p_moeren, p_leemstreek, table_area,
 We willen een schatting voor elke regio in elk jaar.
 We definiëren dus de strata regio-jaar.
 We maken daarom dataframes om de abundanties en densiteiten te berekenen.
-`Region_table` met de oppervlaktes per stratum (regio-jaar), `sample_table` geeft aan welke plots in welke regio's voorkomen en met welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata zitten.
+`Region_table` met de oppervlaktes per stratum (regio-jaar), `sample_table` geeft aan welke plots in welke regio's voorkomen en welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar) en `obs_table` die aangeeft welke waarnemingen in welke plots en strata zitten.
 
 ```{r}
 # Oppervlakte per stratum
@@ -979,9 +981,9 @@ $p$ is dus de oppervlakte onder de detectiecurve.
 Figuur \@ref(fig:detectie-plot) toont een fictief voorbeeld van een histogram met afstanden van 0 tot 300 meter ($w = 300$).
 Hoe groter de afstand, hoe minder waarnemingen en dus lager de detectiekans.
 Moest het aantal waarnemingen niet afnemen over de afstand, zouden de afstanden uniform verdeeld zijn zoals de rode box.
-Alles zou gezien zijn en de detectiekans $p = 1$.
+Alles zou gezien zijn en de detectiekans op elke afstand is gelijk aan 1.
 De blauwe curve is een half-normale detectiecurve gefit op de data.
-De oppervlakte onder de curve binnen de box is de gemiddelde detectiekans (de geschatte fractie dieren die gezien zijn).
+De oppervlakte onder de curve binnen de box is de gemiddelde detectiekans $p$ (de geschatte fractie dieren die gezien zijn).
 De oppervlakte boven de curve binnen de box de geschatte fractie dieren die gemist zijn.
 Als we de gemiddelde detectiekans weten, kunnen we dus eenvoudig berekenen hoeveel dieren we verwachten als we uitgaan van een uniforme verdeling van dieren over de telcirkel (zie verder).
 We controleren er dus voor dat het moeilijker is om dieren te detecteren op grotere afstand, terwijl we er van uitgaan dat er in werkelijkheid evenveel zitten op grotere als op kleinere afstanden.
@@ -996,14 +998,14 @@ ds_model <- ds(dist_data$d, key = "hn", truncation = 300, transect = "point",
                dht_group = FALSE, convert_units = conversion_factor)
 
 # Plot detection curve
-plot_detection_curve(ds_model) +
+plot_detection_curve(ds_model, show_data = FALSE) +
   geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = 1),
             colour = "red", fill = alpha("white", 0)) +
   geom_text(aes(x = 150, y = 0.6), label = expression(italic("g(r;"*theta*")")))
 ```
 
 Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio en jaar.
-Dit wordt ook wel multiple-covariate distance sampling (MCDS) genoemd.
+Dit wordt ook wel multiple-covariate distance sampling (MCDS) genoemd [@marques2007].
 De detectiekans wordt dan berekend conditioneel aan de waargenomen waarden van de covariaten.
 
 ```{r}
@@ -1034,8 +1036,8 @@ $$
 \sigma(\mathbf{z}) = \exp{\left( \beta_0 + \sum_{j = 1}^{J} \beta_j z_j \right)}
 $$
 
-De hazard-rate key function heeft naast de scale parameter ook nog de shape parameter $b$.  
-  
+De hazard-rate key function heeft naast de scale parameter ook nog de shape parameter $b$.
+
 We fitten beide sleutelfuncties met de `ds()` functie in een for-loop.
 We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen ook tweewegsinteracties tussen de covariaten.
 De interactie regio met openheid kan niet gefit worden omdat HOL niet in De Moeren voorkomt.
@@ -1056,43 +1058,54 @@ veldleeuwerik_dist_2018_2022_hr0 <- ds(data = veldleeuwerik_distance,
   sample_table = sample_table, obs_table = obs_table, max_adjustments = 2,
   monotonicity = "strict")
 
-veldleeuwerik_dist_2018_2022_hn1 <- ds(data = veldleeuwerik_distance, key = "hn", 
-  formula = ~regio, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hn1 <- ds(data = veldleeuwerik_distance, 
+  key = "hn", formula = ~regio, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_2018_2022_hr1 <- ds(data = veldleeuwerik_distance, key = "hr", 
-  formula = ~regio, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hr1 <- ds(data = veldleeuwerik_distance, 
+  key = "hr", formula = ~regio, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_2018_2022_hn2 <- ds(data = veldleeuwerik_distance, key = "hn", 
-  formula = ~jaar, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hn2 <- ds(data = veldleeuwerik_distance, 
+   key = "hn", formula = ~jaar, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_2018_2022_hr2 <- ds(data = veldleeuwerik_distance, key = "hr", 
-  formula = ~jaar, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hr2 <- ds(data = veldleeuwerik_distance, 
+  key = "hr", formula = ~jaar, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_2018_2022_hn3 <- ds(data = veldleeuwerik_distance, key = "hn", 
-  formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hn3 <- ds(data = veldleeuwerik_distance, 
+  key = "hn", formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 
-veldleeuwerik_dist_2018_2022_hr3 <- ds(data = veldleeuwerik_distance, key = "hr", 
-  formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hr3 <- ds(data = veldleeuwerik_distance, 
+  key = "hr", formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
+  transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
+
+veldleeuwerik_dist_2018_2022_hn4 <- ds(data = veldleeuwerik_distance, 
+  key = "hn", formula = ~regio+jaar, adjustment = NULL, truncation = 300, 
+  transect = "point", dht_group = FALSE, 
+  convert_units = conversion_factor, region_table = region_table, 
+  sample_table = sample_table, obs_table = obs_table)
+
+veldleeuwerik_dist_2018_2022_hr4 <- ds(data = veldleeuwerik_distance, 
+  key = "hr", formula = ~regio+jaar, adjustment = NULL, truncation = 300, 
   transect = "point", dht_group = FALSE, 
   convert_units = conversion_factor, region_table = region_table, 
   sample_table = sample_table, obs_table = obs_table)
 ```
-
 
 ## Model selectie {#selectie-distance}
 
@@ -1105,11 +1118,12 @@ summarize_ds_models2(
   veldleeuwerik_dist_2018_2022_hn0, veldleeuwerik_dist_2018_2022_hr0, 
   veldleeuwerik_dist_2018_2022_hn1, veldleeuwerik_dist_2018_2022_hr1,
   veldleeuwerik_dist_2018_2022_hn2, veldleeuwerik_dist_2018_2022_hr2,
-  veldleeuwerik_dist_2018_2022_hn3, veldleeuwerik_dist_2018_2022_hr3) %>%
+  veldleeuwerik_dist_2018_2022_hn3, veldleeuwerik_dist_2018_2022_hr3,
+  veldleeuwerik_dist_2018_2022_hn4, veldleeuwerik_dist_2018_2022_hr4) %>%
   kable()
 ```
 
-Het Hazard-rate model waarbij de detectiekans afhankelijk is van regio en jaar in interactie scoort het best.
+Het Hazard-rate model waarbij de detectiekans afhankelijk is van regio en jaar scoort het best.
 
 ## Model fit {#fit-distance}
 
@@ -1119,9 +1133,9 @@ Voor studies met punttransecten geven kansdichtheidsfunctieplots ook een goed id
 
 ```{r}
 par(mfrow = c(1, 2))
-von_mises <- gof_ds(veldleeuwerik_dist_2018_2022_hr3)
+von_mises <- gof_ds(veldleeuwerik_dist_2018_2022_hr4)
 von_mises
-plot(veldleeuwerik_dist_2018_2022_hr3, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_2018_2022_hr4, pdf = TRUE, showpoints = FALSE)
 par(mfrow = c(1, 1))
 ```
 
@@ -1131,15 +1145,15 @@ Inderdaad, als we kijken naar de verdeling van de afstanden, zien we dat de dete
 Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_2018_2022_hr3, plot_average_fit = FALSE, 
-                     n_breaks = 60)
+plot_detection_curve(veldleeuwerik_dist_2018_2022_hr4, plot_average_fit = FALSE, 
+                     show_data = FALSE)
 ```
 
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
 
 ```{r, cache=TRUE}
-veldleeuwerik_dist_2018_2022_hr3_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~regio*jaar, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2018_2022_hr4_binned <- ds(data = veldleeuwerik_distance,
+        key = "hr", formula = ~regio+jaar, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         cutpoints = c(0, 50, 100, 150, 200, 250, 300),
         convert_units = conversion_factor, region_table = region_table, 
@@ -1149,14 +1163,13 @@ veldleeuwerik_dist_2018_2022_hr3_binned <- ds(data = veldleeuwerik_distance, key
 De fit ziet er beter uit dan voordien.
 
 ```{r}
-plot(veldleeuwerik_dist_2018_2022_hr3_binned, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_2018_2022_hr4_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
-We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van 
-regio en jaar in interactie als finale model.
+We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van regio en jaar in interactie als finale model.
 
 ```{r}
-veldleeuwerik_dist_2018_2022_model <- veldleeuwerik_dist_2018_2022_hr3_binned
+veldleeuwerik_dist_2018_2022_model <- veldleeuwerik_dist_2018_2022_hr4_binned
 veldleeuwerik_covars <- c("regio", "jaar")
 ```
 
@@ -1217,7 +1230,7 @@ cbind(veldleeuwerik_dist_2018_2022_model$ddf$data,
 ```
 
 ```{r}
-design_plot <- matrix(rep(0, 10 * 10), ncol = 10, byrow = TRUE)
+design_plot <- matrix(rep(0, 10 * 6), ncol = 6, byrow = TRUE)
 design_plot[, 1] <- 1
 design_plot[2, 2] <- 1
 design_plot[3, 3] <- 1
@@ -1225,10 +1238,10 @@ design_plot[4, 4] <- 1
 design_plot[5, 5] <- 1
 design_plot[6, 6] <- 1
 design_plot[7:10, 2] <- 1
-design_plot[7, c(3, 7)] <- 1
-design_plot[8, c(4, 8)] <- 1
-design_plot[9, c(5, 9)] <- 1
-design_plot[10, c(6, 10)] <- 1
+design_plot[7, 3] <- 1
+design_plot[8, 4] <- 1
+design_plot[9, 5] <- 1
+design_plot[10, 6] <- 1
 
 labels_plot <- paste(c("De Moeren", "Oostelijke leemstreek", 
                        rep(c("De Moeren", "Oostelijke leemstreek"), each = 4)),
@@ -1242,7 +1255,7 @@ design_plot %>%
   kable()
 
 plot_detection_curve(veldleeuwerik_dist_2018_2022_model, design_mat = design_plot, 
-                     labels = labels_plot, n_breaks = 6) +
+                     labels = labels_plot) +
   scale_colour_manual(values = c(inbo_palette(), "red"))
 ```
 
@@ -1378,8 +1391,8 @@ veldleeuwerik_df %>%
       ), scales = "free_y")
 ```
 
-
 # Densiteitsschattingen 2022 {#dens-2022}
+
 ## Data selectie en preparatie {#preparatie-distance2022}
 
 We beschouwen alle plots van 2022.
@@ -1403,7 +1416,8 @@ veldleeuwerik_distance <- veldleeuwerik_2022 %>%
 ```
 
 Om abundanties te schatten, moeten we de oppervlakte van de strata berekenen voor extrapolatie.
-We trekken een buffer van 300 m rond het steekproefkader: half-open landschap (HOL) in De Moeren, en open (OL) en half-open landschap in de Oostelijke leemstreek. We beschouwen de strata:
+We trekken een buffer van 300 m rond het steekproefkader: half-open landschap (HOL) in De Moeren, en open (OL) en half-open landschap in de Oostelijke leemstreek.
+We beschouwen de strata:
 
 -   De Moeren, OL, buiten sbp
 -   De Moeren, OL, binnen sbp
@@ -1411,7 +1425,6 @@ We trekken een buffer van 300 m rond het steekproefkader: half-open landschap (H
 -   Oostelijke leemstreek, OL, buiten sbp
 -   Oostelijke leemstreek, HOL, binnen sbp
 -   Oostelijke leemstreek, HOL, buiten sbp
-
 
 ```{r}
 # Lees steekproefkader in
@@ -1595,12 +1608,11 @@ for (i in seq_len(length(forms))) {
 names(out_models) <- model_names
 ```
 
-
 ## Model selectie {#selectie-distance2022}
 
 We vergelijken de AIC van de verschillende modellen.
 Als het verschil tussen AIC's kleiner is dan 2, kiezen we het eenvoudigste van deze modellen (model met minste parameters).
-We tonen enkel de modellen met $\Delta$AIC <= 20.
+We tonen enkel de modellen met $\Delta$AIC \<= 20.
 
 ```{r, cache=TRUE}
 summarize_ds_models2(out_models) %>%
@@ -1661,7 +1673,7 @@ Het is dus niet mogelijk om een detectiecurve perfect te fitten.
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_2022_hr6, plot_average_fit = FALSE, 
-                     n_breaks = 60)
+                     show_data = FALSE)
 ```
 
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
@@ -1694,7 +1706,6 @@ veldleeuwerik_dist_2022_model <- veldleeuwerik_dist_2022_hr6_binned
 veldleeuwerik_covars <- c("sbp", "openheid")
 ```
 
-
 ## Resultaten {#resultaten-distance2022}
 
 De detectiekansen en standard errors zijn verschillend per sbp en openheid van het landschap:
@@ -1716,7 +1727,7 @@ Deze kunnen we als volgt visualiseren:
 
 ```{r}
 plot_detection_curve(veldleeuwerik_dist_2022_model, 
-                     plot_average_fit = TRUE, n_breaks = 6)
+                     plot_average_fit = TRUE)
 ```
 
 ```{r}
@@ -1772,22 +1783,2119 @@ summary_results_veldleeuwerik_dist %>%
 
 ## Discussie {#discussie-distance2022}
 
-Net zoals voordien hadden we problemen om een passende detectiecurve te fitten (zie discussie \@ref(discussie-distance)).  
-  
-We zien een duidelijk verschil in densiteiten tussen de strata. Het is steeds hoger binnen dan buiten soortbeschermingszones en in OL dan in HOL.
+Net zoals voordien hadden we problemen om een passende detectiecurve te fitten (zie discussie \@ref(discussie-distance)).
 
+We zien een duidelijk verschil in densiteiten tussen de strata.
+Het is steeds hoger binnen dan buiten soortbeschermingszones en in OL dan in HOL.
 
 # Meedere soorten
 
-Hoe kunnen we deze workflow zo correct, efficiënt en snel toepassen op alle soorten?  
+Hoe kunnen we deze workflow zo correct, efficiënt en snel toepassen op alle soorten?
 
 1.  Opruimen en voorbereiden basis dataframes met algemene data
 2.  Filter algemene dataframes
 3.  Genereer dataframes voor elke soort
 4.  Genereer dataframes voor distance sampling
-5.  Model specificatie distance sampling
+5.  Data selectie voor model specificatie
+6.  Model specificatie distance sampling
 
-Vanaf model selectie en fit zal geen of beperkte automatisatie meer kunnen toegepast worden. We selecteren voor elke soort het finale model en slaan deze op. Deze finale modellen kunnen dan in het rapport gebruikt worden voor het genereren van plots en tabellen.
+Vanaf model selectie en fit zal geen of beperkte automatisatie meer kunnen toegepast worden.
+We selecteren voor elke soort het finale model en slaan deze op.
+Deze finale modellen kunnen dan in het rapport gebruikt worden voor het genereren van plots en tabellen.
+
+## Opruimen en voorbereiden basis dataframes met algemene data
+
+We hebben 3 belangrijke dataframes.
+
+1.  `mas_clean` met alle observaties
+2.  `design_2018_2022_mas` met alle bezochte plots
+    -   selecteer OL in De Moeren en OL en HOL in Oostelijke leemstreek
+3.  `datum_grenzen_mas` met de datumgrenzen voor elke soort
+
+```{r}
+mas_clean <- mas_clean
+design_2018_2022_mas <- design_2018_2022_sf %>%
+  st_drop_geometry() %>%
+  filter((regio == "Oostelijke leemstreek" & openheid %in% c("OL", "HOL")) |
+         (regio == "De Moeren" & openheid == "OL"))
+datumgrenzen_mas <- datumgrenzen_mas 
+```
+
+## Filter algemene dataframes
+
+We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0, geen afstanden \> 300 m en dat ze binnen telperiodes vallen.
+We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
+We voegen ook Haas toe (geen broedcodes).
+
+```{r}
+mas_observations <- mas_clean %>%
+  filter(wrntype > 0L, distance2plot <= 300, !is.na(periode_in_jaar),
+         soortgrp == 2) %>%  
+  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "),
+         naam = ifelse(naam == "Gele kwikstaart (spec)", "Gele Kwikstaart",
+                       naam),
+         naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
+                       naam))
+haas_observations <- mas_clean %>%
+  filter(naam == "Haas", distance2plot <= 300, !is.na(periode_in_jaar)) %>%  
+  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "))
+
+mas_observations <- bind_rows(mas_observations, haas_observations)
+```
+
+## Genereer dataframes voor elke soort
+
+We maken in een for-loop een dataframe voor elke soort waar we ook filteren op de datumgrenzen. Voor Haas behouden we alle telperiodes.
+
+```{r}
+df_obs_list <- vector("list", length = length(unique(mas_observations$naam)))
+df_obs_names <- vector(length = length(unique(mas_observations$naam)))
+
+for (i in seq_along(unique(mas_observations$naam))) {
+  spec <- sort(unique(mas_observations$naam))[i]
+    
+  # selecteer telperiodes per soort
+  telperiodes_df <- datumgrenzen_mas %>%
+    filter(soort == spec) %>%
+    select(R1:R4)
+  telperiodes_df <- unlist(telperiodes_df[1,])
+  telperiodes <- names(telperiodes_df[which(telperiodes_df == TRUE)])
+  
+  if (spec == "Haas") {
+    telperiodes <- c("R1", "R2", "R3", "R4")
+  }
+  
+  # selecteer waarnemingen
+  df_obs <- mas_observations %>% 
+    st_drop_geometry() %>%
+    filter(naam == spec, 
+           periode_in_jaar %in% telperiodes)
+  naam_obs <- gsub(" ", "", spec)
+  
+  df_obs_list[[i]] <- df_obs
+  df_obs_names[i] <- naam_obs
+}
+
+names(df_obs_list) <- df_obs_names
+```
+
+## Genereer dataframes voor distance sampling
+
+### 2018-2022
+
+We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
+We zetten alle datasets om om te gebruiken om de detectiecurve te fitten.
+
+```{r}
+plots_old <- design_2018_2022_mas %>%
+  filter(jaar != 2022) %>%
+  distinct(plotnaam) %>%
+  pull()
+
+distance_dfs_2018_2022 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(plotnaam %in% plots_old) %>% 
+      select(object = oid, size = aantal, distance = distance2plot, 
+             regio, jaar) %>%
+      mutate(jaar = as.character(jaar))
+  })
+
+design_2018_2022_mas_reduced <- design_2018_2022_mas %>%
+  filter(plotnaam %in% plots_old)
+```
+
+`sample_table` geeft aan welke plots in welke regio's voorkomen en welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
+
+```{r}
+efforts_2018_2022 <- lapply(df_obs_list, function(df) {
+    df %>%
+      pull(periode_in_jaar) %>%
+      unique() %>%
+      length()
+  })
+
+sample_tables_2018_2022 <- lapply(efforts_2018_2022, function(effort) {
+    design_2018_2022_mas_reduced %>%
+      distinct(plotnaam, regio, jaar) %>%
+      mutate(Region.Label = paste(regio, jaar, sep = " - "),
+             Effort = effort) %>%
+      select(Sample.Label = plotnaam, Region.Label, Effort)
+  })
+```
+
+`obs_table` geeft aan welke waarnemingen in welke plots en strata zitten.
+
+```{r}
+obs_tables_2018_2022 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(plotnaam %in% plots_old) %>% 
+      select(object = oid, Region.Label, Sample.Label = plotnaam)
+  })
+```
+
+De `region_table` en de conversiefactor voor de meeteenheden zijn gemeenschappelijk voor alle soorten.
+`region_table` bevat de oppervlaktes per stratum (regio-jaar).
+
+```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+# Selectie en buffer
+perimeters_strata <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  st_buffer(dist = 300) %>%
+  group_by(Naam) %>%
+  summarise(geometry = st_union(geometry)) %>%
+  ungroup()
+
+# Bereken oppervlaktes van de regio's
+areas <- perimeters_strata %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
+  select(regio = Naam, Area) %>%
+  st_drop_geometry()
+
+region_table_2018_2022 <- design_2018_2022_mas_reduced %>%
+  distinct(regio, jaar) %>%
+  full_join(areas, by = "regio") %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - ")) %>%
+  select(Region.Label, Area)
+
+# Conversiefactor van meter naar 100 hectare
+conversion_factor_2018_2022 <- convert_units("meter", NULL, "Square kilometer")
+```
+
+### 2022
+
+We beschouwen alle plots van 2022.
+We filteren alle datasets om te gebruiken om de detectiecurve te fitten.
+
+```{r}
+distance_dfs_2022 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2022) %>% 
+      select(object = oid, size = aantal, distance = distance2plot, 
+             regio, sbp, openheid)
+  })
+
+design_2022_mas <- design_2018_2022_mas %>%
+  filter(jaar == 2022)
+```
+
+`sample_table` geeft aan welke plots in welke regio's voorkomen en welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
+
+```{r}
+efforts_2022 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2022) %>% 
+      pull(periode_in_jaar) %>%
+      unique() %>%
+      length()
+  })
+
+sample_tables_2022 <- lapply(efforts_2022, function(effort) {
+    design_2022_mas %>%
+      distinct(plotnaam, regio, openheid, sbp) %>%
+      mutate(Region.Label = paste(regio, openheid, sbp, sep = " - "),
+             Effort = effort) %>%
+      select(Sample.Label = plotnaam, Region.Label, Effort)
+  })
+```
+
+`obs_table` geeft aan welke waarnemingen in welke plots en strata zitten.
+
+```{r}
+obs_tables_2022 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2022) %>%  
+      mutate(Region.Label = paste(regio, openheid, sbp, sep = " - ")) %>%
+      select(object = oid, Region.Label, Sample.Label = plotnaam)
+  })
+```
+
+De `region_table` en de conversiefactor voor de meeteenheden zijn gemeenschappelijk voor alle soorten.
+`region_table` bevat de oppervlaktes per stratum (regio-openheid-sbp).
+
+```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+# Selectie en buffer
+perimeters_strata_2022 <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  group_by(Naam, openheid_klasse, is_sbp) %>%
+  st_buffer(dist = 300) %>%
+  summarize() %>%
+  mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
+                         sep = " - "))
+
+# Bereken oppervlaktes van de strata
+areas_2022 <- perimeters_strata_2022 %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
+  select(regio = Naam, stratum, Area) %>%
+  st_drop_geometry()
+
+region_table_2022 <- design_2022_mas %>%
+  distinct(regio, openheid, sbp) %>%
+  mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
+  full_join(areas_2022, by = c("regio", "stratum")) %>%
+  mutate(Region.Label = paste(regio, openheid, sbp, sep = " - ")) %>%
+  select(Region.Label, Area)
+
+# Conversiefactor van meter naar 100 hectare
+conversion_factor_2022 <- convert_units("meter", NULL, "Square kilometer")
+```
+
+## Data selectie voor model specificatie
+
+### 2018-2022
+
+We hebben bepaalde regels nodig om de modellen te kunnen fitten:
+
+We maken 2 datasets:
+
+1.  Simpele modellen (zonder covariaten)
+-   behoud datasets als totaal aantal waarnemingen \>= 20
+
+2.  Complexere modellen (met covariaten)
+-   behoud strata als aantal waarnemingen per stratum \>= 10
+-   behoud datasets als totaal aantal waarnemingen \>= 30
+
+Eerst fitten we alle modellen met *2.*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1.*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten.
+
+Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten.
+Een observatie van 2 individuen telt hier als 2 waarnemingen!
+
+> Als we deze getallen aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
+
+```{r}
+filter_dist_df <- function(data, stratum_filter, dataset_filter) {
+  # Selectie strata
+  select_df <- lapply(data, function(i) {
+    i %>% 
+      group_by(regio, jaar) %>% 
+      mutate(n = sum(size)) %>%
+      filter(n >= stratum_filter) %>%
+      ungroup() %>%
+      select(-n)
+  })
+  
+  # Selectie datasets
+  n_obs <- sapply(select_df, function(i) {
+      if (nrow(i) == 0) {
+        return(0)
+      } else {
+        return(sum(i$size))
+      }
+    })
+  select_df <- select_df[n_obs >= dataset_filter]
+  
+  return(select_df)
+}
+
+distance_dfs_2018_2022_simpel <- filter_dist_df(distance_dfs_2018_2022, 0, 20)
+distance_dfs_2018_2022_final <- filter_dist_df(distance_dfs_2018_2022, 10, 30)
+```
+
+In de complexe dataset zijn de meeste soorten in meerdere jaren gezien.
+De meeste soorten hebben waarnemingen van slechts een enkele regio.
+Een interactie tussen regio en jaar zal slechts in een beperkt aantal gevallen gefit kunnen worden.
+
+```{r}
+stratum_cijfers_lijst <- lapply(seq_along(distance_dfs_2018_2022_final), 
+  function(i) {
+    out <- distance_dfs_2018_2022_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2018_2022_final[i])) %>%
+      mutate(n = sum(distance_dfs_2018_2022_final[[i]]$size),
+             n_jaar = n_distinct(jaar) > 1,
+             n_regio = n_distinct(regio) > 1) %>%
+      group_by(regio) %>%
+      mutate(n_interactie = n_distinct(jaar)) %>%
+      ungroup() %>%
+      mutate(n_interactie = !(min(n_interactie) == 1 | n_regio == FALSE)) %>%
+      distinct(soort, n, n_jaar, n_regio, n_interactie)
+    
+     min <- distance_dfs_2018_2022_final[[i]] %>% 
+       mutate(soort = names(distance_dfs_2018_2022_final[i])) %>%
+       group_by(soort, regio, jaar) %>% 
+       summarise(n = n(), .groups = "drop") %>%
+       pull(n) %>%
+       min()
+     
+     if (min <= 11){
+       out$n_interactie <- FALSE
+     }
+    
+    return(out)
+  })
+
+stratum_cijfers_df <- do.call(rbind, stratum_cijfers_lijst)
+```
+
+```{r}
+stratum_cijfers_df %>% 
+  mutate(n = factor(n, levels = sort(unique(n)), ordered = TRUE)) %>%
+  ggplot() +
+   geom_bar(aes(x = n)) +
+   labs(x = "Aantal waarnemingen", y = "Aantal soorten") +
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, 
+                                    size = 6))
+```
+
+```{r}
+stratum_cijfers_df %>%
+  ggplot() +
+   geom_bar(aes(x = n_jaar)) +
+   labs(x = "In meer dan 1 jaar gezien", y = "Aantal soorten")
+
+stratum_cijfers_df %>% 
+  ggplot() +
+   geom_bar(aes(x = n_regio)) +
+   labs(x = "In meer dan 1 regio gezien", y = "Aantal soorten")
+
+stratum_cijfers_df %>% 
+  ggplot() +
+   geom_bar(aes(x = n_interactie)) +
+   labs(x = "In meerdere regio's en jaren gezien (interactie)", 
+        y = "Aantal soorten")
+```
+
+De volgende soorten blijven over voor de simpele dataset:
+
+```{r}
+list_simpel <- lapply(seq_along(distance_dfs_2018_2022_simpel), 
+  function(i) {
+    distance_dfs_2018_2022_simpel[[i]] %>% 
+      mutate(soort = names(distance_dfs_2018_2022_simpel[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2018_2022_simpel[[i]]$size),
+             n_jaren = n_distinct(jaar),
+             n_regios = n_distinct(regio),
+             strata = paste0(regio, jaar),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_jaren, n_regios, n_strata)
+  })
+
+do.call(rbind, list_simpel) %>%
+  kable()
+```
+
+De volgende soorten blijven over voor de complexere dataset:
+
+```{r}
+list <- lapply(seq_along(distance_dfs_2018_2022_final), 
+  function(i) {
+    distance_dfs_2018_2022_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2018_2022_final[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2018_2022_final[[i]]$size),
+             n_jaren = n_distinct(jaar),
+             n_regios = n_distinct(regio),
+             strata = paste0(regio, jaar),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_jaren, n_regios, n_strata)
+  })
+
+do.call(rbind, list) %>%
+  kable()
+```
+
+### 2022
+
+We hebben bepaalde regels nodig om de modellen te kunnen fitten:
+
+We maken 2 datasets:
+
+1.  Simpele modellen (zonder covariaten)
+-   behoud datasets als totaal aantal waarnemingen \>= 20
+
+2.  Complexere modellen (met covariaten)
+-   behoud strata als aantal waarnemingen per stratum \>= 10
+-   behoud datasets als totaal aantal waarnemingen \>= 30
+
+Eerst fitten we alle modellen met *2.*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1.*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten.
+
+Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten.
+Een observatie van 2 individuen telt hier als 2 waarnemingen!
+
+> Als we deze getallen aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
+
+```{r}
+filter_dist_df_2022 <- function(data, stratum_filter, dataset_filter) {
+  # Selectie strata
+  select_df <- lapply(data, function(i) {
+    i %>% 
+      group_by(regio, openheid, sbp) %>% 
+      mutate(n = sum(size)) %>%
+      filter(n >= stratum_filter) %>%
+      ungroup() %>%
+      select(-n)
+  })
+  
+  # Selectie datasets
+  n_obs <- sapply(select_df, function(i) {
+      if (nrow(i) == 0) {
+        return(0)
+      } else {
+        return(sum(i$size))
+      }
+    })
+  select_df <- select_df[n_obs >= dataset_filter]
+  
+  return(select_df)
+}
+
+distance_dfs_2022_simpel <- filter_dist_df_2022(distance_dfs_2022, 0, 20)
+distance_dfs_2022_final <- filter_dist_df_2022(distance_dfs_2022, 10, 30)
+```
+
+In de complexe dataset zijn de meeste soorten in meerdere openheidsklasses gezien.
+De meeste soorten hebben waarnemingen van slechts een enkele regio.
+De meeste soorten hebben waarnemingen zowel binnen als buiten sbp.
+Een interacties tussen regio en sbp en openheid en sbp zal meestal niet gefit kunnen worden.
+
+```{r}
+stratum_cijfers_lijst_2022 <- lapply(seq_along(distance_dfs_2022_final), 
+  function(i) {
+    out <- distance_dfs_2022_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2022_final[i])) %>%
+      mutate(n = sum(distance_dfs_2022_final[[i]]$size),
+             n_regio = n_distinct(regio) > 1,
+             n_openheid = n_distinct(openheid) > 1,
+             n_sbp = n_distinct(sbp) > 1) %>%
+      group_by(sbp) %>%
+      mutate(n_interactie_openheid = n_distinct(openheid),
+             n_interactie_regio = n_distinct(regio)) %>%
+      ungroup() %>%
+      mutate(n_int_openheid_sbp = !(min(n_interactie_openheid) == 1 | n_sbp == FALSE),
+             n_int_regio_sbp = !(min(n_interactie_regio) == 1 | n_sbp == FALSE)) %>%
+      distinct(soort, n, n_regio, n_openheid, n_sbp, n_int_openheid_sbp, 
+               n_int_regio_sbp)
+     
+   # Minimum 11 waarnemingen per stratum om interactie te fitten  
+   min_openheid_sbp <- distance_dfs_2022_final[[i]] %>% 
+     mutate(soort = names(distance_dfs_2022_final[i])) %>%
+     group_by(soort, openheid, sbp) %>% 
+     summarise(n = n(), .groups = "drop") %>%
+     pull(n) %>%
+     min()
+   
+   min_regio_sbp <- distance_dfs_2022_final[[i]] %>% 
+     mutate(soort = names(distance_dfs_2022_final[i])) %>%
+     group_by(soort, regio, sbp) %>% 
+     summarise(n = n(), .groups = "drop") %>%
+     pull(n) %>%
+     min()
+   
+   if (min_openheid_sbp <= 11){
+     out$n_int_openheid_sbp <- FALSE
+   }
+   
+   if (min_regio_sbp <= 11){
+     out$n_int_regio_sbp <- FALSE
+   }
+   
+  return(out)
+  })
+
+stratum_cijfers_df_2022 <- do.call(rbind, stratum_cijfers_lijst_2022)
+```
+
+```{r}
+stratum_cijfers_df_2022 %>% 
+  mutate(n = factor(n, levels = sort(unique(n)), ordered = TRUE)) %>%
+  ggplot() +
+   geom_bar(aes(x = n)) +
+   labs(x = "Aantal waarnemingen", y = "Aantal soorten") +
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, 
+                                    size = 6))
+```
+
+```{r}
+stratum_cijfers_df_2022 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_regio)) +
+   labs(x = "In meer dan 1 regio gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2022 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_openheid)) +
+   labs(x = "In meer dan 1 openheidsklasse gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2022 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_sbp)) +
+   labs(x = "Zowel binnen als buiten sbp gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2022 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_int_openheid_sbp)) +
+   labs(x = "In meerdere openheidsklasses binnen en buiten sbp gezien (interactie)", 
+        y = "Aantal soorten")
+
+stratum_cijfers_df_2022 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_int_regio_sbp)) +
+   labs(x = "In meerdere regio's binnen en buiten sbp gezien (interactie)",  
+        y = "Aantal soorten")
+```
+
+De volgende soorten blijven over voor de simpele dataset:
+
+```{r}
+list_2022_simpel <- lapply(seq_along(distance_dfs_2022_simpel), 
+  function(i) {
+    distance_dfs_2022_simpel[[i]] %>% 
+      mutate(soort = names(distance_dfs_2022_simpel[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2022_simpel[[i]]$size),
+             n_regios = n_distinct(regio),
+             n_openheid = n_distinct(openheid),
+             n_sbp = n_distinct(sbp),
+             strata = paste0(regio, openheid, sbp),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_regios, n_openheid, n_sbp, n_strata)
+  })
+
+do.call(rbind, list_2022_simpel) %>%
+  kable()
+```
+
+De volgende soorten blijven over voor de complexere dataset:
+
+```{r}
+list_2022 <- lapply(seq_along(distance_dfs_2022_final), 
+  function(i) {
+    distance_dfs_2022_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2022_final[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2022_final[[i]]$size),
+             n_regios = n_distinct(regio),
+             n_openheid = n_distinct(openheid),
+             n_sbp = n_distinct(sbp),
+             strata = paste0(regio, openheid, sbp),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_regios, n_openheid, n_sbp, n_strata)
+  })
+
+do.call(rbind, list_2022) %>%
+  kable()
+```
+
+## Model specificatie distance sampling
+
+### 2018-2022
+
+Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio en jaar. We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen ook tweewegsinteracties tussen de covariaten. In de modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data. Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken beperken we het aantal aanpassingstermen tot maximaal 2. De modellen worden lokaal opgeslaan zodat ze maar eenmaal moeten gefit worden.
+
+```{r}
+match_variables_2018_2022 <- c("regio", "jaar")
+
+# We maken formules uit combinaties van alle variabelen
+combos <- sapply(seq(length(match_variables_2018_2022)), function(i) {
+  as.list(as.data.frame(combn(x = match_variables_2018_2022, m = i)))
+})
+combos <- unlist(combos, recursive = FALSE)
+
+# Combinaties zonder interacties
+forms1 <- sapply(combos, function(x) {
+    paste0("~", paste(x, collapse = "+"))
+  })
+
+# Combinaties interacties
+forms2 <- sapply(combos, function(x) {
+  if (length(x) == 2) {
+    paste0("~", paste(x, collapse = "*"))
+  }
+  })
+forms2[sapply(forms2, is.null)] <- NULL
+
+# Voeg combinaties samen
+forms_2018_2022 <- c("~1", forms1, forms2)
+```
+
+Voor Bruine kiekendief kunnen we geen model fitten.
+
+```{r}
+all_models <- list()
+all_model_names <- c()
+
+# Key functions
+keys <- c("hn", "hr")
+
+# Sla de gefitte models op op deze locatie
+model_path <- "./src/markdown/mas/distance_models/"
+
+# Verwijder BruineKiekendief
+index_kiek <- which(names(distance_dfs_2018_2022_final) == "BruineKiekendief")
+
+# Loop over species
+for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
+  distance_data <- distance_dfs_2018_2022_final[[spec]]
+  sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
+  obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
+  
+  out_models <- list()
+  model_names <- c()
+  
+  # Select possible formulas per species
+  form_spec <- forms_2018_2022
+  form_df <- stratum_cijfers_df %>% filter(soort == spec)
+  if (!pull(form_df[,"n_regio"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_jaar"])) {
+    form_spec[sapply(form_spec, function(i) grepl("jaar", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_interactie"])) {
+    form_spec[sapply(form_spec, function(i) grepl("\\*", i))] <- NULL
+  }
+
+  # Loop over formules en over key functions
+  for (i in seq_len(length(form_spec))) {
+    f <- as.character(form_spec[i]) # f is de formule
+    
+    for (k in keys) {
+      # Naam voor model
+      mod_name <- paste0(spec, "_distmod_2018_2022_", k, i)
+      file <- paste0(model_path, mod_name, ".rds")
+      
+      # Sla model op als het nog niet bestaat en lees het in anderzijds
+      if (file.exists(file)) {
+        det_model <- readRDS(file)
+        assign(mod_name, det_model)
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+      } else {
+        if (f == "~1") {
+          det_model <- ds(data = distance_data, key = k, 
+            formula = as.formula(f), max_adjustments = 2, 
+            monotonicity = "strict", 
+            truncation = 300, transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2018_2022, 
+            region_table = region_table_2018_2022, 
+            sample_table = sample_table_2018_2022, 
+            obs_table = obs_table_2018_2022)
+        } else {
+          det_model <- ds(data = distance_data, key = k, 
+            formula = as.formula(f), adjustment = NULL, truncation = 300, 
+            transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2018_2022, 
+            region_table = region_table_2018_2022, 
+            sample_table = sample_table_2018_2022, 
+            obs_table = obs_table_2018_2022)
+        }
+        
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+        
+        # Sla gefitte model op
+        assign(mod_name, det_model)
+        saveRDS(det_model, file = file)
+      }
+      # Put models and model names in list 
+      out_models <- c(out_models, list(det_model))
+      model_names <- c(model_names, mod_name)
+    }
+  }
+  names(out_models) <- model_names
+  
+  # Put models and model names in list 
+  all_models <- c(all_models, list(out_models))
+  all_model_names <- c(all_model_names, spec)
+}
+names(all_models) <- all_model_names
+```
+
+### 2022
+
+Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, openheid en sbp. We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen enkel tweewegsinteracties tussen de covariaten. In de modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data. Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken beperken we het aantal aanpassingstermen tot maximaal 2. De modellen worden lokaal opgeslaan zodat ze maar eenmaal moeten gefit worden.
+
+```{r}
+match_variables_2022 <- c("regio", "sbp", "openheid")
+
+# We maken formules uit combinaties van alle variabelen
+combos <- sapply(seq(length(match_variables_2022)), function(i) {
+  as.list(as.data.frame(combn(x = match_variables_2022, m = i)))
+})
+combos <- unlist(combos, recursive = FALSE)
+
+# Combinaties zonder interacties
+forms1 <- sapply(combos, function(x) {
+    paste0("~", paste(x, collapse = "+"))
+  })
+
+# Combinaties interacties
+forms2 <- sapply(combos, function(x) {
+  if (length(x) == 2) {
+    paste0("~", paste(x, collapse = "*"))
+  }
+  })
+forms2[sapply(forms2, is.null)] <- NULL
+# remove interaction regio openheid
+forms2 <- forms2[-match("~regio*openheid", forms2)]
+
+# Voeg combinaties samen
+forms_2022 <- c("~1", forms1, forms2)
+```
+
+Voor Buizerd en Winterkoning lukt het niet om ~regio+openheid en ~regio+sbp+openheid te fitten.
+
+```{r}
+all_models_2022 <- list()
+all_model_2022_names <- c()
+
+# Key functions
+keys <- c("hn", "hr")
+
+# Sla de gefitte models op op deze locatie
+model_path <- "./src/markdown/mas/distance_models/"
+
+# Verwijder
+#index_to_remove <- which(names(distance_dfs_2022_final) %in% c("Winterkoning"))
+#[-index_to_remove]
+
+# Loop over species
+for (spec in names(distance_dfs_2022_final)) {
+  distance_data_2022 <- distance_dfs_2022_final[[spec]]
+  sample_table_2022 <- sample_tables_2022[[spec]]
+  obs_table_2022 <- obs_tables_2022[[spec]]
+  
+  out_models <- list()
+  model_names <- c()
+  
+  # Select possible formulas per species
+  form_spec <- forms_2022
+  form_df <- stratum_cijfers_df_2022 %>% filter(soort == spec)
+  if (!pull(form_df[,"n_regio"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_openheid"])) {
+    form_spec[sapply(form_spec, function(i) grepl("openheid", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("sbp", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_int_openheid_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("sbp\\*openheid", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_int_regio_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\*sbp", i))] <- NULL
+  }
+  
+  # Complete separation
+  sep_df <- distance_data_2022 %>% 
+    group_by(regio, openheid) %>% 
+    summarise(n = sum(size))
+  if (nrow(sep_df) == 2) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+openheid", i))] <- NULL
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
+  }
+  
+  if (spec %in% c("Buizerd", "Winterkoning")) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+openheid", i))] <- NULL
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
+  }
+
+  # Loop over formules en over key functions
+  for (i in seq_len(length(form_spec))) {
+    f <- as.character(form_spec[i]) # f is de formule
+    
+    for (k in keys) {
+      # Naam voor model
+      mod_name <- paste0(spec, "_distmod_2022_", k, i)
+      file <- paste0(model_path, mod_name, ".rds")
+      
+      # Sla model op als het nog niet bestaat en lees het in anderzijds
+      if (file.exists(file)) {
+        det_model <- readRDS(file)
+        assign(mod_name, det_model)
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+      } else {
+        if (f == "~1") {
+          det_model <- ds(data = distance_data_2022, key = k, 
+            formula = as.formula(f), max_adjustments = 2, 
+            monotonicity = "strict", 
+            truncation = 300, transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2022, 
+            region_table = region_table_2022, 
+            sample_table = sample_table_2022, 
+            obs_table = obs_table_2022)
+        } else {
+          det_model <- ds(data = distance_data_2022, key = k, 
+            formula = as.formula(f), adjustment = NULL, truncation = 300, 
+            transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2022, 
+            region_table = region_table_2022, 
+            sample_table = sample_table_2022, 
+            obs_table = obs_table_2022)
+        }
+        
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+        
+        # Sla gefitte model op
+        assign(mod_name, det_model)
+        saveRDS(det_model, file = file)
+      }
+      # Put models and model names in list 
+      out_models <- c(out_models, list(det_model))
+      model_names <- c(model_names, mod_name)
+    }
+  }
+  names(out_models) <- model_names
+  
+  # Put models and model names in list 
+  all_models_2022 <- c(all_models_2022, list(out_models))
+  all_model_2022_names <- c(all_model_2022_names, spec)
+}
+names(all_models_2022) <- all_model_2022_names
+```
+
+## Densiteitschattingen 2018-2022
+
+### Model selectie per soort
+
+We selecteren het meest simpele model waarvoor het verschil in AIC kleiner is dan 2.
+
+```{r, results = 'asis'}
+for (naam in names(all_models)) {
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  print(
+  summarize_ds_models2(all_models[[naam]]) %>%
+    kable(caption = titel)
+  )
+  cat("\n")
+}
+```
+
+```{r}
+final_models_complex <- list(Blauwborst = Blauwborst_distmod_2018_2022_hn1,
+                     Buizerd = Buizerd_distmod_2018_2022_hn1,
+                     Ekster = Ekster_distmod_2018_2022_hr1,
+                     Fazant = Fazant_distmod_2018_2022_hr1,
+                     Gaai = Gaai_distmod_2018_2022_hn1,
+                     Geelgors = Geelgors_distmod_2018_2022_hr1,
+                     GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
+                     Grasmus = Grasmus_distmod_2018_2022_hn1,
+                     GrauweGors = GrauweGors_distmod_2018_2022_hn1,
+                     GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1,
+                     Haas = Haas_distmod_2018_2022_hr1,
+                     Heggenmus = Heggenmus_distmod_2018_2022_hn1,
+                     Holenduif = Holenduif_distmod_2018_2022_hn1,
+                     Houtduif = Houtduif_distmod_2018_2022_hn3,
+                     Huismus = Huismus_distmod_2018_2022_hn3,
+                     Kauw = Kauw_distmod_2018_2022_hr1,
+                     Kievit = Kievit_distmod_2018_2022_hr1,
+                     KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1,
+                     Kneu = Kneu_distmod_2018_2022_hn1,
+                     Koolmees = Koolmees_distmod_2018_2022_hr1,
+                     Kwartel = Kwartel_distmod_2018_2022_hn1,
+                     Merel = Merel_distmod_2018_2022_hr1,
+                     Patrijs = Patrijs_distmod_2018_2022_hn1,
+                     Rietzanger = Rietzanger_distmod_2018_2022_hn1,
+                     Roek = Roek_distmod_2018_2022_hr1,
+                     Spotvogel = Spotvogel_distmod_2018_2022_hn1,
+                     Spreeuw = Spreeuw_distmod_2018_2022_hr1,
+                     Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
+                     Torenvalk = Torenvalk_distmod_2018_2022_hn1,
+                     TurkseTortel = TurkseTortel_distmod_2018_2022_hr1,
+                     Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
+                     Vink = Vink_distmod_2018_2022_hn1,
+                     WildeEend = WildeEend_distmod_2018_2022_hn1,
+                     Winterkoning = Winterkoning_distmod_2018_2022_hn1,
+                     WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1,
+                     ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1,
+                     Zwartkop = Zwartkop_distmod_2018_2022_hn1)
+```
+
+Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen.
+
+```{r}
+# Welke soorten moeten niet opnieuw gefit worden?
+specs_to_remove <- lapply(seq_along(final_models_complex), function(i) {
+    soort <- names(final_models_complex)[i]
+    ds_model <- final_models_complex[[i]]
+    f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+    
+    if (f != "~1") {
+      return(soort)
+    } else {
+      return(NULL)
+    }
+  })
+specs_to_remove[sapply(specs_to_remove, is.null)] <- NULL
+specs_to_remove <- unlist(specs_to_remove)
+
+# Verwijder soorten uit simpele dataset
+distance_dfs_2022_simpel_new <- 
+  distance_dfs_2018_2022_simpel[!names(distance_dfs_2018_2022_simpel) %in% 
+                                specs_to_remove]
+names(distance_dfs_2022_simpel_new)
+```
+
+```{r}
+# Key functions
+keys <- c("hn", "hr")
+
+final_models_simpel <- list()
+final_models_simpel_names <- c()
+
+# Fit opnieuw met simpele dataset
+for (spec in names(distance_dfs_2022_simpel_new)) {
+  distance_data_new <- distance_dfs_2022_simpel_new[[spec]]
+  sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
+  obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
+  
+  out_models <- list()
+  model_names <- c()
+    
+  for (k in keys) {
+    # Naam voor model
+    mod_name <- paste0(spec, "_distmod_2018_2022_", k, 1, "_simpel")
+    file <- paste0(model_path, mod_name, ".rds")
+    
+    # Sla model op als het nog niet bestaat en lees het in anderzijds
+    if (file.exists(file)) {
+      det_model <- readRDS(file)
+      assign(mod_name, det_model)
+      print(paste0("Model '", mod_name, "' fitted. ", 
+                   "Formula: '~1'. Key: '", k, "'."))
+    } else {
+      det_model <- ds(data = distance_data_new, key = k, 
+        formula = ~1, max_adjustments = 2, 
+        monotonicity = "strict", 
+        truncation = 300, transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor_2018_2022, 
+        region_table = region_table_2018_2022, 
+        sample_table = sample_table_2018_2022, 
+        obs_table = obs_table_2018_2022)
+    }
+      
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '~1'. Key: '", k, "'."))
+    
+    # Sla gefitte model op
+    assign(mod_name, det_model)
+    saveRDS(det_model, file = file)
+    
+    # Put models and model names in list 
+    out_models <- c(out_models, list(det_model))
+    model_names <- c(model_names, mod_name)
+  }
+  names(out_models) <- model_names
+  
+  # Put models and model names in list 
+  final_models_simpel <- c(final_models_simpel, list(out_models))
+  final_models_simpel_names <- c(final_models_simpel_names, spec)
+}
+names(final_models_simpel) <- final_models_simpel_names
+```
+
+```{r, results = 'asis'}
+for (naam in names(final_models_simpel)) {
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  print(
+  summarize_ds_models2(final_models_simpel[[naam]]) %>%
+    kable(caption = titel)
+  )
+  cat("\n")
+}
+```
+
+```{r}
+final_models <- list(
+  Blauwborst = Blauwborst_distmod_2018_2022_hr1_simpel,
+  Bosrietzanger = Bosrietzanger_distmod_2018_2022_hn1_simpel,
+  BruineKiekendief = BruineKiekendief_distmod_2018_2022_hn1_simpel,
+  Buizerd = Buizerd_distmod_2018_2022_hn1_simpel,
+  Ekster = Ekster_distmod_2018_2022_hr1_simpel,
+  Fazant = Fazant_distmod_2018_2022_hr1_simpel,
+  Gaai = Gaai_distmod_2018_2022_hn1_simpel,
+  Geelgors = Geelgors_distmod_2018_2022_hr1_simpel,
+  GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
+  Grasmus = Grasmus_distmod_2018_2022_hn1_simpel,
+  Graspieper = Graspieper_distmod_2018_2022_hn1_simpel,
+  GrauweGors = GrauweGors_distmod_2018_2022_hn1_simpel,
+  GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1_simpel,
+  Groenling = Groenling_distmod_2018_2022_hn1_simpel,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2018_2022_hn1_simpel,
+  Haas = Haas_distmod_2018_2022_hr1_simpel,
+  Heggenmus = Heggenmus_distmod_2018_2022_hn1_simpel,
+  Holenduif = Holenduif_distmod_2018_2022_hn1_simpel,
+  Houtduif = Houtduif_distmod_2018_2022_hn3,
+  Huismus = Huismus_distmod_2018_2022_hn3,
+  Kauw = Kauw_distmod_2018_2022_hn1_simpel,
+  Kievit = Kievit_distmod_2018_2022_hr1_simpel,
+  KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1_simpel,
+  Kneu = Kneu_distmod_2018_2022_hn1_simpel,
+  Knobbelzwaan = Knobbelzwaan_distmod_2018_2022_hn1_simpel,
+  Koolmees = Koolmees_distmod_2018_2022_hn1_simpel,
+  Kwartel = Kwartel_distmod_2018_2022_hn1_simpel,
+  Meerkoet = Meerkoet_distmod_2018_2022_hn1_simpel,
+  Merel = Merel_distmod_2018_2022_hr1_simpel,
+  Patrijs = Patrijs_distmod_2018_2022_hn1_simpel,
+  Pimpelmees = Pimpelmees_distmod_2018_2022_hn1_simpel,
+  Putter = Putter_distmod_2018_2022_hn1_simpel,
+  Rietgors = Rietgors_distmod_2018_2022_hn1_simpel,
+  Rietzanger = Rietzanger_distmod_2018_2022_hn1_simpel,
+  Ringmus = Ringmus_distmod_2018_2022_hr1_simpel,
+  Roek = Roek_distmod_2018_2022_hr1_simpel,
+  Roodborst = Roodborst_distmod_2018_2022_hn1_simpel,
+  Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hn1_simpel,
+  Spotvogel = Spotvogel_distmod_2018_2022_hn1_simpel,
+  Spreeuw = Spreeuw_distmod_2018_2022_hr1_simpel,
+  Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
+  Torenvalk = Torenvalk_distmod_2018_2022_hn1_simpel,
+  Tuinfluiter = Tuinfluiter_distmod_2018_2022_hn1_simpel,
+  TurkseTortel = TurkseTortel_distmod_2018_2022_hr1_simpel,
+  Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
+  Vink = Vink_distmod_2018_2022_hn1_simpel,
+  WildeEend = WildeEend_distmod_2018_2022_hn1_simpel,
+  Winterkoning = Winterkoning_distmod_2018_2022_hn1_simpel,
+  WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1_simpel,
+  Zanglijster = Zanglijster_distmod_2018_2022_hr1_simpel,
+  ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1_simpel,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2018_2022_hn1_simpel,
+  Zwartkop = Zwartkop_distmod_2018_2022_hn1_simpel)
+```
+
+### Model fit per soort
+
+```{r}
+for (naam in names(final_models)) {
+  ds_model_2018_2022 <- final_models[[naam]]
+  f <- ds_model_2018_2022$ddf$ds$aux$ddfobj$scale$formula
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  par(mfrow = c(1, 2))
+  von_mises <- gof_ds(ds_model_2018_2022)
+  plot(ds_model_2018_2022 , pdf = TRUE, showpoints = FALSE,
+       main = titel)
+  print(paste(titel, f, sep = " - "))
+  print(von_mises)
+  
+  if (f == "~jaar") {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
+      j <- sort(unique(ds_model_2018_2022$ddf$data$jaar))[i]
+      plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = jaar == j,
+         main = j, pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(jaar = j), pdf = TRUE)
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~regio") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "De Moeren",
+         main = "De Moeren", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(regio = "De Moeren"), pdf = TRUE)
+    
+    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "Oostelijke leemstreek",
+         main = "Oostelijke leemstreek", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(regio = "Oostelijke leemstreek"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + jaar", "~regio * jaar")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    
+    
+    for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
+      j <- sort(unique(ds_model_2018_2022$ddf$data$jaar))[i]
+      
+      for (k in seq_along(unique(ds_model_2018_2022$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2018_2022$ddf$data$regio))[k]
+      
+      plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & jaar == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, jaar = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  
+  print(plot_detection_curve(ds_model_2018_2022) +
+    labs(title = titel))
+}
+```
+
+#### Problematische soorten
+
+```{r}
+spec_to_remove <- c("GroeneSpecht", "GroteBonteSpecht")
+```
+
+De data voor `r spec_to_remove` passen niet voor distance sampling.
+Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand.
+Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
+
+```{r}
+indices_to_remove <- which(names(final_models) %in% spec_to_remove)
+
+# Remove
+final_models[indices_to_remove] <- NULL
+```
+
+#### Binned distance sampling
+
+```{r}
+spec_to_bin <- list(Blauwborst = 6,
+                    Bosrietzanger = 3,
+                    Graspieper = 4,
+                    Groenling = 3,
+                    Haas = 4,
+                    Holenduif = 3,
+                    Roodborsttapuit = 4,
+                    Torenvalk = 6,
+                    Tuinfluiter = 3,
+                    Veldleeuwerik = 6)
+```
+
+
+De detectiekans voor `r names(spec_to_bin)` neemt soms weer toe na een bepaalde afstand.
+Voor deze soorten groeperen we de afstanden per 50 (6 bins), 75 (4 bins) of 100 m (3 bins).
+
+```{r}
+final_models_update <- final_models
+final_models_binned <- list()
+final_models_binned_names <- c()
+
+for (spec in names(spec_to_bin)) {
+  sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
+  obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
+  ds_model <- final_models[[spec]]
+  
+  k <- ds_model$ddf$ds$aux$ddfobj$type
+  f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+  i <- which(as.character(forms_2018_2022) == gsub("\\s", "", f))
+  cp <- seq(0, 300, length.out = spec_to_bin[[spec]] + 1)
+  
+  # Naam voor model
+  mod_name <- paste0(spec, "_distmod_2018_2022_", k, i, "_binned")
+  file <- paste0(model_path, mod_name, ".rds")
+  
+  # Sla model op als het nog niet bestaat en lees het in anderzijds
+  if (file.exists(file)) {
+    det_model <- readRDS(file)
+    assign(mod_name, det_model)
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+  } else {
+    if (f == "~1") {
+      distance_data <- distance_dfs_2022_simpel_new[[spec]]
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), max_adjustments = 2, 
+        monotonicity = "strict", cutpoints = cp,
+        truncation = 300, transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor_2018_2022, 
+        region_table = region_table_2018_2022, 
+        sample_table = sample_table_2018_2022, 
+        obs_table = obs_table_2018_2022)
+    } else {
+      distance_data <- distance_dfs_2018_2022_final[[spec]]
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, cutpoints = cp,
+        convert_units = conversion_factor_2018_2022, 
+        region_table = region_table_2018_2022, 
+        sample_table = sample_table_2018_2022, 
+        obs_table = obs_table_2018_2022)
+    }
+    
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+    
+    # Sla gefitte model op
+    assign(mod_name, det_model)
+    saveRDS(det_model, file = file)
+  }
+  # Put models and model names in list 
+  final_models_update[[spec]] <- det_model
+  
+  final_models_binned <- c(final_models_binned, list(det_model))
+  final_models_binned_names <- c(final_models_binned_names, spec)
+}
+names(final_models_binned) <- final_models_binned_names
+```
+
+We controleren nieuwe fit.
+
+```{r}
+for (naam in names(final_models_binned)) {
+  ds_model_2018_2022 <- final_models_binned[[naam]]
+  f <- ds_model_2018_2022$ddf$ds$aux$ddfobj$scale$formula
+  
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  par(mfrow = c(1, 1))
+  plot(ds_model_2018_2022 , pdf = TRUE, showpoints = FALSE,
+       main = paste(titel, f, sep = " - "))
+  
+  if (f == "~jaar") {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
+      j <- sort(unique(ds_model_2018_2022$ddf$data$jaar))[i]
+      plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = jaar == j,
+         main = j, pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(jaar = j), pdf = TRUE)
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~regio") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "De Moeren",
+         main = "De Moeren", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(regio = "De Moeren"), pdf = TRUE)
+    
+    plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "Oostelijke leemstreek",
+         main = "Oostelijke leemstreek", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(regio = "Oostelijke leemstreek"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + jaar", "~regio * jaar")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    
+    
+    for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
+      j <- sort(unique(ds_model_2018_2022$ddf$data$jaar))[i]
+      
+      for (k in seq_along(unique(ds_model_2018_2022$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2018_2022$ddf$data$regio))[k]
+      
+      plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & jaar == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2018_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, jaar = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  
+  print(plot_detection_curve(ds_model_2018_2022) +
+    labs(title = titel))
+}
+```
+
+### Resultaten
+
+We hebben de densiteiten kunnen schatten van `r length(final_models_update)` soorten.
+De volgende tabel geeft een overzicht van de soorten en de finale modellen die gefit zijn.
+
+```{r}
+results <- lapply(seq_along(final_models_update), 
+  function(i) {
+    ds_model <- final_models_update[[i]]
+    k <- gsub(" key function", "", Distance:::model.description(ds_model$ddf))
+    f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+    b <- ds_model$ddf$meta.data$binned
+    p <- as.numeric(summary(ds_model)$ds$average.p)
+    se <- as.numeric(summary(ds_model)$ds$average.p.se)
+    
+    data.frame(soort = names(final_models_update[i]),
+               key = k, formule = f, binned = b, Pa_hat = p, SE = se)
+  })
+
+do.call(rbind, results) %>%
+  kable(digits = 3)
+```
+
+Visueel voor elk stratum:
+
+```{r}
+plot_densiteit <- function(dsmodel, soort, analyse) {
+  summary_dsmodel <- summary(dsmodel)
+  
+  summary_results_dsmodel <- bind_rows(
+      summary_dsmodel$dht$individuals$D %>%
+        mutate(variable = "density",
+               type = "Aantal broedparen per 100 ha"),
+      summary_dsmodel$dht$individuals$N %>%
+        mutate(variable = "abundance",
+               type = "Totaal aantal broedparen")
+      ) %>%
+      filter(Label != "Total")
+  
+  if (analyse == "2018_2022") {
+     summary_results_dsmodel <- summary_results_dsmodel %>%
+      separate(Label, into = c("regio", "jaar"), sep = " - ")
+    
+    p <- summary_results_dsmodel %>%
+      filter(variable == "density") %>%
+      mutate(jaar = factor(jaar, ordered = TRUE)) %>%
+      replace(. == 0, NA) %>%
+      ggplot(aes(x = jaar, y = Estimate, colour = regio)) + 
+        geom_point(size = 4) + 
+        geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25) +
+        scale_y_continuous(limits = c(0, NA)) +
+        facet_wrap(~regio) +
+        theme(legend.position = "")
+  } else {
+    summary_results_dsmodel <- summary_results_dsmodel %>%
+      separate(Label, into = c("regio", "openheid", "sbp"), sep = " - ")
+    
+    p <- summary_results_dsmodel %>%
+      filter(variable == "density") %>%
+      mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
+      replace(. == 0, NA) %>%
+      ggplot(aes(x = stratum, y = Estimate, colour = regio)) + 
+        geom_point(size = 4) + 
+        geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25) +
+        scale_y_continuous(limits = c(0, NA)) +
+        facet_wrap(~regio) +
+        theme(legend.position = "")
+  }
+  
+  if (soort == "Haas") {
+    p + labs(x = "", y = "Aantal individuen per 100 ha",
+           title = soort)
+  } else {
+    p + labs(x = "", y = "Aantal broedparen per 100 ha",
+           title = soort)
+  }
+}
+```
+
+```{r}
+for (i in seq_along(final_models_update)) {
+  titel <- paste(unlist(strsplit(names(final_models_update)[i], 
+                 "(?<=[a-z])(?=[A-Z])", perl = TRUE)), collapse = " ")
+  p <- plot_densiteit(dsmodel = final_models_update[[i]], soort = titel, 
+                      analyse = "2018_2022")
+  print(p)
+}
+```
+
+Ten slotte schrijven de de finale modellen weg.
+
+```{r}
+saveRDS(final_models_update, file = paste0(model_path, "models_2018_2022.rds"))
+```
+
+## Densiteitschattingen 2022
+
+### Model selectie per soort
+
+We selecteren het meest simpele model waarvoor het verschil in AIC kleiner is dan 2.
+
+```{r, results = 'asis'}
+for (naam in names(all_models_2022)) {
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  print(
+  summarize_ds_models2(all_models_2022[[naam]]) %>%
+    kable(caption = titel)
+  )
+  cat("\n")
+}
+```
+
+```{r}
+final_models_2022_complex <- list(
+  Buizerd = Buizerd_distmod_2022_hr1,
+  Ekster = Ekster_distmod_2022_hr1,
+  Fazant = Fazant_distmod_2022_hr7,
+  Gaai = Gaai_distmod_2022_hn1,
+  Geelgors = Geelgors_distmod_2022_hr1,
+  GeleKwikstaart = GeleKwikstaart_distmod_2022_hr1,
+  Grasmus = Grasmus_distmod_2022_hr10,
+  GrauweGors = GrauweGors_distmod_2022_hn1,
+  GroeneSpecht = GroeneSpecht_distmod_2022_hr1,
+  Groenling = Groenling_distmod_2022_hn1,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hn1,
+  GroteLijster = GroteLijster_distmod_2022_hn1,
+  Haas = Haas_distmod_2022_hn3,
+  Heggenmus = Heggenmus_distmod_2022_hn1,
+  Holenduif = Holenduif_distmod_2022_hn1,
+  Houtduif = Houtduif_distmod_2022_hr7,
+  Huismus = Huismus_distmod_2022_hn6,
+  Kauw = Kauw_distmod_2022_hn1,
+  Kievit = Kievit_distmod_2022_hr1,
+  KleineKarekiet = KleineKarekiet_distmod_2022_hr1,
+  Kneu = Kneu_distmod_2022_hn6,
+  Koolmees = Koolmees_distmod_2022_hn1,
+  Kwartel = Kwartel_distmod_2022_hn1,
+  Meerkoet = Meerkoet_distmod_2022_hr1,
+  Merel = Merel_distmod_2022_hn7,
+  Pimpelmees = Pimpelmees_distmod_2022_hr1,
+  Rietzanger = Rietzanger_distmod_2022_hr1,
+  Ringmus = Ringmus_distmod_2022_hn1,
+  Roodborst = Roodborst_distmod_2022_hn1,
+  Roodborsttapuit = Roodborsttapuit_distmod_2022_hr1,
+  Spreeuw = Spreeuw_distmod_2022_hn1,
+  Tjiftjaf = Tjiftjaf_distmod_2022_hn2,
+  Torenvalk = Torenvalk_distmod_2022_hr5,
+  TurkseTortel = TurkseTortel_distmod_2022_hr1,
+  Veldleeuwerik = Veldleeuwerik_distmod_2022_hr7,
+  Vink = Vink_distmod_2022_hn8,
+  WildeEend = WildeEend_distmod_2022_hn1,
+  Winterkoning = Winterkoning_distmod_2022_hr8,
+  WitteKwikstaart = WitteKwikstaart_distmod_2022_hn2,
+  Zanglijster = Zanglijster_distmod_2022_hn2,
+  ZwarteKraai = ZwarteKraai_distmod_2022_hr3,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2022_hn2,
+  Zwartkop = Zwartkop_distmod_2022_hn2
+)
+```
+
+Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen.
+
+```{r}
+# Welke soorten moeten niet opnieuw gefit worden?
+specs_to_remove_2022 <- lapply(seq_along(final_models_2022_complex), function(i) {
+    soort <- names(final_models_2022_complex)[i]
+    ds_model <- final_models_2022_complex[[i]]
+    f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+    
+    if (f != "~1") {
+      return(soort)
+    } else {
+      return(NULL)
+    }
+  })
+specs_to_remove_2022[sapply(specs_to_remove_2022, is.null)] <- NULL
+specs_to_remove_2022 <- unlist(specs_to_remove_2022)
+
+# Verwijder soorten uit simpele dataset
+distance_dfs_2022_simpel_new <- 
+  distance_dfs_2022_simpel[!names(distance_dfs_2022_simpel) %in% 
+                                specs_to_remove_2022]
+names(distance_dfs_2022_simpel_new)
+```
+
+```{r}
+# Key functions
+keys <- c("hn", "hr")
+
+final_models_simpel_2022 <- list()
+final_models_simpel_2022_names <- c()
+
+# Fit opnieuw met simpele dataset
+for (spec in names(distance_dfs_2022_simpel_new)) {
+  distance_data_new <- distance_dfs_2022_simpel_new[[spec]]
+  sample_table_2022 <- sample_tables_2022[[spec]]
+  obs_table_2022 <- obs_tables_2022[[spec]]
+  
+  out_models <- list()
+  model_names <- c()
+    
+  for (k in keys) {
+    # Naam voor model
+    mod_name <- paste0(spec, "_distmod_2022_", k, 1, "_simpel")
+    file <- paste0(model_path, mod_name, ".rds")
+    
+    # Sla model op als het nog niet bestaat en lees het in anderzijds
+    if (file.exists(file)) {
+      det_model <- readRDS(file)
+      assign(mod_name, det_model)
+      print(paste0("Model '", mod_name, "' fitted. ", 
+                   "Formula: '~1'. Key: '", k, "'."))
+    } else {
+      det_model <- ds(data = distance_data_new, key = k, 
+        formula = ~1, max_adjustments = 2, 
+        monotonicity = "strict", 
+        truncation = 300, transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor_2022, 
+        region_table = region_table_2022, 
+        sample_table = sample_table_2022, 
+        obs_table = obs_table_2022)
+    }
+      
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '~1'. Key: '", k, "'."))
+    
+    # Sla gefitte model op
+    assign(mod_name, det_model)
+    saveRDS(det_model, file = file)
+    
+    # Put models and model names in list 
+    out_models <- c(out_models, list(det_model))
+    model_names <- c(model_names, mod_name)
+  }
+  names(out_models) <- model_names
+  
+  # Put models and model names in list 
+  final_models_simpel_2022 <- c(final_models_simpel_2022, list(out_models))
+  final_models_simpel_2022_names <- c(final_models_simpel_2022_names, spec)
+}
+names(final_models_simpel_2022) <- final_models_simpel_2022_names
+```
+
+```{r, results = 'asis'}
+for (naam in names(final_models_simpel_2022)) {
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  print(
+  summarize_ds_models2(final_models_simpel_2022[[naam]]) %>%
+    kable(caption = titel)
+  )
+  cat("\n")
+}
+```
+
+```{r}
+final_models_2022 <- list(
+  Blauwborst = Blauwborst_distmod_2022_hn1_simpel,
+  Boomkruiper = Boomkruiper_distmod_2022_hn1_simpel,
+  Bosrietzanger = Bosrietzanger_distmod_2022_hn1_simpel,
+  BruineKiekendief = BruineKiekendief_distmod_2022_hn1_simpel,
+  Buizerd = Buizerd_distmod_2022_hr1_simpel,
+  Ekster = Ekster_distmod_2022_hn1_simpel,
+  Fazant = Fazant_distmod_2022_hr7,
+  Gaai = Gaai_distmod_2022_hn1_simpel,
+  Geelgors = Geelgors_distmod_2022_hr1_simpel,
+  GeleKwikstaart = GeleKwikstaart_distmod_2022_hr1_simpel,
+  Grasmus = Grasmus_distmod_2022_hr10,
+  Graspieper = Graspieper_distmod_2022_hn1_simpel,
+  GrauweGors = GrauweGors_distmod_2022_hn1_simpel,
+  GroeneSpecht = GroeneSpecht_distmod_2022_hr1_simpel,
+  Groenling = Groenling_distmod_2022_hr1_simpel,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hn1_simpel,
+  GroteLijster = GroteLijster_distmod_2022_hn1_simpel,
+  Haas = Haas_distmod_2022_hn3,
+  Heggenmus = Heggenmus_distmod_2022_hn1_simpel,
+  Holenduif = Holenduif_distmod_2022_hn1_simpel,
+  Houtduif = Houtduif_distmod_2022_hr7,
+  Huismus = Huismus_distmod_2022_hn6,
+  Kauw = Kauw_distmod_2022_hn1_simpel,
+  Kievit = Kievit_distmod_2022_hr1_simpel,
+  KleineKarekiet = KleineKarekiet_distmod_2022_hn1_simpel,
+  Kneu = Kneu_distmod_2022_hn6,
+  Koolmees = Koolmees_distmod_2022_hn1_simpel,
+  Kwartel = Kwartel_distmod_2022_hn1_simpel,
+  Meerkoet = Meerkoet_distmod_2022_hn1_simpel,
+  Merel = Merel_distmod_2022_hn7,
+  Pimpelmees = Pimpelmees_distmod_2022_hr1_simpel,
+  Putter = Putter_distmod_2022_hn1_simpel,
+  Rietzanger = Rietzanger_distmod_2022_hr1_simpel,
+  Ringmus = Ringmus_distmod_2022_hn1_simpel,
+  Roek = Roek_distmod_2022_hn1_simpel,
+  Roodborst = Roodborst_distmod_2022_hn1_simpel,
+  Roodborsttapuit = Roodborsttapuit_distmod_2022_hn1_simpel,
+  Spotvogel = Spotvogel_distmod_2022_hn1_simpel,
+  Spreeuw = Spreeuw_distmod_2022_hn1_simpel,
+  Tjiftjaf = Tjiftjaf_distmod_2022_hn2,
+  Torenvalk = Torenvalk_distmod_2022_hr5,
+  TurkseTortel = TurkseTortel_distmod_2022_hr1_simpel,
+  Veldleeuwerik = Veldleeuwerik_distmod_2022_hr7,
+  Vink = Vink_distmod_2022_hn8,
+  WildeEend = WildeEend_distmod_2022_hn1_simpel,
+  Winterkoning = Winterkoning_distmod_2022_hr8,
+  WitteKwikstaart = WitteKwikstaart_distmod_2022_hn2,
+  Zanglijster = Zanglijster_distmod_2022_hn2,
+  ZwarteKraai = ZwarteKraai_distmod_2022_hr3,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2022_hn2,
+  Zwartkop = Zwartkop_distmod_2022_hn2
+)
+```
+
+### Model fit per soort
+
+```{r}
+for (naam in names(final_models_2022)) {
+  ds_model_2022 <- final_models_2022[[naam]]
+  f <- ds_model_2022$ddf$ds$aux$ddfobj$scale$formula
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  par(mfrow = c(1, 2))
+  von_mises <- gof_ds(ds_model_2022)
+  plot(ds_model_2022 , pdf = TRUE, showpoints = FALSE,
+       main = titel)
+  print(paste(titel, f, sep = " - "))
+  print(von_mises)
+  
+  if (f == "~regio") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "De Moeren",
+         main = "De Moeren", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(regio = "De Moeren"), pdf = TRUE)
+    
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "Oostelijke leemstreek",
+         main = "Oostelijke leemstreek", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(regio = "Oostelijke leemstreek"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~sbp") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "binnen",
+         main = "binnen", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(sbp = "binnen"), pdf = TRUE)
+    
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "buiten",
+         main = "buiten", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(sbp = "buiten"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~openheid") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "OL",
+         main = "OL", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(openheid = "OL"), pdf = TRUE)
+    
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "HOL",
+         main = "HOL", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(openheid = "HOL"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + sbp", "~regio * sbp")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2022$ddf$data$sbp))) {
+      j <- sort(unique(ds_model_2022$ddf$data$sbp))[i]
+      
+      for (k in seq_along(unique(ds_model_2022$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2022$ddf$data$regio))[k]
+      
+      plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & sbp == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, sbp = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + openheid", "~regio * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2022$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2022$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2022$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2022$ddf$data$regio))[k]
+      
+      if (!(j == "HOL" & reg == "De Moeren")) {
+      plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, openheid = j), pdf = TRUE)
+      }}
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~sbp + openheid", "~sbp * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2022$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2022$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2022$ddf$data$sbp))) {
+      reg <- sort(unique(ds_model_2022$ddf$data$sbp))[k]
+      
+      plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(sbp = reg, openheid = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~regio + sbp + openheid") {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    for (h in seq_along(unique(ds_model_2022$ddf$data$openheid))) {
+      o <- sort(unique(ds_model_2022$ddf$data$openheid))[h]
+      
+      for (i in seq_along(unique(ds_model_2022$ddf$data$sbp))) {
+        j <- sort(unique(ds_model_2022$ddf$data$sbp))[i]
+        
+        for (k in seq_along(unique(ds_model_2022$ddf$data$regio))) {
+        reg <- sort(unique(ds_model_2022$ddf$data$regio))[k]
+        
+        if (!(o == "HOL" & reg == "De Moeren")) {
+        plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+           subset = regio == reg & sbp == j & openheid == o,
+           main = paste(reg, j, o, sep = "- "), pl.col = alpha(cols[h], 0.5))
+        add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = cols[h],
+          data = data.frame(regio = reg, sbp = j, openheid = o), pdf = TRUE)
+        }}
+      }
+    }
+    par(mfrow = c(1, 1))
+  }
+  
+  print(plot_detection_curve(ds_model_2022) +
+    labs(title = titel))
+}
+```
+
+#### Problematische soorten
+
+```{r}
+spec_to_remove <- c("BruineKiekendief", "Roek")
+```
+
+
+De data voor `r spec_to_remove` passen niet voor distance sampling.
+Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand.
+Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten. Ook hebben ze vaak maar weinig data.
+
+```{r}
+indices_to_remove <- which(names(final_models_2022) %in% spec_to_remove)
+
+# Remove
+final_models_2022[indices_to_remove] <- NULL
+```
+
+#### Binned distance sampling
+
+```{r}
+spec_to_bin_2022 <- list(GeleKwikstaart = 4,
+                      Graspieper = 3,
+                      GrauweGors = 3,
+                      GroteBonteSpecht = 4,
+                      GroteLijster = 3,
+                      Haas = 4,
+                      Holenduif = 4,
+                      Kauw = 3,
+                      Kievit = 4,
+                      Kwartel = 6,
+                      Rietzanger = 4,
+                      Ringmus = 3,
+                      Veldleeuwerik = 6,
+                      WildeEend = 4,
+                      WitteKwikstaart = 6,
+                      Zanglijster = 4,
+                      ZwarteKraai = 6,
+                      ZwarteRoodstaart = 4,
+                      Zwartkop = 6)
+```
+
+De detectiekans voor `r names(spec_to_bin_2022)` neemt soms weer toe na een bepaalde afstand.
+Voor deze soorten groeperen we de afstanden per 50 (6 bins), 75 (4 bins) of 100 m (3 bins).
+
+```{r}
+final_models_2022_update <- final_models_2022
+final_models_2022_binned <- list()
+final_models_2022_binned_names <- c()
+
+for (spec in names(spec_to_bin_2022)) {
+  sample_table_2022 <- sample_tables_2022[[spec]]
+  obs_table_2022 <- obs_tables_2022[[spec]]
+  ds_model <- final_models_2022[[spec]]
+  
+  k <- ds_model$ddf$ds$aux$ddfobj$type
+  f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+  i <- which(as.character(forms_2022) == gsub("\\s", "", f))
+  cp <- seq(0, 300, length.out = spec_to_bin_2022[[spec]] + 1)
+  
+  # Naam voor model
+  mod_name <- paste0(spec, "_distmod_2022_", k, i, "_binned")
+  file <- paste0(model_path, mod_name, ".rds")
+  
+  # Sla model op als het nog niet bestaat en lees het in anderzijds
+  if (file.exists(file)) {
+    det_model <- readRDS(file)
+    assign(mod_name, det_model)
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+  } else {
+    if (f == "~1") {
+      distance_data <- distance_dfs_2022_simpel_new[[spec]]
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), max_adjustments = 2, 
+        monotonicity = "strict", cutpoints = cp,
+        truncation = 300, transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor_2022, 
+        region_table = region_table_2022, 
+        sample_table = sample_table_2022, 
+        obs_table = obs_table_2022)
+    } else {
+      distance_data <- distance_dfs_2022_final[[spec]]
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, cutpoints = cp,
+        convert_units = conversion_factor_2022, 
+        region_table = region_table_2022, 
+        sample_table = sample_table_2022, 
+        obs_table = obs_table_2022)
+    }
+    
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+    
+    # Sla gefitte model op
+    assign(mod_name, det_model)
+    saveRDS(det_model, file = file)
+  }
+  # Put models and model names in list 
+  final_models_2022_update[[spec]] <- det_model
+  
+  final_models_2022_binned <- c(final_models_2022_binned, list(det_model))
+  final_models_2022_binned_names <- c(final_models_2022_binned_names, spec)
+}
+names(final_models_2022_binned) <- final_models_2022_binned_names
+```
+
+We controleren nieuwe fit.
+
+```{r}
+for (naam in names(final_models_2022_binned)) {
+  ds_model_2022 <- final_models_2022_binned[[naam]]
+  f <- ds_model_2022$ddf$ds$aux$ddfobj$scale$formula
+  
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  par(mfrow = c(1, 1))
+  plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+       main = paste(titel, f, sep = " - "))
+  
+  if (f == "~regio") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "De Moeren",
+         main = "De Moeren", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(regio = "De Moeren"), pdf = TRUE)
+    
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "Oostelijke leemstreek",
+         main = "Oostelijke leemstreek", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(regio = "Oostelijke leemstreek"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~sbp") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "binnen",
+         main = "binnen", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(sbp = "binnen"), pdf = TRUE)
+    
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "buiten",
+         main = "buiten", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(sbp = "buiten"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~openheid") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "OL",
+         main = "OL", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(openheid = "OL"), pdf = TRUE)
+    
+    plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "HOL",
+         main = "HOL", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(openheid = "HOL"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + sbp", "~regio * sbp")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2022$ddf$data$sbp))) {
+      j <- sort(unique(ds_model_2022$ddf$data$sbp))[i]
+      
+      for (k in seq_along(unique(ds_model_2022$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2022$ddf$data$regio))[k]
+      
+      plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & sbp == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, sbp = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + openheid", "~regio * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2022$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2022$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2022$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2022$ddf$data$regio))[k]
+      
+      if (!(j == "HOL" & reg == "De Moeren")) {
+      plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, openheid = j), pdf = TRUE)
+      }}
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~sbp + openheid", "~sbp * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2022$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2022$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2022$ddf$data$sbp))) {
+      reg <- sort(unique(ds_model_2022$ddf$data$sbp))[k]
+      
+      plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(sbp = reg, openheid = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~regio + sbp + openheid") {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    for (h in seq_along(unique(ds_model_2022$ddf$data$openheid))) {
+      o <- sort(unique(ds_model_2022$ddf$data$openheid))[h]
+      
+      for (i in seq_along(unique(ds_model_2022$ddf$data$sbp))) {
+        j <- sort(unique(ds_model_2022$ddf$data$sbp))[i]
+        
+        for (k in seq_along(unique(ds_model_2022$ddf$data$regio))) {
+        reg <- sort(unique(ds_model_2022$ddf$data$regio))[k]
+        
+        if (!(o == "HOL" & reg == "De Moeren")) {
+        plot(ds_model_2022, pdf = TRUE, showpoints = FALSE,
+           subset = regio == reg & sbp == j & openheid == o,
+           main = paste(reg, j, o, sep = "- "), pl.col = alpha(cols[h], 0.5))
+        add.df.covar.line(ds_model_2022, lwd = 3, lty = 1, col = cols[h],
+          data = data.frame(regio = reg, sbp = j, openheid = o), pdf = TRUE)
+        }}
+      }
+    }
+    par(mfrow = c(1, 1))
+  }
+  
+  print(plot_detection_curve(ds_model_2022) +
+    labs(title = titel))
+}
+```
+
+
+### Resultaten
+
+We hebben de densiteiten kunnen schatten van `r length(final_models_2022_update)` soorten.
+De volgende tabel geeft een overzicht van de soorten en finale modellen die gefit zijn.
+
+```{r}
+results <- lapply(seq_along(final_models_2022_update), 
+  function(i) {
+    ds_model <- final_models_2022_update[[i]]
+    k <- gsub(" key function", "", Distance:::model.description(ds_model$ddf))
+    f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+    b <- ds_model$ddf$meta.data$binned
+    p <- as.numeric(summary(ds_model)$ds$average.p)
+    se <- as.numeric(summary(ds_model)$ds$average.p.se)
+    
+    data.frame(soort = names(final_models_2022_update[i]),
+               key = k, formule = f, binned = b, Pa_hat = p, SE = se)
+  })
+
+do.call(rbind, results) %>%
+  kable(digits = 3)
+```
+
+Visueel voor elk stratum:
+
+```{r}
+for (i in seq_along(final_models_2022_update)) {
+  titel <- paste(unlist(strsplit(names(final_models_2022_update)[i], 
+                 "(?<=[a-z])(?=[A-Z])", perl = TRUE)), collapse = " ")
+  p <- plot_densiteit(dsmodel = final_models_2022_update[[i]], soort = titel, 
+                      analyse = "2022")
+  print(p)
+}
+```
+
+Ten slotte schrijven de de finale modellen weg.
+
+```{r}
+saveRDS(final_models_2022_update, file = paste0(model_path, "models_2022.rds"))
+```
 
 
 # Referenties
