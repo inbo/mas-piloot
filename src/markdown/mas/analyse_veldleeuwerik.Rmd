@@ -3135,7 +3135,8 @@ do.call(rbind, results) %>%
 Visueel voor elk stratum:
 
 ```{r}
-plot_densiteit <- function(dsmodel, soort, analyse) {
+plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
+  # Calculate summary of dsmodel
   summary_dsmodel <- summary(dsmodel)
   
   summary_results_dsmodel <- bind_rows(
@@ -3148,43 +3149,150 @@ plot_densiteit <- function(dsmodel, soort, analyse) {
       ) %>%
       filter(Label != "Total")
   
-  if (analyse == "2018_2022") {
-     summary_results_dsmodel <- summary_results_dsmodel %>%
+  if ("jaar" %in% names(dsmodel$ddf$data)) {
+    if (show_data) {
+      plots_old <- design_2018_2022_mas %>%
+        filter(jaar != 2022) %>%
+        distinct(plotnaam) %>%
+        pull()
+      
+      spec_presence <- df_obs_list[[gsub(" ", "", soort)]] %>%
+        filter(plotnaam %in% plots_old)
+      
+      # Totale lijst van bezochte plots in 2018-2022
+      bezoekenlijst_2018_2022 <- design_2018_2022_mas_reduced  %>% 
+        expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
+        arrange(plotnaam, jaar, periode_in_jaar)
+      
+      # Voeg afwezigheden toe door te mergen met alle bezoeken
+      spec_df <- spec_presence %>%
+        st_drop_geometry() %>%
+        group_by(plotnaam, jaar, periode_in_jaar) %>%
+        summarise(aantal = sum(aantal)) %>%
+        full_join(bezoekenlijst_2018_2022, by = c("plotnaam", "jaar", 
+                                                  "periode_in_jaar")) %>%
+        replace(is.na(.), 0) %>%
+        arrange(plotnaam, jaar, periode_in_jaar) %>%
+        mutate(Region.Label = paste(regio, jaar, sep = " - "))
+      
+      # Oppervlakte telcirkels
+      cirkelopp <- pi * 300^2
+      
+      average_df <- spec_df %>%
+        # Bepaal voor elke plot het gemiddeld aantal individuen over
+        # de telperiodes per jaar
+        group_by(plotnaam, jaar, periode_in_jaar) %>%
+        mutate(totaal = sum(aantal)) %>%
+        group_by(plotnaam, jaar) %>%
+        mutate(gemiddelde = mean(totaal)) %>%
+        ungroup() %>%
+        mutate(jaar = factor(jaar, ordered = TRUE)) %>%
+        select(-c(periode_in_jaar, aantal, totaal)) %>%
+        distinct() %>%
+        
+        # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
+        mutate(Estimate = gemiddelde / cirkelopp * 1e6)
+      
+      p <- ggplot() +
+        stat_sum(data = average_df, aes(x = jaar, y = Estimate), 
+                 position = position_dodge(width = 0.5), alpha = 0.1, 
+                 colour = "firebrick")
+    } else {
+      p <- ggplot()
+    }
+    
+    # Voeg resultaten dsmodel toe
+    summary_results_dsmodel <- summary_results_dsmodel %>%
       separate(Label, into = c("regio", "jaar"), sep = " - ")
     
-    p <- summary_results_dsmodel %>%
+    summary_df <- summary_results_dsmodel %>%
       filter(variable == "density") %>%
       mutate(jaar = factor(jaar, ordered = TRUE)) %>%
-      replace(. == 0, NA) %>%
-      ggplot(aes(x = jaar, y = Estimate, colour = regio)) + 
-        geom_point(size = 4) + 
-        geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25) +
-        scale_y_continuous(limits = c(0, NA)) +
-        facet_wrap(~regio) +
-        theme(legend.position = "")
+      replace(. == 0, NA)
+    
+    # Plot
+    p <- p + 
+      geom_point(data = summary_df, aes(x = jaar, y = Estimate, 
+                                        colour = regio), size = 4) + 
+      geom_errorbar(data = summary_df, aes(x = jaar, ymin = lcl, ymax = ucl, 
+                                           colour = regio), width = 0.25) +
+      scale_y_continuous(limits = c(0, NA)) +
+      facet_wrap(~regio) +
+      theme(legend.position = "")
+    
   } else {
+    if (show_data) {
+      spec_presence <- df_obs_list[[gsub(" ", "", soort)]] %>%
+        filter(jaar == 2022)
+      
+      # Totale lijst van bezochte plots in 2022
+      bezoekenlijst_2022 <- design_2022_mas  %>% 
+        expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
+        arrange(plotnaam, jaar, periode_in_jaar)
+      
+      # Voeg afwezigheden toe door te mergen met alle bezoeken
+      spec_df <- spec_presence %>%
+        st_drop_geometry() %>%
+        group_by(plotnaam, jaar, periode_in_jaar) %>%
+        summarise(aantal = sum(aantal)) %>%
+        full_join(bezoekenlijst_2022, by = c("plotnaam", "jaar", 
+                                                  "periode_in_jaar")) %>%
+        replace(is.na(.), 0) %>%
+        arrange(plotnaam, jaar, periode_in_jaar) %>%
+        mutate(Region.Label = paste(regio, jaar, sep = " - "))
+      
+      # Oppervlakte telcirkels
+      cirkelopp <- pi * 300^2
+      
+      average_df <- spec_df %>%
+        # Bepaal voor elke plot het gemiddeld aantal individuen over
+        # de telperiodes per jaar
+        group_by(plotnaam, periode_in_jaar) %>%
+        mutate(totaal = sum(aantal)) %>%
+        group_by(plotnaam) %>%
+        mutate(gemiddelde = mean(totaal)) %>%
+        ungroup() %>%
+        select(-c(periode_in_jaar, aantal, totaal)) %>%
+        distinct() %>%
+        
+        # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
+        mutate(Estimate = gemiddelde / cirkelopp * 1e6,
+               stratum = paste(openheid, sbp, sep = " - "))
+      
+      p <- ggplot() +
+        stat_sum(data = average_df, aes(x = stratum, y = Estimate), 
+                 position = position_dodge(width = 0.5), alpha = 0.1, colour = "firebrick")
+    } else {
+      p <- ggplot()
+    }
+    
+    # Voeg resultaten dsmodel toe
     summary_results_dsmodel <- summary_results_dsmodel %>%
       separate(Label, into = c("regio", "openheid", "sbp"), sep = " - ")
     
-    p <- summary_results_dsmodel %>%
+    summary_df <- summary_results_dsmodel %>%
       filter(variable == "density") %>%
       mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
-      replace(. == 0, NA) %>%
-      ggplot(aes(x = stratum, y = Estimate, colour = regio)) + 
-        geom_point(size = 4) + 
-        geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.25) +
-        scale_y_continuous(limits = c(0, NA)) +
-        facet_wrap(~regio) +
-        theme(legend.position = "")
+      replace(. == 0, NA)
+    
+    # Plot
+    p <- p +
+      geom_point(data = summary_df, aes(x = stratum, y = Estimate, 
+                                        colour = regio), size = 4) + 
+      geom_errorbar(data = summary_df, aes(x = stratum, ymin = lcl, 
+                    ymax = ucl, colour = regio), width = 0.25) +
+      scale_y_continuous(limits = c(0, NA)) +
+      facet_wrap(~regio) +
+      theme(legend.position = "")
   }
   
   if (soort == "Haas") {
-    p + labs(x = "", y = "Aantal individuen per 100 ha",
-           title = soort)
+    p <- p + labs(x = "", y = "Aantal individuen per 100 ha", title = soort)
   } else {
-    p + labs(x = "", y = "Aantal broedparen per 100 ha",
-           title = soort)
+    p <- p + labs(x = "", y = "Aantal broedparen per 100 ha", title = soort)
   }
+  
+  return(p)
 }
 ```
 
@@ -3192,9 +3300,14 @@ plot_densiteit <- function(dsmodel, soort, analyse) {
 for (i in seq_along(final_models_update)) {
   titel <- paste(unlist(strsplit(names(final_models_update)[i], 
                  "(?<=[a-z])(?=[A-Z])", perl = TRUE)), collapse = " ")
-  p <- plot_densiteit(dsmodel = final_models_update[[i]], soort = titel, 
-                      analyse = "2018_2022")
-  print(p)
+  
+  p1 <- plot_densiteit(dsmodel = final_models_update[[i]], soort = titel,
+                       show_data = FALSE)
+  print(p1)
+  
+  p2 <- plot_densiteit(dsmodel = final_models_update[[i]], soort = titel,
+                       show_data = TRUE)
+  print(p2)
 }
 ```
 
@@ -3885,9 +3998,14 @@ Visueel voor elk stratum:
 for (i in seq_along(final_models_2022_update)) {
   titel <- paste(unlist(strsplit(names(final_models_2022_update)[i], 
                  "(?<=[a-z])(?=[A-Z])", perl = TRUE)), collapse = " ")
-  p <- plot_densiteit(dsmodel = final_models_2022_update[[i]], soort = titel, 
-                      analyse = "2022")
-  print(p)
+  
+  p1 <- plot_densiteit(dsmodel = final_models_2022_update[[i]], soort = titel,
+                       show_data = FALSE)
+  print(p1)
+  
+  p2 <- plot_densiteit(dsmodel = final_models_2022_update[[i]], soort = titel,
+                       show_data = TRUE)
+  print(p2)
 }
 ```
 
