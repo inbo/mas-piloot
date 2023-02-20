@@ -1935,7 +1935,7 @@ obs_tables_2018_2022 <- lapply(df_obs_list, function(df) {
   })
 ```
 
-De `region_table` en de conversiefactor zijn gemeenschappelijk voor alle soorten.
+De `region_table` en de conversiefactor voor de meeteenheden zijn gemeenschappelijk voor alle soorten.
 `region_table` bevat de oppervlaktes per stratum (regio-jaar).
 
 ```{r}
@@ -2015,7 +2015,7 @@ obs_tables_2022 <- lapply(df_obs_list, function(df) {
   })
 ```
 
-De `region_table` en de conversiefactor zijn gemeenschappelijk voor alle soorten.
+De `region_table` en de conversiefactor voor de meeteenheden zijn gemeenschappelijk voor alle soorten.
 `region_table` bevat de oppervlaktes per stratum (regio-openheid-sbp).
 
 ```{r}
@@ -2100,7 +2100,7 @@ distance_dfs_2018_2022_simpel <- filter_dist_df(distance_dfs_2018_2022, 0, 20)
 distance_dfs_2018_2022_final <- filter_dist_df(distance_dfs_2018_2022, 10, 30)
 ```
 
-In de complexe dataset zijn de meeste soorten zijn in meerdere jaren gezien.
+In de complexe dataset zijn de meeste soorten in meerdere jaren gezien.
 De meeste soorten hebben waarnemingen van slechts een enkele regio.
 Een interactie tussen regio en jaar zal slechts in een beperkt aantal gevallen gefit kunnen worden.
 
@@ -2250,7 +2250,7 @@ distance_dfs_2022_simpel <- filter_dist_df_2022(distance_dfs_2022, 0, 20)
 distance_dfs_2022_final <- filter_dist_df_2022(distance_dfs_2022, 10, 30)
 ```
 
-In de complexe dataset zijn de meeste soorten zijn in meerdere openheidsklasses gezien.
+In de complexe dataset zijn de meeste soorten in meerdere openheidsklasses gezien.
 De meeste soorten hebben waarnemingen van slechts een enkele regio.
 De meeste soorten hebben waarnemingen zowel binnen als buiten sbp.
 Een interacties tussen regio en sbp en openheid en sbp zal meestal niet gefit kunnen worden.
@@ -2385,6 +2385,8 @@ do.call(rbind, list_2022) %>%
 
 ### 2018-2022
 
+Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio en jaar. We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen ook tweewegsinteracties tussen de covariaten. In de modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data. Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken beperken we het aantal aanpassingstermen tot maximaal 2. De modellen worden lokaal opgeslaan zodat ze maar eenmaal moeten gefit worden.
+
 ```{r}
 match_variables_2018_2022 <- c("regio", "jaar")
 
@@ -2410,6 +2412,8 @@ forms2[sapply(forms2, is.null)] <- NULL
 # Voeg combinaties samen
 forms_2018_2022 <- c("~1", forms1, forms2)
 ```
+
+Voor Bruine kiekendief kunnen we geen model fitten.
 
 ```{r}
 all_models <- list()
@@ -2503,6 +2507,8 @@ names(all_models) <- all_model_names
 ```
 
 ### 2022
+
+Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, openheid en sbp. We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen enkel tweewegsinteracties tussen de covariaten. In de modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data. Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken beperken we het aantal aanpassingstermen tot maximaal 2. De modellen worden lokaal opgeslaan zodat ze maar eenmaal moeten gefit worden.
 
 ```{r}
 match_variables_2022 <- c("regio", "sbp", "openheid")
@@ -2649,6 +2655,8 @@ names(all_models_2022) <- all_model_2022_names
 ## Densiteitschattingen 2018-2022
 
 ### Model selectie per soort
+
+We selecteren het meest simpele model waarvoor het verschil in AIC kleiner is dan 2.
 
 ```{r, results = 'asis'}
 for (naam in names(all_models)) {
@@ -3193,6 +3201,8 @@ saveRDS(final_models_update, file = paste0(model_path, "models_2018_2022.rds"))
 ## Densiteitschattingen 2022
 
 ### Model selectie per soort
+
+We selecteren het meest simpele model waarvoor het verschil in AIC kleiner is dan 2.
 
 ```{r, results = 'asis'}
 for (naam in names(all_models_2022)) {
