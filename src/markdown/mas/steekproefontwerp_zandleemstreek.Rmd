@@ -633,7 +633,8 @@ steekproefkader_finaal %>%
 
 Zowel binnen kerngebied als zoekzones zijn er soortbeschermende maatregelen (SB BO's) gelegd (zie kaart VLM BO's).
 In theorie waren deze maatregelen vooral bedoeld voor kerngebied, en zal daar een hogere dichtheid (bedekkingsgraad) liggen, maar de VLM heeft het toegelaten om ook in zoekzones deze maatregelen te sluiten (al was dat minder de prioriteit).
-Daar werd bv in de Moeren geen rekening mee gehouden, en werden erg veel SB BOs gelegd, ook omdat dit gebied wél kerngebied is In de toekomst heeft VLM beloofd om meer/enkel rekening te houden met kerngebied, en dus nog meer te sturen op.
+Daar werd bv. in de Moeren geen rekening mee gehouden, en werden erg veel SB BO's gelegd, ook omdat dit gebied wél kerngebied was van plan kiekendief (SBP Grauwe Kiekendief) waardoor er wel veel BO's gesloten zijn.
+In de toekomst heeft VLM beloofd om meer/enkel rekening te houden met kerngebied.
 
 We nemen kerngebieden en zoekzones samen als onderzoeksgebied en alles hierbuiten beschouwen we als controle.
 Als SBP laag gebruiken we perimeter SBP akkervogels, SBP grauwe kiekendief, SBP bruine kiekendief, SBP zomertortel en SBP hamster.
