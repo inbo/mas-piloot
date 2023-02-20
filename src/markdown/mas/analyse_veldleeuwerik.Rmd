@@ -1823,9 +1823,16 @@ datumgrenzen_mas <- datumgrenzen_mas
 
 ## Filter algemene dataframes
 
+```{r}
+roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief", "Buizerd", 
+                "Grauwe Kiekendief", "Ransuil", "Slechtvalk", "Sperwer", 
+                "Steenuil", "Steppekiekendief", "Torenvalk", "Velduil", 
+                "Wespendief", "Zwarte Wouw")
+```
+
 We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0, geen afstanden \> 300 m en dat ze binnen telperiodes vallen.
 We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
-We voegen ook Haas toe (geen broedcodes).
+We voegen ook Haas toe en roofvogels (`r roofvogels`) zonder broedcodes.
 
 ```{r}
 mas_observations <- mas_clean %>%
@@ -1837,17 +1844,22 @@ mas_observations <- mas_clean %>%
                        naam),
          naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
                        naam))
-haas_observations <- mas_clean %>%
-  filter(naam == "Haas", distance2plot <= 300, !is.na(periode_in_jaar)) %>%  
-  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
-  mutate(Region.Label = paste(regio, jaar, sep = " - "))
 
-mas_observations <- bind_rows(mas_observations, haas_observations)
+haas_raptor_observations <- mas_clean %>%
+  filter(naam == "Haas" | naam %in% roofvogels, distance2plot <= 300, 
+         !is.na(periode_in_jaar)) %>%  
+  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "),
+         naam = ifelse(naam %in% roofvogels, 
+                       paste(naam, "zonder_broedcode", sep = "_"), 
+                       naam))
+
+mas_observations <- bind_rows(mas_observations, haas_raptor_observations)
 ```
 
 ## Genereer dataframes voor elke soort
 
-We maken in een for-loop een dataframe voor elke soort waar we ook filteren op de datumgrenzen. Voor Haas behouden we alle telperiodes.
+We maken in een for-loop een dataframe voor elke soort waar we ook filteren op de datumgrenzen. Voor Haas behouden we alle telperiodes. Voor de roofvogels berekenen we de densiteiten zowel rekening houdend met broedcodes en datumgrenzen als zonder hiermee rekening te houden.
 
 ```{r}
 df_obs_list <- vector("list", length = length(unique(mas_observations$naam)))
@@ -1863,7 +1875,8 @@ for (i in seq_along(unique(mas_observations$naam))) {
   telperiodes_df <- unlist(telperiodes_df[1,])
   telperiodes <- names(telperiodes_df[which(telperiodes_df == TRUE)])
   
-  if (spec == "Haas") {
+  if (spec == "Haas" | spec %in% paste(roofvogels, "zonder_broedcode", 
+                                       sep = "_")) {
     telperiodes <- c("R1", "R2", "R3", "R4")
   }
   
