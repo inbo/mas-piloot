@@ -3299,8 +3299,10 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
       theme(legend.position = "")
   }
   
-  if (soort == "Haas") {
-    p <- p + labs(x = "", y = "Aantal individuen per 100 ha", title = soort)
+  if (soort == "Haas" | spec %in% paste(roofvogels, "zonder_broedcode", 
+                                        sep = "_")) {
+    p <- p + labs(x = "", y = "Aantal individuen per 100 ha", 
+                  title = gsub("_zonder_broedcode", "", soort))
   } else {
     p <- p + labs(x = "", y = "Aantal broedparen per 100 ha", title = soort)
   }
