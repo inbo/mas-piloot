@@ -2939,12 +2939,15 @@ for (naam in names(final_models)) {
 
 #### Problematische soorten
 
-De data voor GroeneSpecht, GroteBonteSpecht passen niet voor distance sampling.
+```{r}
+spec_to_remove <- c("GroeneSpecht", "GroteBonteSpecht")
+```
+
+De data voor `r spec_to_remove` passen niet voor distance sampling.
 Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand.
 Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten.
 
 ```{r}
-spec_to_remove <- c("GroeneSpecht", "GroteBonteSpecht")
 indices_to_remove <- which(names(final_models) %in% spec_to_remove)
 
 # Remove
@@ -2952,9 +2955,6 @@ final_models[indices_to_remove] <- NULL
 ```
 
 #### Binned distance sampling
-
-De detectiekans voor Blauwborst, Bosrietzanger, Graspieper, Groenling, Haas, Holenduif, Roodborsttapuit, Torenvalk, Tuinfluiter en Veldleeuwerik neemt soms weer toe na een bepaalde afstand.
-Voor deze soorten groeperen we de afstanden per 50 (6 bins), 75 (4 bins) of 100 m (3 bins).
 
 ```{r}
 spec_to_bin <- list(Blauwborst = 6,
@@ -2967,7 +2967,13 @@ spec_to_bin <- list(Blauwborst = 6,
                     Torenvalk = 6,
                     Tuinfluiter = 3,
                     Veldleeuwerik = 6)
+```
 
+
+De detectiekans voor `r names(spec_to_bin)` neemt soms weer toe na een bepaalde afstand.
+Voor deze soorten groeperen we de afstanden per 50 (6 bins), 75 (4 bins) of 100 m (3 bins).
+
+```{r}
 final_models_update <- final_models
 final_models_binned <- list()
 final_models_binned_names <- c()
@@ -3106,7 +3112,7 @@ for (naam in names(final_models_binned)) {
 ### Resultaten
 
 We hebben de densiteiten kunnen schatten van `r length(final_models_update)` soorten.
-De volgende tabel geeft een overzicht van de soorten en modellen die gefit zijn.
+De volgende tabel geeft een overzicht van de soorten en de finale modellen die gefit zijn.
 
 ```{r}
 results <- lapply(seq_along(final_models_update), 
@@ -3581,12 +3587,16 @@ for (naam in names(final_models_2022)) {
 
 #### Problematische soorten
 
-De data voor BruineKiekendief, Roek passen niet voor distance sampling.
+```{r}
+spec_to_remove <- c("BruineKiekendief", "Roek")
+```
+
+
+De data voor `r spec_to_remove` passen niet voor distance sampling.
 Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand.
 Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten. Ook hebben ze vaak maar weinig data.
 
 ```{r}
-spec_to_remove <- c("BruineKiekendief", "Roek")
 indices_to_remove <- which(names(final_models_2022) %in% spec_to_remove)
 
 # Remove
@@ -3849,7 +3859,7 @@ for (naam in names(final_models_2022_binned)) {
 ### Resultaten
 
 We hebben de densiteiten kunnen schatten van `r length(final_models_2022_update)` soorten.
-De volgende tabel geeft een overzicht van de soorten en modellen die gefit zijn.
+De volgende tabel geeft een overzicht van de soorten en finale modellen die gefit zijn.
 
 ```{r}
 results <- lapply(seq_along(final_models_2022_update), 
