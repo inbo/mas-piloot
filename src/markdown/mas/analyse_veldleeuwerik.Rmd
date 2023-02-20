@@ -3132,7 +3132,7 @@ do.call(rbind, results) %>%
   kable(digits = 3)
 ```
 
-Visueel voor elk stratum:
+We visualiseren voor elk stratum. De tweede figuur toont ook de data zelf. Dit zijn de gemiddeldes over de telperiodes per plot.
 
 ```{r}
 plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
@@ -3992,7 +3992,7 @@ do.call(rbind, results) %>%
   kable(digits = 3)
 ```
 
-Visueel voor elk stratum:
+We visualiseren voor elk stratum. De tweede figuur toont ook de data zelf. Dit zijn de gemiddeldes over de telperiodes per plot.
 
 ```{r}
 for (i in seq_along(final_models_2022_update)) {
