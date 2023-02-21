@@ -4064,6 +4064,8 @@ saveRDS(final_models_2022_update, file = paste0(model_path, "models_2022.rds"))
 
 # DSM
 
+Kunnen we density surface modelling toepassen m.b.v. de distance models?
+
 ```{r}
 library(dsm)
 ```
