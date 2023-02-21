@@ -7,9 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 renv::restore()
-knitr::opts_chunk$set(echo = TRUE)
-library(GVI)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 library(terra)
+library(GVI)
 library(sf)
 library(dplyr)
 library(ggplot2)
@@ -28,72 +28,14 @@ steekproef <- tar_read(steekproef_zichtbaarheid, store = targets_store) %>%
          )
 ```
 
-
-```{r bereken-viewshed}
-bereken_viewshed <- function(point,
-                       dist = 300,
-                       obs_height = 1.7,
-                       resolution = 1) {
-
-  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
-
-  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
-                             bbox = bbox_buffer,
-                             layername = "EL.GridCoverage.DSM",
-                             resolution = resolution)
-  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
-                             bbox = bbox_buffer,
-                             layername = "EL.GridCoverage.DTM",
-                             resolution = resolution)
-
-  viewshed(
-    observer = point,
-    max_distance = dist,
-    dsm_rast = dsm_r1,
-    dtm_rast = dtm_r1,
-    observer_height = obs_height,
-    raster_res = resolution,
-    plot = TRUE)
-}
-
-```
-
-```{r bereken-visibility-prop}
-bereken_visibility_prop <- function(point,
-                       dist = 300,
-                       obs_height = 1.7,
-                       resolution = 1) {
-
-  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
-
-  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
-                             bbox = bbox_buffer,
-                             layername = "EL.GridCoverage.DSM",
-                             resolution = resolution)
-  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
-                             bbox = bbox_buffer,
-                             layername = "EL.GridCoverage.DTM",
-                             resolution = resolution)
-
-  visibility_proportion(
-    observer = point,
-    max_distance = dist,
-    dsm_rast = dsm_r1,
-    dtm_rast = dtm_r1,
-    observer_height = obs_height,
-    raster_res = resolution,
-    plot = FALSE)
-}
-
-```
-
-
 ```{r bereken-zichtbaarheid}
 bereken_vvi <- function(point,
                        dist = 300,
                        obs_height = 1.7,
                        resolution = 1,
-                       spacing = 5) {
+                       spacing = 5,
+                       dsm_offset = 0,
+                       output_type) {
 
   bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
 
@@ -111,76 +53,161 @@ bereken_vvi <- function(point,
   vvi_from_sf(
     observer = poly25,
     spacing = spacing,
-    cores = 4,
+    cores = 1,
     progress = TRUE,
     max_distance = dist,
-    dsm_rast = dsm_r1,
+    dsm_rast = dsm_r1 + dsm_offset,
     dtm_rast = dtm_r1,
     observer_height = obs_height,
-    raster_res = resolution)
+    raster_res = resolution,
+    output_type = output_type)
 }
 ```
 
+## Vooraf
+
+::: {#cores .warning}
+De functie `vvi_from_sf()` heeft een argument cores.
+Er is een bug in de functie wanneer cores niet gelijk aan 1 is.
+:::
+
 ## Voorbeeld voor 1 telpunt:
+
+### spacing 5 m, raster resolutie 1 m
 
 Berekening zichtbaarheidsindex binnen straal van 25 m rond telpunt in een raster van locaties die 5 m van elkaar liggen:
 
 ```{r}
-out <- steekproef %>%
+vvi <- steekproef %>%
   filter(pointid == "Ol_4269.12") %>%
-  bereken_vvi()
+  bereken_vvi(output_type = "VVI")
 
-out %>%
+vvi %>%
   ggplot() +
   geom_sf(aes(colour = VVI))
-
-out %>%
-  ggplot() +
-  geom_histogram(aes(x = VVI))
 ```
 
-Viewshed telpunt zelf:
+Summed viewshed:
 
-```{r centrum}
-steekproef %>%
+```{r summed-viewshed}
+sviewshed <- steekproef %>%
   filter(pointid == "Ol_4269.12") %>%
-  bereken_viewshed()
-steekproef %>%
-  filter(pointid == "Ol_4269.12") %>%
-  bereken_visibility_prop()
+  bereken_vvi(output_type = "viewshed")
+
+plot(sviewshed)
 ```
 
-25 m noordelijker
-
-```{r noord}
-steekproef %>%
+```{r cumulatief}
+cvvi <- steekproef %>%
   filter(pointid == "Ol_4269.12") %>%
-  mutate(geometry = geometry + c(0, 25)) %>%
-  st_set_crs(31370) %>%
-  bereken_viewshed()
-steekproef %>%
-  filter(pointid == "Ol_4269.12") %>%
-  mutate(geometry = geometry + c(0, 25)) %>%
-  st_set_crs(31370) %>%
-  bereken_visibility_prop()
+  bereken_vvi(output_type = "cumulative")
 ```
 
-25 m zuidelijker
+Cumulatief is de visibiliteit gelijk aan `r round(cvvi, 2)`.
 
-```{r zuid}
-steekproef %>%
+Alles voorgesteld op 1 figuur:
+
+```{r}
+punt <- steekproef %>%
+  filter(pointid == "Ol_4269.12")
+
+cirkel_25m <- steekproef %>%
   filter(pointid == "Ol_4269.12") %>%
-  mutate(geometry = geometry + c(0, -25)) %>%
-  st_set_crs(31370) %>%
-  bereken_viewshed()
-steekproef %>%
+  st_buffer(25)
+
+cirkel_300m <- steekproef %>%
   filter(pointid == "Ol_4269.12") %>%
-  mutate(geometry = geometry + c(0, 25)) %>%
-  st_set_crs(31370) %>%
-  bereken_visibility_prop()
+  st_buffer(300)
 
-
+ggplot() +
+  tidyterra::geom_spatraster(data = sviewshed) +
+  geom_sf(data = cirkel_300m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = cirkel_25m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = vvi, aes(colour =  VVI)) +
+  tidyterra::scale_fill_terrain_c() +
+  labs(title = paste("Cumulatieve VVI = ", round(cvvi, 2)))
 ```
+
+### Spacing 5 m, raster resolutie 5 m
+
+Effect van lagere resolutie:
+
+```{r}
+vvi_res5 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "VVI", resolution = 5)
+
+cvvi_res5 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "cumulative", resolution = 5)
+
+sviewshed_res5 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "viewshed", resolution = 5)
+
+
+ggplot() +
+  tidyterra::geom_spatraster(data = sviewshed_res5) +
+  geom_sf(data = cirkel_300m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = cirkel_25m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = vvi_res5, aes(colour =  VVI)) +
+  tidyterra::scale_fill_terrain_c() +
+  labs(title = paste("Cumulatieve VVI = ", round(cvvi_res5, 2)))
+```
+
+### Spacing 10 m, raster resolutie 5 m
+
+Effect van lagere resolutie en hogere spacing:
+
+```{r}
+vvi_res5sp10 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "VVI", resolution = 5, spacing = 10)
+
+cvvi_res5sp10 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "cumulative", resolution = 5, spacing = 10)
+
+sviewshed_res5sp10 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "viewshed", resolution = 5, spacing = 10)
+
+
+ggplot() +
+  tidyterra::geom_spatraster(data = sviewshed_res5sp10) +
+  geom_sf(data = cirkel_300m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = cirkel_25m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = vvi_res5sp10, aes(colour =  VVI)) +
+  tidyterra::scale_fill_terrain_c() +
+  labs(title = paste("Cumulatieve VVI = ", round(cvvi_res5sp10, 2)))
+```
+
+### Spacing 25 m, raster resolutie 5 m
+
+
+```{r}
+vvi_res5sp25 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "VVI", resolution = 5, spacing = 25)
+
+cvvi_res5sp25 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "cumulative", resolution = 5, spacing = 25)
+
+sviewshed_res5sp25 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "viewshed", resolution = 5, spacing = 25)
+
+
+ggplot() +
+  tidyterra::geom_spatraster(data = sviewshed_res5sp25) +
+  geom_sf(data = cirkel_300m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = cirkel_25m, alpha = 0, colour = "lightblue") +
+  geom_sf(data = vvi_res5sp25, aes(colour =  VVI)) +
+  tidyterra::scale_fill_terrain_c() +
+  labs(title = paste("Cumulatieve VVI = ", round(cvvi_res5sp25, 2)))
+```
+
 
 
 ## Test op groter aantal punten
@@ -201,10 +228,12 @@ perimeters <- tar_read(perimeters_data, store = targets_store) %>%
   select(-section)
 
 dm <- perimeters %>% filter(Naam == "De Moeren")
+ol <- perimeters %>% filter(Naam == "Oostelijke leemstreek")
 ```
 
 De volgende chunks lezen van de server en schrijven het deel weg dat valt binnen bounding box van de Moeren (naar data/dem folder).
 Voor de Moeren zijn deze bestanden 160 Mb groot.
+Voor de Oostelijke leemstreek bijna 3 Gb.
 
 ```{r eval=!file.exists(here::here("data", "dem", "dhmvii_dsm_1m_demoeren.tif"))}
 dsm_dm <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDSMRAS1m.tif") %>%
@@ -230,39 +259,180 @@ dtm_dm <- terra::rast(here::here("data", "dem", "dhmvii_dtm_1m_demoeren.tif"))
 crs(dtm_dm) <- "epsg:31370"
 ```
 
-Zichtbaarheidsindex voor 8642 punten in 1 minuut:
+```{r eval=!file.exists(here::here("data", "dem", "dhmvii_dsm_1m_oostelijkeleemstreek.tif"))}
+dsm_ol <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDSMRAS1m.tif") %>%
+  terra::crop(
+    ol,
+    filename = here::here(
+      "data", "dem", "dhmvii_dsm_1m_oostelijkeleemstreek.tif"))
+```
+
+```{r eval=file.exists(here::here("data", "dem", "dhmvii_dsm_1m_oostelijkeleemstreek.tif"))}
+dsm_ol <- terra::rast(
+  here::here("data", "dem", "dhmvii_dsm_1m_oostelijkeleemstreek.tif"))
+crs(dsm_ol) <- "epsg:31370"
+```
+
+```{r eval=!file.exists(here::here("data", "dem", "dhmvii_dtm_1m_oostelijkeleemstreek.tif"))}
+dtm_ol <- terra::rast("S:/Vlaanderen/Hoogte/DHMVII/DHMVIIDTMRAS1m.tif") %>%
+  terra::crop(
+    ol,
+    filename = here::here(
+      "data", "dem", "dhmvii_dtm_1m_oostelijkeleemstreek.tif"))
+```
+
+```{r eval=file.exists(here::here("data", "dem", "dhmvii_dtm_1m_oostelijkeleemstreek.tif"))}
+dtm_ol <- terra::rast(here::here("data", "dem", "dhmvii_dtm_1m_oostelijkeleemstreek.tif"))
+crs(dtm_ol) <- "epsg:31370"
+```
+
 
 ```{r}
 dm_25mpoly <- steekproef %>%
   filter(Naam == "De Moeren") %>%
   st_buffer(dist = 25)
 
+ol_25mpoly <- steekproef %>%
+  filter(Naam == "Oostelijke leemstreek") %>%
+  st_buffer(dist = 25)
+```
+
+```{r vvi-dm}
+start <- proc.time()
 vvi_dm <- vvi_from_sf(
     observer = dm_25mpoly,
-    spacing = 5,
-    cores = 4,
+    spacing = 25,
+    cores = 1,
     progress = TRUE,
     max_distance = 300,
     dsm_rast = dsm_dm,
     dtm_rast = dtm_dm,
     observer_height = 1.7,
-    raster_res = 1)
+    raster_res = 5,
+    output_type = "cumulative",
+    by_row = TRUE)
+stop <- proc.time()
+stop - start
+```
 
+```{r vvi-ol-25}
+start <- proc.time()
+vvi_ol_25 <- vvi_from_sf(
+    observer = ol_25mpoly,
+    spacing = 25,
+    cores = 1,
+    progress = TRUE,
+    max_distance = 300,
+    dsm_rast = dsm_ol,
+    dtm_rast = dtm_ol,
+    observer_height = 1.7,
+    raster_res = 5,
+    output_type = "cumulative",
+    by_row = TRUE)
+stop <- proc.time()
+ol_time <- stop - start
+ol_time
+```
+
+```{r vvi-ol-10}
+start <- proc.time()
+vvi_ol_10 <- vvi_from_sf(
+    observer = ol_25mpoly,
+    spacing = 10,
+    cores = 1,
+    progress = TRUE,
+    max_distance = 300,
+    dsm_rast = dsm_ol,
+    dtm_rast = dtm_ol,
+    observer_height = 1.7,
+    raster_res = 5,
+    output_type = "cumulative",
+    by_row = TRUE)
+stop <- proc.time()
+ol_time_10 <- stop - start
+ol_time_10
 ```
 
 ```{r}
-library(mapview)
-mapview(vvi_dm, zcol = "VVI")
+vvi_dm_viewshed <- vvi_from_sf(
+    observer = dm_25mpoly,
+    spacing = 25,
+    cores = 1,
+    progress = TRUE,
+    max_distance = 300,
+    dsm_rast = dsm_dm,
+    dtm_rast = dtm_dm,
+    observer_height = 1.7,
+    raster_res = 5,
+    output_type = "viewshed",
+    by_row = TRUE)
+
+# raster lijkt verschoven tov OSM, polygonen liggen juist
+# nochtans hebben beide dezelfde crs
+waldo::compare(st_crs(vvi_dm_viewshed), st_crs(dm_25mpoly)) # niets belangrijk anders
+vvi_dm_viewshed_raster <- raster::raster(vvi_dm_viewshed)
+#raster::crs(vvi_dm_viewshed_raster) <- st_crs(dm_25mpoly)$wkt
+mapview::mapview(vvi_dm_viewshed_raster, 
+                 col.region = function(n) grDevices::hcl.colors(n, palette = "terrain")) +
+  mapview::mapview(dm_25mpoly)
+
+# maar volgens deze figuur is wel alles ok
+dm_25mpoly %>%
+  ggplot() +
+  tidyterra::geom_spatraster(data = vvi_dm_viewshed) +
+  geom_sf() +
+  tidyterra::scale_fill_terrain_c()
+
 ```
+
+
+```{r}
+dm_25mpoly %>%
+  bind_cols(vvi_dm) %>%
+  ggplot() +
+  geom_sf(data = perimeters %>% filter(Naam == "De Moeren")) +
+  geom_sf(aes(fill = cvvi, colour = cvvi))
+```
+
+```{r}
+ol_25mpoly %>%
+  bind_cols(vvi_ol_25 %>% rename(cvvi_25 = cvvi)) %>%
+  bind_cols(vvi_ol_10 %>% rename(cvvi_10 = cvvi)) %>%
+  ggplot() +
+  geom_sf(data = ol) +
+  geom_sf(aes(fill = cvvi, colour = cvvi))
+```
+
+```{r}
+ol_25mpoly %>%
+  bind_cols(vvi_ol_25 %>% rename(cvvi_25 = cvvi)) %>%
+  bind_cols(vvi_ol_10 %>% rename(cvvi_10 = cvvi)) %>%
+  ggplot() +
+  geom_point(aes(x = cvvi_25, y = cvvi_10)) +
+  geom_abline() +
+  labs(x = "cvvi 25m spacing", y = "cvvi 10m spacing")
+```
+
+```{r}
+vvi_dm %>%
+  ggplot() + 
+  geom_histogram(aes(x = cvvi))
+```
+
+```{r}
+vvi_ol_25 %>%
+  bind_cols(ol_25mpoly) %>%
+  ggplot() + 
+  geom_density(aes(x = cvvi, fill = openheid_klasse), alpha = 0.2)
+```
+
 
 
 ```{r}
 steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
 ```
 
-Berekening op volledige steekproefkader (Moeren en Leemstreek) zou `r round(nrow(steekproefkader) * 88 * 18 * 1e-3 /3600, 1)` uur duren.
-Dit is met een `spacing` van 5 meter, ofwel 88 punten binnen elke 25 m cirkel rond het telpunt.
-Indien we de spacing verhogen naar 10 meter binnen de 25m straal cirkels, zijn er 25 punten in straal 25 m rond het telpunt en dan zou het `r round(nrow(steekproefkader) * 25 * 18 * 1e-3 /3600, 1)` uur duren.
+Berekening op volledige steekproefkader (Moeren en Leemstreek) zou ongeveer `r round(nrow(steekproefkader) / nrow(ol_25mpoly) * ol_time["elapsed"] /3600, 1)` uur duren bij resolutie van 5 m en spacing van 25 m en batch size van `r nrow(ol_25mpoly)`. Een wat kleinere batch size is waarschijnlijk sneller.
 
 ## Wanneer is zichtbaarheid te laag?
 
@@ -270,34 +440,23 @@ Vanaf wanneer besluiten we dat de zichtbaarheid te laag is?
 De Moeren is een zeer plat open landschap waar de zichtbaarheid normaal hoog is.
 Verdeling van de zichtbaarheidsindices in de Moeren:
 
-
 ```{r}
-vvi_dm %>%
-  st_join(dm_25mpoly %>% st_buffer(dist = 5)
-          ) %>%
-  mutate(pointid = reorder(pointid, VVI, mean)) %>%
-  ggplot(aes(x = VVI, y = pointid)) +
-  geom_point(alpha = 0.3) +
-  stat_summary(fun.data = mean_cl_boot, colour = "red")
-
-```
-
-Check VVI versus zichtbaarheid zoals berekend werd in targets pipeline.
-De verschillen zijn wellicht te wijten aan verschil in locatie.
-Targets pipeline is exacte locatie van het telpunt.
-VVI berekening is raster van punten binnen cirkel 25 m straal rond telpunt.
-
-```{r}
-vvi_dm %>%
-  st_join(dm_25mpoly %>% st_buffer(dist = -22),
-          left = FALSE
-          ) %>%
+dm_25mpoly %>%
+  bind_cols(vvi_dm) %>%
+  ungroup() %>%
+  mutate(pointid = reorder(pointid, cvvi, mean)) %>%
   ggplot() +
-  geom_point(aes(x = zichtbaarheid, y = VVI)) +
-  geom_abline()
+  geom_point(aes(x = cvvi, y = pointid))
 ```
 
+En in de Oostelijke leemstreek:
 
-
-
-
+```{r}
+ol_25mpoly %>%
+  bind_cols(vvi_ol_25) %>%
+  ungroup() %>%
+  mutate(pointid = reorder(pointid, cvvi, mean)) %>%
+  ggplot() +
+  geom_point(aes(x = cvvi, y = pointid)) +
+  facet_wrap(~openheid_klasse, scales = "free")
+```
