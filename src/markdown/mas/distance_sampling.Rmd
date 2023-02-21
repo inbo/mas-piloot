@@ -2,17 +2,16 @@
 title: "Distance sampling"
 author: "Ward Langeraert"
 date: "`r Sys.Date()`"
-
 output:
   bookdown::html_document2:
+    
     code_folding: hide
     toc: true
     toc_float: true
     toc_collapsed: true
-    
 editor_options: 
   chunk_output_type: console
-  
+
 bibliography: [references.json, packages.bib]
 csl: https://raw.githubusercontent.com/citation-style-language/styles/master/research-institute-for-nature-and-forest.csl
 zotero: true
