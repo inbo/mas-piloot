@@ -120,14 +120,15 @@
     },
     "Hmisc": {
       "Package": "Hmisc",
-      "Version": "4.7-1",
+      "Version": "4.8-0",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "498335c7ca1381ae0c07fe226e0f5dde",
+      "Hash": "2d227fca83c8ae9f69a86f55b263e8a5",
       "Requirements": [
         "Formula",
         "base64enc",
         "cluster",
+        "colorspace",
         "data.table",
         "foreign",
         "ggplot2",
@@ -1023,6 +1024,22 @@
         "tibble",
         "tidyselect",
         "vctrs"
+      ]
+    },
+    "dsm": {
+      "Package": "dsm",
+      "Version": "2.3.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "80d0644aa1fb2f2efe71658922622408",
+      "Requirements": [
+        "ggplot2",
+        "mgcv",
+        "mrds",
+        "nlme",
+        "numDeriv",
+        "plyr",
+        "statmod"
       ]
     },
     "dtplyr": {
@@ -3298,6 +3315,14 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "cd59e2bcc05a5e34c00fe4760f118960",
+      "Requirements": []
+    },
+    "statmod": {
+      "Package": "statmod",
+      "Version": "1.5.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "26e158d12052c279bdd4ba858b80fb1f",
       "Requirements": []
     },
     "stringfish": {
