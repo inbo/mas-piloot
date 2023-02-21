@@ -2828,6 +2828,8 @@ for (naam in names(final_models_simpel)) {
 }
 ```
 
+Voor Roodborsttapuit kiezen we voor het hn model omwille van de betere model fit ondanks dat het complexer is dan het hr model.
+
 ```{r}
 final_models <- list(
   Blauwborst = Blauwborst_distmod_2018_2022_hn1_simpel,
@@ -2870,7 +2872,7 @@ final_models <- list(
   Ringmus = Ringmus_distmod_2018_2022_hr1_simpel,
   Roek = Roek_distmod_2018_2022_hn1_simpel,
   Roodborst = Roodborst_distmod_2018_2022_hn1_simpel,
-  Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hr1_simpel,
+  Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hn1_simpel,
   Slechtvalk_zonder_broedcode = Slechtvalk_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Sperwer_zonder_broedcode = Sperwer_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Spotvogel = Spotvogel_distmod_2018_2022_hn1_simpel,
