@@ -2,17 +2,16 @@
 title: "Distance sampling"
 author: "Ward Langeraert"
 date: "`r Sys.Date()`"
-
 output:
   bookdown::html_document2:
+    
     code_folding: hide
     toc: true
     toc_float: true
     toc_collapsed: true
-    
 editor_options: 
   chunk_output_type: console
-  
+
 bibliography: [references.json, packages.bib]
 csl: https://raw.githubusercontent.com/citation-style-language/styles/master/research-institute-for-nature-and-forest.csl
 zotero: true
@@ -1823,9 +1822,16 @@ datumgrenzen_mas <- datumgrenzen_mas
 
 ## Filter algemene dataframes
 
+```{r}
+roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief", "Buizerd", 
+                "Grauwe Kiekendief", "Ransuil", "Slechtvalk", "Sperwer", 
+                "Steenuil", "Steppekiekendief", "Torenvalk", "Velduil", 
+                "Wespendief", "Zwarte Wouw")
+```
+
 We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0, geen afstanden \> 300 m en dat ze binnen telperiodes vallen.
 We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
-We voegen ook Haas toe (geen broedcodes).
+We voegen ook Haas toe en roofvogels (`r roofvogels`) zonder broedcodes.
 
 ```{r}
 mas_observations <- mas_clean %>%
@@ -1837,17 +1843,22 @@ mas_observations <- mas_clean %>%
                        naam),
          naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
                        naam))
-haas_observations <- mas_clean %>%
-  filter(naam == "Haas", distance2plot <= 300, !is.na(periode_in_jaar)) %>%  
-  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
-  mutate(Region.Label = paste(regio, jaar, sep = " - "))
 
-mas_observations <- bind_rows(mas_observations, haas_observations)
+haas_raptor_observations <- mas_clean %>%
+  filter(naam == "Haas" | naam %in% roofvogels, distance2plot <= 300, 
+         !is.na(periode_in_jaar)) %>%  
+  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "),
+         naam = ifelse(naam %in% roofvogels, 
+                       paste(naam, "zonder_broedcode", sep = "_"), 
+                       naam))
+
+mas_observations <- bind_rows(mas_observations, haas_raptor_observations)
 ```
 
 ## Genereer dataframes voor elke soort
 
-We maken in een for-loop een dataframe voor elke soort waar we ook filteren op de datumgrenzen. Voor Haas behouden we alle telperiodes.
+We maken in een for-loop een dataframe voor elke soort waar we ook filteren op de datumgrenzen. Voor Haas behouden we alle telperiodes. Voor de roofvogels berekenen we de densiteiten zowel rekening houdend met broedcodes en datumgrenzen als zonder hiermee rekening te houden.
 
 ```{r}
 df_obs_list <- vector("list", length = length(unique(mas_observations$naam)))
@@ -1863,7 +1874,8 @@ for (i in seq_along(unique(mas_observations$naam))) {
   telperiodes_df <- unlist(telperiodes_df[1,])
   telperiodes <- names(telperiodes_df[which(telperiodes_df == TRUE)])
   
-  if (spec == "Haas") {
+  if (spec == "Haas" | spec %in% paste(roofvogels, "zonder_broedcode", 
+                                       sep = "_")) {
     telperiodes <- c("R1", "R2", "R3", "R4")
   }
   
@@ -2413,7 +2425,7 @@ forms2[sapply(forms2, is.null)] <- NULL
 forms_2018_2022 <- c("~1", forms1, forms2)
 ```
 
-Voor Bruine kiekendief kunnen we geen model fitten.
+Voor Bruine Kiekendief kunnen we geen model fitten. Voor Bruine Kiekendief zonder broedcode kunnen we ~regio*jaar niet fitten.
 
 ```{r}
 all_models <- list()
@@ -2447,6 +2459,10 @@ for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
     form_spec[sapply(form_spec, function(i) grepl("jaar", i))] <- NULL
   }
   if (!pull(form_df[,"n_interactie"])) {
+    form_spec[sapply(form_spec, function(i) grepl("\\*", i))] <- NULL
+  }
+  
+  if (spec == "BruineKiekendief_zonder_broedcode") {
     form_spec[sapply(form_spec, function(i) grepl("\\*", i))] <- NULL
   }
 
@@ -2538,7 +2554,7 @@ forms2 <- forms2[-match("~regio*openheid", forms2)]
 forms_2022 <- c("~1", forms1, forms2)
 ```
 
-Voor Buizerd en Winterkoning lukt het niet om ~regio+openheid en ~regio+sbp+openheid te fitten.
+Voor Bruine Kiekendief zonder broedcode kunnen we geen model fitten. Voor Buizerd en Winterkoning lukt het niet om ~regio+openheid en ~regio+sbp+openheid te fitten.
 
 ```{r}
 all_models_2022 <- list()
@@ -2550,12 +2566,11 @@ keys <- c("hn", "hr")
 # Sla de gefitte models op op deze locatie
 model_path <- "./src/markdown/mas/distance_models/"
 
-# Verwijder
-#index_to_remove <- which(names(distance_dfs_2022_final) %in% c("Winterkoning"))
-#[-index_to_remove]
+# Verwijder BruineKiekendief
+index_kiek_2022 <- which(names(distance_dfs_2022_final) == "BruineKiekendief_zonder_broedcode")
 
 # Loop over species
-for (spec in names(distance_dfs_2022_final)) {
+for (spec in names(distance_dfs_2022_final)[-index_kiek_2022]) {
   distance_data_2022 <- distance_dfs_2022_final[[spec]]
   sample_table_2022 <- sample_tables_2022[[spec]]
   obs_table_2022 <- obs_tables_2022[[spec]]
@@ -2671,46 +2686,50 @@ for (naam in names(all_models)) {
 ```
 
 ```{r}
-final_models_complex <- list(Blauwborst = Blauwborst_distmod_2018_2022_hn1,
-                     Buizerd = Buizerd_distmod_2018_2022_hn1,
-                     Ekster = Ekster_distmod_2018_2022_hr1,
-                     Fazant = Fazant_distmod_2018_2022_hr1,
-                     Gaai = Gaai_distmod_2018_2022_hn1,
-                     Geelgors = Geelgors_distmod_2018_2022_hr1,
-                     GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
-                     Grasmus = Grasmus_distmod_2018_2022_hn1,
-                     GrauweGors = GrauweGors_distmod_2018_2022_hn1,
-                     GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1,
-                     Haas = Haas_distmod_2018_2022_hr1,
-                     Heggenmus = Heggenmus_distmod_2018_2022_hn1,
-                     Holenduif = Holenduif_distmod_2018_2022_hn1,
-                     Houtduif = Houtduif_distmod_2018_2022_hn3,
-                     Huismus = Huismus_distmod_2018_2022_hn3,
-                     Kauw = Kauw_distmod_2018_2022_hr1,
-                     Kievit = Kievit_distmod_2018_2022_hr1,
-                     KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1,
-                     Kneu = Kneu_distmod_2018_2022_hn1,
-                     Koolmees = Koolmees_distmod_2018_2022_hr1,
-                     Kwartel = Kwartel_distmod_2018_2022_hn1,
-                     Merel = Merel_distmod_2018_2022_hr1,
-                     Patrijs = Patrijs_distmod_2018_2022_hn1,
-                     Rietzanger = Rietzanger_distmod_2018_2022_hn1,
-                     Roek = Roek_distmod_2018_2022_hr1,
-                     Spotvogel = Spotvogel_distmod_2018_2022_hn1,
-                     Spreeuw = Spreeuw_distmod_2018_2022_hr1,
-                     Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
-                     Torenvalk = Torenvalk_distmod_2018_2022_hn1,
-                     TurkseTortel = TurkseTortel_distmod_2018_2022_hr1,
-                     Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
-                     Vink = Vink_distmod_2018_2022_hn1,
-                     WildeEend = WildeEend_distmod_2018_2022_hn1,
-                     Winterkoning = Winterkoning_distmod_2018_2022_hn1,
-                     WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1,
-                     ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1,
-                     Zwartkop = Zwartkop_distmod_2018_2022_hn1)
+final_models_complex <- list(
+  Blauwborst = Blauwborst_distmod_2018_2022_hn1,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2022_hn1,                      
+  Buizerd = Buizerd_distmod_2018_2022_hn1,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2018_2022_hn1,
+  Ekster = Ekster_distmod_2018_2022_hr1,
+  Fazant = Fazant_distmod_2018_2022_hr1,
+  Gaai = Gaai_distmod_2018_2022_hn1,
+  Geelgors = Geelgors_distmod_2018_2022_hr1,
+  GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
+  Grasmus = Grasmus_distmod_2018_2022_hn1,
+  GrauweGors = GrauweGors_distmod_2018_2022_hn1,
+  GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1,
+  Haas = Haas_distmod_2018_2022_hr1,
+  Heggenmus = Heggenmus_distmod_2018_2022_hn1,
+  Holenduif = Holenduif_distmod_2018_2022_hn1,
+  Houtduif = Houtduif_distmod_2018_2022_hn3,
+  Huismus = Huismus_distmod_2018_2022_hn3,
+  Kauw = Kauw_distmod_2018_2022_hr1,
+  Kievit = Kievit_distmod_2018_2022_hr1,
+  KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1,
+  Kneu = Kneu_distmod_2018_2022_hn1,
+  Koolmees = Koolmees_distmod_2018_2022_hr1,
+  Kwartel = Kwartel_distmod_2018_2022_hn1,
+  Merel = Merel_distmod_2018_2022_hr1,
+  Patrijs = Patrijs_distmod_2018_2022_hn1,
+  Rietzanger = Rietzanger_distmod_2018_2022_hn1,
+  Roek = Roek_distmod_2018_2022_hr1,
+  Spotvogel = Spotvogel_distmod_2018_2022_hn1,
+  Spreeuw = Spreeuw_distmod_2018_2022_hr1,
+  Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
+  Torenvalk = Torenvalk_distmod_2018_2022_hn1,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2018_2022_hn1,
+  TurkseTortel = TurkseTortel_distmod_2018_2022_hr1,
+  Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
+  Vink = Vink_distmod_2018_2022_hn1,
+  WildeEend = WildeEend_distmod_2018_2022_hn1,
+  Winterkoning = Winterkoning_distmod_2018_2022_hn1,
+  WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1,
+  ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1,
+  Zwartkop = Zwartkop_distmod_2018_2022_hn1)
 ```
 
-Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen.
+Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen. Steenuil zonder broedcode kan niet gefit worden.
 
 ```{r}
 # Welke soorten moeten niet opnieuw gefit worden?
@@ -2742,8 +2761,11 @@ keys <- c("hn", "hr")
 final_models_simpel <- list()
 final_models_simpel_names <- c()
 
+# Verwijder 
+index_to_remove_simpel <- which(names(distance_dfs_2022_simpel_new) == "Steenuil_zonder_broedcode")
+     
 # Fit opnieuw met simpele dataset
-for (spec in names(distance_dfs_2022_simpel_new)) {
+for (spec in names(distance_dfs_2022_simpel_new)[-index_to_remove_simpel]) {
   distance_data_new <- distance_dfs_2022_simpel_new[[spec]]
   sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
   obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
@@ -2808,9 +2830,12 @@ for (naam in names(final_models_simpel)) {
 ```{r}
 final_models <- list(
   Blauwborst = Blauwborst_distmod_2018_2022_hr1_simpel,
+  BlauweKiekendief_zonder_broedcode = BlauweKiekendief_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Bosrietzanger = Bosrietzanger_distmod_2018_2022_hn1_simpel,
   BruineKiekendief = BruineKiekendief_distmod_2018_2022_hn1_simpel,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Buizerd = Buizerd_distmod_2018_2022_hn1_simpel,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Ekster = Ekster_distmod_2018_2022_hr1_simpel,
   Fazant = Fazant_distmod_2018_2022_hr1_simpel,
   Gaai = Gaai_distmod_2018_2022_hn1_simpel,
@@ -2845,10 +2870,13 @@ final_models <- list(
   Roek = Roek_distmod_2018_2022_hr1_simpel,
   Roodborst = Roodborst_distmod_2018_2022_hn1_simpel,
   Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hn1_simpel,
+  Slechtvalk_zonder_broedcode = Slechtvalk_zonder_broedcode_distmod_2018_2022_hn1_simpel,
+  Sperwer_zonder_broedcode = Sperwer_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Spotvogel = Spotvogel_distmod_2018_2022_hn1_simpel,
   Spreeuw = Spreeuw_distmod_2018_2022_hr1_simpel,
   Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
   Torenvalk = Torenvalk_distmod_2018_2022_hn1_simpel,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Tuinfluiter = Tuinfluiter_distmod_2018_2022_hn1_simpel,
   TurkseTortel = TurkseTortel_distmod_2018_2022_hr1_simpel,
   Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
@@ -2940,7 +2968,8 @@ for (naam in names(final_models)) {
 #### Problematische soorten
 
 ```{r}
-spec_to_remove <- c("GroeneSpecht", "GroteBonteSpecht")
+spec_to_remove <- c("BlauweKiekendief_zonder_broedcode", "GroeneSpecht", 
+                    "GroteBonteSpecht")
 ```
 
 De data voor `r spec_to_remove` passen niet voor distance sampling.
@@ -2964,7 +2993,10 @@ spec_to_bin <- list(Blauwborst = 6,
                     Haas = 4,
                     Holenduif = 3,
                     Roodborsttapuit = 4,
+                    Slechtvalk_zonder_broedcode = 4,
+                    Sperwer_zonder_broedcode = 4,
                     Torenvalk = 6,
+                    Torenvalk_zonder_broedcode = 3,
                     Tuinfluiter = 3,
                     Veldleeuwerik = 6)
 ```
@@ -3111,7 +3143,7 @@ for (naam in names(final_models_binned)) {
 
 ### Resultaten
 
-We hebben de densiteiten kunnen schatten van `r length(final_models_update)` soorten.
+We hebben de densiteiten kunnen schatten van `r length(unique(gsub("_zonder_broedcode", "", names(final_models_update))))` soorten.
 De volgende tabel geeft een overzicht van de soorten en de finale modellen die gefit zijn.
 
 ```{r}
@@ -3286,8 +3318,10 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
       theme(legend.position = "")
   }
   
-  if (soort == "Haas") {
-    p <- p + labs(x = "", y = "Aantal individuen per 100 ha", title = soort)
+  if (soort == "Haas" | spec %in% paste(roofvogels, "zonder_broedcode", 
+                                        sep = "_")) {
+    p <- p + labs(x = "", y = "Aantal individuen per 100 ha", 
+                  title = gsub("_zonder_broedcode", "", soort))
   } else {
     p <- p + labs(x = "", y = "Aantal broedparen per 100 ha", title = soort)
   }
@@ -3338,6 +3372,7 @@ for (naam in names(all_models_2022)) {
 ```{r}
 final_models_2022_complex <- list(
   Buizerd = Buizerd_distmod_2022_hr1,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2022_hr7,
   Ekster = Ekster_distmod_2022_hr1,
   Fazant = Fazant_distmod_2022_hr7,
   Gaai = Gaai_distmod_2022_hn1,
@@ -3370,6 +3405,7 @@ final_models_2022_complex <- list(
   Spreeuw = Spreeuw_distmod_2022_hn1,
   Tjiftjaf = Tjiftjaf_distmod_2022_hn2,
   Torenvalk = Torenvalk_distmod_2022_hr5,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2022_hr3,
   TurkseTortel = TurkseTortel_distmod_2022_hr1,
   Veldleeuwerik = Veldleeuwerik_distmod_2022_hr7,
   Vink = Vink_distmod_2022_hn8,
@@ -3484,7 +3520,9 @@ final_models_2022 <- list(
   Boomkruiper = Boomkruiper_distmod_2022_hn1_simpel,
   Bosrietzanger = Bosrietzanger_distmod_2022_hn1_simpel,
   BruineKiekendief = BruineKiekendief_distmod_2022_hn1_simpel,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2022_hr1_simpel,
   Buizerd = Buizerd_distmod_2022_hr1_simpel,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2022_hr7,
   Ekster = Ekster_distmod_2022_hn1_simpel,
   Fazant = Fazant_distmod_2022_hr7,
   Gaai = Gaai_distmod_2022_hn1_simpel,
@@ -3522,6 +3560,7 @@ final_models_2022 <- list(
   Tjiftjaf = Tjiftjaf_distmod_2022_hn2,
   Torenvalk = Torenvalk_distmod_2022_hr5,
   TurkseTortel = TurkseTortel_distmod_2022_hr1_simpel,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2022_hr3,
   Veldleeuwerik = Veldleeuwerik_distmod_2022_hr7,
   Vink = Vink_distmod_2022_hn8,
   WildeEend = WildeEend_distmod_2022_hn1_simpel,
@@ -3701,7 +3740,8 @@ for (naam in names(final_models_2022)) {
 #### Problematische soorten
 
 ```{r}
-spec_to_remove <- c("BruineKiekendief", "Roek")
+spec_to_remove <- c("BruineKiekendief", "BruineKiekendief_zonder_broedcode", 
+                    "Roek")
 ```
 
 
@@ -3731,6 +3771,7 @@ spec_to_bin_2022 <- list(GeleKwikstaart = 4,
                       Kwartel = 6,
                       Rietzanger = 4,
                       Ringmus = 3,
+                      Torenvalk_zonder_broedcode = 6,
                       Veldleeuwerik = 6,
                       WildeEend = 4,
                       WitteKwikstaart = 6,
@@ -3971,7 +4012,7 @@ for (naam in names(final_models_2022_binned)) {
 
 ### Resultaten
 
-We hebben de densiteiten kunnen schatten van `r length(final_models_2022_update)` soorten.
+We hebben de densiteiten kunnen schatten van `r length(unique(gsub("_zonder_broedcode", "", names(final_models_2022_update))))` soorten.
 De volgende tabel geeft een overzicht van de soorten en finale modellen die gefit zijn.
 
 ```{r}
