@@ -4062,4 +4062,90 @@ saveRDS(final_models_2022_update, file = paste0(model_path, "models_2022.rds"))
 ```
 
 
+# DSM
+
+```{r}
+library(dsm)
+```
+
+Nuttige links:  
+https://github.com/dill/dsm/wiki  
+https://cran.r-project.org/web/packages/dsm/dsm.pdf  
+https://besjournals.onlinelibrary.wiley.com/doi/epdf/10.1111/2041-210X.12105  
+https://github.com/dill/dsm/wiki/Examples  
+http://distancesampling.org/R/  
+https://rdrr.io/cran/dsm/man/dsm.html  
+https://rdrr.io/cran/dsm/man/dsm-data.html  
+
+## Data
+
+Data preparatie voor Veldleeuwerik 2022.
+
+```{r}
+dist_df_Veldleeuwerik <- distance_dfs_2022_final$Veldleeuwerik
+sample_table_Veldleeuwerik <- sample_tables_2022$Veldleeuwerik
+obs_table_Veldleeuwerik <- obs_tables_2022$Veldleeuwerik
+
+dsm_observation_Veldleeuwerik <- dist_df_Veldleeuwerik %>%
+  full_join(obs_table_Veldleeuwerik, by = "object") %>%
+  select(object, Sample.Label, size, distance)
+
+dsm_segment_Veldleeuwerik <- sample_table_Veldleeuwerik %>%
+  separate(Region.Label, c("regio", "openheid", "sbp"), sep = " - ")
+```
+
+## Model
+
+We fitten het model `abundance.est ~ sbp*regio + openheid`
+
+```{r}
+ds_model_Veldleeuwerik <- final_models_2022_update$Veldleeuwerik
+
+test_dsm <- dsm(formula = abundance.est ~ sbp*regio + openheid,
+                     ddf.obj = ds_model_Veldleeuwerik,
+                     segment.data = dsm_segment_Veldleeuwerik,
+                     observation.data = dsm_observation_Veldleeuwerik,
+                     segment.area = rep(unique(dsm_segment_Veldleeuwerik$Effort)
+                                        * 300 * 300 * pi, 
+                                        nrow(dsm_segment_Veldleeuwerik)),
+                     convert.units = 1 / 10^6)
+
+summary(test_dsm)
+```
+
+## Resultaten
+
+```{r}
+predictions <- predict(test_dsm, expand.grid(openheid = c("HOL", "OL"), 
+                           regio = c("De Moeren", "Oostelijke leemstreek"),
+                           sbp = c("binnen", "buiten")), 1, 
+                           se.fit = TRUE)
+
+ndata <- expand.grid(openheid = c("HOL", "OL"), 
+                     regio = c("De Moeren", "Oostelijke leemstreek"),
+                     sbp = c("binnen", "buiten"))
+
+## get the inverse link function
+ilink <- family(test_dsm)$linkinv
+
+## add fit and se.fit on the **link** scale
+ndata <- bind_cols(ndata, setNames(as_tibble(predictions[1:2]),
+                                   c('fit_link','se_link')))
+
+## show
+ndata %>%
+  arrange(regio, openheid, sbp) %>%
+  kable()
+```
+
+## Conclusie
+
+We kunnen de resultaten repliceren met deze package, maar de documentatie is niet helemaal duidelijk. Het lijkt vooral nuttig voor spatiale modellen langs lijntransecten. Ik zou de twee doelen apart houden:  
+
+1.  Densiteitsschattingen met **Distance**
+2.  Effect van covariaten en modelleren met andere methodes (bv. **brms**)
+
+Anders wordt het onnodig complex.
+
+
 # Referenties
