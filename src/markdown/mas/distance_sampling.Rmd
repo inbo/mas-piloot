@@ -1798,7 +1798,7 @@ Hoe kunnen we deze workflow zo correct, efficiënt en snel toepassen op alle soo
 5.  Data selectie voor model specificatie
 6.  Model specificatie distance sampling
 
-Vanaf model selectie en fit zal geen of beperkte automatisatie meer kunnen toegepast worden.
+Vanaf model selectie en fit zal geen of slechts beperkte automatisatie kunnen toegepast worden.
 We selecteren voor elke soort het finale model en slaan deze op.
 Deze finale modellen kunnen dan in het rapport gebruikt worden voor het genereren van plots en tabellen.
 
@@ -1831,7 +1831,7 @@ roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief", "Buizerd",
 
 We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0, geen afstanden \> 300 m en dat ze binnen telperiodes vallen.
 We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
-We voegen ook Haas toe en roofvogels (`r roofvogels`) zonder broedcodes.
+We voegen ook Haas toe en roofvogels (`r roofvogels`) zonder te filteren op broedcode.
 
 ```{r}
 mas_observations <- mas_clean %>%
@@ -1858,7 +1858,7 @@ mas_observations <- bind_rows(mas_observations, haas_raptor_observations)
 
 ## Genereer dataframes voor elke soort
 
-We maken in een for-loop een dataframe voor elke soort waar we ook filteren op de datumgrenzen. Voor Haas behouden we alle telperiodes. Voor de roofvogels berekenen we de densiteiten zowel rekening houdend met broedcodes en datumgrenzen als zonder hiermee rekening te houden.
+We maken in een for-loop een dataframe voor elke soort waar we ook filteren op de datumgrenzen. Voor Haas behouden we alle telperiodes. Voor de roofvogels berekenen we de densiteiten zowel rekening houdend met broedcodes en datumgrenzen als zonder hiermee rekening te houden (suffix 'zonder_broedcode').
 
 ```{r}
 df_obs_list <- vector("list", length = length(unique(mas_observations$naam)))
@@ -1898,7 +1898,7 @@ names(df_obs_list) <- df_obs_names
 ### 2018-2022
 
 We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
-We zetten alle datasets om om te gebruiken om de detectiecurve te fitten.
+We zetten alle datasets om om de detectiecurve te fitten.
 
 ```{r}
 plots_old <- design_2018_2022_mas %>%
@@ -1982,7 +1982,7 @@ conversion_factor_2018_2022 <- convert_units("meter", NULL, "Square kilometer")
 ### 2022
 
 We beschouwen alle plots van 2022.
-We filteren alle datasets om te gebruiken om de detectiecurve te fitten.
+We filteren alle datasets om de detectiecurve te fitten.
 
 ```{r}
 distance_dfs_2022 <- lapply(df_obs_list, function(df) {
@@ -2070,18 +2070,18 @@ We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 We maken 2 datasets:
 
 1.  Simpele modellen (zonder covariaten)
--   behoud datasets als totaal aantal waarnemingen \>= 20
+    -   behoud datasets als totaal aantal waarnemingen \>= 20
 
 2.  Complexere modellen (met covariaten)
--   behoud strata als aantal waarnemingen per stratum \>= 10
--   behoud datasets als totaal aantal waarnemingen \>= 30
+    -   behoud strata als aantal waarnemingen per stratum \>= 10
+    -   behoud datasets als totaal aantal waarnemingen \>= 30
 
-Eerst fitten we alle modellen met *2.*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1.*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten.
+Eerst fitten we alle modellen met *2*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten en een maximaal aantal waarnemingen behouden.
 
 Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten.
 Een observatie van 2 individuen telt hier als 2 waarnemingen!
 
-> Als we deze getallen aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
+> Als we deze regels aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
 
 ```{r}
 filter_dist_df <- function(data, stratum_filter, dataset_filter) {
@@ -2112,7 +2112,7 @@ distance_dfs_2018_2022_simpel <- filter_dist_df(distance_dfs_2018_2022, 0, 20)
 distance_dfs_2018_2022_final <- filter_dist_df(distance_dfs_2018_2022, 10, 30)
 ```
 
-In de complexe dataset zijn de meeste soorten in meerdere jaren gezien.
+In de complexe dataset zijn alle soorten in meerdere jaren gezien.
 De meeste soorten hebben waarnemingen van slechts een enkele regio.
 Een interactie tussen regio en jaar zal slechts in een beperkt aantal gevallen gefit kunnen worden.
 
@@ -2220,18 +2220,18 @@ We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 We maken 2 datasets:
 
 1.  Simpele modellen (zonder covariaten)
--   behoud datasets als totaal aantal waarnemingen \>= 20
+    -   behoud datasets als totaal aantal waarnemingen \>= 20
 
 2.  Complexere modellen (met covariaten)
--   behoud strata als aantal waarnemingen per stratum \>= 10
--   behoud datasets als totaal aantal waarnemingen \>= 30
+    -   behoud strata als aantal waarnemingen per stratum \>= 10
+    -   behoud datasets als totaal aantal waarnemingen \>= 30
 
-Eerst fitten we alle modellen met *2.*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1.*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten.
+Eerst fitten we alle modellen met *2*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten.
 
 Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten.
 Een observatie van 2 individuen telt hier als 2 waarnemingen!
 
-> Als we deze getallen aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
+> Als we deze regels aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
 
 ```{r}
 filter_dist_df_2022 <- function(data, stratum_filter, dataset_filter) {
@@ -2688,6 +2688,7 @@ for (naam in names(all_models)) {
 ```{r}
 final_models_complex <- list(
   Blauwborst = Blauwborst_distmod_2018_2022_hn1,
+  BlauweKiekendief_zonder_broedcode = BlauweKiekendief_zonder_broedcode_distmod_2018_2022_hn1,
   BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2022_hn1,                      
   Buizerd = Buizerd_distmod_2018_2022_hn1,
   Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2018_2022_hn1,
@@ -2707,7 +2708,7 @@ final_models_complex <- list(
   Kauw = Kauw_distmod_2018_2022_hr1,
   Kievit = Kievit_distmod_2018_2022_hr1,
   KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1,
-  Kneu = Kneu_distmod_2018_2022_hn1,
+  Kneu = Kneu_distmod_2018_2022_hr1,
   Koolmees = Koolmees_distmod_2018_2022_hr1,
   Kwartel = Kwartel_distmod_2018_2022_hn1,
   Merel = Merel_distmod_2018_2022_hr1,
@@ -2829,7 +2830,7 @@ for (naam in names(final_models_simpel)) {
 
 ```{r}
 final_models <- list(
-  Blauwborst = Blauwborst_distmod_2018_2022_hr1_simpel,
+  Blauwborst = Blauwborst_distmod_2018_2022_hn1_simpel,
   BlauweKiekendief_zonder_broedcode = BlauweKiekendief_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Bosrietzanger = Bosrietzanger_distmod_2018_2022_hn1_simpel,
   BruineKiekendief = BruineKiekendief_distmod_2018_2022_hn1_simpel,
@@ -2855,7 +2856,7 @@ final_models <- list(
   Kauw = Kauw_distmod_2018_2022_hn1_simpel,
   Kievit = Kievit_distmod_2018_2022_hr1_simpel,
   KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1_simpel,
-  Kneu = Kneu_distmod_2018_2022_hn1_simpel,
+  Kneu = Kneu_distmod_2018_2022_hr1_simpel,
   Knobbelzwaan = Knobbelzwaan_distmod_2018_2022_hn1_simpel,
   Koolmees = Koolmees_distmod_2018_2022_hn1_simpel,
   Kwartel = Kwartel_distmod_2018_2022_hn1_simpel,
@@ -2867,9 +2868,9 @@ final_models <- list(
   Rietgors = Rietgors_distmod_2018_2022_hn1_simpel,
   Rietzanger = Rietzanger_distmod_2018_2022_hn1_simpel,
   Ringmus = Ringmus_distmod_2018_2022_hr1_simpel,
-  Roek = Roek_distmod_2018_2022_hr1_simpel,
+  Roek = Roek_distmod_2018_2022_hn1_simpel,
   Roodborst = Roodborst_distmod_2018_2022_hn1_simpel,
-  Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hn1_simpel,
+  Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hr1_simpel,
   Slechtvalk_zonder_broedcode = Slechtvalk_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Sperwer_zonder_broedcode = Sperwer_zonder_broedcode_distmod_2018_2022_hn1_simpel,
   Spotvogel = Spotvogel_distmod_2018_2022_hn1_simpel,
@@ -3397,7 +3398,7 @@ final_models_2022_complex <- list(
   Kwartel = Kwartel_distmod_2022_hn1,
   Meerkoet = Meerkoet_distmod_2022_hr1,
   Merel = Merel_distmod_2022_hn7,
-  Pimpelmees = Pimpelmees_distmod_2022_hr1,
+  Pimpelmees = Pimpelmees_distmod_2022_hn1,
   Rietzanger = Rietzanger_distmod_2022_hr1,
   Ringmus = Ringmus_distmod_2022_hn1,
   Roodborst = Roodborst_distmod_2022_hn1,
@@ -3514,6 +3515,8 @@ for (naam in names(final_models_simpel_2022)) {
 }
 ```
 
+Voor Kleine karekiet kiezen we voor het hn model omwille van de betere model fit ondanks het verschil in AIC. Voor Meerkoet kiezen we voor het hn model omwille van de betere model fit ondanks dat het complexer is dan het hr model.
+
 ```{r}
 final_models_2022 <- list(
   Blauwborst = Blauwborst_distmod_2022_hn1_simpel,
@@ -3548,7 +3551,7 @@ final_models_2022 <- list(
   Kwartel = Kwartel_distmod_2022_hn1_simpel,
   Meerkoet = Meerkoet_distmod_2022_hn1_simpel,
   Merel = Merel_distmod_2022_hn7,
-  Pimpelmees = Pimpelmees_distmod_2022_hr1_simpel,
+  Pimpelmees = Pimpelmees_distmod_2022_hn1_simpel,
   Putter = Putter_distmod_2022_hn1_simpel,
   Rietzanger = Rietzanger_distmod_2022_hr1_simpel,
   Ringmus = Ringmus_distmod_2022_hn1_simpel,
