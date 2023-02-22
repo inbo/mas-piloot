@@ -277,7 +277,7 @@ dubbeltgetelde_plots <- c("DM_18", "VL0086", "VL0091", "VL0105", "DM_1039.1",
                           "DM_39.22", "DM_137.2")
 ```
 
-Johannes heeft in 2022 in De Moeren 11 pots als controle dubbel heb geteld. Het gaat om `r dubbeltgetelde_plots` (mail Johannes 13-01-2023).
+Johannes heeft in 2022 in De Moeren 11 pots als controle dubbel geteld. Het gaat om `r dubbeltgetelde_plots` (mail Johannes 13-01-2023).
 
 1.  DM_18 : de vrijwilliger heeft door omstandigheden dit punt tijdens de 2e ronde vergeten tellen. Uit een vergelijking van de andere drie rondes kan misschien wel wat gehaald worden. Bij dit punt merkten we ook dat de vrijwilliger "haas" in opmerkingen vermeldde i.p.v. ze in te voeren op kaart net zoals de vogelsoorten.
 2.  VL0086 : oud mas-punt, dus tijdsreeks van 5 jaar. Daarmee kan een langere vergelijking gemaakt worden (variatie op tellingen over de jaren door dezelfde vrijwilliger)
@@ -318,9 +318,7 @@ dubbels_2022_raw %>%
   kable()
 ```
 
-We zien inderdaad dat in DM_18 in telperiode 2 maar 1x geteld is en dat in DM_137.2 in telperiode 4 op 3 verschillende dagen geteld is.  
-We merken verder op dat in 2 gevallen een tweede telling buiten telperiode 4 is gedaan (periode_in_jaar = NA). Telperiode 4 loopt van `r r4_start` - `r r4_stop`.  
-Verder zien we dat twee tellingen op dezelfde dag zijn gebeurt.
+We zien inderdaad dat in DM_18 in telperiode 2 maar 1x geteld is en dat in DM_137.2 in telperiode 4 op 3 verschillende dagen geteld is. We merken verder op dat in 2 gevallen een tweede telling buiten telperiode 4 is gedaan (periode_in_jaar = NA). Telperiode 4 loopt van `r r4_start` - `r r4_stop`. Verder zien we dat twee tellingen op dezelfde dag zijn gebeurt.
 
 ```{r}
 dubbels_2022_raw %>%
@@ -335,10 +333,12 @@ dubbels_2022_raw %>%
 
 -  We verwijderen de laatste telling van DM_137.2 (15 juli).
 -  We vervangen NA door R4
+-  We verwijderen R2 in DM_18
 
 ```{r}
 dubbels_2022 <- dubbels_2022_raw %>%
-  filter(!(plotnaam == "DM_137.2" & datum == as.Date("2022-07-15"))) %>%
+  filter(!(plotnaam == "DM_137.2" & datum == as.Date("2022-07-15")),
+         !(plotnaam == "DM_18" & periode_in_jaar == "R2")) %>%
   mutate(periode_in_jaar = ifelse(is.na(periode_in_jaar), 
                                   "R4", 
                                   periode_in_jaar))
@@ -370,6 +370,7 @@ We selecteren alle vogels met broedcode > 0 en binnen 300 m.
 
 ```{r}
 dubbels_2022_df <- dubbels_2022 %>%
+  st_drop_geometry() %>%
   filter(wrntype > 0L, distance2plot <= 300, soortgrp == 2) %>%
   mutate(naam = ifelse(naam == "Gele kwikstaart (spec)", "Gele Kwikstaart",
                        naam),
@@ -410,5 +411,107 @@ waarnemer_vars %>%
 
 dubbels_2022_df <- dubbels_2022_df %>%
   full_join(waarnemer_vars, by = "waarnemerscode")
+```
+
+# Data exploratie
+
+## Soortendiversiteit
+
+```{r}
+diversiteit <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, waarnemerscode, status) %>%
+  summarize(aantal_soorten = n_distinct(naam),
+            .groups = "drop")
+
+diversiteit %>%
+  ggplot() +
+    geom_boxplot(aes(x = status, y = aantal_soorten,
+                     fill = periode_in_jaar)) +
+    facet_wrap(~periode_in_jaar, scales = "free_x") +
+    labs(y = "Aantal soorten", x = "status", fill = "Telperipode")
+```
+
+De boxplots suggereren dat de professionele teller in gemiddeld gezien meer soorten ziet per telperiode dan de vrijwilligers. Het kan natuurlijk wel zijn dat verschillende soorten gezien zijn.  
+  
+```{r}
+relfreqs <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, status, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+
+top_n <- 20
+```
+
+In totaal zijn `r length(unique(relfreqs$naam))` gezien. De boxplots tonen de relatieve frequenties in een bepaalde telperiode voor de professionele teller en de vrijwilligers.
+
+```{r}
+relfreqs %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - top_n) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+
+relfreqs %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) <= length(unique(naam)) - top_n,
+         as.numeric(naam) > length(unique(naam)) - (2 * top_n)) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+
+relfreqs %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) <= length(unique(naam)) - (2 * top_n)) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+```
+
+Verschil in gemiddelde relatieve frequentie tussen professionele teller en vrijwilligers.
+
+```{r}
+relfreq_diffs <- relfreqs %>%
+  group_by(status, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(status, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = status,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = professioneel - vrijwilliger) %>%
+  ungroup() %>%
+  arrange(desc(verschilfreq))
+
+relfreq_diffs %>%
+  kable(digits = 2)
+```
+
+```{r}
+relfreq_diffs_tab <- relfreq_diffs %>%
+  mutate(diff = factor(
+    case_when(
+      verschilfreq > 0 ~ "+",
+      verschilfreq < 0 ~ "-",
+      TRUE ~ "0"
+    ), levels = c("+", "0", "-"))
+  ) %>%
+  count(diff) %>%
+  mutate(perc = n / sum(.data$n))
+
+relfreq_diffs_tab %>%
+  kable()
 ```
 
