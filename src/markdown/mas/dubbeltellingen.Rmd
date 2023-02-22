@@ -269,7 +269,7 @@ design_2018_2022_sf <- plot_jaar_bezocht_sf %>%
   mutate(openheid = as.character(openheid))
 ```
 
-# Data selectie
+# Data preparatie
 
 ```{r}
 dubbeltgetelde_plots <- c("DM_18", "VL0086", "VL0091", "VL0105", "DM_1039.1", 
@@ -333,8 +333,6 @@ dubbels_2022_raw %>%
   kable()
 ```
 
-# Data preparatie
-
 -  We verwijderen de laatste telling van DM_137.2 (15 juli).
 -  We vervangen NA door R4
 
@@ -364,5 +362,53 @@ dubbels_2022 %>%
   full_join(waarnemers, by = c("plotnaam", "jaar", "periode_in_jaar")) %>%
   arrange(plotnaam, jaar, periode_in_jaar) %>%
   kable()
+```
+
+# Data selectie
+
+We selecteren alle vogels met broedcode > 0 en binnen 300 m.
+
+```{r}
+dubbels_2022_df <- dubbels_2022 %>%
+  filter(wrntype > 0L, distance2plot <= 300, soortgrp == 2) %>%
+  mutate(naam = ifelse(naam == "Gele kwikstaart (spec)", "Gele Kwikstaart",
+                       naam),
+         naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
+                       naam)) %>%
+  rename(waarnemerscode = waarneme)
+```
+
+We voegen variabelen toe gelinkt aan de plots.
+
+```{r}
+design_dubbels <- design_2018_2022_sf %>%
+  st_drop_geometry() %>%
+  filter(jaar == 2022,
+         plotnaam %in% dubbeltgetelde_plots) %>%
+  select(-c(jaar, stratum))
+
+design_dubbels %>%
+  kable()
+
+dubbels_2022_df <- dubbels_2022_df %>%
+  full_join(design_dubbels, by = "plotnaam")
+```
+
+We voegen variabelen toe gelinkt aan de waarnemers.
+
+```{r}
+waarnemer_vars <- tibble(waarnemerscode = c("HMLE02", "DCLR00", "NRTT00", 
+                            "WBVS00", "GMRS04", "DDRT00", "ATRR00", "JJNN16"),
+                         status = c(rep("vrijwilliger", 7), "professioneel"),
+                         ervaring = c("beginner", "ervaren", "ervaren", 
+                             "ervaren", "beginner", "ervaren", "beginner", 
+                             "ervaren"), 
+                         ancienniteit = c(1, 5, 5, 4, 1, 5, 1, 5))
+
+waarnemer_vars %>%
+  kable()
+
+dubbels_2022_df <- dubbels_2022_df %>%
+  full_join(waarnemer_vars, by = "waarnemerscode")
 ```
 
