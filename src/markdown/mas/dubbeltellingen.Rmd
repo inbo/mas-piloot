@@ -42,7 +42,13 @@ source(here("src", "R", "berekening_hulpvariabelen.R"))
 
 # Doel {#doel}
 
-Achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren.
+Achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren.  
+We volgen twee pistes: 
+
+1.  enkel de waarnemingen met broedcode > 0
+2.  alle waarnemingen meenemen
+
+Waarnemingen met broedcode = 0 zijn meer op toeval berust (trekkers/pleisteraars of roofvogels) (mail Johannes 13-01-2023).
 
 # Inlezen data {#inlezen-data}
 
@@ -263,4 +269,100 @@ design_2018_2022_sf <- plot_jaar_bezocht_sf %>%
   mutate(openheid = as.character(openheid))
 ```
 
+# Data selectie
+
+```{r}
+dubbeltgetelde_plots <- c("DM_18", "VL0086", "VL0091", "VL0105", "DM_1039.1", 
+                          "DM_256.1.27", "DM_262.4", "DM_222.6", "DM_368.14", 
+                          "DM_39.22", "DM_137.2")
+```
+
+Johannes heeft in 2022 in De Moeren 11 pots als controle dubbel heb geteld. Het gaat om `r dubbeltgetelde_plots` (mail Johannes 13-01-2023).
+
+1.  DM_18 : de vrijwilliger heeft door omstandigheden dit punt tijdens de 2e ronde vergeten tellen. Uit een vergelijking van de andere drie rondes kan misschien wel wat gehaald worden. Bij dit punt merkten we ook dat de vrijwilliger "haas" in opmerkingen vermeldde i.p.v. ze in te voeren op kaart net zoals de vogelsoorten.
+2.  VL0086 : oud mas-punt, dus tijdsreeks van 5 jaar. Daarmee kan een langere vergelijking gemaakt worden (variatie op tellingen over de jaren door dezelfde vrijwilliger)
+3.  VL0091 :  oud mas-punt, dus tijdsreeks van 5 jaar.
+4.  VL0105 :  oud mas-punt, dus tijdsreeks van 4 jaar.
+5.  DM_1039.1: nieuw mas-punt
+6.  DM_256.1.27 : nieuw mas-punt
+7.  DM_262.4 : nieuw mas-punt
+8.  DM_222.6 : nieuw mas-punt
+9.  DM_368.14 : nieuw mas-punt
+10.  DM_39.22 : nieuw mas-punt
+11.  DM_137.2 : nieuw mas-punt, daar heb ik per toeval de laatste ronde 2 keer geteld. De laatste telling (15 juli) mag je laten vallen
+
+> voorlopig beginnen met data van 2022
+
+```{r}
+dubbels_2022_raw <- mas_31370_pipeline1 %>%
+  filter(jaar == 2022,
+         plotnaam %in% dubbeltgetelde_plots)
+
+waarnemers_raw <- dubbels_2022_raw %>%
+  st_drop_geometry() %>% 
+  distinct(plotnaam, jaar, periode_in_jaar, waarneme) %>%
+  mutate(val = 1) %>%
+  pivot_wider(names_from = waarneme, values_from = val) %>%
+  mutate(across(-c(plotnaam, jaar, periode_in_jaar), ~replace(.x, .x == 1, 
+                                                          cur_column()))) %>%
+  unite("waarnemers", -c(plotnaam, jaar, periode_in_jaar), sep = ", ", na.rm = TRUE)
+
+dubbels_2022_raw %>%
+  st_drop_geometry() %>% 
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  summarise(n_waarnemers = n_distinct(waarneme),
+            n_datums = n_distinct(datum)) %>%
+  ungroup() %>%
+  full_join(waarnemers_raw, by = c("plotnaam", "jaar", "periode_in_jaar")) %>%
+  arrange(plotnaam, jaar, periode_in_jaar) %>%
+  kable()
+```
+
+We zien inderdaad dat in DM_18 in telperiode 2 maar 1x geteld is en dat in DM_137.2 in telperiode 4 op 3 verschillende dagen geteld is.  
+We merken verder op dat in 2 gevallen een tweede telling buiten telperiode 4 is gedaan (periode_in_jaar = NA). Telperiode 4 loopt van `r r4_start` - `r r4_stop`.  
+Verder zien we dat twee tellingen op dezelfde dag zijn gebeurt.
+
+```{r}
+dubbels_2022_raw %>%
+  st_drop_geometry() %>% 
+  filter(plotnaam %in% c("DM_222.6", "VL0086"),
+         periode_in_jaar %in% c(NA, "R4")) %>%
+  select(plotnaam, periode_in_jaar, datum, waarnemer = waarneme) %>%
+  distinct() %>%
+  arrange(plotnaam, datum) %>%
+  kable()
+```
+
+# Data preparatie
+
+-  We verwijderen de laatste telling van DM_137.2 (15 juli).
+-  We vervangen NA door R4
+
+```{r}
+dubbels_2022 <- dubbels_2022_raw %>%
+  filter(!(plotnaam == "DM_137.2" & datum == as.Date("2022-07-15"))) %>%
+  mutate(periode_in_jaar = ifelse(is.na(periode_in_jaar), 
+                                  "R4", 
+                                  periode_in_jaar))
+  
+waarnemers <- dubbels_2022 %>%
+  st_drop_geometry() %>% 
+  distinct(plotnaam, jaar, periode_in_jaar, waarneme) %>%
+  mutate(val = 1) %>%
+  pivot_wider(names_from = waarneme, values_from = val) %>%
+  mutate(across(-c(plotnaam, jaar, periode_in_jaar), ~replace(.x, .x == 1, 
+                                                          cur_column()))) %>%
+  unite(waarnemers, -c(plotnaam, jaar, periode_in_jaar), sep = ", ", 
+        na.rm = TRUE)
+
+dubbels_2022 %>%
+  st_drop_geometry() %>% 
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  summarise(n_waarnemers = n_distinct(waarneme),
+            n_datums = n_distinct(datum)) %>%
+  ungroup() %>%
+  full_join(waarnemers, by = c("plotnaam", "jaar", "periode_in_jaar")) %>%
+  arrange(plotnaam, jaar, periode_in_jaar) %>%
+  kable()
+```
 
