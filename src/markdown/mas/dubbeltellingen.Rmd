@@ -379,7 +379,7 @@ dubbels_2022_df <- dubbels_2022 %>%
   rename(waarnemerscode = waarneme)
 ```
 
-We voegen variabelen toe gelinkt aan de plots.
+We voegen variabelen toe gelinkt aan de plots. Enkel sbp is variabel.
 
 ```{r}
 design_dubbels <- design_2018_2022_sf %>%
@@ -419,20 +419,55 @@ dubbels_2022_df <- dubbels_2022_df %>%
 
 ```{r}
 diversiteit <- dubbels_2022_df %>%
-  group_by(plotnaam, periode_in_jaar, waarnemerscode, status) %>%
+  group_by(plotnaam, periode_in_jaar, status) %>%
   summarize(aantal_soorten = n_distinct(naam),
             .groups = "drop")
+  
 
 diversiteit %>%
   ggplot() +
     geom_boxplot(aes(x = status, y = aantal_soorten,
                      fill = periode_in_jaar)) +
     facet_wrap(~periode_in_jaar, scales = "free_x") +
-    labs(y = "Aantal soorten", x = "status", fill = "Telperipode")
+    labs(y = "aantal soorten", x = "status", fill = "Telperipode")
 ```
 
 De boxplots suggereren dat de professionele teller in gemiddeld gezien meer soorten ziet per telperiode dan de vrijwilligers. Het kan natuurlijk wel zijn dat verschillende soorten gezien zijn.  
+
+```{r}
+aantal_wnm <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, status) %>%
+  summarize(n = n(),
+            .groups = "drop")
   
+
+aantal_wnm %>%
+  ggplot() +
+    geom_boxplot(aes(x = status, y = n,
+                     fill = periode_in_jaar)) +
+    facet_wrap(~periode_in_jaar, scales = "free_x") +
+    labs(y = "aantal waarnemingen", x = "status", fill = "Telperipode")
+```
+
+De boxplots suggereren dat de professionele teller in gemiddeld gezien meer waarnemingen ingeeft per telperiode dan de vrijwilligers. In telperiode 4 is er geen groot verschil.
+
+```{r}
+aantal_dieren <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, status) %>%
+  summarize(n = sum(aantal),
+            .groups = "drop")
+  
+
+aantal_dieren %>%
+  ggplot() +
+    geom_boxplot(aes(x = status, y = n,
+                     fill = periode_in_jaar)) +
+    facet_wrap(~periode_in_jaar, scales = "free_x") +
+    labs(y = "aantal individuen", x = "status", fill = "Telperipode")
+```
+
+De boxplots suggereren dat de professionele teller in gemiddeld gezien meer individuen ziet per telperiode dan de vrijwilligers. In telperiode 4 is er geen groot verschil.
+
 ```{r}
 relfreqs <- dubbels_2022_df %>%
   group_by(plotnaam, periode_in_jaar, status, naam) %>%
@@ -498,6 +533,8 @@ relfreq_diffs <- relfreqs %>%
 relfreq_diffs %>%
   kable(digits = 2)
 ```
+
+Een '+' wil zeggen dat de professionele teller gemiddeld een hogere relatieve frequentie ziet dan de vrijwilligers van een soort (positief verschil) en een '-' dat de vrijwilligers een hogere relatieve frequentie zien van een soort.
 
 ```{r}
 relfreq_diffs_tab <- relfreq_diffs %>%
