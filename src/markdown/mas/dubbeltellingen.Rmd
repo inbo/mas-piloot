@@ -516,7 +516,7 @@ plot_boxplots("aantal waarnemingen", "ervaring")
 plot_boxplots("aantal individuen", "ervaring")
 ```
 
-We blijven een over het algemeen een verschil zien tussen professioneel, vooral tussen de ervaren vrijwilligers en de professionele teller (ervaren plots) in telperiodes R1-R3. Er lijkt geen groot verschil te zijn tussen beginners en ervaren vrijwilligers.
+Het aantal soorten lijkt nog altijd iets groter bij de professionele teller dan bij de vrijwilligers. We zien dat het verschil in aantal waarnemingen en individuen tussen professionele teller en vrijwilligers vooral aanwezig is in de plots waar ervaren vrijwilligers geteld hebben (ervaren plots) in telperiodes R1-R3. Daar heeft de professionele teller meer waarnemingen en individuen gezien. Er lijkt geen groot verschil te zijn tussen beginners en ervaren vrijwilligers.
 
 ## Relatieve frequentie
 
