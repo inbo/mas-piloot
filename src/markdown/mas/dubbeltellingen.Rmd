@@ -395,7 +395,7 @@ dubbels_2022_df <- dubbels_2022_df %>%
   full_join(design_dubbels, by = "plotnaam")
 ```
 
-We voegen variabelen toe gelinkt aan de waarnemers.
+We voegen variabelen toe gelinkt aan de waarnemers. We zien weinig verschil in de categoriën `ervaring` vs. `anciënniteit`. Vooral de `ervaring` variabele lijkt interessant om in acht te nemen.
 
 ```{r}
 waarnemer_vars <- tibble(waarnemerscode = c("HMLE02", "DCLR00", "NRTT00", 
