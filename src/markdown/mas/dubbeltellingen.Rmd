@@ -415,7 +415,6 @@ dubbels_2022_df <- dubbels_2022_df %>%
 
 # Data exploratie
 ## Aantallen
-### Status
 
 ```{r}
 plot_boxplots <- function(measure, var = NULL) {
@@ -452,6 +451,15 @@ plot_boxplots <- function(measure, var = NULL) {
     labs(y = measure, x = var, fill = "Telperiode")
 }
 ```
+
+```{r}
+dubbels_2022_df %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(n_plots = n_distinct(plotnaam)) %>%
+  kable()
+```
+
+### Status
 
 ```{r}
 plot_boxplots("aantal soorten")
@@ -509,6 +517,8 @@ We blijven een over het algemeen een verschil zien tussen professioneel en vrijw
 
 ## Relatieve frequentie
 
+Zien we gelijkaardige trends als we per soort kijken?
+
 ```{r}
 relfreqs <- dubbels_2022_df %>%
   group_by(plotnaam, periode_in_jaar, status, naam) %>%
@@ -527,7 +537,6 @@ relfreqs <- dubbels_2022_df %>%
 
 top_n <- 20
 ```
-
 
 In totaal zijn `r length(unique(relfreqs$naam))` gezien. De boxplots tonen de relatieve frequenties in een bepaalde telperiode voor de professionele teller en de vrijwilligers.
 
@@ -576,7 +585,7 @@ relfreq_diffs %>%
   kable(digits = 2)
 ```
 
-Een '+' wil zeggen dat de professionele teller gemiddeld een hogere relatieve frequentie ziet dan de vrijwilligers van een soort (positief verschil) en een '-' dat de vrijwilligers een hogere relatieve frequentie zien van een soort.
+Een '+' wil zeggen dat de professionele teller gemiddeld een hogere relatieve frequentie ziet dan de vrijwilligers van een soort (positief verschil) en een '-' dat de vrijwilligers een hogere relatieve frequentie zien van een soort. Zowel in de figuren als in de tabel zien we dat de professionele teller een voor de meeste soorten een hogere relatieve frequentie ziet dan de vrijwilligers.
 
 ```{r}
 relfreq_diffs_tab <- relfreq_diffs %>%
