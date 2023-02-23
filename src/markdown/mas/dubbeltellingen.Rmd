@@ -414,59 +414,100 @@ dubbels_2022_df <- dubbels_2022_df %>%
 ```
 
 # Data exploratie
-
-## Soortendiversiteit
+## Aantallen
+### Status
 
 ```{r}
-diversiteit <- dubbels_2022_df %>%
-  group_by(plotnaam, periode_in_jaar, status) %>%
-  summarize(aantal_soorten = n_distinct(naam),
-            .groups = "drop")
+plot_boxplots <- function(measure, var = NULL) {
+  if (is.null(var)) {
+    var <- "status"
+    diversiteit_df <- dubbels_2022_df %>%
+      group_by(plotnaam, periode_in_jaar, status)
+  } else {
+    diversiteit_df <- dubbels_2022_df %>%
+      group_by(plotnaam, periode_in_jaar, status, .data[[var]])
+  }
   
-
-diversiteit %>%
-  ggplot() +
-    geom_boxplot(aes(x = status, y = aantal_soorten,
+  if (measure == "aantal soorten") {
+    diversiteit_df <- diversiteit_df %>%
+      summarize(n = n_distinct(naam), .groups = "drop")
+  } else if (measure == "aantal waarnemingen") {
+    diversiteit_df <- diversiteit_df %>%
+      summarize(n = n(), .groups = "drop")
+  } else if (measure == "aantal individuen") {
+    diversiteit_df <- diversiteit_df %>%
+      summarize(n = sum(aantal), .groups = "drop")
+  } else {
+    stop('Geef geldige measure in: c("aantal soorten", "aantal waarnemingen", 
+         "aantal individuen")!', call. = FALSE)
+  }
+  
+  ggplot(diversiteit_df) +
+    geom_boxplot(aes(x = as.factor(.data[[var]]), y = n,
                      fill = periode_in_jaar)) +
-    facet_wrap(~periode_in_jaar, scales = "free_x") +
-    labs(y = "aantal soorten", x = "status", fill = "Telperipode")
+    scale_y_continuous(breaks = seq(0, 100, 2), 
+                       limits = c(0, NA)) +
+    geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+    facet_wrap(~status, scales = "free_x") +
+    labs(y = measure, x = var, fill = "Telperiode")
+}
+```
+
+```{r}
+plot_boxplots("aantal soorten")
 ```
 
 De boxplots suggereren dat de professionele teller in gemiddeld gezien meer soorten ziet per telperiode dan de vrijwilligers. Het kan natuurlijk wel zijn dat verschillende soorten gezien zijn.  
 
 ```{r}
-aantal_wnm <- dubbels_2022_df %>%
-  group_by(plotnaam, periode_in_jaar, status) %>%
-  summarize(n = n(),
-            .groups = "drop")
-  
-
-aantal_wnm %>%
-  ggplot() +
-    geom_boxplot(aes(x = status, y = n,
-                     fill = periode_in_jaar)) +
-    facet_wrap(~periode_in_jaar, scales = "free_x") +
-    labs(y = "aantal waarnemingen", x = "status", fill = "Telperipode")
+plot_boxplots("aantal waarnemingen")
 ```
 
 De boxplots suggereren dat de professionele teller in gemiddeld gezien meer waarnemingen ingeeft per telperiode dan de vrijwilligers. In telperiode 4 is er geen groot verschil.
 
 ```{r}
-aantal_dieren <- dubbels_2022_df %>%
-  group_by(plotnaam, periode_in_jaar, status) %>%
-  summarize(n = sum(aantal),
-            .groups = "drop")
-  
-
-aantal_dieren %>%
-  ggplot() +
-    geom_boxplot(aes(x = status, y = n,
-                     fill = periode_in_jaar)) +
-    facet_wrap(~periode_in_jaar, scales = "free_x") +
-    labs(y = "aantal individuen", x = "status", fill = "Telperipode")
+plot_boxplots("aantal individuen")
 ```
 
 De boxplots suggereren dat de professionele teller in gemiddeld gezien meer individuen ziet per telperiode dan de vrijwilligers. In telperiode 4 is er geen groot verschil.
+
+### Ervaring
+
+Zien we deze verschillen nog steeds als we rekening houden met de ervaring van de vrijwilligers of het aantal jaar dat ze al meetellen?
+
+```{r}
+plot_boxplots("aantal soorten", "ervaring")
+```
+
+```{r}
+plot_boxplots("aantal waarnemingen", "ervaring")
+```
+
+```{r}
+plot_boxplots("aantal individuen", "ervaring")
+```
+
+We blijven een over het algemeen een verschil zien tussen professioneel en vrijwilliger. Er lijkt geen groot verschil te zijn tussen beginners en ervaren vrijwilligers.
+
+### Ancienniteit
+
+Zien we deze verschillen nog steeds als we rekening houden met de het aantal jaar dat de mensen al meetellen?
+
+```{r}
+plot_boxplots("aantal soorten", "ancienniteit")
+```
+
+```{r}
+plot_boxplots("aantal waarnemingen", "ancienniteit")
+```
+
+```{r}
+plot_boxplots("aantal individuen", "ancienniteit")
+```
+
+We blijven een over het algemeen een verschil zien tussen professioneel en vrijwilliger tenzij misschien voor de persoon die al 4 jaar meetelt. Aan de andere kant is er niet veel data per anciëniteitsgroep om hier een goede uitspraak over te doen.
+
+## Relatieve frequentie
 
 ```{r}
 relfreqs <- dubbels_2022_df %>%
@@ -486,6 +527,7 @@ relfreqs <- dubbels_2022_df %>%
 
 top_n <- 20
 ```
+
 
 In totaal zijn `r length(unique(relfreqs$naam))` gezien. De boxplots tonen de relatieve frequenties in een bepaalde telperiode voor de professionele teller en de vrijwilligers.
 
@@ -551,4 +593,5 @@ relfreq_diffs_tab <- relfreq_diffs %>%
 relfreq_diffs_tab %>%
   kable()
 ```
+
 
