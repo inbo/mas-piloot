@@ -694,6 +694,9 @@ Het is moeilijk om de figuren te interpreteren. De volgende tabel geeft wel aan 
 ```{r}
 relfreqs_ervaring_diffs %>%
   count(`grootste gem. rel.freq.`) %>%
+  separate(`grootste gem. rel.freq.`, into = c("status", "ervaring"),
+           sep = " - ") %>%
+  pivot_wider(names_from = status, values_from = n) %>%
   kable()
 ```
 
