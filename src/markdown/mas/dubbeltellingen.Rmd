@@ -778,3 +778,93 @@ relfreqs_doel2 %>%
 
 Als we rekening houden met ervaring lijken de verschillen niet zo groot tussen professioneel en vrijwilliger.
 
+## Multivariate methodes
+
+...
+
+# Hypotheses
+
+We willen achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren. Welke statistische hypotheses kunnen we opstellen? Met welke factoren moeten we rekening houden?  
+  
+
+## Aantal soorten
+
+Is er een significant verschil in het aantal soorten gezien door de professionele vrijwilliger vs. de vrijwilligers?
+
+
+
+# Statistische testen
+
+## Aantal soorten
+
+Is er een significant verschil in het aantal soorten gezien door de professionele vrijwilliger vs. de vrijwilligers?
+
+$\text{H}_0$: Er is geen verschil in het aantal soorten gezien door de professionele vrijwilliger vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal soorten gezien door de professionele vrijwilliger vs. de vrijwilligers.
+
+```{r}
+dubbels_2022_df_soortenrijkdom <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, status) %>%
+  summarize(n = n_distinct(naam), .groups = "drop") %>%
+  ungroup() %>%
+  mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
+  group_by(status) %>%
+  mutate(gemiddelde = mean(n))
+
+# Overlaid histograms
+ggplot(dubbels_2022_df_soortenrijkdom) +
+  geom_histogram(aes(x = n, fill = status), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+
+# Density plots with semi-transparent fill
+ggplot(dubbels_2022_df_soortenrijkdom, aes(x = n, fill = status)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+```
+
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(unique(dubbels_2022_df_soortenrijkdom$plaatstijd)))
+
+dubbels_2022_df_soortenrijkdom %>%
+  ggplot() +
+    geom_point(aes(x = status, y = n)) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    theme(legend.position = "") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal soorten")
+```
+
+
+```{r}
+t.test(n ~ status, data = dubbels_2022_df_soortenrijkdom, paired = TRUE)
+```
+
+```{r, warning=TRUE}
+wilcox.test(n ~ status, data = dubbels_2022_df_soortenrijkdom, paired = TRUE)
+```
+
+*The impact of ties means the Wilcoxon rank sum distribution cannot be used to calculate exact p-values. If ties occur in our data and we have fewer than 50 observations, the wilcox.test function returns a normal approximated p-value along with a warning message that says “cannot compute exact p-value with ties”.*
+
+Parametrisch:
+
+```{r}
+fit <- nlme::lme(n ~ status, random = ~1|plaatstijd, 
+                 data = dubbels_2022_df_soortenrijkdom)
+
+summary(fit)
+```
+
+Zelfde verschil als met t-test. 3.2 soorten minder gemiddeld voor vrijwilliger.
+
+We hebben discrete data ... Poisson?
+
+Doe bovenstaande opnieuw met brms
