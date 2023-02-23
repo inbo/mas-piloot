@@ -417,11 +417,32 @@ dubbels_2022_df <- dubbels_2022_df %>%
 ## Aantallen
 
 ```{r}
+ervaren_plots <- dubbels_2022_df %>%
+  filter(status == "vrijwilliger",
+         ervaring == "ervaren") %>%
+  distinct(plotnaam) %>%
+  pull()
+beginner_plots <- dubbels_2022_df %>%
+  filter(status == "vrijwilliger",
+         ervaring != "ervaren") %>%
+  distinct(plotnaam) %>%
+  pull()
+
+
+  
 plot_boxplots <- function(measure, var = NULL) {
   if (is.null(var)) {
     var <- "status"
     diversiteit_df <- dubbels_2022_df %>%
       group_by(plotnaam, periode_in_jaar, status)
+  } else if (var == "ervaring") {
+    diversiteit_df <- dubbels_2022_df %>%
+      mutate(ervaring = case_when(
+        status != "vrijwilliger" & plotnaam %in% ervaren_plots ~ "ervaren\n(ervaren plots)",
+        status != "vrijwilliger" & plotnaam %in% beginner_plots ~ "ervaren\n(beginner plots)",
+        TRUE ~ ervaring
+      )) %>%
+      group_by(plotnaam, periode_in_jaar, status, ervaring)
   } else {
     diversiteit_df <- dubbels_2022_df %>%
       group_by(plotnaam, periode_in_jaar, status, .data[[var]])
@@ -481,7 +502,7 @@ De boxplots suggereren dat de professionele teller in gemiddeld gezien meer indi
 
 ### Ervaring
 
-Zien we deze verschillen nog steeds als we rekening houden met de ervaring van de vrijwilligers of het aantal jaar dat ze al meetellen?
+Zien we deze verschillen nog steeds als we rekening houden met de ervaring van de vrijwilligers of het aantal jaar dat ze al meetellen? Hoe meer plots je bezoekt, hoe meer soorten, waarnemingen, individuen je hebt. Daarom splitsen we ook de professionele metingen op. Ervaren plots zijn telpunten geteld door ervaren vrijwilligers. Beginner plots zijn telpunten geteld door beginner vrijwilligers.
 
 ```{r}
 plot_boxplots("aantal soorten", "ervaring")
@@ -495,25 +516,7 @@ plot_boxplots("aantal waarnemingen", "ervaring")
 plot_boxplots("aantal individuen", "ervaring")
 ```
 
-We blijven een over het algemeen een verschil zien tussen professioneel en vrijwilliger. Er lijkt geen groot verschil te zijn tussen beginners en ervaren vrijwilligers.
-
-### Ancienniteit
-
-Zien we deze verschillen nog steeds als we rekening houden met de het aantal jaar dat de mensen al meetellen?
-
-```{r}
-plot_boxplots("aantal soorten", "ancienniteit")
-```
-
-```{r}
-plot_boxplots("aantal waarnemingen", "ancienniteit")
-```
-
-```{r}
-plot_boxplots("aantal individuen", "ancienniteit")
-```
-
-We blijven een over het algemeen een verschil zien tussen professioneel en vrijwilliger tenzij misschien voor de persoon die al 4 jaar meetelt. Aan de andere kant is er niet veel data per anciëniteitsgroep om hier een goede uitspraak over te doen.
+We blijven een over het algemeen een verschil zien tussen professioneel, vooral tussen de ervaren vrijwilligers en de professionele teller (ervaren plots) in telperiodes R1-R3. Er lijkt geen groot verschil te zijn tussen beginners en ervaren vrijwilligers.
 
 ## Relatieve frequentie
 
@@ -607,7 +610,7 @@ relfreq_diffs_tab %>%
 
 ### Ervaring
 
-Zien we gelijkaardige trends als we ervaring mee in rekening brengen?
+Zien we gelijkaardige trends als we ervaring mee in rekening brengen? Hier moeten we niet opsplitsen in beginner plots en ervaren plots omdat de relatieve frequentie relatief is en dus niet omhoog gaat met toenemend aantal plots.
 
 ```{r}
 relfreqs_ervaring <- dubbels_2022_df %>%
