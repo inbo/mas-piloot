@@ -516,7 +516,7 @@ plot_boxplots("aantal waarnemingen", "ervaring")
 plot_boxplots("aantal individuen", "ervaring")
 ```
 
-Het aantal soorten lijkt nog altijd iets groter bij de professionele teller dan bij de vrijwilligers. We zien dat het verschil in aantal waarnemingen en individuen tussen professionele teller en vrijwilligers vooral aanwezig is in de plots waar ervaren vrijwilligers geteld hebben (ervaren plots) in telperiodes R1-R3. Daar heeft de professionele teller meer waarnemingen en individuen gezien. Er lijkt geen groot verschil te zijn tussen beginners en ervaren vrijwilligers.
+Het aantal soorten lijkt nog altijd iets groter bij de professionele teller dan bij de vrijwilligers. We zien dat het verschil in aantal waarnemingen en individuen tussen professionele teller en vrijwilligers vooral aanwezig is in de plots waar ervaren vrijwilligers geteld hebben (ervaren plots) in telperiodes R1-R3. Daar heeft de professionele teller meer waarnemingen en individuen gezien. Er lijkt geen groot verschil te zijn tussen beginners en ervaren vrijwilligers (ondanks dat ze verschillende plots geteld hebben!)
 
 ## Relatieve frequentie
 
@@ -614,6 +614,11 @@ Zien we gelijkaardige trends als we ervaring mee in rekening brengen? Hier moete
 
 ```{r}
 relfreqs_ervaring <- dubbels_2022_df %>%
+  mutate(ervaring = case_when(
+        plotnaam %in% ervaren_plots ~ "ervaren plots",
+        plotnaam %in% beginner_plots ~ "beginner plots",
+        TRUE ~ ervaring
+      )) %>%
   mutate(status = paste(status, ervaring, sep = " - ")) %>%
   group_by(plotnaam, periode_in_jaar, status, naam) %>%
   summarize(totaal_aantal = sum(aantal),
@@ -669,24 +674,104 @@ relfreqs_ervaring_diffs <- relfreqs_ervaring %>%
               values_fill = 0) %>%
   ungroup() %>%
   rowwise() %>%
-  mutate(max_val = pmax(`professioneel - ervaren`, `vrijwilliger - beginner`, 
-                         `vrijwilliger - ervaren`),
+  mutate(max_val = pmax(`professioneel - beginner plots`, `professioneel - ervaren plots`,
+                        `vrijwilliger - beginner plots`, `vrijwilliger - ervaren plots`),
          "grootste gem. rel.freq." = case_when(
-           max_val == `professioneel - ervaren` ~ "professioneel - ervaren",
-           max_val == `vrijwilliger - beginner` ~ "vrijwilliger - beginner",
-           max_val == `vrijwilliger - ervaren` ~ "vrijwilliger - ervaren"
+           max_val == `professioneel - beginner plots` ~ "professioneel - beginner plots",
+           max_val == `professioneel - ervaren plots` ~ "professioneel - ervaren plots",
+           max_val == `vrijwilliger - beginner plots` ~ "vrijwilliger - beginner plots",
+           max_val == `vrijwilliger - ervaren plots` ~ "vrijwilliger - ervaren plots"
          )) %>%
   select(-max_val) %>%
-  arrange(desc(`professioneel - ervaren`)) 
+  arrange(desc(`professioneel - ervaren plots`)) 
 
 relfreqs_ervaring_diffs %>%
   kable(digits = 2)
 ```
 
-Het is moeilijk om de figuren te interpreteren, maar we zien meestal wel dat de relatieve frequentie per soort hoger is bij beginnende vrijwilligers dan bij ervaren vrijwilligers.
+Het is moeilijk om de figuren te interpreteren. De volgende tabel geeft wel aan dat de professionele teller zowel in beginner plots als ervaren plots vaker een hogere gemiddelde relatieve frequentie ziet.
 
 ```{r}
 relfreqs_ervaring_diffs %>%
   count(`grootste gem. rel.freq.`) %>%
   kable()
 ```
+
+## Doelsoorten
+
+We vergelijken de relatieve frequentie van enkele specifieke soorten.
+
+```{r}
+doelsoorten <- c("Veldleeuwerik", "Gele Kwikstaart", "Geelgors", "Fazant")
+dubbels_2022_doel_df <- dubbels_2022_df %>% 
+  filter(naam %in% doelsoorten)
+```
+
+```{r}
+relfreqs_doel <- dubbels_2022_doel_df %>%
+  group_by(plotnaam, periode_in_jaar, status, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+
+relfreq_diffs_doel <- relfreqs_doel %>%
+  group_by(status, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(status, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = status,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = professioneel - vrijwilliger) %>%
+  ungroup() %>%
+  arrange(desc(verschilfreq))
+```
+
+```{r}
+relfreq_diffs_doel %>%
+  kable(digits = 3)
+```
+
+Zonder rekening te houden met ervaring zien we dat de professionele teller een hogere relatieve frequentie ziet.
+
+```{r}
+relfreqs_doel2 <- dubbels_2022_doel_df %>%
+  mutate(ervaring = case_when(
+        plotnaam %in% ervaren_plots ~ "ervaren plots",
+        plotnaam %in% beginner_plots ~ "beginner plots",
+        TRUE ~ ervaring
+      )) %>%
+  mutate(status = paste(status, ervaring, sep = " - ")) %>%
+  group_by(plotnaam, periode_in_jaar, status, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq") %>%
+  separate(status, into = c("status", "ervaring"), sep = " - ")
+
+relfreqs_doel2 %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    labs(x = "", y = "Relatieve frequentie") +
+    facet_grid(~ervaring)
+```
+
+Als we rekening houden met ervaring lijken de verschillen niet zo groot tussen professioneel en vrijwilliger.
+
