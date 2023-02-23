@@ -519,6 +519,8 @@ We blijven een over het algemeen een verschil zien tussen professioneel en vrijw
 
 Zien we gelijkaardige trends als we per soort kijken?
 
+### Status
+
 ```{r}
 relfreqs <- dubbels_2022_df %>%
   group_by(plotnaam, periode_in_jaar, status, naam) %>%
@@ -538,7 +540,7 @@ relfreqs <- dubbels_2022_df %>%
 top_n <- 20
 ```
 
-In totaal zijn `r length(unique(relfreqs$naam))` gezien. De boxplots tonen de relatieve frequenties in een bepaalde telperiode voor de professionele teller en de vrijwilligers.
+In totaal zijn `r length(unique(relfreqs$naam))` soorten gezien. De boxplots tonen de relatieve frequenties in een bepaalde telperiode voor de professionele teller en de vrijwilligers.
 
 ```{r}
 relfreqs %>%
@@ -582,7 +584,7 @@ relfreq_diffs <- relfreqs %>%
   arrange(desc(verschilfreq))
 
 relfreq_diffs %>%
-  kable(digits = 2)
+  kable(digits = 3)
 ```
 
 Een '+' wil zeggen dat de professionele teller gemiddeld een hogere relatieve frequentie ziet dan de vrijwilligers van een soort (positief verschil) en een '-' dat de vrijwilligers een hogere relatieve frequentie zien van een soort. Zowel in de figuren als in de tabel zien we dat de professionele teller een voor de meeste soorten een hogere relatieve frequentie ziet dan de vrijwilligers.
@@ -603,4 +605,85 @@ relfreq_diffs_tab %>%
   kable()
 ```
 
+### Ervaring
 
+Zien we gelijkaardige trends als we ervaring mee in rekening brengen?
+
+```{r}
+relfreqs_ervaring <- dubbels_2022_df %>%
+  mutate(status = paste(status, ervaring, sep = " - ")) %>%
+  group_by(plotnaam, periode_in_jaar, status, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+
+top_n <- 20
+```
+
+```{r}
+relfreqs_ervaring %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - top_n) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+
+relfreqs_ervaring %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) <= length(unique(naam)) - top_n,
+         as.numeric(naam) > length(unique(naam)) - (2 * top_n)) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+
+relfreqs_ervaring %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) <= length(unique(naam)) - (2 * top_n)) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+```
+
+```{r}
+relfreqs_ervaring_diffs <- relfreqs_ervaring %>%
+  group_by(status, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(status, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = status,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  ungroup() %>%
+  rowwise() %>%
+  mutate(max_val = pmax(`professioneel - ervaren`, `vrijwilliger - beginner`, 
+                         `vrijwilliger - ervaren`),
+         "grootste gem. rel.freq." = case_when(
+           max_val == `professioneel - ervaren` ~ "professioneel - ervaren",
+           max_val == `vrijwilliger - beginner` ~ "vrijwilliger - beginner",
+           max_val == `vrijwilliger - ervaren` ~ "vrijwilliger - ervaren"
+         )) %>%
+  select(-max_val) %>%
+  arrange(desc(`professioneel - ervaren`)) 
+
+relfreqs_ervaring_diffs %>%
+  kable(digits = 2)
+```
+
+Het is moeilijk om de figuren te interpreteren, maar we zien meestal wel dat de relatieve frequentie per soort hoger is bij beginnende vrijwilligers dan bij ervaren vrijwilligers.
+
+```{r}
+relfreqs_ervaring_diffs %>%
+  count(`grootste gem. rel.freq.`) %>%
+  kable()
+```
