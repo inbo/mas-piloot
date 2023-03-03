@@ -461,7 +461,6 @@ list(
     steekproef,
     draw_sample(
       sampling_frame = steekproefkader_per_stratum,
-      sample_size = allocatie_per_stratum$samplesize,
       sample_size_multiplication = 1,
       balance = c("X", "Y", "area_prop_sb")
       ),
@@ -473,10 +472,10 @@ list(
 ```{targets nabehandeling}
 list(
   tar_target(
-    steekproef_nn,
-    nn_steekproef(
+    steekproef_thinned,
+    thin_sample(
       sample = steekproef,
-      max_dist = 300
+      thin_dist = 300
       ),
     pattern = map(steekproef)
   ),
@@ -484,7 +483,7 @@ list(
     output_objecten,
     output_finaal(
       files = list(steekproefkader = steekproefkader_finaal, 
-                   steekproef = steekproef),
+                   steekproef_thin = steekproef_thinned),
       write_out = TRUE
       )
   )
