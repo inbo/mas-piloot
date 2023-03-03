@@ -985,7 +985,9 @@ balansvergelijking <- do.call(rbind, lapply(min_n_per_stratum, first_samples,
 balansvergelijking %>%
   st_drop_geometry() %>%
   group_by(fillvar, openheid = openheid_klasse, is_sbp) %>%
-  summarise(aantal_eerste_samples = n()) %>%
+  summarise(n_per_stratum = n()) %>%
+  group_by(fillvar) %>%
+  mutate(n_per_trekking = sum(n_per_stratum)) %>%
   kable()
 ```
 
