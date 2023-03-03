@@ -37,7 +37,6 @@ list(
     steekproef,
     draw_sample(
       sampling_frame = steekproefkader_per_stratum,
-      sample_size = allocatie_per_stratum$samplesize,
       sample_size_multiplication = 1,
       balance = c("X", "Y", "area_prop_sb")
       ),

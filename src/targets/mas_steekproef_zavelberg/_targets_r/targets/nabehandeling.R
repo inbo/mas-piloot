@@ -1,9 +1,9 @@
 list(
   tar_target(
-    steekproef_nn,
-    nn_steekproef(
+    steekproef_thinned,
+    thin_sample(
       sample = steekproef,
-      max_dist = 300
+      thin_dist = 300
       ),
     pattern = map(steekproef)
   ),
@@ -11,7 +11,7 @@ list(
     output_objecten,
     output_finaal(
       files = list(steekproefkader = steekproefkader_finaal, 
-                   steekproef = steekproef),
+                   steekproef_thin = steekproef_thinned),
       write_out = TRUE
       )
   )
