@@ -869,7 +869,9 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
         -   allocatiefactor 50 %
     -   OL vs. HOL landschap
         -   allocatiefactor proportioneel aan aantal potentiële telpunten (\~ stratumoppervlakte)
--   Gebalanceerde en goed gespreide trekking: - ruimtelijk (x- en y-coördinaten) - oppervlakte aandeel beheerovereenkomsten
+-   Gebalanceerde en goed gespreide trekking:
+    - ruimtelijk (x- en y-coördinaten)
+    - oppervlakte aandeel beheerovereenkomsten
 
 Allocatie van de steekproefgrootte over de verschillende strata:
 
@@ -910,8 +912,7 @@ allocatie %>%
 
 We trekken geen veelvoud van het vooropgestelde aantal telpunten getrokken worden (enkel eerste batch van punten).
 Elk telpunt zal een volgnummer hebben.
-De eerste bv.
-300 (laagste volgnummers) zullen dan de set zijn voor de zandleemstreek, die kan verdeeld worden over de medewerkers.
+De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de zandleemstreek, die kan verdeeld worden over de medewerkers.
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
 De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
 
@@ -919,8 +920,7 @@ Temporeel design:
 
 -   elk punt wordt elk jaar opnieuw bezocht
 
-N.B.
-voor de steekproef over Vlaanderen is het best mogelijk dat een ander temporeel design nodig is zoals een 'rotating panel design' of een 'augmented panel design'.
+N.B.: voor de steekproef over Vlaanderen is het best mogelijk dat een ander temporeel design nodig is zoals een 'rotating panel design' of een 'augmented panel design'.
 
 ```{r trekking}
 steekproef <- tar_read(steekproef, store = targets_store) %>%
@@ -943,17 +943,33 @@ steekproef %>%
 De meest open landschappen zitten volledig binnen de perimeter van het SBP plan.
 De vergelijking van HOL binnen vs. buiten plan en OL binnen vs. buiten plan is dus bemoeilijkt omdat de gemiddelde openheid systematisch hoger zal liggen binnen de SBP perimeter.
 
-```{r check-balans}
-first_samples <- function(steekproef_df, n) {
+```{r}
+first_n <- function(steekproef_df, n) {
   steekproef_df %>%
     filter(sample_order <= n) %>%
     mutate(puntenset = paste("steekproef eerste", n, "per stratum", sep = " "))
 }
 
-balansvergelijking <- first_samples(steekproef, 200) %>%
-  bind_rows(first_samples(steekproef, 100)) %>%
-  bind_rows(first_samples(steekproef, 50)) %>%
-  bind_rows(first_samples(steekproef, 20)) %>%
+first_samples <- function(steekproef_df, min_n) {
+  min_factor <- min_n / min(allocatie$allocatie)
+  first_design <- data.frame(openheid_klasse = allocatie$openheid_klasse, 
+                             is_sbp = allocatie$is_sbp,
+                             n = ceiling(allocatie$allocatie * min_factor))
+  
+  steekproef_df %>%
+    full_join(first_design, by = c("openheid_klasse", "is_sbp")) %>%
+    filter(sample_order <= n) %>%
+    select(-n) %>%
+    mutate(puntenset = paste("steekproef minstens", min_n, "per stratum", 
+                             sep = " "))
+}
+```
+
+```{r check-balans}
+min_n_per_stratum <- c(20, 50, 100, 200)
+
+balansvergelijking <- do.call(rbind, lapply(min_n_per_stratum, first_samples, 
+                                            steekproef_df = steekproef)) %>%
   bind_rows(steekproefkader_finaal %>%
               filter(openheid_klasse %in% c("OL", "HOL")) %>% 
               mutate(puntenset = "volledige steekproefkader")) %>%
@@ -961,11 +977,21 @@ balansvergelijking <- first_samples(steekproef, 200) %>%
                                   "binnen sbp",
                                   "buiten sbp")) %>%
   cbind(st_coordinates(.)) %>%
-  mutate(fillvar = factor(puntenset, levels = c(paste("steekproef eerste", 
+  mutate(fillvar = factor(puntenset, levels = c(paste("steekproef minstens", 
                                                     c(20, 50, 100, 200), 
                                                     "per stratum", sep = " "),
                                                 "volledige steekproefkader")))
 
+balansvergelijking %>%
+  st_drop_geometry() %>%
+  group_by(fillvar, openheid = openheid_klasse, is_sbp) %>%
+  summarise(aantal_eerste_samples = n()) %>%
+  kable()
+```
+
+We beschouwen verschillende steekproeven waarbij we minstens de eerste `r min_n_per_stratum` samples per stratum nemen. Dit wil zeggen dat het stratum met de kleinste allocatiekans het minimum aantal samples heeft en de andere strata meer samples proportioneel met dit minimum.
+
+```{r}
 balansvergelijking %>%
   ggplot() +
   geom_boxplot(aes(x = sbp_akkervogels, y = openheid_waarde,
