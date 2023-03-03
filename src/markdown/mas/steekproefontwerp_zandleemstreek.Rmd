@@ -391,7 +391,9 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
 
 ### Exclusie op basis van zichtbaarheid
 
-Berekening cumulatieve zichtbaarheidsindex binnen straal van 25 m rond telpunt (zone bewegingsvrijheid van de waarnemer) in een raster (resolutie 5 m) van locaties die 10 m van elkaar liggen.
+Berekening cumulatieve zichtbaarheidsindex waarbij de waarnemer een bewegingsvrijheid heeft van 25 m rondom het telpunt.
+De zichtbaarheidsindex wordt berekend vanaf een set van locaties die 10 m van elkaar liggen in deze zone van bewegingsvrijheid en geeft de proportie aan van zichtbare rastercellen in de telcirkel met 300 m straal.
+De cumulatieve zichtbaarheidsindex is dan de proportie die zichtbaar is vanuit minstens één locatie binnen de zone van bewegingsvrijheid.
 Door middel van Digital Surface Model (DSM) en Digital Terrain Model (DTM).
 Aanpassing aan **GVI** package.
 Zie: `visibility.Rmd`.
@@ -401,7 +403,7 @@ Zie:\
 <https://docs.ropensci.org/tarchetypes/reference/tar_group_size.html>\
 <https://books.ropensci.org/targets/dynamic.html#performance-and-batching>
 
-We verwijderen telpunten waar de cumulatieve 'viewshed of visibility' (cvvi) kleiner is dan 0.10.
+We verwijderen telpunten waar de cumulatieve 'viewshed visibility index' (cvvi) kleiner is dan 0.10.
 
 ```{r}
 punten_zichtbaarheid <- tar_read(punten_zichtbaarheid, store = targets_store)
@@ -889,7 +891,7 @@ st_area(selectie_openheid_klasses) / units::set_units(300 * 300 * pi, m^2)
 Minima onder x4 scenario.
 4 strata (OL, HOL en binnen, buiten sbp) met minstens 50 telpunten per stratum.
 x4 betekend halvering betrouwbaarheidsinterval --> minimum sample size is 200 telpunten per stratum.
-Niet echt belangrijk hier omdat we een maximum steekproefkader trekken en de tellers gewoon zoveel mogelijk punten laten doen (volgnummer).
+Niet echt belangrijk hier omdat we een maximum steekproef trekken en de tellers gewoon zoveel mogelijk punten laten doen (volgnummer).
 
 ```{r}
 allocatie <- tar_read(allocatie_df, store = targets_store) %>%
