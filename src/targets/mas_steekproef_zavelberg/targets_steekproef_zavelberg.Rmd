@@ -311,12 +311,34 @@ list(
                ),
              pattern = map(telcirkels_landgebruik)
   ),
-  tar_target(name = punten_steekproefkader,
+  tar_target(name = selectie_landgebruik,
              command = selectie_landgebruik_vito(
                punten_sf = punten,
                selectie_df = telcirkels_selectie_landgebruik
              ),
-             pattern = map(punten, telcirkels_selectie_landgebruik))
+             pattern = map(punten, telcirkels_selectie_landgebruik)
+  ),
+  tarchetypes::tar_group_size(
+    name = selectie_landgebruik_per_size,
+    command = selectie_landgebruik,
+    size = 200
+  ),
+  tar_target(
+    name = punten_zichtbaarheid,
+    command = add_visibility_to_frame(
+      punten_sf = selectie_landgebruik_per_size,
+      resolution = 5,
+      spacing = 10
+    ),
+    pattern = map(selectie_landgebruik_per_size)
+  ),
+  tar_target(
+    name = punten_selectie_zichtbaarheid,
+    command = filter_zichtbaarheid(
+      punten_sf = punten_zichtbaarheid,
+      min_cvvi = 0.1
+    )
+  )
 )
 ```
 
@@ -332,15 +354,13 @@ list(
   tar_target(
     name = plus_sb,
     command = add_bo_to_frame(
-      punten_df = punten_steekproefkader,
-      path_bo = bo_file),
-    pattern = map(punten_steekproefkader)
+      punten_df = punten_selectie_zichtbaarheid,
+      path_bo = bo_file)
     ),
   tar_target(
     name = lbg_statistics,
     command = calc_lbg(path = lbg_file,
-                       punten_sf = punten_steekproefkader),
-    pattern = map(punten_steekproefkader)
+                       punten_sf = punten_selectie_zichtbaarheid)
   ),
   tar_target(
     name = plus_openheid_landschap,
@@ -349,8 +369,7 @@ list(
       punten_sf = plus_sb,
       gebied = perimeters_data,
       cutlevels = c(1.25, 1.35, 1.51),
-      class_labels = c("GL", "HGL", "HOL", "OL")),
-    pattern = map(perimeters_data, plus_sb)
+      class_labels = c("GL", "HGL", "HOL", "OL"))
   ),
   tar_target(name = sbp_akkervogels,
              command = read_sbp_akkervogels(
@@ -359,13 +378,12 @@ list(
                path_extra_soorten = sbp_overige_file,
                extra_soorten = c("hamster", "bruine kiekendief", "zomertortel", 
                                  "grauwe kiekendief")
-             ),
-             pattern = map(perimeters_data)),
+             )
+  ),
   tar_target(
     name = steekproefkader_finaal,
     command = add_stratum_sbp(punten_sf = plus_openheid_landschap,
-                              sbp = sbp_akkervogels),
-    pattern = map(sbp_akkervogels, plus_openheid_landschap)
+                              sbp = sbp_akkervogels)
   )
 )
 ```
@@ -424,24 +442,16 @@ list(
 ```{targets nabehandeling}
 list(
   tar_target(
-    steekproef_zichtbaarheid,
-    filter_zichtbaarheid(sample = steekproef,
-                         min_cvvi = 0.1,
-                         resolution = 5,
-                         spacing = 10),
-    pattern = map(steekproef)
-  ),
-  tar_target(
     steekproef_nn,
-    nn_steekproef(sample = steekproef_zichtbaarheid,
+    nn_steekproef(sample = steekproef,
                   max_dist = 300),
-    pattern = map(steekproef_zichtbaarheid)
+    pattern = map(steekproef)
   ),
   tar_target(
     output_objecten,
     output_finaal(files = list(steekproefkader = steekproefkader_finaal, 
-                               steekproef = steekproef_nn),
-                  write_out = FALSE)
+                               steekproef = steekproef),
+                  write_out = TRUE)
   )
 )
 ```
