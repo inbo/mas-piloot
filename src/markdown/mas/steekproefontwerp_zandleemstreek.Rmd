@@ -884,11 +884,13 @@ In het algemeen kunnen we voor een kostenoptimale allocatie gebruik maken van ee
 
 ***Hoe is het nu gedaan?***
 
-Target sample size is het maximaal aantal plots die binnen de OL, HOL perimeter kunnen gelegd worden.
+Het maximaal aantal plots die binnen de OL, HOL perimeter kunnen gelegd worden is:
 
 ```{r}
 st_area(selectie_openheid_klasses) / units::set_units(300 * 300 * pi, m^2)
 ```
+
+We merkten echter dat een maximale trekking niet voor een goede spatiale spreiding zorgt omdat het algorime niet genoeg vrijheid krijgt. Daarom besluiten we uiteindelijk om 20 % van de steekproefkader te nemen per stratum.
 
 Minima onder x4 scenario.
 4 strata (OL, HOL en binnen, buiten sbp) met minstens 50 telpunten per stratum.
@@ -904,7 +906,8 @@ allocatie <- tar_read(allocatie_df, store = targets_store) %>%
          )
 
 allocatie %>%
-  select(-openheid_sbp) %>%
+  mutate(steekproeftrekking = round(popsize / 20)) %>%
+  select(-c(openheid_sbp, targetsize, excess)) %>%
   kable(digits = 3)
 ```
 
@@ -915,7 +918,9 @@ Elk telpunt zal een volgnummer hebben.
 De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de zandleemstreek, die kan verdeeld worden over de medewerkers.
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
 De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
-
+  
+Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden.  
+  
 Temporeel design:
 
 -   elk punt wordt elk jaar opnieuw bezocht
@@ -923,7 +928,7 @@ Temporeel design:
 N.B.: voor de steekproef over Vlaanderen is het best mogelijk dat een ander temporeel design nodig is zoals een 'rotating panel design' of een 'augmented panel design'.
 
 ```{r trekking}
-steekproef <- tar_read(steekproef, store = targets_store) %>%
+steekproef <- tar_read(steekproef_thinned, store = targets_store) %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
