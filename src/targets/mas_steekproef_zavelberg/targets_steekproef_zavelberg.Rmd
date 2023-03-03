@@ -248,75 +248,83 @@ Degenen met duidelijk te lage zichtbaarheid kunnen we er dan al op voorhand uit 
 
 ```{targets steekproefkader}
 list(
-  tar_target(name = selectie_openheid_klasses,
-             command = selectie_openheid(
-               gebied = perimeters_data,
-               ol_strata = c("OL", "HOL")
-             ),
-             pattern = map(perimeters_data)
+  tar_target(
+    name = selectie_openheid_klasses,
+    command = selectie_openheid(
+      gebied = perimeters_data,
+      ol_strata = c("OL", "HOL")
+      ),
+    pattern = map(perimeters_data)
   ),
-  tar_target(name = exclusie_osm_landgebruiken,
-             command = exclusie_landgebruik_osm(
-               gebied = selectie_openheid_klasses,
-          	   osmdata = osm_belgium,
-          	   landuse = c("residential", "military", "industrial", "cemetery", 
-          	               "railway", "commercial", "farmyard"),
-          	   leisure = c("park"),
-          	   buffer_poly = 0, 
-          	   layer_poly = list(aeroway = c("aerodrome")),
-          	   buffer_line = 50, 
-          	   layer_line = list(highway = c("motorway", "motorway_link")),
-               update_osm_layer = FALSE
-               ),
-             pattern = map(selectie_openheid_klasses)
+  tar_target(
+    name = exclusie_osm_landgebruiken,
+    command = exclusie_landgebruik_osm(
+      gebied = selectie_openheid_klasses,
+      osmdata = osm_belgium,
+      landuse = c("residential", "military", "industrial", "cemetery", 
+                  "railway", "commercial", "farmyard"),
+      leisure = c("park"),
+      buffer_poly = 0, 
+      layer_poly = list(aeroway = c("aerodrome")),
+      buffer_line = 50, 
+      layer_line = list(highway = c("motorway", "motorway_link")),
+      update_osm_layer = FALSE
+      ),
+    pattern = map(selectie_openheid_klasses)
   ),
-  tar_target(name = paden,
-             command = extract_osm_paden(
-               gebied = selectie_openheid_klasses,
-               exclusie = exclusie_osm_landgebruiken,
-               osmdata = osm_belgium,
-               paths_include = c('track', 'footway', 'path', 'cycleway', 
-                'bridleway', 'tertiary', 'tertiary_link', 'unclassified'),
-               cutting_exclude = NULL,
-               historic_exclude = NULL,
-               waterway = NULL,
-               update_osm_layer = FALSE
-               ),
-             pattern = map(selectie_openheid_klasses, exclusie_osm_landgebruiken)
-             ),
-  tar_target(name = punten,
-             command = paden_naar_punten(
-               data_paden = paden,
-               gebieden = perimeters_data,
-               interpoint_distance = 50,
-               border_distance = 300
-               ),
-             pattern = map(perimeters_data, paden)
-             ) ,
-  tar_target(name = telcirkels_landgebruik,
-             command = punten_lum_buffer(
-               punten_sf = punten,
-               radius = 300,
-               file = vito_lum_2019_file,
-               legend = legend_lum
-              ),
-             pattern = map(punten)),
-  tar_target(name = telcirkels_selectie_landgebruik,
-             command = punten_selectie_landgebruik(
-               lum_extract_result = telcirkels_landgebruik,
-               legend_rast = legend_lum,
-               max_prop_overige = 0.5,
-               min_prop_akker = 0.3,
-               min_prop_akker_grasland = 0.4
-               ),
-             pattern = map(telcirkels_landgebruik)
+  tar_target(
+    name = paden,
+    command = extract_osm_paden(
+      gebied = selectie_openheid_klasses,
+      exclusie = exclusie_osm_landgebruiken,
+      osmdata = osm_belgium,
+      paths_include = c('track', 'footway', 'path', 'cycleway', 
+      'bridleway', 'tertiary', 'tertiary_link', 'unclassified'),
+      cutting_exclude = NULL,
+      historic_exclude = NULL,
+      waterway = NULL,
+      update_osm_layer = FALSE
+      ),
+    pattern = map(selectie_openheid_klasses, exclusie_osm_landgebruiken)
   ),
-  tar_target(name = selectie_landgebruik,
-             command = selectie_landgebruik_vito(
-               punten_sf = punten,
-               selectie_df = telcirkels_selectie_landgebruik
-             ),
-             pattern = map(punten, telcirkels_selectie_landgebruik)
+  tar_target(
+    name = punten,
+    command = paden_naar_punten(
+      data_paden = paden,
+      gebieden = perimeters_data,
+      interpoint_distance = 50,
+      border_distance = 300
+      ),
+    pattern = map(perimeters_data, paden)
+  ) ,
+  tar_target(
+    name = telcirkels_landgebruik,
+    command = punten_lum_buffer(
+      punten_sf = punten,
+      radius = 300,
+      file = vito_lum_2019_file,
+      legend = legend_lum
+      ),
+    pattern = map(punten)
+  ),
+  tar_target(
+    name = telcirkels_selectie_landgebruik,
+      command = punten_selectie_landgebruik(
+        lum_extract_result = telcirkels_landgebruik,
+        legend_rast = legend_lum,
+        max_prop_overige = 0.5,
+        min_prop_akker = 0.3,
+        min_prop_akker_grasland = 0.4
+        ),
+    pattern = map(telcirkels_landgebruik)
+  ),
+  tar_target(
+    name = selectie_landgebruik,
+    command = selectie_landgebruik_vito(
+      punten_sf = punten,
+      selectie_df = telcirkels_selectie_landgebruik
+      ),
+    pattern = map(punten, telcirkels_selectie_landgebruik)
   ),
   tarchetypes::tar_group_size(
     name = selectie_landgebruik_per_size,
@@ -361,9 +369,10 @@ list(
     name = plus_sb,
     command = add_bo_to_frame(
       punten_df = punten_selectie_zichtbaarheid,
-      path_bo = bo_file),
+      path_bo = bo_file
+      ),
     pattern = map(punten_selectie_zichtbaarheid)
-    ),
+  ),
   tar_target(
     name = lbg_statistics,
     command = calc_lbg(
@@ -390,8 +399,8 @@ list(
       gebied = perimeters_data,
       path_extra_soorten = sbp_overige_file,
       extra_soorten = c("hamster", "bruine kiekendief", "zomertortel", 
-                         "grauwe kiekendief")
-    ),
+                        "grauwe kiekendief")
+      ),
     pattern = map(perimeters_data)
   ),
   tar_target(
@@ -421,13 +430,15 @@ list(
   ),
   tar_target(
     allocatie_df,
-    allocatie(steekproefkader = steekproefkader_finaal,
-              min_samplesize = 200,
-              target_samplesize = target_size,
-              popsize_minimum = 200,
-              allocatie_binnen_sbp = 0.5,
-              allocatie_leemstreek = 0,
-              ol_strata = c("OL", "HOL"))
+    allocatie(
+      steekproefkader = steekproefkader_finaal,
+      min_samplesize = 200,
+      target_samplesize = target_size,
+      popsize_minimum = 200,
+      allocatie_binnen_sbp = 0.5,
+      allocatie_leemstreek = 0,
+      ol_strata = c("OL", "HOL")
+      )
   ),
   tarchetypes::tar_group_by(
     allocatie_per_stratum,
@@ -439,8 +450,7 @@ list(
   tarchetypes::tar_group_by(
     steekproefkader_per_stratum,
     steekproefkader_finaal %>%
-      semi_join(allocatie_df
-                %>%
+      semi_join(allocatie_df %>%
                   select(Naam, is_sbp, openheid_klasse),
                 by = c("Naam", "is_sbp", "openheid_klasse")),
     Naam,
@@ -449,10 +459,12 @@ list(
   ),
   tar_target(
     steekproef,
-    draw_sample(sampling_frame = steekproefkader_per_stratum,
-                sample_size = allocatie_per_stratum$samplesize,
-                sample_size_multiplication = 1,
-                balance = c("X", "Y", "area_prop_sb")),
+    draw_sample(
+      sampling_frame = steekproefkader_per_stratum,
+      sample_size = allocatie_per_stratum$samplesize,
+      sample_size_multiplication = 1,
+      balance = c("X", "Y", "area_prop_sb")
+      ),
     pattern = map(steekproefkader_per_stratum, allocatie_per_stratum)
   )
 )
@@ -462,15 +474,19 @@ list(
 list(
   tar_target(
     steekproef_nn,
-    nn_steekproef(sample = steekproef,
-                  max_dist = 300),
+    nn_steekproef(
+      sample = steekproef,
+      max_dist = 300
+      ),
     pattern = map(steekproef)
   ),
   tar_target(
     output_objecten,
-    output_finaal(files = list(steekproefkader = steekproefkader_finaal, 
-                               steekproef = steekproef),
-                  write_out = TRUE)
+    output_finaal(
+      files = list(steekproefkader = steekproefkader_finaal, 
+                   steekproef = steekproef),
+      write_out = TRUE
+      )
   )
 )
 ```
