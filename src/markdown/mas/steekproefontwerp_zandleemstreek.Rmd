@@ -919,13 +919,7 @@ De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de zandleems
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
 De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
   
-Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden.  
-  
-Temporeel design:
-
--   elk punt wordt elk jaar opnieuw bezocht
-
-N.B.: voor de steekproef over Vlaanderen is het best mogelijk dat een ander temporeel design nodig is zoals een 'rotating panel design' of een 'augmented panel design'.
+Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden. Dan eindigen we met de volgende proporties:  
 
 ```{r trekking}
 steekproef <- tar_read(steekproef_thinned, store = targets_store) %>%
@@ -934,7 +928,18 @@ steekproef <- tar_read(steekproef_thinned, store = targets_store) %>%
                                     "binnen plan",
                                     "buiten plan"))
          )
+
+steekproef %>%
+  st_drop_geometry() %>%
+  count(openheid_klasse, is_sbp) %>%
+  mutate(prop = n / sum(n))
 ```
+
+Temporeel design:
+
+-   elk punt wordt elk jaar opnieuw bezocht
+
+N.B.: voor de steekproef over Vlaanderen is het best mogelijk dat een ander temporeel design nodig is zoals een 'rotating panel design' of een 'augmented panel design'.
 
 Kaart van de steekproef:
 
