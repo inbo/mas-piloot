@@ -31,8 +31,8 @@ summarize_ds_models2 <- function(..., sort="AIC", output="latex",
   # can't compare models with different truncations
   r_truncs <- unlist(lapply(models, function(x) x$ddf$meta.data$width))
   l_truncs <- unlist(lapply(models, function(x) x$ddf$meta.data$left))
-  if(!all(abs(c(r_truncs-mean(r_truncs),
-                l_truncs-mean(l_truncs))) < 1e-8)){
+  if(!all(abs(c(r_truncs - mean(r_truncs),
+                l_truncs - mean(l_truncs))) < 1e-8)){
     stop("All truncations must be the same for AIC comparison.")
   }
   # check all binned
@@ -73,7 +73,7 @@ summarize_ds_models2 <- function(..., sort="AIC", output="latex",
     formula <- model$ddf$ds$aux$ddfobj$scale$formula
     if(is.null(formula)) formula <- NA
 
-    desc <- gsub(" key function","",Distance:::model.description(model$ddf))
+    desc <- gsub(" key function", "", Distance:::model.description(model$ddf))
     # only get CvM if not binned
     if(model$ddf$meta.data$binned){
       gof <- suppressMessages(gof_ds(model, chisq=TRUE)$chisquare$chi1$p)
@@ -95,13 +95,13 @@ summarize_ds_models2 <- function(..., sort="AIC", output="latex",
   res <- as.data.frame(t(as.data.frame(lapply(models, extract_model_data))),
                        stringsAsFactors=FALSE)
 
-  if(output == "latex"){
+  if (output == "latex") {
     model_names <- gsub("_", '\\_', model_names)
     #model_names <- paste0("\\texttt{", model_names, "}")
     res <- cbind.data.frame(model_names, res)
-  }else if(output=="plain"){
+  } else if (output == "plain") {
     res <- cbind.data.frame(model_names, res)
-  }else{
+  } else {
     stop("Invalid output format")
   }
 
@@ -109,16 +109,16 @@ summarize_ds_models2 <- function(..., sort="AIC", output="latex",
   res[,4:7] <- apply(res[,4:7], 2, as.numeric)
 
   # what test did we do?
-  if(all(binned)){
+  if (all(binned)) {
     gof_name <- "Chi^2 p-value"
     gof_latexname <- "$\\chi^2$ $p$-value"
-  }else{
+  } else {
     gof_name <- "C-vM $p$-value"
     gof_latexname <- "C-vM p-value"
   }
 
   # giving the columns names
-  if(output == "latex"){
+  if (output == "latex") {
     colnames(res) <- c("Model",
                        "Key function",
                        "Formula",
@@ -126,7 +126,7 @@ summarize_ds_models2 <- function(..., sort="AIC", output="latex",
                        "$\\hat{P_a}$",
                        "se($\\hat{P_a}$)",
                        "AIC")
-  }else if(output=="plain"){
+  } else if (output=="plain") {
     colnames(res) <- c("Model",
                        "Key function",
                        "Formula",
@@ -134,16 +134,16 @@ summarize_ds_models2 <- function(..., sort="AIC", output="latex",
                        "Average detectability",
                        "se(Average detectability)",
                        "AIC")
-  }else{
+  } else {
     stop("Invalid output format")
   }
   # remove row names
   rownames(res) <- NULL
 
   # creating a new column for the AIC difference to the best model
-  if(output == "latex"){
+  if (output == "latex") {
     res[["$\\Delta$AIC"]] <- res$AIC - min(res$AIC, na.rm=TRUE)
-  }else if(output=="plain"){
+  } else if (output == "plain") {
     res[["Delta AIC"]] <- res$AIC - min(res$AIC, na.rm=TRUE)
   }
   # ordering the model by AIC score
