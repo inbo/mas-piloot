@@ -2524,7 +2524,7 @@ names(all_models) <- all_model_names
 
 ### 2022
 
-Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, openheid en sbp. We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen enkel tweewegsinteracties tussen de covariaten. In de modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data. Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken beperken we het aantal aanpassingstermen tot maximaal 2. De modellen worden lokaal opgeslaan zodat ze maar eenmaal moeten gefit worden.
+Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, openheid en sbp. We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen enkel tweewegsinteracties tussen de covariaten. In de modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data. Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken, beperken we het aantal aanpassingstermen tot maximaal 2. De modellen worden lokaal opgeslagen zodat ze maar eenmaal moeten gefit worden.
 
 ```{r}
 match_variables_2022 <- c("regio", "sbp", "openheid")
