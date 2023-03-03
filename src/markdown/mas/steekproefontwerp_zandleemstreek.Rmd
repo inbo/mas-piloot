@@ -919,7 +919,7 @@ De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de zandleems
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
 De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
   
-Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden. Dan eindigen we met de volgende proporties:  
+Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden.
 
 ```{r trekking}
 steekproef <- tar_read(steekproef_thinned, store = targets_store) %>%
@@ -928,11 +928,6 @@ steekproef <- tar_read(steekproef_thinned, store = targets_store) %>%
                                     "binnen plan",
                                     "buiten plan"))
          )
-
-steekproef %>%
-  st_drop_geometry() %>%
-  count(openheid_klasse, is_sbp) %>%
-  mutate(prop = n / sum(n))
 ```
 
 Temporeel design:
@@ -954,12 +949,6 @@ De meest open landschappen zitten volledig binnen de perimeter van het SBP plan.
 De vergelijking van HOL binnen vs. buiten plan en OL binnen vs. buiten plan is dus bemoeilijkt omdat de gemiddelde openheid systematisch hoger zal liggen binnen de SBP perimeter.
 
 ```{r}
-first_n <- function(steekproef_df, n) {
-  steekproef_df %>%
-    filter(sample_order <= n) %>%
-    mutate(puntenset = paste("steekproef eerste", n, "per stratum", sep = " "))
-}
-
 first_samples <- function(steekproef_df, min_n) {
   min_factor <- min_n / min(allocatie$allocatie)
   first_design <- data.frame(openheid_klasse = allocatie$openheid_klasse, 
@@ -967,8 +956,11 @@ first_samples <- function(steekproef_df, min_n) {
                              n = ceiling(allocatie$allocatie * min_factor))
   
   steekproef_df %>%
+    group_by(openheid_sbp) %>% 
+    mutate(id = row_number()) %>%
+    ungroup() %>%
     full_join(first_design, by = c("openheid_klasse", "is_sbp")) %>%
-    filter(sample_order <= n) %>%
+    filter(id <= n) %>%
     select(-n) %>%
     mutate(puntenset = paste("steekproef minstens", min_n, "per stratum", 
                              sep = " "))
@@ -1114,3 +1106,16 @@ Zo kunnen we een regel verzinnen om bestaande telpunten over te nemen bij een ni
 Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand punt en deze behoort tot hetzelfde stratum, dan wordt het nieuwe punt vervangen door het bestaande punt.
 
 > Opvragen bij SOVON?
+
+
+## Output als KML
+
+Proporties minstens 50 per stratum.
+
+```{r}
+first_samples(steekproef, 50) %>%
+  st_drop_geometry() %>%
+  count(openheid_klasse, is_sbp) %>%
+  mutate(prop = n / sum(n))
+```
+
