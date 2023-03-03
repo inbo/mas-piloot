@@ -33,6 +33,29 @@ nn_steekproef <- function(sample,
   return(uitdunnen)
 }
 
+thin_sample <- function(sample, thin_dist) {
+  # Order samples
+  keep <- sample[order(sample$sample_order), ]
+
+  # Remove samples too close to a sample with lower sample order
+  i <- 1
+  while (i <= nrow(keep)) {
+    from <- keep[i, ]
+    to <- keep[-i, ]
+    distances <- st_distance(from, to) %>%
+      units::drop_units() %>%
+      as.vector()
+    far_enough <- distances > thin_dist
+    keep <- rbind(from, to[far_enough, ])
+    i <- i + 1
+  }
+
+  # Reorder samples
+  keep <- keep[order(keep$sample_order), ]
+
+  return(keep)
+}
+
 output_finaal <- function(files, write_out) {
   if (write_out) {
     fs::dir_create("output")
