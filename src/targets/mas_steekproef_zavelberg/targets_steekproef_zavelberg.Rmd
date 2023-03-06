@@ -425,7 +425,6 @@ tar_make()
 Om de status van de berekening van targets via `tar_make()` op te volgen kan je `tar_progress()`, `tar_progress_summary()` of `tar_poll()` gebruiken.
 
 
-
 # Debug
 
 ```{r eval=FALSE}
@@ -433,7 +432,6 @@ Om de status van de berekening van targets via `tar_make()` op te volgen kan je 
 tar_load_globals()
 tar_make(callr_function = NULL)
 ```
-
 
 ```{r eval=FALSE}
 failed <- tar_meta(fields = error) %>%
@@ -458,15 +456,12 @@ tar_objects()
 
 Ze kunnen individueel ingelezen worden met `tar_read()` of ingeladen worden met `tar_load()`.
 
-
 ```{r}
 ```
-
 
 Handig is dat targets afkomstig van dynamic branching ook automatisch geaggreggeerd worden.
 
 In de bestandsmap `_targets/meta` zitten alle metadata, die met `tar_meta()` bekeken kunnen worden.
-
 
 ```{r}
 tar_meta()
