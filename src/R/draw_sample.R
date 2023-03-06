@@ -23,7 +23,7 @@
 draw_sample <- function(
   sampling_frame,
   sample_size = round(nrow(sampling_frame) / 20),
-  sample_size_multiplication = 2,
+  sample_size_multiplication = 1,
   balance = c("X", "Y"),
   ips,
   seed = 1234,
