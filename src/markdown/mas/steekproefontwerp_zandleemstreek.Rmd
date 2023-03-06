@@ -890,11 +890,15 @@ Het maximaal aantal plots die binnen de OL, HOL perimeter kunnen gelegd worden i
 st_area(selectie_openheid_klasses) / units::set_units(300 * 300 * pi, m^2)
 ```
 
-We merkten echter dat een maximale trekking niet voor een goede spatiale spreiding zorgt omdat het algorime niet genoeg vrijheid krijgt. Daarom besluiten we uiteindelijk om 20 % van de steekproefkader te nemen per stratum.
+We merkten echter dat een maximale trekking niet voor een goede spatiale spreiding zorgt omdat het algorime niet genoeg vrijheid krijgt. Daarom besluiten we uiteindelijk om 1/20ste (5 %) van het aantal elementen in het steekproefkader te nemen per stratum.
+Dit is niet de finale steekproef, maar een (veel) grotere steekproef waaruit later het gewenste aantal telpunten wordt geselecteerd.
+Het algoritme kent een volgorde toe bij de steekproeftrekking en het is aan de hand van deze volgorde dat het gewenste aantal telpunten wordt geselecteerd.
+Dit heeft als eigenschap dat deze set ook (ruimtelijk) gebalanceerd is en een goede spreiding vertoont.
 
-Minima onder x4 scenario.
-4 strata (OL, HOL en binnen, buiten sbp) met minstens 50 telpunten per stratum.
-x4 betekend halvering betrouwbaarheidsinterval --> minimum sample size is 200 telpunten per stratum.
+We streven naar minstens 50 telpunten per stratum.
+Er zijn 4 strata (OL, HOL en binnen, buiten sbp) binnen de zandleemstreek.
+Voor een betere precisie, moeten we de steekproefgrootte verder verhogen.
+Een vuistregel stelt dat de steekproefgrootte verviervoudigen, een halvering geeft van het betrouwbaarheidsinterval (dan hebben we 200 telpunten per stratum nodig).
 Niet echt belangrijk hier omdat we een maximum steekproef trekken en de tellers gewoon zoveel mogelijk punten laten doen (volgnummer).
 
 ```{r}
