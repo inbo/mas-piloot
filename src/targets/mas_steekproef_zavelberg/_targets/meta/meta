@@ -1,5 +1,5 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|04033188ed5ea071|||||||||||||||
+.Random.seed|object|a814c064db16dccd|||||||||||||||
 add_bo_to_frame|function|13caf901404892cd|||||||||||||||
 add_bo2021_to_frame|function|b3f03a141605c9fc|||||||||||||||
 add_openheid_landschap_to_frame|function|e8372aad7792bbf7|||||||||||||||
@@ -14,7 +14,7 @@ bo_file|stem|7e0d21cf5606c794|359c1b4c7990a9fd|298b5355cf1ca6d6|-1038609820|C:/R
 calc_lbg|function|55e1beb2d858f76b|||||||||||||||
 calc_target_samplesize|function|9a42e00e97b67225|||||||||||||||
 check_osm_data|function|64d9aa3f8ff11bc7|||||||||||||||
-draw_sample|function|3f82aab0ab6f24a0|||||||||||||||
+draw_sample|function|76bc882bfe4fb3f4|||||||||||||||
 exclusie_buffer_osm|function|25af9d416aced2b1|||||||||||||||
 exclusie_landgebruik_osm|function|e000e53555974408|||||||||||||||
 exclusie_osm_landgebruiken|pattern|03f0e48d827401a7|dd6c7ca71af71df5||-1395235820||||3300745|qs|local|vector||exclusie_osm_landgebruiken_8400338c|2745.93||
@@ -51,7 +51,7 @@ path_to_osm_download|function|6ad7e48367119170|||||||||||||||
 path_to_perimeters|function|22187d181ce5b65a|||||||||||||||
 path_to_sbp_akkervogels|function|be46bd1f767f9150|||||||||||||||
 perimeters_data|stem|3e07bb54ec0d6a98|259acd2099d9d883|b133e6c858388067|916414819||t19404.7313277706s|a5a4e39bf9e9dd1d|366462|qs|local|vector||perimeters_data_38bacc90|0.19||
-perimeters_file|stem|469044315b803430|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19419.3597861622s|f46bcb3babe47b5c|655360|file|local|vector|||0||
+perimeters_file|stem|469044315b803430|37b19f8c5ec18bfb|e36ff35fb80ad77c|1254350107|C:/R/git_repositories/mbag/data/processed/zandleemstreek_perimeters.gpkg|t19422.507620487s|f46bcb3babe47b5c|655360|file|local|vector|||0||
 plus_openheid_landschap|pattern|07c050602a293608|1685890019eb64eb||-1021060035||||2736222|qs|local|vector||plus_openheid_landschap_bb0ad7f5|2.44||
 plus_openheid_landschap_bb0ad7f5|branch|000879d9fdc140c2|1685890019eb64eb|f30bb13ddb06edf9|1383436797||t19419.4803828295s|69b88119503eec06|2736222|qs|local|vector|plus_openheid_landschap||2.44||
 plus_sb|pattern|619b2aad0698299f|c28211e1abe1ce96||-387737101||||2442035|qs|local|vector||plus_sb_b71ec50e|17.91||
@@ -598,11 +598,11 @@ st_crs.SpatRaster|function|70c89432d6566dd5|||||||||||||||
 steekproef|pattern|5900f6dd2c064b3a|0205f25962b015fd||-2088542330||||169762|qs|local|vector||steekproef_97c222f1*steekproef_7e193220*steekproef_851aaec6*steekproef_7cd560e1|4.06||
 steekproef_1c0a73b8|branch|fb4c4a2635a8caf7|7707690ded9c178f|e07a94e5c594193f|746151844||t19405.0034211515s|d5abfeb944c60c5b|77463|qs|local|vector|steekproef||0.36||
 steekproef_65df2819|branch|2c9f3e4201a38812|7707690ded9c178f|2537229368cf2061|-177541119||t19405.0033991531s|3f66a71092203b67|36619|qs|local|vector|steekproef||0.32||
-steekproef_7cd560e1|branch|93a999f94ee31e35|0205f25962b015fd|21f3947461e762b2|1386515723||t19419.6519835199s|a8e695b26afdd1c6|20796|qs|local|vector|steekproef||0.19||
-steekproef_7e193220|branch|8636ef3a48cadb5c|0205f25962b015fd|113683f27cb18b8c|-915326083||t19419.6519702374s|61636f75179ab587|29648|qs|local|vector|steekproef||0.37||
-steekproef_851aaec6|branch|1d6ce0d0f7bdfd1f|0205f25962b015fd|336aa2b17c0c556a|-868843557||t19419.6519773221s|db95a6dbe9a802ab|26617|qs|local|vector|steekproef||0.22||
+steekproef_7cd560e1|branch|93a999f94ee31e35|0205f25962b015fd|e795df2b400908da|1386515723||t19422.5124682535s|a8e695b26afdd1c6|20796|qs|local|vector|steekproef||0.12||
+steekproef_7e193220|branch|8636ef3a48cadb5c|0205f25962b015fd|1f039f313f3fbd6f|-915326083||t19422.5124583978s|61636f75179ab587|29648|qs|local|vector|steekproef||0.26||
+steekproef_851aaec6|branch|1d6ce0d0f7bdfd1f|0205f25962b015fd|329c7e863f76b4b0|-868843557||t19422.5124634793s|db95a6dbe9a802ab|26617|qs|local|vector|steekproef||0.17||
 steekproef_95e9f9e5|branch|f5150cd3ba5e3871|7707690ded9c178f|e55e9de54400baff|-193816239||t19405.0034122964s|30fa81f831008059|98715|qs|local|vector|steekproef||0.63||
-steekproef_97c222f1|branch|f3fa47afc402705f|0205f25962b015fd|fb59c792a1f872d5|-582248685||t19419.6519614714s|6974fd7a028c7662|92701|qs|local|vector|steekproef||3.28||
+steekproef_97c222f1|branch|f3fa47afc402705f|0205f25962b015fd|41026cff85a4d5f1|-582248685||t19422.5124520525s|6974fd7a028c7662|92701|qs|local|vector|steekproef||2.42||
 steekproef_b53762cb|branch|744dd716fb9ab240|7707690ded9c178f|165dd73115173d4e|2122469005||t19405.0033911789s|ed8bfe04a918a39f|117135|qs|local|vector|steekproef||2.61||
 steekproef_nn|pattern|81d6eeda06779bed|ba36892ee824fc78||433918295||||251128|qs|local|vector||steekproef_nn_ea6e8690*steekproef_nn_efafc02d*steekproef_nn_3e330afc*steekproef_nn_ad8dd863|0.62||
 steekproef_nn_2a2e2017|branch|257e87ff4b671d0e|ba36892ee824fc78|14736dc7bb3eadaf|90012727||t19405.0034362755s|59490828a8832470|33308|qs|local|vector|steekproef_nn||0.09||
