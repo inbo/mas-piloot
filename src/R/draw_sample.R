@@ -23,7 +23,8 @@
 draw_sample <- function(
   sampling_frame,
   sample_size = round(nrow(sampling_frame) / 20),
-  sample_size_multiplication = 2,
+  sample_size_multiplication = 1,
+  balance = c("X", "Y"),
   ips,
   seed = 1234,
   ...
@@ -43,7 +44,7 @@ draw_sample <- function(
   sampling_frame_df <- data.frame(
     st_coordinates(sampling_frame),
     st_drop_geometry(sampling_frame) %>%
-      select(where(is.numeric))
+      select(any_of(balance))
   )
 
   sampling_frame_df$pointid <- NULL
