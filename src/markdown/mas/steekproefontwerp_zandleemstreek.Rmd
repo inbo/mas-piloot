@@ -1101,7 +1101,10 @@ Enkele nuttige links:\
     -   Kan ook voor specifieke objecten: <https://docs.ropensci.org/gittargets/#performance>
     -   Is het de moeite? Manueel werk --\> waarom niet ineens hard coden? Komt op zelfde neer?
 
-We kiezen voor optie 1.
+We kiezen voor optie 1. We gebruiken hiervoor de package [git2rdata](https://ropensci.github.io/git2rdata/). 
+De package maakt het opslaan van dataframes onder versiebeheer efficiënter en handiger.
+Bovendien zijn de data en de metadata in een standaard en open formaat, waardoor ze leesbaar zijn voor andere software.
+
 
 ## Overlap met bestaande telpunten
 
