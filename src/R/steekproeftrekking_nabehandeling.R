@@ -61,9 +61,14 @@ output_finaal <- function(files, write_out) {
     fs::dir_create("output")
     for (i in seq_along(files)) {
       name <- names(files)[i]
-      object <- files[[i]]
 
-      qs::qsave(object, file = paste0("output/", name))
+      object <- files[[i]] %>%
+        mutate(X = st_coordinates(.data$geometry)[,1],
+               Y = st_coordinates(.data$geometry)[,2]) %>%
+        st_drop_geometry()
+
+      git2rdata::write_vc(object, file = paste0("output/", name),
+                          sorting = "pointid")
     }
   }
   return(write_out)
