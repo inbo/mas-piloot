@@ -29,9 +29,11 @@ knitr::opts_knit$set(
 # Inleiding
 
 Dit document beschrijft de analyse-workflow voor het opstellen van het steekproefkader en de steekproeftrekking voor de extra tellingen die in 2023 toegevoegd worden aan de pilootfase van het MAS project.
-Het gaat om tellingen in kerngebied Zavelberg (Leefdaal) en bijhorend controlegebied (Kortenberg).
-Deze tellingen worden dus toegevoegd aan de andere steekproeftrekking, die werd uitgevoerd in het kader van het pilootproject, in de Oostelijke leemstreek en de Moeren (2022-2023).
-
+Initieel ging dit om tellingen in kerngebied Zavelberg (Leefdaal) en bijhorend controlegebied (Kortenberg), maar dit gebied bleek te klein voor een correcte steekproeftrekking. 
+Daarom focussen we nu op de volledige Zandleemstreek. 
+Dit zal ook de overgang naar een overkoepelend meetnet voor heel Vlaanderen vereenvoudigen.
+Deze tellingen worden dus toegevoegd aan de andere steekproeftrekking, die werd uitgevoerd in het kader van het pilootproject, in de Oostelijke leemstreek en de Moeren (2022-2023).  
+  
 We maken voor het steekproefontwerp gebruik van het `targets` package in combinatie met `RMarkdown`.
 
 
