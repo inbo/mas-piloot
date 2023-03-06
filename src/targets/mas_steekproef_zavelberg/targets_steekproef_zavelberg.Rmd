@@ -1,5 +1,5 @@
 ---
-title: "MAS steekproeftrekking voor Zavelberg en controlegebied"
+title: "MAS steekproeftrekking voor de Zandleemstreek"
 author: "Ward Langeraert, Hans Van Calster"
 date: "`r Sys.Date()`"
 output:
