@@ -917,7 +917,7 @@ allocatie %>%
 
 ## Steekproeftrekking
 
-We trekken geen veelvoud van het vooropgestelde aantal telpunten getrokken worden (enkel eerste batch van punten).
+We trekken geen veelvoud van het vooropgestelde aantal telpunten (enkel eerste batch van punten).
 Elk telpunt zal een volgnummer hebben.
 De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de zandleemstreek, die kan verdeeld worden over de medewerkers.
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
@@ -1069,7 +1069,7 @@ Minstens 100 punten per stratum:
 mapview_n(100)
 ```
 
-Minstens 50 punten per stratum:
+Minstens 200 punten per stratum:
 
 ```{r}
 mapview_n(200)
@@ -1162,7 +1162,7 @@ first_samples(steekproef, 50) %>%
   kable()
 ```
 
-We schrijven de data weg.
+We schrijven de steekproef van minstens 50 per stratum weg.
 
 ```{r}
 steekproef_out <- first_samples(steekproef, 50) %>%
@@ -1174,7 +1174,8 @@ steekproef_out %>%
   st_write(dsn = file.path(
     "data",
     "processed",
-    "steekproef_zandleemstreek_telpunten.geojson"))
+    "steekproef_zandleemstreek_telpunten.geojson"),
+    delete_dsn = TRUE)
 
 steekproef_out %>%
   st_transform(crs = 4326) %>%
@@ -1188,7 +1189,8 @@ steekproef_out %>%
   st_write(dsn = file.path(
     "data",
     "processed",
-    "steekproef_zandleemstreek_telpunten.kml"))
+    "steekproef_zandleemstreek_telpunten.kml"),
+    delete_dsn = TRUE)
 
 # telcirkels
 steekproef_out %>%
@@ -1196,7 +1198,8 @@ steekproef_out %>%
   st_write(dsn = file.path(
     "data",
     "processed",
-    "steekproef_zandleemstreek_telcirkels.geojson"))
+    "steekproef_zandleemstreek_telcirkels.geojson"),
+    delete_dsn = TRUE)
 
 steekproef_out %>%
   st_buffer(dist = 300) %>%
@@ -1211,6 +1214,7 @@ steekproef_out %>%
   st_write(dsn = file.path(
     "data",
     "processed",
-    "steekproef_zandleemstreek_telcirkels.kml"))
+    "steekproef_zandleemstreek_telcirkels.kml"),
+    delete_dsn = TRUE)
 ```
 
