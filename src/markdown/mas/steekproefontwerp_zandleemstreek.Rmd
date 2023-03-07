@@ -1115,6 +1115,41 @@ Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand pu
 > Opvragen bij SOVON?
 
 
+Is er overlap bij dataset steekproef minstens 50 per stratum?
+
+```{r}
+oude_cirkels <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370) %>% 
+  st_buffer(300)
+
+nieuwe_cirkels <- first_samples(steekproef, 50) %>% 
+  st_buffer(300)
+
+intersect <- st_intersection(oude_cirkels, nieuwe_cirkels) %>% 
+  mutate(intersect_area = st_area(.) %>% units::drop_units()) %>%
+  select(plotnaam, pointid, intersect_area) %>%
+  filter(intersect_area >= 0.5 * 300 * 300 * pi) %>%
+  st_drop_geometry()
+
+mapview(oude_cirkels %>% filter(plotnaam %in% intersect$plotnaam), 
+        col.regions = "red") + 
+  mapview(nieuwe_cirkels %>% filter(pointid %in% intersect$pointid))
+```
+
+Er zijn twee cirkels die minstens 50% overlappen.
+
+
 ## Output als KML
 
 Proporties minstens 50 per stratum.
@@ -1126,4 +1161,5 @@ first_samples(steekproef, 50) %>%
   mutate(prop = n / sum(n)) %>%
   kable()
 ```
+
 
