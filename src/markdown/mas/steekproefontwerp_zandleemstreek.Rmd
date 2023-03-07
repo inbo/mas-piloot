@@ -1162,4 +1162,55 @@ first_samples(steekproef, 50) %>%
   kable()
 ```
 
+We schrijven de data weg.
+
+```{r}
+steekproef_out <- first_samples(steekproef, 50) %>%
+   select(pointid, Naam, openheid_sbp, sample_order, zichtbaarheid = cvvi, 
+          wegtype = value)
+
+# telpunten
+steekproef_out %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_zandleemstreek_telpunten.geojson"))
+
+steekproef_out %>%
+  st_transform(crs = 4326) %>%
+  #KML kan niet overweg met NA waarden
+  mutate(across(.cols = -c(geometry),
+                ~ifelse(is.na(.),
+                        "",
+                        .
+                )
+  )) %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_zandleemstreek_telpunten.kml"))
+
+# telcirkels
+steekproef_out %>%
+  st_buffer(dist = 300) %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_zandleemstreek_telcirkels.geojson"))
+
+steekproef_out %>%
+  st_buffer(dist = 300) %>%
+  st_transform(crs = 4326) %>%
+  #KML kan niet overweg met NA waarden
+  mutate(across(.cols = -c(geometry),
+                ~ifelse(is.na(.),
+                        "",
+                        .
+                )
+  )) %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_zandleemstreek_telcirkels.kml"))
+```
 
