@@ -1123,6 +1123,7 @@ Proporties minstens 50 per stratum.
 first_samples(steekproef, 50) %>%
   st_drop_geometry() %>%
   count(openheid_klasse, is_sbp) %>%
-  mutate(prop = n / sum(n))
+  mutate(prop = n / sum(n)) %>%
+  kable()
 ```
 
