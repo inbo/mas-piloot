@@ -23,7 +23,8 @@
 draw_sample <- function(
   sampling_frame,
   sample_size = round(nrow(sampling_frame) / 20),
-  sample_size_multiplication = 2,
+  sample_size_multiplication = 1,
+  balance = c("X", "Y"),
   ips,
   seed = 1234,
   ...
@@ -43,7 +44,7 @@ draw_sample <- function(
   sampling_frame_df <- data.frame(
     st_coordinates(sampling_frame),
     st_drop_geometry(sampling_frame) %>%
-      select(where(is.numeric))
+      select(any_of(balance))
   )
 
   sampling_frame_df$pointid <- NULL
@@ -74,6 +75,14 @@ draw_sample <- function(
                           "reserve set"))
 
   return(sample_df)
+}
+
+calc_target_samplesize <- function(gebied, telcirkel_radius = 300) {
+  opp_telcirkel <- units::set_units(telcirkel_radius * telcirkel_radius * pi,
+                                    m^2)
+  target_size <- round(st_area(gebied) / opp_telcirkel, 0)
+
+  return(units::drop_units(target_size))
 }
 
 allocatie <- function(steekproefkader,
