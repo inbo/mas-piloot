@@ -1,20 +1,18 @@
 list(
   tar_target(
-    steekproef_zichtbaarheid,
-    filter_zichtbaarheid(sample = steekproef,
-                         min_cvvi = 0.1),
+    steekproef_thinned,
+    thin_sample(
+      sample = steekproef,
+      thin_dist = 300
+      ),
     pattern = map(steekproef)
   ),
   tar_target(
-    steekproef_nn,
-    nn_steekproef(sample = steekproef_zichtbaarheid,
-                  max_dist = 300),
-    pattern = map(steekproef_zichtbaarheid)
-  ),
-  tar_target(
     output_objecten,
-    output_finaal(files = list(steekproefkader = steekproefkader_finaal, 
-                               steekproef = steekproef_nn),
-                  write_out = FALSE)
+    output_finaal(
+      files = list(steekproefkader = steekproefkader_finaal, 
+                   steekproef_thin = steekproef_thinned),
+      write_out = TRUE
+      )
   )
 )

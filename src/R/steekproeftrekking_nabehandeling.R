@@ -33,41 +33,27 @@ nn_steekproef <- function(sample,
   return(uitdunnen)
 }
 
+thin_sample <- function(sample, thin_dist) {
+  # Order samples
+  keep <- sample[order(sample$sample_order), ]
 
-bereken_zichtbaarheid <- function(point,
-                       dist = 300,
-                       obs_height = 1.7,
-                       resolution = 1) {
+  # Remove samples too close to a sample with lower sample order
+  i <- 1
+  while (i <= nrow(keep)) {
+    from <- keep[i, ]
+    to <- keep[-i, ]
+    distances <- st_distance(from, to) %>%
+      units::drop_units() %>%
+      as.vector()
+    far_enough <- distances > thin_dist
+    keep <- rbind(from, to[far_enough, ])
+    i <- i + 1
+  }
 
-  bbox_buffer <- point %>% st_buffer(dist = dist + 20) %>% st_bbox()
-  bbox_buffer <- bbox_buffer[c("xmin", "xmax", "ymin", "ymax")]
+  # Reorder samples
+  keep <- keep[order(keep$sample_order), ]
 
-  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
-                             bbox = bbox_buffer,
-                             layername = "EL.GridCoverage.DSM",
-                             resolution = resolution)
-  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
-                             bbox = bbox_buffer,
-                             layername = "EL.GridCoverage.DTM",
-                             resolution = resolution)
-
-  vis_prop <- GVI::visibility_proportion(
-    observer = point,
-    max_distance = dist,
-    dsm_rast = dsm_r1,
-    dtm_rast = dtm_r1,
-    observer_height = obs_height,
-    raster_res = resolution)
-
-  out <- point %>%
-    mutate(zichtbaarheid = vis_prop)
-
-  return(out)
-}
-
-filter_zichtbaarheid <- function(sample, min_cvvi) {
-  sample %>%
-    filter(cvvi >= min_cvvi)
+  return(keep)
 }
 
 output_finaal <- function(files, write_out) {
@@ -75,9 +61,14 @@ output_finaal <- function(files, write_out) {
     fs::dir_create("output")
     for (i in seq_along(files)) {
       name <- names(files)[i]
-      object <- files[[i]]
 
-      qs::qsave(object, file = paste0("output/", name))
+      object <- files[[i]] %>%
+        mutate(X = st_coordinates(.data$geometry)[,1],
+               Y = st_coordinates(.data$geometry)[,2]) %>%
+        st_drop_geometry()
+
+      git2rdata::write_vc(object, file = paste0("output/", name),
+                          sorting = "pointid")
     }
   }
   return(write_out)

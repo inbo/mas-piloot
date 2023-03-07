@@ -40,6 +40,44 @@ read_legend_lum <- function(file) {
     ))
 }
 
+selectie_openheid <- function(gebied, ol_strata,
+                              cutlevels = c(1.25, 1.35, 1.51),
+                              class_labels = c("GL", "HGL", "HOL", "OL")) {
+  # Lees openheid laag
+  openheid <- rast(path_to_openheid_landschap()) %>%
+    project("epsg:31370")
+
+  openheid_gebied <- crop(openheid, st_buffer(gebied, 100))
+
+  # Classify raster
+  matvec <- c(0, rep(cutlevels, each = 2), +Inf)
+  nclass <- length(matvec) / 2
+
+  rclasmat <- matvec %>%
+    matrix(ncol = 2, byrow = TRUE)
+  rclasmat <- cbind(rclasmat, 1:nclass)
+
+  openheid_gebied_klassen <- terra::classify(
+    openheid_gebied,
+    rcl = rclasmat,
+    include.lowest = TRUE)
+  levels(openheid_gebied_klassen) <- data.frame(1:4,
+                                       openheid_klassen = class_labels)
+
+  # Raster naar polygoon en selecteer openheid
+  openheid_gebied_sf <- as.polygons(openheid_gebied_klassen) %>%
+    st_as_sf() %>%
+    filter(openheid_klassen %in% ol_strata)
+
+  # Maak intersectie met perimeters
+  openheid_gebied_intersect <- st_intersection(gebied, openheid_gebied_sf)
+  out <- openheid_gebied_intersect %>%
+    group_by(Naam, section) %>%
+    summarise(.groups = "drop")
+
+  return(out)
+}
+
 check_osm_data <- function(gebied, update_osm_layer) {
   # Download periferie van osm België
   provider_file <- file.path(osmextract::oe_download_directory(),
@@ -184,14 +222,18 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
     exclude_buffer <- exclusie_buffer_osm(gebied, osmdata, buffer = buffer_poly,
       layer = layer_poly, geom_type = "multipolygons")
 
-    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+    out <- bind_rows(exclusie_landgebruik, exclude_buffer)
+    out <- st_union(st_make_valid(out)) %>%
+      st_as_sf() %>%
       select(x) %>%
       mutate(Naam = gebied$Naam)
   } else if (is.null(layer_poly) & !is.null(layer_line)) {
     exclude_buffer <- exclusie_buffer_osm(gebied, osmdata, buffer = buffer_line,
       layer = layer_line, geom_type = "lines")
 
-    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+    out <- bind_rows(exclusie_landgebruik, exclude_buffer)
+    out <- st_union(st_make_valid(out)) %>%
+      st_as_sf() %>%
       select(x) %>%
       mutate(Naam = gebied$Naam)
   } else if (!is.null(layer_poly) & !is.null(layer_line)) {
@@ -203,7 +245,9 @@ exclusie_landgebruik_osm <- function(gebied, osmdata,
       select(x) %>%
       mutate(Naam = gebied$Naam)
 
-    out <- st_union(exclusie_landgebruik, exclude_buffer) %>%
+    out <- bind_rows(exclusie_landgebruik, exclude_buffer)
+    out <- st_union(st_make_valid(out)) %>%
+      st_as_sf() %>%
       select(x) %>%
       mutate(Naam = gebied$Naam)
   } else {
@@ -441,3 +485,107 @@ selectie_landgebruik_vito <- function(
   return(punten_sf)
 }
 
+bereken_zichtbaarheid <- function(point,
+                                  dist = 300,
+                                  obs_height = 1.7,
+                                  resolution = 1) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 20) %>% st_bbox()
+  bbox_buffer <- bbox_buffer[c("xmin", "xmax", "ymin", "ymax")]
+
+  dsm_r1 <- get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+
+  vis_prop <- GVI::visibility_proportion(
+    observer = point,
+    max_distance = dist,
+    dsm_rast = dsm_r1,
+    dtm_rast = dtm_r1,
+    observer_height = obs_height,
+    raster_res = resolution)
+
+  out <- point %>%
+    mutate(zichtbaarheid = vis_prop)
+
+  return(out)
+}
+
+bereken_vvi <- function(point,
+                        dist,
+                        obs_height,
+                        resolution,
+                        spacing,
+                        output_type) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+
+  # use get_coverage_wcs() from inbospatial not from source wfs_scs.R!
+  dsm_r1 <- inbospatial::get_coverage_wcs(wcs = "dsm",
+                                          bbox = bbox_buffer,
+                                          layername = "EL.GridCoverage.DSM",
+                                          resolution = resolution)
+  dtm_r1 <- inbospatial::get_coverage_wcs(wcs = "dtm",
+                                          bbox = bbox_buffer,
+                                          layername = "EL.GridCoverage.DTM",
+                                          resolution = resolution)
+
+  poly25 <- point %>% st_buffer(dist = 25)
+
+  vvi_from_sf(
+    observer = poly25,
+    spacing = spacing,
+    cores = 1,
+    progress = TRUE,
+    max_distance = dist,
+    dsm_rast = dsm_r1,
+    dtm_rast = dtm_r1,
+    observer_height = obs_height,
+    raster_res = resolution,
+    output_type = output_type)
+}
+
+add_visibility_to_frame <- function(punten_sf,
+                                    resolution,
+                                    spacing,
+                                    viewshed_dist = 300,
+                                    observer_dist = 25,
+                                    obs_height = 1.7) {
+
+  filename_dsm <- "DHMVIIDSMRAS5m.tif"
+  file_dsm <- file.path(mbag_dir, "data", "dem", filename_dsm)
+  dsm <- terra::rast(file_dsm)
+  crs(dsm) <- "epsg:31370"
+
+  filename_dtm <- "DHMVIIDTMRAS5m.tif"
+  file_dtm <- file.path(mbag_dir, "data", "dem", filename_dtm)
+  dtm <- terra::rast(file_dtm)
+  crs(dtm) <- "epsg:31370"
+
+  vvi_dm <- vvi_from_sf(
+    observer = punten_sf %>% st_buffer(dist = observer_dist),
+    spacing = spacing,
+    cores = 1,
+    progress = TRUE,
+    max_distance = viewshed_dist,
+    dsm_rast = dsm,
+    dtm_rast = dtm,
+    observer_height = obs_height,
+    raster_res = resolution,
+    output_type = "cumulative",
+    by_row = TRUE)
+
+  punten_sf$cvvi <- vvi_dm$cvvi
+
+  return(punten_sf)
+}
+
+filter_zichtbaarheid <- function(punten_sf, min_cvvi) {
+  punten_sf %>%
+    filter(cvvi >= min_cvvi)
+}

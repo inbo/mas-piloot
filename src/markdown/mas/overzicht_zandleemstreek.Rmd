@@ -1,0 +1,199 @@
+---
+title: "Overzicht zandleemstreek"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here::here())
+
+library(tidyverse)
+library(sf)
+library(mapview)
+library(osmextract)
+
+mbag_dir <- here()
+source(file.path(mbag_dir, "src", "R", "steekproefkader.R"))
+```
+
+# Doel
+
+Overzicht van de zandleemstreek geven om steekproefgebied af te bakenen.
+
+# Kaartlagen
+
+```{r}
+landbouwstreken <- read_sf(here("data", "landbouwstreken", "Lbstrbel.shp")) %>%
+  st_transform(crs = 31370)
+
+akkervogelgebieden <- read_sf(here("data", "bo_vlm", 
+                                   "akkervogelgebieden2022.shp")) %>%
+  st_transform(crs = 31370)
+
+vlaanderen <- read_sf("S:/Vlaanderen/Grenzen/Administratief/Vlaanderen.shp") %>%
+  st_transform(crs = 31370)
+```
+
+```{r}
+ggplot() +
+  geom_sf(data = landbouwstreken, aes(fill = NAAM)) +
+  geom_sf(data = akkervogelgebieden, fill = "black", 
+          colour = alpha("black", 0)) +
+  geom_sf(data = vlaanderen, fill = alpha("black", 0), 
+          colour = "red", size = 1.5) +
+  labs(fill = "Landbouwstreek")
+```
+
+# Selectie doelgebied
+
+```{r}
+zandleem_vlaanderen <- st_intersection(landbouwstreken, vlaanderen) %>%
+  filter(NAAM == "Zandleemstreek")
+
+akkervogelgebieden_zandleem <- st_intersection(akkervogelgebieden, 
+                                               zandleem_vlaanderen)
+```
+
+```{r}
+mapview(zandleem_vlaanderen, col.regions = "red") + 
+  mapview(akkervogelgebieden_zandleem, zcol = "Prioriteit", 
+          layer = "Prioriteit")
+```
+
+# Probleem met osm extract
+
+>The OpenStreetMap map for Belgium is incomplete, some small pieces are missing.
+><https://download.geofabrik.de/europe/belgium.html#>
+
+>In the documentation I read: "The boundaries usually follow country borders, but occasionally we take liberties and include a litte more of a neighbouring country if this greatly simplifies the polygon."
+>But this is not the case here: 
+>approx. coord.: 50.793232, 3.115215 and 50.782217, 3.104937
+
+>This means that when I want to extract information from these regions or a polygon containing these regions, not the region of Belgium is downloaded but the entire European map.
+>This map is very large and way too large for my intentions.
+>Belgium is only a small country so it is a bit silly to have to download the entire map of Europe.  
+  
+  
+**Voorlopige oplossing:**  
+Maak intersectie met polygoon van osm website en negatieve buffer.
+
+```{r}
+belgium <- file.path(oe_download_directory(),
+                     "belgium_periferie_osm_2022-02-22.kml")
+belgium <- st_read(belgium, quiet = TRUE) %>% 
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(31370)
+
+intersect_osm <- st_intersection(zandleem_vlaanderen, belgium)
+
+oe_match(intersect_osm %>% st_buffer(-0.001))
+```
+
+**Toekomst:**  
+Polygoon zou aangepast worden door beheerders 1/02/2023.  
+OK!  
+Inderdaad. Nu valt de zandleemstreek binnen de osm polygoon van België (hiervoor was er een kleine mismatch).
+
+```{r}
+provider_file <- file.path(oe_download_directory(),
+                           "belgium_periferie_osm.kml")
+provider_data <- st_read(provider_file, quiet = TRUE) %>% 
+  st_zm(drop = TRUE, what = "ZM")
+
+place <- zandleem_vlaanderen
+
+# van oe_match() functie
+matched_zones = provider_data[st_transform(place, crs = st_crs(provider_data)), 
+                              op = sf::st_contains]
+
+# Check that the input zone intersects at least 1 area
+if (nrow(matched_zones) == 0L) {
+  stop("The input place does not intersect any area for the chosen provider.")
+} else {
+  print("The input place intersects the area for the chosen provider.")
+}
+```
+
+Toch geeft `oe_match()` nog Europa aan. Waarom?
+
+```{r}
+oe_match(zandleem_vlaanderen)
+```
+
+Er is een mismatch tussen de link en de gekoppelde geometry.  
+https://github.com/ropensci/osmextract/tree/13f562c7e322d17a93b857efb5085c8859440b41/data  
+https://github.com/ropensci/osmextract/blob/13f562c7e322d17a93b857efb5085c8859440b41/data-raw/geofabrik_zones.R
+
+```{r}
+mapview(geofabrik_zones %>% filter(name == "Belgium")) +
+  mapview(provider_data, col.regions = "red")
+```
+
+Nieuwe aanpak:  
+Eerst controleer ik of de laag binnen de osm periferie van België valt.
+Als dat in orde is, wordt de osm laag van België gedownload.
+Er worden enkel bestanden gedownload als het nog niet lokaal aanwezig is.  
+  
+Daarna wordt er geextraheerd m.b.v. `oe_read()` i.p.v. `oe_get()`. Dit is vooral logisch omdat wij steeds binnen Vlaanderen en dus binnen België werken. Het is dus nutteloos om telkens heel de wereld af te gaan met `oe_match()` (via `oe_get()`).
+
+```{r, eval=F, echo=T}
+gebied <- zandleem_vlaanderen
+osmdata <- path_to_osm_download()
+
+# Download periferie van osm België
+provider_file <- file.path(oe_download_directory(),
+                           "belgium_periferie_osm.kml")
+if (!file.exists(provider_file)) {
+  download.file("https://download.geofabrik.de/europe/belgium.kml", 
+                provider_file)
+} else {
+  message("The chosen file was already detected in the download directory. Skip downloading.")
+}
+
+provider_data <- st_read(provider_file, quiet = TRUE) %>% 
+  st_zm(drop = TRUE, what = "ZM")
+
+# Valt het gebied binnen de periferie van osm België?
+matched_zones = provider_data[st_transform(gebied, crs = st_crs(provider_data)), 
+                              op = sf::st_contains]
+if (nrow(matched_zones) != 0L) {
+  oe_download("https://download.geofabrik.de/europe/belgium-latest.osm.pbf")
+} else {
+  stop("Gebied valt buiten België!", call. = FALSE)
+}
+
+landuse_exclusie_vectortranslate = c(
+    "-t_srs", "EPSG:31370",
+    "-select", "landuse",
+    "-where", "landuse IN ('residential', 'military', 'industrial', 'cemetery')",
+    "-nlt", "PROMOTE_TO_MULTI"
+  )
+
+exclusie_landgebruik <- oe_read(
+  file_path = osmdata,
+  layer = "multipolygons",
+  download_directory = dirname(osmdata),
+  vectortranslate_options = landuse_exclusie_vectortranslate,
+  boundary = zandleem_vlaanderen,
+  boundary_type = "clipsrc")
+```
+
+Zie discussie hier:
+https://github.com/ropensci/osmextract/issues/270
+
+En oplossing in steekproefkader.R
