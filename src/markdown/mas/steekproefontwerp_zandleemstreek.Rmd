@@ -1,6 +1,6 @@
 ---
 title: "MAS steekproefontwerp zandleemstreek"
-author: "Ward Langeraert"
+author: "Ward Langeraert, Hans Van Calster"
 date: "`r Sys.Date()`"
 bibliography: mas.json
 output:
