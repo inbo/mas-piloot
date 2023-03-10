@@ -113,7 +113,7 @@ We gebruiken hiervoor de kenmerken [landuse](https://wiki.openstreetmap.org/wiki
 De links in voorgaande zin verwijzen naar de volledige lijst van mogelijke klassen.
 
 We knippen we onderstaande landgebruiken uit de openheid selectie.
-Rond autosnelwegen en invoegstroken en afritten van autosnelwegen trekken we een buffer van 50 m.
+Rond autosnelwegen en invoegstroken en afritten van autosnelwegen trekken we een buffer van 100 m.
 
 ### Woongebied
 
