@@ -958,7 +958,7 @@ first_samples <- function(steekproef_df, min_n, multiplicatie) {
   
   steekproef_df %>%
     group_by(openheid_sbp) %>% 
-    mutate(id = row_number()) %>%
+    mutate(id = row_number()) %>% # sample_order cannot be used due to thinning 
     ungroup() %>%
     filter(id <= factor_n) %>%
     mutate(batch = ifelse(id <= min_n, batch, "reserve set")) %>%
@@ -1044,14 +1044,15 @@ balansvergelijking %>%
   theme(legend.title = element_blank())
 ```
 
-We zien dat de steekproef vanaf minimum 50 punten per stratum een goede afspiegeling is van de volledige populatie (boxplots voor steekproef eerste punten en volledig steekproefkader zijn zeer gelijkend).
+We zien dat de steekproef vanaf 50 punten per stratum een goede afspiegeling is van de volledige populatie (boxplots voor steekproef eerste punten en volledig steekproefkader zijn zeer gelijkend).
 
 ## Visualisatie steekproef
 
 ```{r}
 mapview_n <- function(n) {
   mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
-  mapview(first_samples(steekproef, n) %>% st_buffer(dist = 300), 
+  mapview(first_samples(steekproef, n, multiplicatie = 1) %>% 
+            st_buffer(dist = 300), 
           zcol = "openheid_sbp", layer = "stratum")
 }
 ```
