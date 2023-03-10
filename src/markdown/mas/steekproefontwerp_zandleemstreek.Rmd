@@ -1114,6 +1114,30 @@ Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand pu
 
 > Opvragen bij SOVON?
 
+Er is niet veel overlap.
+In dit geval zal er overlap zijn met de punten uit de pilootstudie in De Moeren. 
+We vervangen alle telpunten uit de steekproef van de zandleemstreek door reeds bestaande punten indien ze voor minstens 50 % overlappen.
+
+```{r}
+oude_cirkels <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370) %>% 
+  st_buffer(300)
+
+cirkels_zandleemstreek <- steekproef %>% 
+  st_buffer(300)
+```
+
 
 Is er overlap bij dataset steekproef minstens 50 per stratum?
 
