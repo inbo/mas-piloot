@@ -407,7 +407,7 @@ list(
     output_finaal(
       files = list(steekproefkader = steekproefkader_finaal, 
                    steekproef_thin = steekproef_thinned),
-      write_out = TRUE
+      write_out = FALSE
       )
   )
 )
