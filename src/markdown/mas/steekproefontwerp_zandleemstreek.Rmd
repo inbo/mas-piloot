@@ -232,12 +232,6 @@ We selecteren de volgende wegen.
 -   Objecttype: veldwegen en boswegen
 -   OSM Wiki: <https://wiki.openstreetmap.org/wiki/Tag:highway%3Dtrack>
 
-### Voetpad
-
--   OSM definitie: `highway = footway`
--   Objecttype: voetpad
--   OSM Wiki: <https://en.wikipedia.org/wiki/nl:Voetpad>
-
 ### (Bos)Pad
 
 -   OSM definitie: `highway = path`
