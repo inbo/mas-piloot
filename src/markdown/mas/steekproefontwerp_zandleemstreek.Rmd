@@ -996,7 +996,7 @@ balansvergelijking %>%
   kable()
 ```
 
-We beschouwen verschillende steekproeven waarbij we de eerste `r min_n_per_stratum` samples per stratum nemen. Dit wil zeggen dat het stratum met de kleinste allocatiekans het minimum aantal samples heeft en de andere strata meer samples proportioneel met dit minimum.
+We beschouwen verschillende steekproeven waarbij we de eerste `r min_n_per_stratum` samples per stratum nemen.
 
 ```{r}
 balansvergelijking %>%
