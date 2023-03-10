@@ -61,7 +61,11 @@ thin_sample <- function(sample, thin_dist) {
 }
 
 
+replace_by_existing <- function(sample,
+                                existing_points,
+                                overlap_prop = 0.5) {
 
+}
 
 
 output_finaal <- function(files, write_out) {
