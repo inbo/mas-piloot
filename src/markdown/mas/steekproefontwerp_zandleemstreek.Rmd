@@ -953,29 +953,28 @@ De meest open landschappen zitten volledig binnen de perimeter van het SBP plan.
 De vergelijking van HOL binnen vs. buiten plan en OL binnen vs. buiten plan is dus bemoeilijkt omdat de gemiddelde openheid systematisch hoger zal liggen binnen de SBP perimeter.
 
 ```{r}
-first_samples <- function(steekproef_df, min_n) {
-  min_factor <- min_n / min(allocatie$allocatie)
-  first_design <- data.frame(openheid_klasse = allocatie$openheid_klasse, 
-                             is_sbp = allocatie$is_sbp,
-                             n = ceiling(allocatie$allocatie * min_factor))
+first_samples <- function(steekproef_df, min_n, multiplicatie) {
+  factor_n <- min_n * multiplicatie
   
   steekproef_df %>%
     group_by(openheid_sbp) %>% 
     mutate(id = row_number()) %>%
     ungroup() %>%
-    full_join(first_design, by = c("openheid_klasse", "is_sbp")) %>%
-    filter(id <= n) %>%
-    select(-n) %>%
-    mutate(puntenset = paste("steekproef minstens", min_n, "per stratum", 
+    filter(id <= factor_n) %>%
+    mutate(batch = ifelse(id <= min_n, batch, "reserve set")) %>%
+    select(-id) %>%
+    mutate(puntenset = paste("steekproef", min_n, "per stratum", 
                              sep = " "))
 }
 ```
+
 
 ```{r check-balans}
 min_n_per_stratum <- c(20, 50, 100, 200)
 
 balansvergelijking <- do.call(rbind, lapply(min_n_per_stratum, first_samples, 
-                                            steekproef_df = steekproef)) %>%
+                                            steekproef_df = steekproef,
+                                            multiplicatie = 1)) %>%
   bind_rows(steekproefkader_finaal %>%
               filter(openheid_klasse %in% c("OL", "HOL")) %>% 
               mutate(puntenset = "volledige steekproefkader")) %>%
@@ -983,7 +982,7 @@ balansvergelijking <- do.call(rbind, lapply(min_n_per_stratum, first_samples,
                                   "binnen sbp",
                                   "buiten sbp")) %>%
   cbind(st_coordinates(.)) %>%
-  mutate(fillvar = factor(puntenset, levels = c(paste("steekproef minstens", 
+  mutate(fillvar = factor(puntenset, levels = c(paste("steekproef", 
                                                     c(20, 50, 100, 200), 
                                                     "per stratum", sep = " "),
                                                 "volledige steekproefkader")))
@@ -997,7 +996,7 @@ balansvergelijking %>%
   kable()
 ```
 
-We beschouwen verschillende steekproeven waarbij we minstens de eerste `r min_n_per_stratum` samples per stratum nemen. Dit wil zeggen dat het stratum met de kleinste allocatiekans het minimum aantal samples heeft en de andere strata meer samples proportioneel met dit minimum.
+We beschouwen verschillende steekproeven waarbij we de eerste `r min_n_per_stratum` samples per stratum nemen. Dit wil zeggen dat het stratum met de kleinste allocatiekans het minimum aantal samples heeft en de andere strata meer samples proportioneel met dit minimum.
 
 ```{r}
 balansvergelijking %>%
