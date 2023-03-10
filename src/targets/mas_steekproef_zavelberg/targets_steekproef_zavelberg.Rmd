@@ -203,7 +203,7 @@ list(
       leisure = c("park"),
       buffer_poly = 0, 
       layer_poly = list(aeroway = c("aerodrome")),
-      buffer_line = 50, 
+      buffer_line = 100, 
       layer_line = list(highway = c("motorway", "motorway_link")),
       update_osm_layer = FALSE
       ),
