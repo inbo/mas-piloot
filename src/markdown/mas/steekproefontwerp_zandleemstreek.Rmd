@@ -1057,19 +1057,19 @@ mapview_n <- function(n) {
 }
 ```
 
-Minstens 50 punten per stratum:
+50 punten per stratum:
 
 ```{r}
 mapview_n(50)
 ```
 
-Minstens 100 punten per stratum:
+100 punten per stratum:
 
 ```{r}
 mapview_n(100)
 ```
 
-Minstens 200 punten per stratum:
+200 punten per stratum:
 
 ```{r}
 mapview_n(200)
@@ -1164,7 +1164,9 @@ intersect <- st_intersection(oude_cirkels_sbp, cirkels_zandleemstreek) %>%
   st_drop_geometry()
 
 intersect %>%
-  kable(col.names = c("bestaand", "nieuw", "intersect_area"))
+  mutate(intersect_prop = intersect_area / (300 * 300 * pi)) %>%
+  kable(col.names = c("bestaand", "nieuw", "intersect_area", "intersect_prop"),
+        digits = 2)
 ```
 
 ```{r}
