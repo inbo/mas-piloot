@@ -1202,8 +1202,8 @@ We zullen een steekproef van 50 cirkels per stratum wegschrijven (eerste set) wa
 
 ```{r}
 steekproef_out <- first_samples(steekproef_overlap, 50, 2) %>%
-   select(pointid, Naam, openheid_sbp, sample_order, zichtbaarheid = cvvi, 
-          wegtype = value)
+   select(pointid, Naam, openheid_sbp, sample_order, batch, 
+          zichtbaarheid = cvvi, wegtype = value)
 
 mapview(steekproef_overlap, alpha.regions = 0,
         layer = "steekproef") +
