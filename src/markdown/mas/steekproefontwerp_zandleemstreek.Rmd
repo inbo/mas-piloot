@@ -1138,11 +1138,13 @@ oude_cirkels <- read_csv(here(
   st_as_sf(coords = c("X", "Y"), crs = 31370)
 
 # herbereken sbp
-oude_cirkels_sbp <- add_stratum_sbp(punten_sf = oude_cirkels,
+oude_punten_sbp <- add_stratum_sbp(punten_sf = oude_cirkels,
                                     sbp = sbp_akkervogels) %>% 
   mutate(sbp = ifelse(is_sbp == TRUE, "binnen", "buiten"),
          openheid_sbp = paste(openheid_klasse, sbp, "plan", sep = " ")) %>%
-  select(-sbp) %>%
+  select(-sbp)
+
+oude_cirkels_sbp <- oude_punten_sbp %>%
   st_buffer(300)
 
 # buffer nieuwe punten
@@ -1161,6 +1163,11 @@ intersect <- st_intersection(oude_cirkels_sbp, cirkels_zandleemstreek) %>%
   select(plotnaam, pointid, intersect_area) %>%
   st_drop_geometry()
 
+intersect %>%
+  kable(col.names = c("bestaand", "nieuw", "intersect_area"))
+```
+
+```{r}
 # visualisatie
 mapview(oude_cirkels_sbp %>% filter(plotnaam %in% intersect$plotnaam), 
         col.regions = "red", layer = "bestaande punten") + 
@@ -1168,28 +1175,43 @@ mapview(oude_cirkels_sbp %>% filter(plotnaam %in% intersect$plotnaam),
           layer = "nieuwe punten")
 ```
 
+We vervangen de nieuwe punten in de steekproef door de bestaande.
 
+```{r}
+# Vervang id en geometry
+bestaand_overlap <- oude_punten_sbp %>%
+  inner_join(intersect, by = "plotnaam") %>%
+  select(plotnaam, pointid, regio) %>%
+  inner_join(steekproef %>% st_drop_geometry(), by = "pointid") %>%
+  select(pointid = plotnaam, key, value, Naam, tar_group, cvvi, area_prop_sb, 
+         openheid_klasse, openheid_waarde, is_sbp, in_sample, sample_order, 
+         batch, geometry, openheid_sbp)
+class(bestaand_overlap) <- class(steekproef)
+
+# voeg toe aan steekproef
+steekproef_overlap <- steekproef %>%
+  filter(!pointid %in% intersect$pointid) %>%
+  bind_rows(bestaand_overlap) %>%
+  arrange(openheid_sbp, sample_order)
+```
 
 
 ## Output als KML
 
-Proporties minstens 50 per stratum.
+We zullen een steekproef van 50 cirkels per stratum wegschrijven (eerste set) waarbij we ook de volgende 50 punten per stratum includeren voor als er een punt niet zou kunnen geteld worden in het veld (reserve set).
 
 ```{r}
-first_samples(steekproef, 50) %>%
-  st_drop_geometry() %>%
-  count(openheid_klasse, is_sbp) %>%
-  mutate(prop = n / sum(n)) %>%
-  kable()
-```
-
-We schrijven de steekproef van minstens 50 per stratum weg.
-
-```{r}
-steekproef_out <- first_samples(steekproef, 50) %>%
+steekproef_out <- first_samples(steekproef_overlap, 50, 2) %>%
    select(pointid, Naam, openheid_sbp, sample_order, zichtbaarheid = cvvi, 
           wegtype = value)
 
+mapview(steekproef_overlap, alpha.regions = 0,
+        layer = "steekproef") +
+  mapview(steekproef_out, zcol = "batch",
+          layer = "eerste 50 per stratum en 50")
+```
+
+```{r}
 # telpunten
 steekproef_out %>%
   st_write(dsn = file.path(
