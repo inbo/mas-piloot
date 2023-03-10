@@ -63,8 +63,51 @@ thin_sample <- function(sample, thin_dist) {
 
 replace_by_existing <- function(sample,
                                 existing_points,
-                                overlap_prop = 0.5) {
+                                overlap_prop = 0.5,
+                                sbp_file) {
+  # Recalculate sbp stratum existing points
+  old_points <- existing_points %>%
+    mutate(is_sbp = st_intersects(.,
+                                  sbp_file,
+                                  sparse = FALSE) %>%
+             as.logical()
+    ) %>%
+    mutate(openheid_klasse = ifelse(grepl("HOL", stratum), "HOL", "OL")) %>%
+    select(definitief_punt, openheid_klasse, is_sbp)
 
+  # Add buffers
+  old_points_buff <- old_points %>%
+    st_buffer(300)
+
+  sample_buff <- sample %>%
+    select(pointid, openheid_klasse, is_sbp) %>%
+    st_buffer(300)
+
+  # Which points overlap?
+  intersect <- st_intersection(old_points_buff, sample_buff) %>%
+    mutate(intersect_area = st_area(.) %>% units::drop_units()) %>%
+    filter(intersect_area >= overlap_prop * 300 * 300 * pi,
+           openheid_klasse == openheid_klasse.1,
+           is_sbp == is_sbp.1) %>%
+    select(definitief_punt, pointid) %>%
+    st_drop_geometry()
+
+  # Replace id and geometry
+  columns <- names(sample)[names(sample) != "pointid"]
+
+  existing_overlap <- old_points %>%
+    inner_join(intersect, by = "definitief_punt") %>%
+    select(definitief_punt, pointid) %>%
+    inner_join(sample %>% st_drop_geometry(), by = "pointid") %>%
+    select(pointid = definitief_punt, all_of(columns))
+
+  # Add to sample
+  sample_out <- sample %>%
+    filter(!pointid %in% intersect$pointid) %>%
+    bind_rows(existing_overlap) %>%
+    arrange(sample_order)
+
+  return(sample_out)
 }
 
 
