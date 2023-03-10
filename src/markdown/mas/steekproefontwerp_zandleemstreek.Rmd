@@ -1117,8 +1117,8 @@ Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand pu
 Er is niet veel overlap.
 In dit geval zal er overlap zijn met de punten uit de pilootstudie in De Moeren. 
 We vervangen alle telpunten uit de steekproef van de zandleemstreek door reeds bestaande punten indien ze voor minstens 50 % overlappen en ze tot hetzelfde stratum behoren.
-Omdat we nu een nieuwe laag van SBZ gebruiken, moeten we dit stratum opnieuw berekenen voor de bestaande punten.
-Er zijn een aantal punten die overlappen voorminstens 50 %.
+Omdat we nu een nieuwe laag van sbp gebruiken, moeten we dit stratum opnieuw berekenen voor de bestaande punten.
+
 
 ```{r}
 # inlezen bestaande punten
@@ -1130,29 +1130,39 @@ oude_cirkels <- read_csv(here(
          regio,
          stratum,
          X, Y) %>%
-  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+  mutate(openheid_klasse = ifelse(grepl("HOL", stratum), "HOL", "OL"),
          sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
          stratum = gsub("L\\s{1}", "L\\\n", stratum),
          jaar = 2022L) %>%
-  st_as_sf(coords = c("X", "Y"), crs = 31370) %>% 
-  st_buffer(300)
+  select(-c(stratum, sbp)) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370)
 
+# herbereken sbp
+oude_cirkels_sbp <- add_stratum_sbp(punten_sf = oude_cirkels,
+                                    sbp = sbp_akkervogels) %>% 
+  mutate(sbp = ifelse(is_sbp == TRUE, "binnen", "buiten"),
+         openheid_sbp = paste(openheid_klasse, sbp, "plan", sep = " ")) %>%
+  select(-sbp) %>%
+  st_buffer(300)
 
 # buffer nieuwe punten
 cirkels_zandleemstreek <- steekproef %>% 
   st_buffer(300)
 ```
 
+Er zijn een aantal punten die overlappen voorminstens 50 % en tot hetzelfde stratum behoren.
+
 ```{r}
 # welke punten overlappen minstens 50 %
-intersect <- st_intersection(oude_cirkels, cirkels_zandleemstreek) %>% 
+intersect <- st_intersection(oude_cirkels_sbp, cirkels_zandleemstreek) %>% 
   mutate(intersect_area = st_area(.) %>% units::drop_units()) %>%
+  filter(intersect_area >= 0.5 * 300 * 300 * pi, # 50 %
+         openheid_sbp == openheid_sbp.1) %>%     # zelfde stratum
   select(plotnaam, pointid, intersect_area) %>%
-  filter(intersect_area >= 0.5 * 300 * 300 * pi) %>%
   st_drop_geometry()
 
 # visualisatie
-mapview(oude_cirkels %>% filter(plotnaam %in% intersect$plotnaam), 
+mapview(oude_cirkels_sbp %>% filter(plotnaam %in% intersect$plotnaam), 
         col.regions = "red", layer = "bestaande punten") + 
   mapview(cirkels_zandleemstreek %>% filter(pointid %in% intersect$pointid),
           layer = "nieuwe punten")
