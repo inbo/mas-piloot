@@ -403,10 +403,19 @@ list(
     pattern = map(steekproef)
   ),
   tar_target(
+    steekproef_final,
+    replace_by_existing(
+      sample = steekproef,
+      existing_points = ,
+      overlap_prop = 0.5
+      ),
+    pattern = map(steekproef_thinned)
+  ),
+  tar_target(
     output_objecten,
     output_finaal(
       files = list(steekproefkader = steekproefkader_finaal, 
-                   steekproef_thin = steekproef_thinned),
+                   steekproef = steekproef_final),
       write_out = FALSE
       )
   )
