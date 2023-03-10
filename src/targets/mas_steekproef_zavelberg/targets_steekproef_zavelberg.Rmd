@@ -179,6 +179,10 @@ list(
   tarchetypes::tar_file(
     sbp_overige_file,
     path_to_sbp_akkervogels(file = "sbp_overige_soorten.shp")
+  ),
+  tarchetypes::tar_file(
+    existing_file,
+    path_to_existing(file = "steekproef_piloot_avimap.geojson")
   )
 )
 ```
@@ -406,7 +410,7 @@ list(
     steekproef_final,
     replace_by_existing(
       sample = steekproef,
-      existing_points = ,
+      existing_points = existing_file,
       overlap_prop = 0.5
       ),
     pattern = map(steekproef_thinned)

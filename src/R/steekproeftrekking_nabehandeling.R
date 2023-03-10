@@ -1,3 +1,7 @@
+path_to_existing <- function(file) {
+  file.path(mbag_dir, "data", "processed", file)
+}
+
 steekproef_uitdunnen <- function(
   steekproef_sf) {
   te_verwijderen <- steekproef_sf %>%
@@ -55,6 +59,10 @@ thin_sample <- function(sample, thin_dist) {
 
   return(keep)
 }
+
+
+
+
 
 output_finaal <- function(files, write_out) {
   if (write_out) {
