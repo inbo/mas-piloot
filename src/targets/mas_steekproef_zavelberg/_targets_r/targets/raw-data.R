@@ -42,5 +42,13 @@ list(
   tarchetypes::tar_file(
     sbp_overige_file,
     path_to_sbp_akkervogels(file = "sbp_overige_soorten.shp")
+  ),
+  tarchetypes::tar_file(
+    existing_file,
+    path_to_existing(file = "steekproef_piloot_avimap.geojson")
+  ),
+  tar_target(
+    existing_data,
+    st_read(existing_file)
   )
 )

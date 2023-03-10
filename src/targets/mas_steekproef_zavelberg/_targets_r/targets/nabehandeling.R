@@ -8,11 +8,21 @@ list(
     pattern = map(steekproef)
   ),
   tar_target(
+    steekproef_final,
+    replace_by_existing(
+      sample = steekproef_thinned,
+      existing_points = existing_data,
+      overlap_prop = 0.5,
+      sbp_file = sbp_akkervogels
+      ),
+    pattern = map(steekproef_thinned)
+  ),
+  tar_target(
     output_objecten,
     output_finaal(
       files = list(steekproefkader = steekproefkader_finaal, 
-                   steekproef_thin = steekproef_thinned),
-      write_out = TRUE
+                   steekproef = steekproef_final),
+      write_out = FALSE
       )
   )
 )
