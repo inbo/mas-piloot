@@ -920,7 +920,7 @@ De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een ase
 Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden.
 
 ```{r trekking}
-steekproef <- tar_read(steekproef_thinned, store = targets_store) %>%
+steekproef <- tar_read(steekproef_final, store = targets_store) %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
@@ -1142,7 +1142,14 @@ oude_cirkels_sbp <- oude_punten_sbp %>%
   st_buffer(300)
 
 # buffer nieuwe punten
-cirkels_zandleemstreek <- steekproef %>% 
+steekproef_raw <- tar_read(steekproef_thinned, store = targets_store) %>%
+  mutate(openheid_sbp = paste(openheid_klasse,
+                             ifelse(is_sbp,
+                                    "binnen plan",
+                                    "buiten plan"))
+         )
+
+cirkels_zandleemstreek <- steekproef_raw %>% 
   st_buffer(300)
 ```
 
@@ -1197,7 +1204,7 @@ steekproef_overlap <- steekproef %>%
 We zullen een steekproef van 50 cirkels per stratum wegschrijven (eerste set) waarbij we ook de volgende 50 punten per stratum includeren voor als er een punt niet zou kunnen geteld worden in het veld (reserve set).
 
 ```{r}
-steekproef_out <- first_samples(steekproef_overlap, 50, 2) %>%
+steekproef_out <- first_samples(steekproef, 50, 2) %>%
    select(pointid, Naam, openheid_sbp, sample_order, batch, 
           zichtbaarheid = cvvi, wegtype = value)
 
