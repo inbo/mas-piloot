@@ -5,7 +5,8 @@ list(
     ),
   tar_target(
     perimeters_data,
-    st_read(perimeters_file)
+    st_read(perimeters_file) %>% 
+      arrange(Naam)
     ),
   tarchetypes::tar_file(
     osm_belgium,

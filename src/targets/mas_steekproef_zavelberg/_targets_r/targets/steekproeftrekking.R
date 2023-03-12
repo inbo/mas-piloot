@@ -14,7 +14,8 @@ list(
       allocatie_binnen_sbp = 0.5,
       allocatie_leemstreek = 0,
       ol_strata = c("OL", "HOL")
-      )
+      ),
+    pattern = map(steekproefkader_finaal, target_size)
   ),
   tarchetypes::tar_group_by(
     allocatie_per_stratum,
