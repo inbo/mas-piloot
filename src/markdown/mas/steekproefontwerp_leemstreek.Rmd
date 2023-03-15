@@ -202,10 +202,10 @@ exclusie_osm_landgebruiken <- tar_read(exclusie_osm_landgebruiken,
                                        store = targets_store) %>%
   filter(Naam == "Leemstreek")
 
-detail <- c("xmin" = 150000,
-            "ymin" = 160000,
-            "xmax" = 177000,
-            "ymax" = 180000)
+detail <- c("xmin" = 116000,
+            "ymin" = 152500,
+            "xmax" = 130000,
+            "ymax" = 161000)
 
 detail_sf <- tibble(geometry = st_as_sfc(st_bbox(detail))) %>% 
   st_as_sf() %>%
