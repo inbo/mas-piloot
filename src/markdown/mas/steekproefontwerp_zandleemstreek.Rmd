@@ -1226,7 +1226,8 @@ mapview(steekproef %>% st_buffer(300), alpha.regions = 0,
 ```{r}
 steekproef_out %>%
   st_drop_geometry() %>%
-  count(openheid_sbp, batch)
+  count(openheid_sbp, batch) %>%
+  kable()
 ```
 
 ```{r}
