@@ -1215,10 +1215,10 @@ steekproef_out <- first_samples(steekproef, 50, 2) %>%
    select(pointid, Naam, openheid_sbp, sample_order, batch, 
           zichtbaarheid = cvvi, wegtype = value)
 
-mapview(steekproef_overlap %>% st_buffer(300), alpha.regions = 0,
+mapview(steekproef %>% st_buffer(300), alpha.regions = 0,
         layer = "steekproef") +
   mapview(steekproef_out %>% st_buffer(300), zcol = "batch",
-          layer = "eerste 50 per stratum en 50")
+          layer = "eerste 50 per stratum en 50 reserve")
 ```
 
 ```{r}
