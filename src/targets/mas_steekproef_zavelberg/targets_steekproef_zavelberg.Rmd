@@ -142,7 +142,8 @@ list(
     ),
   tar_target(
     perimeters_data,
-    st_read(perimeters_file)
+    st_read(perimeters_file) %>% 
+      arrange(Naam)
     ),
   tarchetypes::tar_file(
     osm_belgium,
@@ -347,7 +348,7 @@ list(
       punten_sf = plus_openheid_landschap,
       sbp = sbp_akkervogels
       ),
-    pattern = map(sbp_akkervogels, plus_openheid_landschap)
+    pattern = map(plus_openheid_landschap)
   )
 )
 ```
@@ -369,7 +370,8 @@ list(
       allocatie_binnen_sbp = 0.5,
       allocatie_leemstreek = 0,
       ol_strata = c("OL", "HOL")
-      )
+      ),
+    pattern = map(steekproefkader_finaal, target_size)
   ),
   tarchetypes::tar_group_by(
     allocatie_per_stratum,

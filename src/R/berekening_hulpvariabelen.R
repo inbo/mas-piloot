@@ -238,7 +238,7 @@ add_stratum_sbp <- function(punten_sf, sbp) {
 
   telpunten <- punten_sf %>%
     mutate(is_sbp = st_intersects(.,
-                                  sbp,
+                                  st_union(sbp),
                                   sparse = FALSE) %>%
              as.logical()
     )

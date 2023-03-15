@@ -43,6 +43,6 @@ list(
       punten_sf = plus_openheid_landschap,
       sbp = sbp_akkervogels
       ),
-    pattern = map(sbp_akkervogels, plus_openheid_landschap)
+    pattern = map(plus_openheid_landschap)
   )
 )

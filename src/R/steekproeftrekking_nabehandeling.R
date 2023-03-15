@@ -68,7 +68,7 @@ replace_by_existing <- function(sample,
   # Recalculate sbp stratum existing points
   old_points <- existing_points %>%
     mutate(is_sbp = st_intersects(.,
-                                  sbp_file,
+                                  st_union(sbp_file),
                                   sparse = FALSE) %>%
              as.logical()
     ) %>%

@@ -1,5 +1,5 @@
 ---
-title: "MAS steekproefontwerp zandleemstreek"
+title: "MAS steekproefontwerp leemstreek"
 author: "Ward Langeraert, Hans Van Calster"
 date: "`r Sys.Date()`"
 bibliography: mas.json
@@ -54,8 +54,8 @@ Dat bestand kan je openen met de volgende code:
 
 ## Perimeter bepalen
 
-Intersectie landbouwstreek zandleemstreek in België met contour Vlaanderen.
-Nieuwe file geschreven "zandleemstreek_perimeters.gpkg" met enkel de zandleemstreek multipolygoon.
+Intersectie landbouwstreek leemstreek in België met contour Vlaanderen.
+Toegevoegd aan file "zandleemstreek_perimeters.gpkg".
 
     # Code uitvoeren in mas_steekproef_zavelberg.Rproj
     # na laden van globals in targets_steekproef_zavelberg.Rmd
@@ -66,22 +66,24 @@ Nieuwe file geschreven "zandleemstreek_perimeters.gpkg" met enkel de zandleemstr
     landbouwstreken <- read_sf(file.path(mbag_dir, "data", "landbouwstreken", 
                                          "Lbstrbel.shp")) |>
       st_transform(crs = 31370)
-
+    
     # Behoud Zandleemstreek
     vlaanderen <- read_sf("S:/Vlaanderen/Grenzen/Administratief/Vlaanderen_met_kust_EEZ.shp") |>
       st_transform(crs = 31370)
-
-    zandleem_vlaanderen <- st_intersection(landbouwstreken, vlaanderen) |>
-      filter(NAAM == "Zandleemstreek") |>
+    
+    leem_vlaanderen <- st_intersection(landbouwstreken, vlaanderen) |>
+      filter(NAAM == "Leemstreek") |>
       mutate(section = NA) |>
       select(Naam = NAAM, section, geom = geometry)
+    
+    st_write(obj = leem_vlaanderen,
+             dsn = path_to_perimeters("zandleemstreek_perimeters.gpkg"),
+    		     append = TRUE)
 
-    st_write(obj = zandleem_vlaanderen,
-             dsn = path_to_perimeters("zandleemstreek_perimeters.gpkg"))
 
 ```{r}
 perimeters_data <- tar_read(perimeters_data, store = targets_store) %>%
-  filter(Naam == "Zandleemstreek")
+  filter(Naam == "Leemstreek")
 
 mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
 ```
@@ -105,7 +107,7 @@ We selecteren OL en HOL binnen de perimeter.
 ```{r}
 selectie_openheid_klasses <- tar_read(selectie_openheid_klasses, 
                                       store = targets_store) %>%
-  filter(Naam == "Zandleemstreek")
+  filter(Naam == "Leemstreek")
 
 mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
   mapview(selectie_openheid_klasses, col.regions = "red", legend = FALSE)
@@ -198,12 +200,12 @@ In groen de exclusiekaart en rood OL en HOL binnen de perimeter.
 ```{r}
 exclusie_osm_landgebruiken <- tar_read(exclusie_osm_landgebruiken,
                                        store = targets_store) %>%
-  filter(Naam == "Zandleemstreek")
+  filter(Naam == "Leemstreek")
 
-detail <- c("xmin" = 150000,
-            "ymin" = 160000,
-            "xmax" = 177000,
-            "ymax" = 180000)
+detail <- c("xmin" = 116000,
+            "ymin" = 152500,
+            "xmax" = 130000,
+            "ymax" = 161000)
 
 detail_sf <- tibble(geometry = st_as_sfc(st_bbox(detail))) %>% 
   st_as_sf() %>%
@@ -278,7 +280,7 @@ We verwijderen wegen die overlappen met de exclusiekaart en verwijderen overlapp
 
 ```{r}
 paden <- tar_read(paden, store = targets_store) %>%
-  filter(Naam == "Zandleemstreek")
+  filter(Naam == "Leemstreek")
 
 mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
         legend = FALSE) +
@@ -315,7 +317,7 @@ Werkwijze:
 
 ```{r}
 punten <- tar_read(punten, store = targets_store) %>%
-  filter(Naam == "Zandleemstreek")
+  filter(Naam == "Leemstreek")
 
 mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
         legend = FALSE) +
@@ -350,7 +352,7 @@ Voor elk potentieel telpunt / telcirkel:
 ```{r}
 telcirkels_selectie_landgebruik <- tar_read(telcirkels_selectie_landgebruik,
                                    store = targets_store) %>%
-  filter(startsWith(pointid, abbreviate("Zandleemstreek", 2)))
+  filter(startsWith(pointid, abbreviate("Leemstreek", 2)))
 ```
 
 We gebruiken volgende regel als criterium voor telpunten die in aanmerkingen komen voor wat betreft de samenstelling van het landgebruik in een buffer van 300 m rond het punt:
@@ -411,7 +413,7 @@ We verwijderen telpunten waar de cumulatieve 'viewshed visibility index' (cvvi) 
 ```{r}
 punten_zichtbaarheid <- tar_read(punten_zichtbaarheid, 
                                  store = targets_store) %>%
-  filter(Naam == "Zandleemstreek")
+  filter(Naam == "Leemstreek")
 
 plus_visibility <- add_openheid_landschap_to_frame(
       path = path_to_openheid_landschap(),
@@ -457,7 +459,7 @@ Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
 ```{r bo-sbp}
 steekproefkader_finaal <- tar_read(steekproefkader_finaal, 
                                    store = targets_store) %>%
-  filter(Naam == "Zandleemstreek")
+  filter(Naam == "Leemstreek")
 ```
 
 ```{r}
@@ -485,7 +487,7 @@ steekproefkader_finaal %>%
 
 ```{r lbg-stats}
 lbg_statistieken <- tar_read(lbg_statistics, store = targets_store) %>%
-  filter(startsWith(pointid, abbreviate("Zandleemstreek", 2)))
+  filter(startsWith(pointid, abbreviate("Leemstreek", 2)))
 ```
 
 Belangrijkste teelten in 2022.
@@ -698,7 +700,7 @@ mapview(bind_rows(sbp_overig, sbp_akkergvogels), zcol = "soort",
         layer = "soort(engroep)")
 ```
 
-In de zandleemstreek hebben we:
+In de leemstreek hebben we:
 
 ```{r}
 mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
@@ -709,10 +711,10 @@ mapview(st_intersection(bind_rows(sbp_overig, sbp_akkergvogels),
 
 ```{r}
 sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store) %>%
-  filter(Naam == "Zandleemstreek")
+  filter(Naam == "Leemstreek")
 ```
 
-Het oppervlakte aandeel aan SBP's binnen de zandleemstreek:
+Het oppervlakte aandeel aan SBP's binnen de leemstreek:
 
 ```{r}
 binnen_sbp <- perimeters_data %>%
@@ -743,7 +745,7 @@ opps %>%
   kable(digits = 2)
 ```
 
-Het oppervlakte aandeel aan SBP's binnen OL en HOL in de zandleemstreek:
+Het oppervlakte aandeel aan SBP's binnen OL en HOL in de leemstreek:
 
 ```{r}
 binnen_sbp <- selectie_openheid_klasses %>%
@@ -765,7 +767,7 @@ opps <- bind_rows(buiten_sbp, binnen_sbp) %>%
 
 opps %>%
   mutate(opp = units::set_units(opp, "ha"),
-         Naam = "Zandleemstreek (OL en HOL)") %>%
+         Naam = "Leemstreek (OL en HOL)") %>%
   group_by(Naam) %>%
   mutate(opp_aandeel = opp / sum(opp)) %>%
   units::drop_units() %>%
@@ -870,7 +872,7 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
           layer = "stratum")
 ```
 
-# Trekking steekproef zandleemstreek
+# Trekking steekproef leemstreek
 
 ## Stratificatie steekproef
 
@@ -906,14 +908,14 @@ Het algoritme kent een volgorde toe bij de steekproeftrekking en het is aan de h
 Dit heeft als eigenschap dat deze set ook (ruimtelijk) gebalanceerd is en een goede spreiding vertoont.
 
 We streven naar minstens 50 telpunten per stratum.
-Er zijn 4 strata (OL, HOL en binnen, buiten sbp) binnen de zandleemstreek.
+Er zijn 4 strata (OL, HOL en binnen, buiten sbp) binnen de leemstreek.
 Voor een betere precisie, moeten we de steekproefgrootte verder verhogen.
 Een vuistregel stelt dat de steekproefgrootte verviervoudigen, een halvering geeft van het betrouwbaarheidsinterval (dan hebben we 200 telpunten per stratum nodig).
 Niet echt belangrijk hier omdat we een maximum steekproef trekken en de tellers gewoon zoveel mogelijk punten laten doen (volgnummer).
 
 ```{r}
 allocatie <- tar_read(allocatie_df, store = targets_store) %>%
-  filter(Naam == "Zandleemstreek") %>%
+  filter(Naam == "Leemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                            ifelse(is_sbp,
                                   "binnen plan",
@@ -930,7 +932,7 @@ allocatie %>%
 
 We trekken geen veelvoud van het vooropgestelde aantal telpunten (enkel eerste batch van punten).
 Elk telpunt zal een volgnummer hebben.
-De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de zandleemstreek, die kan verdeeld worden over de medewerkers.
+De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de leemstreek, die kan verdeeld worden over de medewerkers.
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
 De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
   
@@ -938,7 +940,7 @@ Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen
 
 ```{r trekking}
 steekproef <- tar_read(steekproef_final, store = targets_store) %>%
-  filter(Naam == "Zandleemstreek") %>%
+  filter(Naam == "Leemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
@@ -1019,8 +1021,7 @@ balansvergelijking %>%
   theme(legend.title = element_blank())
 ```
 
-Een confounding probleem is dat HOL gemiddeld oostelijker gelegen is dan OL binnen en buiten de SBP perimeter.
-Ook lijken de SBP's gemiddeld iets zuidelijker gelegen.
+We zien dat HOL gemiddeld iets noordelijker gelegen is dan OL binnen en buiten de SBP perimeter. Verder zien we dat binnen sbp meer oostelijk gelegen is.
 
 ```{r}
 balansvergelijking %>%
@@ -1128,7 +1129,7 @@ Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand pu
 
 We bekijken overlap met de pilootstudie.
 Er is niet veel overlap.
-We vervangen alle telpunten uit de steekproef van de zandleemstreek door reeds bestaande punten indien ze voor minstens 50 % overlappen en ze tot hetzelfde stratum behoren.
+We vervangen alle telpunten uit de steekproef van de leemstreek door reeds bestaande punten indien ze voor minstens 50 % overlappen en ze tot hetzelfde stratum behoren.
 Omdat we nu een nieuwe laag van sbp gebruiken, moeten we dit stratum opnieuw berekenen voor de bestaande punten.
 
 
@@ -1161,14 +1162,14 @@ oude_cirkels_sbp <- oude_punten_sbp %>%
 
 # buffer nieuwe punten
 steekproef_raw <- tar_read(steekproef_thinned, store = targets_store) %>%
-  filter(Naam == "Zandleemstreek") %>%
+  filter(Naam == "Leemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
                                     "buiten plan"))
          )
 
-cirkels_zandleemstreek <- steekproef_raw %>% 
+cirkels_leemstreek <- steekproef_raw %>% 
   st_buffer(300)
 ```
 
@@ -1176,7 +1177,7 @@ Er zijn een aantal punten die overlappen voorminstens 50 % en tot hetzelfde stra
 
 ```{r}
 # welke punten overlappen minstens 50 %
-intersect <- st_intersection(oude_cirkels_sbp, cirkels_zandleemstreek) %>% 
+intersect <- st_intersection(oude_cirkels_sbp, cirkels_leemstreek) %>% 
   mutate(intersect_area = st_area(.) %>% units::drop_units()) %>%
   filter(intersect_area >= 0.5 * 300 * 300 * pi, # 50 %
          openheid_sbp == openheid_sbp.1) %>%     # zelfde stratum
@@ -1193,11 +1194,11 @@ intersect %>%
 # visualisatie
 mapview(oude_cirkels_sbp %>% filter(plotnaam %in% intersect$plotnaam), 
         col.regions = "red", layer = "bestaande punten") + 
-  mapview(cirkels_zandleemstreek %>% filter(pointid %in% intersect$pointid),
+  mapview(cirkels_leemstreek %>% filter(pointid %in% intersect$pointid),
           layer = "nieuwe punten")
 ```
 
-In dit geval zal er wat overlap zijn met de punten uit De Moeren. 
+In dit geval zal er wat overlap zijn met de punten uit Oostelijke leemstreek. 
 
 ```{r}
 oude_punten_sbp %>%
@@ -1236,7 +1237,7 @@ steekproef_out %>%
   st_write(dsn = file.path(
     "data",
     "processed",
-    "steekproef_zandleemstreek_telpunten.geojson"),
+    "steekproef_leemstreek_telpunten.geojson"),
     delete_dsn = TRUE)
 
 steekproef_out %>%
@@ -1251,7 +1252,7 @@ steekproef_out %>%
   st_write(dsn = file.path(
     "data",
     "processed",
-    "steekproef_zandleemstreek_telpunten.kml"),
+    "steekproef_leemstreek_telpunten.kml"),
     delete_dsn = TRUE)
 
 # telcirkels
@@ -1260,7 +1261,7 @@ steekproef_out %>%
   st_write(dsn = file.path(
     "data",
     "processed",
-    "steekproef_zandleemstreek_telcirkels.geojson"),
+    "steekproef_leemstreek_telcirkels.geojson"),
     delete_dsn = TRUE)
 
 steekproef_out %>%
@@ -1276,7 +1277,7 @@ steekproef_out %>%
   st_write(dsn = file.path(
     "data",
     "processed",
-    "steekproef_zandleemstreek_telcirkels.kml"),
+    "steekproef_leemstreek_telcirkels.kml"),
     delete_dsn = TRUE)
 ```
 

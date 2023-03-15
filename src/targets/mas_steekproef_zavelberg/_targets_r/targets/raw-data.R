@@ -5,7 +5,8 @@ list(
     ),
   tar_target(
     perimeters_data,
-    st_read(perimeters_file)
+    st_read(perimeters_file) %>% 
+      arrange(Naam)
     ),
   tarchetypes::tar_file(
     osm_belgium,
@@ -42,5 +43,13 @@ list(
   tarchetypes::tar_file(
     sbp_overige_file,
     path_to_sbp_akkervogels(file = "sbp_overige_soorten.shp")
+  ),
+  tarchetypes::tar_file(
+    existing_file,
+    path_to_existing(file = "steekproef_piloot_avimap.geojson")
+  ),
+  tar_target(
+    existing_data,
+    st_read(existing_file)
   )
 )
