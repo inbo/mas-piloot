@@ -55,7 +55,7 @@ Dat bestand kan je openen met de volgende code:
 ## Perimeter bepalen
 
 Intersectie landbouwstreek leemstreek in België met contour Vlaanderen.
-Nieuwe file geschreven "leemstreek_perimeters.gpkg" met enkel de leemstreek multipolygoon.
+Toegevoegd aan file "zandleemstreek_perimeters.gpkg".
 
     # Code uitvoeren in mas_steekproef_zavelberg.Rproj
     # na laden van globals in targets_steekproef_zavelberg.Rmd
@@ -66,18 +66,20 @@ Nieuwe file geschreven "leemstreek_perimeters.gpkg" met enkel de leemstreek mult
     landbouwstreken <- read_sf(file.path(mbag_dir, "data", "landbouwstreken", 
                                          "Lbstrbel.shp")) |>
       st_transform(crs = 31370)
-
-    # Behoud Leemstreek
+    
+    # Behoud Zandleemstreek
     vlaanderen <- read_sf("S:/Vlaanderen/Grenzen/Administratief/Vlaanderen_met_kust_EEZ.shp") |>
       st_transform(crs = 31370)
-
-    zandleem_vlaanderen <- st_intersection(landbouwstreken, vlaanderen) |>
+    
+    leem_vlaanderen <- st_intersection(landbouwstreken, vlaanderen) |>
       filter(NAAM == "Leemstreek") |>
       mutate(section = NA) |>
       select(Naam = NAAM, section, geom = geometry)
+    
+    st_write(obj = leem_vlaanderen,
+             dsn = path_to_perimeters("zandleemstreek_perimeters.gpkg"),
+    		     append = TRUE)
 
-    st_write(obj = zandleem_vlaanderen,
-             dsn = path_to_perimeters("leemstreek_perimeters.gpkg"))
 
 ```{r}
 perimeters_data <- tar_read(perimeters_data, store = targets_store) %>%
