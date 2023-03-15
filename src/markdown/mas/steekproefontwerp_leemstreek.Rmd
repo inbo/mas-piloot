@@ -1021,8 +1021,7 @@ balansvergelijking %>%
   theme(legend.title = element_blank())
 ```
 
-Een confounding probleem is dat HOL gemiddeld oostelijker gelegen is dan OL binnen en buiten de SBP perimeter.
-Ook lijken de SBP's gemiddeld iets zuidelijker gelegen.
+We zien dat HOL gemiddeld iets noordelijker gelegen is dan OL binnen en buiten de SBP perimeter. Verder zien we dat binnen sbp meer oostelijk gelegen is.
 
 ```{r}
 balansvergelijking %>%
@@ -1199,7 +1198,7 @@ mapview(oude_cirkels_sbp %>% filter(plotnaam %in% intersect$plotnaam),
           layer = "nieuwe punten")
 ```
 
-In dit geval zal er wat overlap zijn met de punten uit De Moeren. 
+In dit geval zal er wat overlap zijn met de punten uit Oostelijke leemstreek. 
 
 ```{r}
 oude_punten_sbp %>%
@@ -1223,6 +1222,12 @@ mapview(steekproef %>% st_buffer(300), alpha.regions = 0,
         layer = "steekproef") +
   mapview(steekproef_out %>% st_buffer(300), zcol = "batch",
           layer = "eerste 50 per stratum en 50 reserve")
+```
+
+```{r}
+steekproef_out %>%
+  st_drop_geometry() %>%
+  count(openheid_sbp, batch)
 ```
 
 ```{r}
