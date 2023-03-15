@@ -78,7 +78,8 @@ Nieuwe file geschreven "zandleemstreek_perimeters.gpkg" met enkel de zandleemstr
              dsn = path_to_perimeters("zandleemstreek_perimeters.gpkg"))
 
 ```{r}
-perimeters_data <- tar_read(perimeters_data, store = targets_store)
+perimeters_data <- tar_read(perimeters_data, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 
 mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
 ```
@@ -101,7 +102,9 @@ We selecteren OL en HOL binnen de perimeter.
 
 ```{r}
 selectie_openheid_klasses <- tar_read(selectie_openheid_klasses, 
-                                      store = targets_store)
+                                      store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
+
 mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
   mapview(selectie_openheid_klasses, col.regions = "red", legend = FALSE)
 ```
@@ -192,7 +195,8 @@ In groen de exclusiekaart en rood OL en HOL binnen de perimeter.
 
 ```{r}
 exclusie_osm_landgebruiken <- tar_read(exclusie_osm_landgebruiken,
-                                       store = targets_store)
+                                       store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 
 detail <- c("xmin" = 150000,
             "ymin" = 160000,
@@ -271,7 +275,8 @@ We selecteren de volgende wegen.
 We verwijderen wegen die overlappen met de exclusiekaart en verwijderen overlappende wegen.
 
 ```{r}
-paden <- tar_read(paden, store = targets_store)
+paden <- tar_read(paden, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 
 mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
         legend = FALSE) +
@@ -307,7 +312,8 @@ Werkwijze:
 -   Potentiële telpunten moeten op minstens 300 m van de grens van de perimeter gelegen zijn
 
 ```{r}
-punten <- tar_read(punten, store = targets_store)
+punten <- tar_read(punten, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 
 mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
         legend = FALSE) +
@@ -341,7 +347,8 @@ Voor elk potentieel telpunt / telcirkel:
 
 ```{r}
 telcirkels_selectie_landgebruik <- tar_read(telcirkels_selectie_landgebruik,
-                                   store = targets_store)
+                                   store = targets_store) %>%
+  filter(startsWith(pointid, abbreviate("Zandleemstreek", 2)))
 ```
 
 We gebruiken volgende regel als criterium voor telpunten die in aanmerkingen komen voor wat betreft de samenstelling van het landgebruik in een buffer van 300 m rond het punt:
@@ -400,7 +407,10 @@ Zie:\
 We verwijderen telpunten waar de cumulatieve 'viewshed visibility index' (cvvi) kleiner is dan 0.10.
 
 ```{r}
-punten_zichtbaarheid <- tar_read(punten_zichtbaarheid, store = targets_store)
+punten_zichtbaarheid <- tar_read(punten_zichtbaarheid, 
+                                 store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
+
 plus_visibility <- add_openheid_landschap_to_frame(
       path = path_to_openheid_landschap(),
       punten_sf = punten_zichtbaarheid,
@@ -443,7 +453,9 @@ Voor de steekproeftrekking zijn vooral de oppervlakte aan soortbeschermingsmaatr
 Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
 
 ```{r bo-sbp}
-steekproefkader_finaal <- tar_read(steekproefkader_finaal, store = targets_store)
+steekproefkader_finaal <- tar_read(steekproefkader_finaal, 
+                                   store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 ```
 
 ```{r}
@@ -470,7 +482,8 @@ steekproefkader_finaal %>%
 ### Oppervlakte-aandeel hoofdteelt
 
 ```{r lbg-stats}
-lbg_statistieken <- tar_read(lbg_statistics, store = targets_store)
+lbg_statistieken <- tar_read(lbg_statistics, store = targets_store) %>%
+  filter(startsWith(pointid, abbreviate("Zandleemstreek", 2)))
 ```
 
 Belangrijkste teelten in 2022.
@@ -693,7 +706,8 @@ mapview(st_intersection(bind_rows(sbp_overig, sbp_akkergvogels),
 ```
 
 ```{r}
-sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store)
+sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 ```
 
 Het oppervlakte aandeel aan SBP's binnen de zandleemstreek:
@@ -897,11 +911,12 @@ Niet echt belangrijk hier omdat we een maximum steekproef trekken en de tellers 
 
 ```{r}
 allocatie <- tar_read(allocatie_df, store = targets_store) %>%
-   mutate(openheid_sbp = paste(openheid_klasse,
-                             ifelse(is_sbp,
-                                    "binnen plan",
-                                    "buiten plan"))
-         )
+  filter(Naam == "Zandleemstreek") %>%
+  mutate(openheid_sbp = paste(openheid_klasse,
+                           ifelse(is_sbp,
+                                  "binnen plan",
+                                  "buiten plan"))
+       )
 
 allocatie %>%
   mutate(steekproeftrekking = round(popsize / 20)) %>%
@@ -921,6 +936,7 @@ Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen
 
 ```{r trekking}
 steekproef <- tar_read(steekproef_final, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
@@ -1143,6 +1159,7 @@ oude_cirkels_sbp <- oude_punten_sbp %>%
 
 # buffer nieuwe punten
 steekproef_raw <- tar_read(steekproef_thinned, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
