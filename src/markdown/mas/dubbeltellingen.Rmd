@@ -32,6 +32,7 @@ library(targets)
 library(sf)
 library(terra)
 library(lubridate)
+library(brms)
 
 # Source
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
@@ -784,23 +785,25 @@ Als we rekening houden met ervaring lijken de verschillen niet zo groot tussen p
 
 # Hypotheses
 
-We willen achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren. Welke statistische hypotheses kunnen we opstellen? Met welke factoren moeten we rekening houden?  
-  
+We willen achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren. Welke statistische hypotheses kunnen we opstellen? Met welke factoren moeten we rekening houden?
+
 
 ## Aantal soorten
 
-Is er een significant verschil in het aantal soorten gezien door de professionele vrijwilliger vs. de vrijwilligers?
+Is er een significant verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers?
 
+## Aantal waarnemingen
 
+Is er een significant verschil in het aantal waarnemingen door de professionele teller vs. de vrijwilligers?
 
 # Statistische testen
 
 ## Aantal soorten
 
-Is er een significant verschil in het aantal soorten gezien door de professionele vrijwilliger vs. de vrijwilligers?
+Is er een significant verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers?
 
-$\text{H}_0$: Er is geen verschil in het aantal soorten gezien door de professionele vrijwilliger vs. de vrijwilligers.  
-$\text{H}_a$: Er is een verschil in het aantal soorten gezien door de professionele vrijwilliger vs. de vrijwilligers.
+$\text{H}_0$: Er is geen verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers.
 
 ```{r}
 dubbels_2022_df_soortenrijkdom <- dubbels_2022_df %>%
@@ -843,6 +846,7 @@ dubbels_2022_df_soortenrijkdom %>%
     labs(y = "aantal soorten")
 ```
 
+### Testen
 
 ```{r}
 t.test(n ~ status, data = dubbels_2022_df_soortenrijkdom, paired = TRUE)
@@ -854,17 +858,286 @@ wilcox.test(n ~ status, data = dubbels_2022_df_soortenrijkdom, paired = TRUE)
 
 *The impact of ties means the Wilcoxon rank sum distribution cannot be used to calculate exact p-values. If ties occur in our data and we have fewer than 50 observations, the wilcox.test function returns a normal approximated p-value along with a warning message that says “cannot compute exact p-value with ties”.*
 
-Parametrisch:
+### Model based
+
+We fitten 3 modellen met **brms**.
+
+- Normaal verdeling
+- Poisson verdeling
+- Negatief binomiaal verdeling
 
 ```{r}
-fit <- nlme::lme(n ~ status, random = ~1|plaatstijd, 
-                 data = dubbels_2022_df_soortenrijkdom)
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 4000          # number of iterations (incl. burn-in)
+burnin <- niter / 2    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
 
-summary(fit)
+# 1. Normal
+dubbel_fit_norm <- brm(bf(n ~ status + (1 | plaatstijd)), 
+                data = dubbels_2022_df_soortenrijkdom, family = gaussian(), 
+                chains = nchains, warmup = burnin, iter = niter, 
+                cores = nparallel)
+
+# 2. Poisson
+dubbel_fit_pois <- brm(bf(n ~ status + (1 | plaatstijd)), 
+                data = dubbels_2022_df_soortenrijkdom, family = poisson(), 
+                chains = nchains, warmup = burnin, iter = niter, 
+                cores = nparallel)
+
+# 3. Negative binomial
+dubbel_fit_negbin <- brm(bf(n ~ status + (1 | plaatstijd)), 
+                data = dubbels_2022_df_soortenrijkdom, family = negbinomial(), 
+                chains = nchains, warmup = burnin, iter = niter, 
+                cores = nparallel)
 ```
 
-Zelfde verschil als met t-test. 3.2 soorten minder gemiddeld voor vrijwilliger.
+```{r}
+fit_dubbel_fit_norm <- add_criterion(dubbel_fit_norm, c("kfold"), K = 5, 
+                                     cores = 5, folds = "stratified", 
+                                     group = "status")
+fit_dubbel_fit_pois <- add_criterion(dubbel_fit_pois, c("kfold"), K = 5, 
+                                     cores = 5, folds = "stratified", 
+                                     group = "status")
+fit_dubbel_fit_negbin <- add_criterion(dubbel_fit_negbin, c("kfold"), K = 5, 
+                                     cores = 5, folds = "stratified", 
+                                     group = "status")
 
-We hebben discrete data ... Poisson?
+# Comparison among models
+comparisons <- loo_compare(fit_dubbel_fit_norm, fit_dubbel_fit_pois, 
+                           fit_dubbel_fit_negbin, 
+                           criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                mutate(model = c("Normal", "Poisson", "Negative binomial"))
+```
 
-Doe bovenstaande opnieuw met brms
+```{r}
+rbind(fit_dubbel_fit_norm$criteria$kfold$estimates[, "Estimate"],
+  fit_dubbel_fit_pois$criteria$kfold$estimates[, "Estimate"],
+  fit_dubbel_fit_negbin$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = c("Normal", "Poisson", "Negative binomial")) %>%
+  full_join(comparisons, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+```{r}
+pp_check(fit_dubbel_fit_norm, type = "dens_overlay_grouped", ndraws = 100, 
+         group = "status")
+
+pp_check(fit_dubbel_fit_pois, type = "bars_grouped", ndraws = 100, group = "status",
+         facet_args = list(ncol = 1, scales = "free_y"))
+
+pp_check(fit_dubbel_fit_negbin, type = "bars_grouped", ndraws = 100, group = "status",
+         facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Hoewel we discrete data hebben, besluiten we dat normale glm met normaal verdeling het beste past bij de data.
+  
+We zien goede convergentie.
+
+```{r}
+plot(fit_dubbel_fit_norm)
+```
+
+En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
+
+```{r}
+summary(fit_dubbel_fit_norm)
+```
+
+```{r}
+hyp1 <- hypothesis(
+  x = fit_dubbel_fit_norm,
+  "statusvrijwilliger = 0",
+  class = "b", alpha = 0.05)
+hyp1
+plot(hyp1)
+```
+
+```{r, include=FALSE}
+sum <- summary(fit_dubbel_fit_norm)
+schatting_soorten <- round(sum$fixed["statusvrijwilliger", "Estimate"], 3)
+ll_soorten <- round(sum$fixed["statusvrijwilliger", "l-95% CI"], 3)
+ul_soorten <- round(sum$fixed["statusvrijwilliger", "u-95% CI"], 3)
+sign <- ifelse(schatting_soorten > 0, "meer", "minder")
+```
+
+We besluiten dat de professionele teller gemiddeld `r schatting_soorten` soorten `r sign` ziet dan de vrijwilligers (95% credible interval: `r ll_soorten` - `r ul_soorten`).
+
+## Aantal waarnemingen
+
+Is er een significant verschil in het aantal waarnemingen gezien door de professionele teller vs. de vrijwilligers?
+
+$\text{H}_0$: Er is geen verschil in het aantal waarnemingen gemeld door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal waarnemingen gemeld door de professionele teller vs. de vrijwilligers.
+
+```{r}
+dubbels_2022_df_waarnemingen <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, status) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  ungroup() %>%
+  mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
+  group_by(status) %>%
+  mutate(gemiddelde = mean(n))
+
+# Overlaid histograms
+ggplot(dubbels_2022_df_waarnemingen) +
+  geom_histogram(aes(x = n, fill = status), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+
+# Density plots with semi-transparent fill
+ggplot(dubbels_2022_df_waarnemingen, aes(x = n, fill = status)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+```
+
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(unique(dubbels_2022_df_waarnemingen$plaatstijd)))
+
+dubbels_2022_df_waarnemingen %>%
+  ggplot() +
+    geom_point(aes(x = status, y = n)) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    theme(legend.position = "") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal waarnemingen")
+```
+
+### Testen
+
+```{r}
+t.test(n ~ status, data = dubbels_2022_df_waarnemingen, paired = TRUE)
+```
+
+```{r, warning=TRUE}
+wilcox.test(n ~ status, data = dubbels_2022_df_waarnemingen, paired = TRUE)
+```
+
+*The impact of ties means the Wilcoxon rank sum distribution cannot be used to calculate exact p-values. If ties occur in our data and we have fewer than 50 observations, the wilcox.test function returns a normal approximated p-value along with a warning message that says “cannot compute exact p-value with ties”.*
+
+### Model based
+
+We fitten 3 modellen met **brms**.
+
+- Normaal verdeling
+- Poisson verdeling
+- Negatief binomiaal verdeling
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 4000          # number of iterations (incl. burn-in)
+burnin <- niter / 2    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+
+# 1. Normal
+dubbel_waarnemingen_norm <- brm(bf(n ~ status + (1 | plaatstijd)), 
+                data = dubbels_2022_df_waarnemingen, family = gaussian(), 
+                chains = nchains, warmup = burnin, iter = niter, 
+                cores = nparallel)
+
+# 2. Poisson
+dubbel_waarnemingen_pois <- brm(bf(n ~ status + (1 | plaatstijd)), 
+                data = dubbels_2022_df_waarnemingen, family = poisson(), 
+                chains = nchains, warmup = burnin, iter = niter, 
+                cores = nparallel)
+
+# 3. Negative binomial
+dubbel_waarnemingen_negbin <- brm(bf(n ~ status + (1 | plaatstijd)), 
+                data = dubbels_2022_df_waarnemingen, family = negbinomial(), 
+                chains = nchains, warmup = burnin, iter = niter, 
+                cores = nparallel)
+```
+
+```{r}
+fit_dubbel_waarnemingen_norm <- add_criterion(dubbel_waarnemingen_norm, c("kfold"), K = 5, 
+                                     cores = 5, folds = "stratified", 
+                                     group = "status")
+fit_dubbel_waarnemingen_pois <- add_criterion(dubbel_waarnemingen_pois, c("kfold"), K = 5, 
+                                     cores = 5, folds = "stratified", 
+                                     group = "status")
+fit_dubbel_waarnemingen_negbin <- add_criterion(dubbel_waarnemingen_negbin, c("kfold"), K = 5, 
+                                     cores = 5, folds = "stratified", 
+                                     group = "status")
+
+# Comparison among models
+comparisons <- loo_compare(fit_dubbel_waarnemingen_norm, fit_dubbel_waarnemingen_pois, 
+                           fit_dubbel_waarnemingen_negbin, 
+                           criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                mutate(model = c("Normal", "Poisson", "Negative binomial"))
+```
+
+```{r}
+rbind(fit_dubbel_waarnemingen_norm$criteria$kfold$estimates[, "Estimate"],
+  fit_dubbel_waarnemingen_pois$criteria$kfold$estimates[, "Estimate"],
+  fit_dubbel_waarnemingen_negbin$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = c("Normal", "Poisson", "Negative binomial")) %>%
+  full_join(comparisons, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+```{r}
+pp_check(fit_dubbel_waarnemingen_norm, type = "dens_overlay_grouped", ndraws = 100, 
+         group = "status")
+
+pp_check(fit_dubbel_waarnemingen_pois, type = "bars_grouped", ndraws = 100, group = "status",
+         facet_args = list(ncol = 1, scales = "free_y"))
+
+pp_check(fit_dubbel_waarnemingen_negbin, type = "bars_grouped", ndraws = 100, group = "status",
+         facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Hoewel we discrete data hebben, besluiten we dat normale glm met normaal verdeling het beste past bij de data.
+  
+We zien goede convergentie.
+
+```{r}
+plot(fit_dubbel_waarnemingen_norm)
+```
+
+En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
+
+```{r}
+summary(fit_dubbel_waarnemingen_norm)
+```
+
+```{r}
+hyp1 <- hypothesis(
+  x = fit_dubbel_waarnemingen_norm,
+  "statusvrijwilliger = 0",
+  class = "b", alpha = 0.05)
+hyp1
+plot(hyp1)
+```
+
+```{r, include=FALSE}
+sum <- summary(fit_dubbel_waarnemingen_norm)
+schatting_waarnemingen <- round(sum$fixed["statusvrijwilliger", "Estimate"], 3)
+ll_waarnemingen <- round(sum$fixed["statusvrijwilliger", "l-95% CI"], 3)
+ul_waarnemingen <- round(sum$fixed["statusvrijwilliger", "u-95% CI"], 3)
+sign <- ifelse(schatting_waarnemingen > 0, "meer", "minder")
+```
+
+We besluiten dat de professionele teller gemiddeld `r schatting_waarnemingen` soorten `r sign` ziet dan de vrijwilligers (95% credible interval: `r ll_waarnemingen` - `r ul_waarnemingen`).
