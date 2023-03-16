@@ -811,6 +811,8 @@ dubbels_2022_df_soortenrijkdom <- dubbels_2022_df %>%
   summarize(n = n_distinct(naam), .groups = "drop") %>%
   ungroup() %>%
   mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
+  full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  distinct(plotnaam, periode_in_jaar, status, waarnemerscode, ervaring, n) %>%
   group_by(status) %>%
   mutate(gemiddelde = mean(n))
 
@@ -1007,6 +1009,8 @@ dubbels_2022_df_waarnemingen <- dubbels_2022_df %>%
   summarize(n = n(), .groups = "drop") %>%
   ungroup() %>%
   mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
+  full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  distinct(plotnaam, periode_in_jaar, status, waarnemerscode, ervaring, n) %>%
   group_by(status) %>%
   mutate(gemiddelde = mean(n))
 
