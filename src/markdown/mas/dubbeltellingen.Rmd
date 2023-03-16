@@ -1367,7 +1367,7 @@ sign_waarnemingen1 <- ifelse(sum_finaal_waarnemingen1$fixed["statusvrijwilliger"
                              "meer", "minder")
 ```
 
-We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` waarnemingen `r sign_waarnemingen1` zien dan de professionele teller (95% credible interval: `r ll_waarnemingen1` - `r ul_waarnemingen1`).
+We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` waarnemingen `r sign_waarnemingen1` melden dan de professionele teller (95% credible interval: `r ll_waarnemingen1` - `r ul_waarnemingen1`).
 
 
 
