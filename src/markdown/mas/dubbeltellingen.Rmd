@@ -928,29 +928,30 @@ if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm1.rds"))) {
   fit_dubbel_soorten_negbin1 <- readRDS(paste0(model_path, 
                                              "fit_dubbel_soorten_negbin1.rds"))
 }
-
-# Comparison among models
-comparisons_soorten1 <- loo_compare(
-    fit_dubbel_soorten_norm1, 
-    fit_dubbel_soorten_pois1, 
-    fit_dubbel_soorten_negbin1, 
-    criterion = "loo")[, c(1, 2)] %>%
-  as.data.frame() %>%
-  mutate(model = c("Normal", "Poisson", "Negative binomial"))
 ```
 
 ```{r}
-rbind(
-  fit_dubbel_soorten_norm1$criteria$loo$estimates[, "Estimate"],
-  fit_dubbel_soorten_pois1$criteria$loo$estimates[, "Estimate"],
-  fit_dubbel_soorten_negbin1$criteria$loo$estimates[, "Estimate"]
-  ) %>%
+# Comparison among models
+models_soorten <- data.frame(
+  naam = c("normaal", 
+           "poisson", 
+           "negatief binomiaal"),
+  model = c("fit_dubbel_soorten_norm1", 
+            "fit_dubbel_soorten_pois1", 
+            "fit_dubbel_soorten_negbin1"))
+
+
+loo_compare(
+    fit_dubbel_soorten_norm1, 
+    fit_dubbel_soorten_pois1, 
+    fit_dubbel_soorten_negbin1, 
+    criterion = "loo") %>%
   as.data.frame() %>%
-  mutate(model = c("Normal", "Poisson", "Negative binomial")) %>%
-  full_join(comparisons_soorten1, by = "model") %>%
+  rownames_to_column("model") %>%
+  left_join(models_soorten, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
-  select(model, everything()) %>%
   arrange(desc(elpd_diff)) %>%
   kable(digits = 3)
 ```
@@ -1020,41 +1021,43 @@ if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm12.rds"))) {
 }
 
 # Comparison among models
-comparisons_soorten12 <- loo_compare(
+models_norm <- data.frame(
+  naam = c("geen random effects", 
+           "plotnaam:periode_in_jaar", 
+           "plotnaam en plotnaam:periode_in_jaar"),
+  model = c("fit_dubbel_soorten_norm13", 
+            "fit_dubbel_soorten_norm12", 
+            "fit_dubbel_soorten_norm1"))
+
+
+loo_compare(
     fit_dubbel_soorten_norm1, 
     fit_dubbel_soorten_norm12, 
     fit_dubbel_soorten_norm13, 
-    criterion = "loo")[, c(1, 2)] %>%
+    criterion = "loo") %>%
   as.data.frame() %>%
-  mutate(model = c("plotnaam en plotnaam:periode_in_jaar", 
-                   "plotnaam:periode_in_jaar", 
-                   "geen random effects"))
-
-rbind(
-  fit_dubbel_soorten_norm1$criteria$loo$estimates[, "Estimate"],
-  fit_dubbel_soorten_norm12$criteria$loo$estimates[, "Estimate"],
-  fit_dubbel_soorten_norm13$criteria$loo$estimates[, "Estimate"]
-  ) %>%
-  as.data.frame() %>%
-  mutate(model = c("plotnaam en plotnaam:periode_in_jaar", 
-                   "plotnaam:periode_in_jaar", 
-                   "geen random effects")) %>%
-  full_join(comparisons_soorten12, by = "model") %>%
+  rownames_to_column("model") %>%
+  left_join(models_norm, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
-  select(model, everything()) %>%
   arrange(desc(elpd_diff)) %>%
   kable(digits = 3)
 ```
 
+We beschouwen het finale model zonder random effects.
 
+```{r}
+finaal_soorten1 <- fit_dubbel_soorten_norm13
+```
 
 #### Resultaten finale model
 
 En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
 
 ```{r}
-sum_soorten1
+sum_finaal_soorten1 <- summary(finaal_soorten1)
+sum_finaal_soorten1
 ```
 
 ```{r}
@@ -1068,12 +1071,12 @@ plot(hyp_soorten1)
 
 ```{r, include=FALSE}
 schatting_soorten1 <- abs(round(
-  sum_soorten1$fixed["statusvrijwilliger", "Estimate"], 3))
+  sum_finaal_soorten1$fixed["statusvrijwilliger", "Estimate"], 3))
 ll_soorten1 <- round(
-  sum_soorten1$fixed["statusvrijwilliger", "l-95% CI"], 3)
+  sum_finaal_soorten1$fixed["statusvrijwilliger", "l-95% CI"], 3)
 ul_soorten1 <- round(
-  sum_soorten1$fixed["statusvrijwilliger", "u-95% CI"], 3)
-sign_soorten1 <- ifelse(sum_soorten1$fixed["statusvrijwilliger", 
+  sum_finaal_soorten1$fixed["statusvrijwilliger", "u-95% CI"], 3)
+sign_soorten1 <- ifelse(sum_finaal_soorten1$fixed["statusvrijwilliger", 
                                            "Estimate"] > 0, 
                         "meer", "minder")
 ```
@@ -1215,17 +1218,27 @@ comparisons_waarnemingen1 <- loo_compare(
 ```
 
 ```{r}
-rbind(
-  fit_dubbel_waarnemingen_norm1$criteria$loo$estimates[, "Estimate"],
-  fit_dubbel_waarnemingen_pois1$criteria$loo$estimates[, "Estimate"],
-  fit_dubbel_waarnemingen_negbin1$criteria$loo$estimates[, "Estimate"]
-  ) %>%
+# Comparison among models
+models_waarnemingen <- data.frame(
+  naam = c("normaal", 
+           "poisson", 
+           "negatief binomiaal"),
+  model = c("fit_dubbel_waarnemingen_norm1", 
+            "fit_dubbel_waarnemingen_pois1", 
+            "fit_dubbel_waarnemingen_negbin1"))
+
+
+loo_compare(
+    fit_dubbel_waarnemingen_norm1, 
+    fit_dubbel_waarnemingen_pois1, 
+    fit_dubbel_waarnemingen_negbin1, 
+    criterion = "loo") %>%
   as.data.frame() %>%
-  mutate(model = c("Normal", "Poisson", "Negative binomial")) %>%
-  full_join(comparisons_waarnemingen1, by = "model") %>%
+  rownames_to_column("model") %>%
+  left_join(models_waarnemingen, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
-  select(model, everything()) %>%
   arrange(desc(elpd_diff)) %>%
   kable(digits = 3)
 ```
