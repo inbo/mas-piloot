@@ -895,13 +895,13 @@ dubbel_soorten_pois1 <- brm(bf(n ~ status + (1 | plaatstijd)),
 dubbel_soorten_negbin1 <- brm(bf(n ~ status + (1 | plaatstijd)), 
                 data = dubbels_2022_df_soortenrijkdom, family = negbinomial(), 
                 chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel,
+                cores = nparallel, control = list(adapt_delta = 0.9),
                 file = paste0(model_path, "dubbel_soorten_negbin1"),
                 file_refit = "on_change")
 ```
 
 ```{r}
-# Perform K-fold cross-validation
+# Perform leave-one-out cross-validation
 if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm1.rds"))) {
   fit_dubbel_soorten_norm1 <- add_criterion(dubbel_soorten_norm1, 
     criterion = c("loo"), 
@@ -922,21 +922,24 @@ if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm1.rds"))) {
 }
 
 # Comparison among models
-comparisons_soorten <- loo_compare(fit_dubbel_soorten_norm1, fit_dubbel_soorten_pois1, 
-                           fit_dubbel_soorten_negbin1, 
-                           criterion = "loo")[, c(1, 2)] %>%
-                as.data.frame() %>%
-                mutate(model = c("Normal", "Poisson", "Negative binomial"))
+comparisons_soorten1 <- loo_compare(
+    fit_dubbel_soorten_norm1, 
+    fit_dubbel_soorten_pois1, 
+    fit_dubbel_soorten_negbin1, 
+    criterion = "loo")[, c(1, 2)] %>%
+  as.data.frame() %>%
+  mutate(model = c("Normal", "Poisson", "Negative binomial"))
 ```
 
 ```{r}
-rbind(fit_dubbel_soorten_norm1$criteria$loo$estimates[, "Estimate"],
+rbind(
+  fit_dubbel_soorten_norm1$criteria$loo$estimates[, "Estimate"],
   fit_dubbel_soorten_pois1$criteria$loo$estimates[, "Estimate"],
   fit_dubbel_soorten_negbin1$criteria$loo$estimates[, "Estimate"]
   ) %>%
   as.data.frame() %>%
   mutate(model = c("Normal", "Poisson", "Negative binomial")) %>%
-  full_join(comparisons_soorten, by = "model") %>%
+  full_join(comparisons_soorten1, by = "model") %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
   select(model, everything()) %>%
@@ -966,27 +969,27 @@ plot(fit_dubbel_soorten_norm1)
 En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
 
 ```{r}
-sum_soorten <- summary(fit_dubbel_soorten_norm1)
-sum_soorten
+sum_soorten1 <- summary(fit_dubbel_soorten_norm1)
+sum_soorten1
 ```
 
 ```{r}
-hyp1 <- hypothesis(
+hyp_soorten1 <- hypothesis(
   x = fit_dubbel_soorten_norm1,
   "statusvrijwilliger = 0",
   class = "b", alpha = 0.05)
 
-plot(hyp1)
+plot(hyp_soorten1)
 ```
 
 ```{r, include=FALSE}
-schatting_soorten <- round(sum_soorten$fixed["statusvrijwilliger", "Estimate"], 3)
-ll_soorten <- round(sum_soorten$fixed["statusvrijwilliger", "l-95% CI"], 3)
-ul_soorten <- round(sum_soorten$fixed["statusvrijwilliger", "u-95% CI"], 3)
-sign <- ifelse(schatting_soorten > 0, "meer", "minder")
+schatting_soorten1 <- round(sum_soorten1$fixed["statusvrijwilliger", "Estimate"], 3)
+ll_soorten1 <- round(sum_soorten1$fixed["statusvrijwilliger", "l-95% CI"], 3)
+ul_soorten1 <- round(sum_soorten1$fixed["statusvrijwilliger", "u-95% CI"], 3)
+sign_soorten1 <- ifelse(schatting_soorten > 0, "meer", "minder")
 ```
 
-We besluiten dat de vrijwillige tellers gemiddeld `r schatting_soorten` soorten `r sign` zien dan de professionele teller (95% credible interval: `r ll_soorten` - `r ul_soorten`).
+We besluiten dat de vrijwillige tellers gemiddeld `r schatting_soorten1` soorten `r sign_soorten1` zien dan de professionele teller (95% credible interval: `r ll_soorten1` - `r ul_soorten1`).
 
 ## Aantal waarnemingen
 
@@ -1064,51 +1067,70 @@ burnin <- niter / 2    # number of initial samples to discard (burn-in)
 nparallel <- nchains   # number of cores used for parallel computing
 
 # 1. Normal
-dubbel_waarnemingen_norm <- brm(bf(n ~ status + (1 | plaatstijd)), 
+dubbel_waarnemingen_norm1 <- brm(bf(n ~ status + (1 | plaatstijd)), 
                 data = dubbels_2022_df_waarnemingen, family = gaussian(), 
                 chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel)
+                cores = nparallel, control = list(adapt_delta = 0.9),
+                file = paste0(model_path, "dubbel_waarnemingen_norm1"),
+                file_refit = "on_change")
 
 # 2. Poisson
-dubbel_waarnemingen_pois <- brm(bf(n ~ status + (1 | plaatstijd)), 
+dubbel_waarnemingen_pois1 <- brm(bf(n ~ status + (1 | plaatstijd)), 
                 data = dubbels_2022_df_waarnemingen, family = poisson(), 
                 chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel)
+                cores = nparallel,
+                file = paste0(model_path, "dubbel_waarnemingen_pois1"),
+                file_refit = "on_change")
 
 # 3. Negative binomial
-dubbel_waarnemingen_negbin <- brm(bf(n ~ status + (1 | plaatstijd)), 
+dubbel_waarnemingen_negbin1 <- brm(bf(n ~ status + (1 | plaatstijd)), 
                 data = dubbels_2022_df_waarnemingen, family = negbinomial(), 
                 chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel)
+                cores = nparallel, control = list(adapt_delta = 0.9),
+                file = paste0(model_path, "dubbel_waarnemingen_negbin1"),
+                file_refit = "on_change")
 ```
 
 ```{r}
-fit_dubbel_waarnemingen_norm <- add_criterion(dubbel_waarnemingen_norm, c("kfold"), K = 5, 
-                                     cores = 5, folds = "stratified", 
-                                     group = "status")
-fit_dubbel_waarnemingen_pois <- add_criterion(dubbel_waarnemingen_pois, c("kfold"), K = 5, 
-                                     cores = 5, folds = "stratified", 
-                                     group = "status")
-fit_dubbel_waarnemingen_negbin <- add_criterion(dubbel_waarnemingen_negbin, c("kfold"), K = 5, 
-                                     cores = 5, folds = "stratified", 
-                                     group = "status")
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_waarnemingen_norm1.rds"))) {
+  fit_dubbel_waarnemingen_norm1 <- add_criterion(dubbel_waarnemingen_norm1, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_waarnemingen_norm1"))
+  fit_dubbel_waarnemingen_pois1 <- add_criterion(dubbel_waarnemingen_pois1, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_waarnemingen_pois1"))
+  fit_dubbel_waarnemingen_negbin1 <- add_criterion(dubbel_waarnemingen_negbin1, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_waarnemingen_negbin1"))
+} else {
+  fit_dubbel_waarnemingen_norm1 <- readRDS(paste0(model_path, 
+                                     "fit_dubbel_waarnemingen_norm1.rds"))
+  fit_dubbel_waarnemingen_pois1 <- readRDS(paste0(model_path, 
+                                     "fit_dubbel_waarnemingen_pois1.rds"))
+  fit_dubbel_waarnemingen_negbin1 <- readRDS(paste0(model_path, 
+                                     "fit_dubbel_waarnemingen_negbin1.rds"))
+}
 
 # Comparison among models
-comparisons <- loo_compare(fit_dubbel_waarnemingen_norm, fit_dubbel_waarnemingen_pois, 
-                           fit_dubbel_waarnemingen_negbin, 
-                           criterion = "kfold")[, c(1, 2)] %>%
-                as.data.frame() %>%
-                mutate(model = c("Normal", "Poisson", "Negative binomial"))
+comparisons_waarnemingen1 <- loo_compare(
+    fit_dubbel_waarnemingen_norm1, 
+    fit_dubbel_waarnemingen_pois1, 
+    fit_dubbel_waarnemingen_negbin1, 
+    criterion = "loo")[, c(1, 2)] %>%
+  as.data.frame() %>%
+  mutate(model = c("Normal", "Poisson", "Negative binomial"))
 ```
 
 ```{r}
-rbind(fit_dubbel_waarnemingen_norm$criteria$kfold$estimates[, "Estimate"],
-  fit_dubbel_waarnemingen_pois$criteria$kfold$estimates[, "Estimate"],
-  fit_dubbel_waarnemingen_negbin$criteria$kfold$estimates[, "Estimate"]
+rbind(
+  fit_dubbel_waarnemingen_norm1$criteria$loo$estimates[, "Estimate"],
+  fit_dubbel_waarnemingen_pois1$criteria$loo$estimates[, "Estimate"],
+  fit_dubbel_waarnemingen_negbin1$criteria$loo$estimates[, "Estimate"]
   ) %>%
   as.data.frame() %>%
   mutate(model = c("Normal", "Poisson", "Negative binomial")) %>%
-  full_join(comparisons, by = "model") %>%
+  full_join(comparisons_waarnemingen1, by = "model") %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
   select(model, everything()) %>%
@@ -1117,13 +1139,13 @@ rbind(fit_dubbel_waarnemingen_norm$criteria$kfold$estimates[, "Estimate"],
 ```
 
 ```{r}
-pp_check(fit_dubbel_waarnemingen_norm, type = "dens_overlay_grouped", ndraws = 100, 
+pp_check(fit_dubbel_waarnemingen_norm1, type = "dens_overlay_grouped", ndraws = 100, 
          group = "status")
 
-pp_check(fit_dubbel_waarnemingen_pois, type = "bars_grouped", ndraws = 100, group = "status",
+pp_check(fit_dubbel_waarnemingen_pois1, type = "bars_grouped", ndraws = 100, group = "status",
          facet_args = list(ncol = 1, scales = "free_y"))
 
-pp_check(fit_dubbel_waarnemingen_negbin, type = "bars_grouped", ndraws = 100, group = "status",
+pp_check(fit_dubbel_waarnemingen_negbin1, type = "bars_grouped", ndraws = 100, group = "status",
          facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
@@ -1132,30 +1154,29 @@ Hoewel we discrete data hebben, besluiten we dat normale glm met normaal verdeli
 We zien goede convergentie.
 
 ```{r}
-plot(fit_dubbel_waarnemingen_norm)
+plot(fit_dubbel_waarnemingen_norm1)
 ```
 
 En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
 
 ```{r}
-summary(fit_dubbel_waarnemingen_norm)
+sum_waarnemingen1 <- summary(fit_dubbel_waarnemingen_norm1)
 ```
 
 ```{r}
-hyp1 <- hypothesis(
-  x = fit_dubbel_waarnemingen_norm,
+hyp_waarnemingen1 <- hypothesis(
+  x = fit_dubbel_waarnemingen_norm1,
   "statusvrijwilliger = 0",
   class = "b", alpha = 0.05)
-hyp1
-plot(hyp1)
+
+plot(hyp_waarnemingen1)
 ```
 
 ```{r, include=FALSE}
-sum <- summary(fit_dubbel_waarnemingen_norm)
-schatting_waarnemingen <- round(sum$fixed["statusvrijwilliger", "Estimate"], 3)
-ll_waarnemingen <- round(sum$fixed["statusvrijwilliger", "l-95% CI"], 3)
-ul_waarnemingen <- round(sum$fixed["statusvrijwilliger", "u-95% CI"], 3)
-sign <- ifelse(schatting_waarnemingen > 0, "meer", "minder")
+schatting_waarnemingen1 <- round(sum_waarnemingen1$fixed["statusvrijwilliger", "Estimate"], 3)
+ll_waarnemingen1 <- round(sum_waarnemingen1$fixed["statusvrijwilliger", "l-95% CI"], 3)
+ul_waarnemingen1 <- round(sum_waarnemingen1$fixed["statusvrijwilliger", "u-95% CI"], 3)
+sign_waarnemingen1 <- ifelse(schatting_waarnemingen1 > 0, "meer", "minder")
 ```
 
-We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen` soorten `r sign` zien dan de professionele teller (95% credible interval: `r ll_waarnemingen` - `r ul_waarnemingen`).
+We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` soorten `r sign_waarnemingen1` zien dan de professionele teller (95% credible interval: `r ll_waarnemingen1` - `r ul_waarnemingen1`).
