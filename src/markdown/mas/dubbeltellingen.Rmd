@@ -951,11 +951,11 @@ rbind(
 pp_check(fit_dubbel_soorten_norm1, type = "dens_overlay_grouped", ndraws = 100, 
          group = "status")
 
-pp_check(fit_dubbel_soorten_pois1, type = "bars_grouped", ndraws = 100, group = "status",
-         facet_args = list(ncol = 1, scales = "free_y"))
+pp_check(fit_dubbel_soorten_pois1, type = "bars_grouped", ndraws = 100, 
+         group = "status", facet_args = list(ncol = 1, scales = "free_y"))
 
-pp_check(fit_dubbel_soorten_negbin1, type = "bars_grouped", ndraws = 100, group = "status",
-         facet_args = list(ncol = 1, scales = "free_y"))
+pp_check(fit_dubbel_soorten_negbin1, type = "bars_grouped", ndraws = 100, 
+         group = "status", facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
 Hoewel we discrete data hebben, besluiten we dat normale glm met normaal verdeling het beste past bij de data. De resultaten voor alle drie de modellen zijn gelijkaardig.
@@ -983,10 +983,13 @@ plot(hyp_soorten1)
 ```
 
 ```{r, include=FALSE}
-schatting_soorten1 <- round(sum_soorten1$fixed["statusvrijwilliger", "Estimate"], 3)
-ll_soorten1 <- round(sum_soorten1$fixed["statusvrijwilliger", "l-95% CI"], 3)
-ul_soorten1 <- round(sum_soorten1$fixed["statusvrijwilliger", "u-95% CI"], 3)
-sign_soorten1 <- ifelse(schatting_soorten > 0, "meer", "minder")
+schatting_soorten1 <- round(
+  sum_soorten1$fixed["statusvrijwilliger", "Estimate"], 3)
+ll_soorten1 <- round(
+  sum_soorten1$fixed["statusvrijwilliger", "l-95% CI"], 3)
+ul_soorten1 <- round(
+  sum_soorten1$fixed["statusvrijwilliger", "u-95% CI"], 3)
+sign_soorten1 <- ifelse(schatting_soorten1 > 0, "meer", "minder")
 ```
 
 We besluiten dat de vrijwillige tellers gemiddeld `r schatting_soorten1` soorten `r sign_soorten1` zien dan de professionele teller (95% credible interval: `r ll_soorten1` - `r ul_soorten1`).
@@ -1139,14 +1142,14 @@ rbind(
 ```
 
 ```{r}
-pp_check(fit_dubbel_waarnemingen_norm1, type = "dens_overlay_grouped", ndraws = 100, 
-         group = "status")
+pp_check(fit_dubbel_waarnemingen_norm1, type = "dens_overlay_grouped", 
+         ndraws = 100, group = "status")
 
-pp_check(fit_dubbel_waarnemingen_pois1, type = "bars_grouped", ndraws = 100, group = "status",
-         facet_args = list(ncol = 1, scales = "free_y"))
+pp_check(fit_dubbel_waarnemingen_pois1, type = "bars_grouped", ndraws = 100, 
+         group = "status", facet_args = list(ncol = 1, scales = "free_y"))
 
-pp_check(fit_dubbel_waarnemingen_negbin1, type = "bars_grouped", ndraws = 100, group = "status",
-         facet_args = list(ncol = 1, scales = "free_y"))
+pp_check(fit_dubbel_waarnemingen_negbin1, type = "bars_grouped", ndraws = 100, 
+         group = "status", facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
 Hoewel we discrete data hebben, besluiten we dat normale glm met normaal verdeling het beste past bij de data.
@@ -1173,9 +1176,12 @@ plot(hyp_waarnemingen1)
 ```
 
 ```{r, include=FALSE}
-schatting_waarnemingen1 <- round(sum_waarnemingen1$fixed["statusvrijwilliger", "Estimate"], 3)
-ll_waarnemingen1 <- round(sum_waarnemingen1$fixed["statusvrijwilliger", "l-95% CI"], 3)
-ul_waarnemingen1 <- round(sum_waarnemingen1$fixed["statusvrijwilliger", "u-95% CI"], 3)
+schatting_waarnemingen1 <- round(
+  sum_waarnemingen1$fixed["statusvrijwilliger", "Estimate"], 3)
+ll_waarnemingen1 <- round(
+  sum_waarnemingen1$fixed["statusvrijwilliger", "l-95% CI"], 3)
+ul_waarnemingen1 <- round(
+  sum_waarnemingen1$fixed["statusvrijwilliger", "u-95% CI"], 3)
 sign_waarnemingen1 <- ifelse(schatting_waarnemingen1 > 0, "meer", "minder")
 ```
 
