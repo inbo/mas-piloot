@@ -1109,7 +1109,7 @@ ggplot(dubbels_2022_df_waarnemingen) +
   geom_vline(aes(xintercept = gemiddelde,  colour = status),
              linetype = "dashed", size = 1) +
   coord_cartesian(xlim = c(0, NA)) +
-  labs(x = "aantal soorten")
+  labs(x = "aantal waarnemingen")
 
 # Density plots with semi-transparent fill
 ggplot(dubbels_2022_df_waarnemingen, aes(x = n, fill = status)) + 
@@ -1117,7 +1117,7 @@ ggplot(dubbels_2022_df_waarnemingen, aes(x = n, fill = status)) +
   geom_vline(aes(xintercept = gemiddelde,  colour = status),
              linetype = "dashed", size = 1) +
   coord_cartesian(xlim = c(0, NA)) +
-  labs(x = "aantal soorten")
+  labs(x = "aantal waarnemingen")
 ```
 
 
@@ -1289,4 +1289,4 @@ sign_waarnemingen1 <- ifelse(sum_waarnemingen1$fixed["statusvrijwilliger",
                              "meer", "minder")
 ```
 
-We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` soorten `r sign_waarnemingen1` zien dan de professionele teller (95% credible interval: `r ll_waarnemingen1` - `r ul_waarnemingen1`).
+We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` waarnemingen `r sign_waarnemingen1` zien dan de professionele teller (95% credible interval: `r ll_waarnemingen1` - `r ul_waarnemingen1`).
