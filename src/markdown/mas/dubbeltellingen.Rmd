@@ -841,12 +841,13 @@ palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(un
 
 dubbels_2022_df_soortenrijkdom %>%
   ggplot() +
-    geom_point(aes(x = status, y = n)) +
+    geom_jitter(aes(x = status, y = n, shape = ervaring), 
+                width = 0.2, height	= 0) +
     geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
     scale_colour_manual(values = palette) +
-    theme(legend.position = "") +
+    guides(colour = "none") +
     coord_cartesian(ylim = c(0, NA)) +
-    labs(y = "aantal soorten")
+    labs(y = "aantal waarnemingen")
 ```
 
 ### Testen
@@ -1062,7 +1063,7 @@ sum_finaal_soorten1
 
 ```{r}
 hyp_soorten1 <- hypothesis(
-  x = fit_dubbel_soorten_norm1,
+  x = finaal_soorten1,
   "statusvrijwilliger = 0",
   class = "b", alpha = 0.05)
 
@@ -1098,7 +1099,8 @@ dubbels_2022_df_waarnemingen <- dubbels_2022_df %>%
   ungroup() %>%
   mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
   full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
-  distinct(plotnaam, periode_in_jaar, status, waarnemerscode, ervaring, n) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
+           ervaring, n) %>%
   group_by(status) %>%
   mutate(gemiddelde = mean(n))
 
@@ -1126,10 +1128,11 @@ palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(un
 
 dubbels_2022_df_waarnemingen %>%
   ggplot() +
-    geom_point(aes(x = status, y = n)) +
+    geom_jitter(aes(x = status, y = n, shape = ervaring), 
+                width = 0.2, height	= 0) +
     geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
     scale_colour_manual(values = palette) +
-    theme(legend.position = "") +
+    guides(colour = "none") +
     coord_cartesian(ylim = c(0, NA)) +
     labs(y = "aantal waarnemingen")
 ```
@@ -1162,29 +1165,34 @@ burnin <- niter / 2    # number of initial samples to discard (burn-in)
 nparallel <- nchains   # number of cores used for parallel computing
 
 # 1. Normal
-dubbel_waarnemingen_norm1 <- brm(bf(n ~ status + (1 | plaatstijd)), 
-                data = dubbels_2022_df_waarnemingen, family = gaussian(), 
-                chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel, control = list(adapt_delta = 0.9),
-                file = paste0(model_path, "dubbel_waarnemingen_norm1"),
-                file_refit = "on_change")
+dubbel_waarnemingen_norm1 <- brm( 
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_waarnemingen, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_waarnemingen_norm1"),
+  file_refit = "on_change")
 
 # 2. Poisson
-dubbel_waarnemingen_pois1 <- brm(bf(n ~ status + (1 | plaatstijd)), 
-                data = dubbels_2022_df_waarnemingen, family = poisson(), 
-                chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel,
-                file = paste0(model_path, "dubbel_waarnemingen_pois1"),
-                file_refit = "on_change")
+dubbel_waarnemingen_pois1 <- brm( 
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_waarnemingen, family = poisson(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_waarnemingen_pois1"),
+  file_refit = "on_change")
 
 # 3. Negative binomial
-dubbel_waarnemingen_negbin1 <- brm(bf(n ~ status + (1 | plaatstijd)), 
-                data = dubbels_2022_df_waarnemingen, family = negbinomial(), 
-                chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel, control = list(adapt_delta = 0.9),
-                file = paste0(model_path, "dubbel_waarnemingen_negbin1"),
-                file_refit = "on_change")
+dubbel_waarnemingen_negbin1 <- brm( 
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_waarnemingen, family = negbinomial(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.9),
+  file = paste0(model_path, "dubbel_waarnemingen_negbin1"),
+  file_refit = "on_change")
 ```
+
+#### Model selectie
+
+We vergelijken de modellen gebruikmakend van leave-one-out cross-validation.
 
 ```{r}
 # Perform leave-one-out cross-validation
@@ -1206,15 +1214,6 @@ if (!file.exists(paste0(model_path, "fit_dubbel_waarnemingen_norm1.rds"))) {
   fit_dubbel_waarnemingen_negbin1 <- readRDS(paste0(model_path, 
                                      "fit_dubbel_waarnemingen_negbin1.rds"))
 }
-
-# Comparison among models
-comparisons_waarnemingen1 <- loo_compare(
-    fit_dubbel_waarnemingen_norm1, 
-    fit_dubbel_waarnemingen_pois1, 
-    fit_dubbel_waarnemingen_negbin1, 
-    criterion = "loo")[, c(1, 2)] %>%
-  as.data.frame() %>%
-  mutate(model = c("Normal", "Poisson", "Negative binomial"))
 ```
 
 ```{r}
@@ -1254,7 +1253,7 @@ pp_check(fit_dubbel_waarnemingen_negbin1, type = "bars_grouped", ndraws = 100,
          group = "status", facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
-Hoewel we discrete data hebben, besluiten we dat normale glm met normaal verdeling het beste past bij de data.
+Hoewel we discrete data hebben, besluiten we dat normale glm met normaal verdeling het beste past bij de data. De resultaten voor alle drie de modellen zijn gelijkaardig.
   
 We zien goede convergentie.
 
@@ -1262,15 +1261,94 @@ We zien goede convergentie.
 plot(fit_dubbel_waarnemingen_norm1)
 ```
 
-En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
+#### Selectie random effects
 
 ```{r}
 sum_waarnemingen1 <- summary(fit_dubbel_waarnemingen_norm1)
+
+sd_plot <- sum_waarnemingen1$random$plotnaam$Estimate
+sd_plotperiode <- sum_waarnemingen1$random$`plotnaam:periode_in_jaar`$Estimate
+sd_res <- sum_waarnemingen1$spec_pars$Estimate
+
+icc_plot <- (sd_plot^2) / (sd_plot^2 + sd_plotperiode^2 + sd_res^2)
+icc_plotperiode <- (sd_plotperiode^2) / (sd_plot^2 + sd_plotperiode^2 + sd_res^2)
+```
+
+De correlatie tussen observaties binnen een zelfde plot is relatief hoog (ICC = `r round(icc_plot, 3)`) en de correlatie tussen observaties binnen eenzelfde periode in eenzelfde plot niet ((ICC = `r round(icc_plotperiode, 3)`)). We testen of we de random effects kunnen weglaten. Hiervoor fitten we een model zonder random effect van plot en zonder enig random effect.
+
+```{r}
+dubbel_waarnemingen_norm12 <- brm(
+  bf(n ~ status + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_waarnemingen, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_waarnemingen_norm12"),
+  file_refit = "on_change")
+
+dubbel_waarnemingen_norm13 <- brm(
+  bf(n ~ status), 
+  data = dubbels_2022_df_waarnemingen, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_waarnemingen_norm13"),
+  file_refit = "on_change")
+
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_waarnemingen_norm12.rds"))) {
+  fit_dubbel_waarnemingen_norm12 <- add_criterion(dubbel_waarnemingen_norm12, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_waarnemingen_norm12"))
+  fit_dubbel_waarnemingen_norm13 <- add_criterion(dubbel_waarnemingen_norm13, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_waarnemingen_norm13"))
+} else {
+  fit_dubbel_waarnemingen_norm12 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_waarnemingen_norm12.rds"))
+  fit_dubbel_waarnemingen_norm13 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_waarnemingen_norm13.rds"))
+}
+
+# Comparison among models
+models_norm <- data.frame(
+  naam = c("geen random effects", 
+           "plotnaam:periode_in_jaar", 
+           "plotnaam en plotnaam:periode_in_jaar"),
+  model = c("fit_dubbel_waarnemingen_norm13", 
+            "fit_dubbel_waarnemingen_norm12", 
+            "fit_dubbel_waarnemingen_norm1"))
+
+
+loo_compare(
+    fit_dubbel_waarnemingen_norm1, 
+    fit_dubbel_waarnemingen_norm12, 
+    fit_dubbel_waarnemingen_norm13, 
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_norm, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+We beschouwen het finale model met random effects.
+
+```{r}
+finaal_waarnemingen1 <- fit_dubbel_waarnemingen_norm1
+```
+
+#### Resultaten finale model
+
+En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
+
+```{r}
+sum_finaal_waarnemingen1 <- summary(finaal_waarnemingen1)
+sum_finaal_waarnemingen1
 ```
 
 ```{r}
 hyp_waarnemingen1 <- hypothesis(
-  x = fit_dubbel_waarnemingen_norm1,
+  x = finaal_waarnemingen1,
   "statusvrijwilliger = 0",
   class = "b", alpha = 0.05)
 
@@ -1279,12 +1357,12 @@ plot(hyp_waarnemingen1)
 
 ```{r, include=FALSE}
 schatting_waarnemingen1 <- abs(round(
-  sum_waarnemingen1$fixed["statusvrijwilliger", "Estimate"], 3))
+  sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "Estimate"], 3))
 ll_waarnemingen1 <- round(
-  sum_waarnemingen1$fixed["statusvrijwilliger", "l-95% CI"], 3)
+  sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "l-95% CI"], 3)
 ul_waarnemingen1 <- round(
-  sum_waarnemingen1$fixed["statusvrijwilliger", "u-95% CI"], 3)
-sign_waarnemingen1 <- ifelse(sum_waarnemingen1$fixed["statusvrijwilliger", 
+  sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "u-95% CI"], 3)
+sign_waarnemingen1 <- ifelse(sum_finaal_waarnemingen1$fixed["statusvrijwilliger", 
                                                      "Estimate"] > 0, 
                              "meer", "minder")
 ```
