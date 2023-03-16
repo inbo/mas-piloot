@@ -812,7 +812,8 @@ dubbels_2022_df_soortenrijkdom <- dubbels_2022_df %>%
   ungroup() %>%
   mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
   full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
-  distinct(plotnaam, periode_in_jaar, status, waarnemerscode, ervaring, n) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
+           ervaring, n) %>%
   group_by(status) %>%
   mutate(gemiddelde = mean(n))
 
@@ -878,29 +879,34 @@ burnin <- niter / 2    # number of initial samples to discard (burn-in)
 nparallel <- nchains   # number of cores used for parallel computing
 
 # 1. Normal
-dubbel_soorten_norm1 <- brm(bf(n ~ status + (1 | plaatstijd)), 
-                data = dubbels_2022_df_soortenrijkdom, family = gaussian(), 
-                chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel, control = list(adapt_delta = 0.9),
-                file = paste0(model_path, "dubbel_soorten_norm1"),
-                file_refit = "on_change")
+dubbel_soorten_norm1 <- brm(
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_soortenrijkdom, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_norm1"),
+  file_refit = "on_change")
 
 # 2. Poisson
-dubbel_soorten_pois1 <- brm(bf(n ~ status + (1 | plaatstijd)), 
-                data = dubbels_2022_df_soortenrijkdom, family = poisson(), 
-                chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel,
-                file = paste0(model_path, "dubbel_soorten_pois1"),
-                file_refit = "on_change")
+dubbel_soorten_pois1 <- brm(
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_soortenrijkdom, family = poisson(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_pois1"),
+  file_refit = "on_change")
 
 # 3. Negative binomial
-dubbel_soorten_negbin1 <- brm(bf(n ~ status + (1 | plaatstijd)), 
-                data = dubbels_2022_df_soortenrijkdom, family = negbinomial(), 
-                chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel, control = list(adapt_delta = 0.9),
-                file = paste0(model_path, "dubbel_soorten_negbin1"),
-                file_refit = "on_change")
+dubbel_soorten_negbin1 <- brm(
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_soortenrijkdom, family = negbinomial(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.9),
+  file = paste0(model_path, "dubbel_soorten_negbin1"),
+  file_refit = "on_change")
 ```
+
+#### Model selectie
+
+We vergelijken de modellen gebruikmakend van leave-one-out cross-validation.
 
 ```{r}
 # Perform leave-one-out cross-validation
@@ -968,10 +974,86 @@ We zien goede convergentie.
 plot(fit_dubbel_soorten_norm1)
 ```
 
-En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
+#### Selectie random effects
 
 ```{r}
 sum_soorten1 <- summary(fit_dubbel_soorten_norm1)
+
+sd_plot <- sum_soorten1$random$plotnaam$Estimate
+sd_plotperiode <- sum_soorten1$random$`plotnaam:periode_in_jaar`$Estimate
+sd_res <- sum_soorten1$spec_pars$Estimate
+
+icc_plot <- (sd_plot^2) / (sd_plot^2 + sd_plotperiode^2 + sd_res^2)
+icc_plotperiode <- (sd_plotperiode^2) / (sd_plot^2 + sd_plotperiode^2 + sd_res^2)
+```
+
+De correlatie tussen observaties binnen een zelfde plot is relatief laag (ICC = `r round(icc_plot, 3)`) en ook de correlatie tussen observaties binnen eenzelfde periode in eenzelfde plot ((ICC = `r round(icc_plotperiode, 3)`)). We testen of we de random effects kunnen weglaten. Hiervoor fitten we een model zonder random effect van plot en zonder enig random effect.
+
+```{r}
+dubbel_soorten_norm12 <- brm(
+  bf(n ~ status + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_soortenrijkdom, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_norm12"),
+  file_refit = "on_change")
+
+dubbel_soorten_norm13 <- brm(
+  bf(n ~ status), 
+  data = dubbels_2022_df_soortenrijkdom, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_norm13"),
+  file_refit = "on_change")
+
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm12.rds"))) {
+  fit_dubbel_soorten_norm12 <- add_criterion(dubbel_soorten_norm12, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_norm12"))
+  fit_dubbel_soorten_norm13 <- add_criterion(dubbel_soorten_norm13, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_norm13"))
+} else {
+  fit_dubbel_soorten_norm12 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_norm12.rds"))
+  fit_dubbel_soorten_norm13 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_norm13.rds"))
+}
+
+# Comparison among models
+comparisons_soorten12 <- loo_compare(
+    fit_dubbel_soorten_norm1, 
+    fit_dubbel_soorten_norm12, 
+    fit_dubbel_soorten_norm13, 
+    criterion = "loo")[, c(1, 2)] %>%
+  as.data.frame() %>%
+  mutate(model = c("plotnaam en plotnaam:periode_in_jaar", 
+                   "plotnaam:periode_in_jaar", 
+                   "geen random effects"))
+
+rbind(
+  fit_dubbel_soorten_norm1$criteria$loo$estimates[, "Estimate"],
+  fit_dubbel_soorten_norm12$criteria$loo$estimates[, "Estimate"],
+  fit_dubbel_soorten_norm13$criteria$loo$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = c("plotnaam en plotnaam:periode_in_jaar", 
+                   "plotnaam:periode_in_jaar", 
+                   "geen random effects")) %>%
+  full_join(comparisons_soorten12, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+
+
+#### Resultaten finale model
+
+En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
+
+```{r}
 sum_soorten1
 ```
 
@@ -985,16 +1067,19 @@ plot(hyp_soorten1)
 ```
 
 ```{r, include=FALSE}
-schatting_soorten1 <- round(
-  sum_soorten1$fixed["statusvrijwilliger", "Estimate"], 3)
+schatting_soorten1 <- abs(round(
+  sum_soorten1$fixed["statusvrijwilliger", "Estimate"], 3))
 ll_soorten1 <- round(
   sum_soorten1$fixed["statusvrijwilliger", "l-95% CI"], 3)
 ul_soorten1 <- round(
   sum_soorten1$fixed["statusvrijwilliger", "u-95% CI"], 3)
-sign_soorten1 <- ifelse(schatting_soorten1 > 0, "meer", "minder")
+sign_soorten1 <- ifelse(sum_soorten1$fixed["statusvrijwilliger", 
+                                           "Estimate"] > 0, 
+                        "meer", "minder")
 ```
 
 We besluiten dat de vrijwillige tellers gemiddeld `r schatting_soorten1` soorten `r sign_soorten1` zien dan de professionele teller (95% credible interval: `r ll_soorten1` - `r ul_soorten1`).
+
 
 ## Aantal waarnemingen
 
@@ -1180,13 +1265,15 @@ plot(hyp_waarnemingen1)
 ```
 
 ```{r, include=FALSE}
-schatting_waarnemingen1 <- round(
-  sum_waarnemingen1$fixed["statusvrijwilliger", "Estimate"], 3)
+schatting_waarnemingen1 <- abs(round(
+  sum_waarnemingen1$fixed["statusvrijwilliger", "Estimate"], 3))
 ll_waarnemingen1 <- round(
   sum_waarnemingen1$fixed["statusvrijwilliger", "l-95% CI"], 3)
 ul_waarnemingen1 <- round(
   sum_waarnemingen1$fixed["statusvrijwilliger", "u-95% CI"], 3)
-sign_waarnemingen1 <- ifelse(schatting_waarnemingen1 > 0, "meer", "minder")
+sign_waarnemingen1 <- ifelse(sum_waarnemingen1$fixed["statusvrijwilliger", 
+                                                     "Estimate"] > 0, 
+                             "meer", "minder")
 ```
 
 We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` soorten `r sign_waarnemingen1` zien dan de professionele teller (95% credible interval: `r ll_waarnemingen1` - `r ul_waarnemingen1`).
