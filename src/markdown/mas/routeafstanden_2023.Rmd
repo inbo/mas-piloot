@@ -33,7 +33,7 @@ library(osrm)
 
 # Telpunten
 
-We lezen de telpunten in van de pilootstudie van 2022 en de nieuwe steekproef in de zandleemstreek en de westelijke leemstreek. Hiervan nemen we de eerste 50 punten (niet de reserve batch).
+We lezen de telpunten in van de pilootstudie van 2022 en de nieuwe steekproef in de zandleemstreek en de westelijke leemstreek. Van de nieuwe steekproef nemen we de eerste 50 punten (niet de reserve batch) en geen gerecupereerde punten (die zitten toch al in de dataset van de pilootstudie).
 
 ```{r}
 # pilootstudie
@@ -50,7 +50,8 @@ piloot_punten <- read_csv(here(
          stratum = gsub("L\\s{1}", "L\\\n", stratum),
          jaar = 2022L) %>%
   select(-c(stratum, sbp)) %>%
-  st_as_sf(coords = c("X", "Y"), crs = 31370)
+  st_as_sf(coords = c("X", "Y"), crs = 31370) %>%
+  select(plotnaam, regio)
 
 # zandleemstreek
 zandleem_punten <- st_read(file.path(
@@ -58,7 +59,8 @@ zandleem_punten <- st_read(file.path(
     "processed",
     "steekproef_zandleemstreek_telpunten.geojson")) %>%
   filter(batch == "eerste set",
-         startsWith(pointid, "Zn"))
+         startsWith(pointid, "Zn")) %>%
+  select(plotnaam = pointid, regio = Naam)
 
 # westelijke leemstreek
 leem_punten <- st_read(file.path(
@@ -66,7 +68,20 @@ leem_punten <- st_read(file.path(
     "processed",
     "steekproef_leemstreek_telpunten.geojson")) %>%
   filter(batch == "eerste set") %>%
-  mutate(Naam = "Westelijke leemstreek")
+  mutate(Naam = "Westelijke leemstreek") %>%
+  select(plotnaam = pointid, regio = Naam)
+```
+
+```{r}
+punten_totaal <- bind_rows(
+  piloot_punten,
+  zandleem_punten,
+  leem_punten
+)
+
+ggplot() +
+  geom_sf(data = punten_totaal, aes(colour = regio)) +
+  theme(legend.position = "bottom")
 ```
 
 
