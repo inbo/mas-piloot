@@ -27,4 +27,46 @@ opts_knit$set(root.dir = here::here())
 
 # packages
 library(tidyverse)
+library(sf)
+library(osrm)
 ```
+
+# Telpunten
+
+We lezen de telpunten in van de pilootstudie van 2022 en de nieuwe steekproef in de zandleemstreek en de westelijke leemstreek. Hiervan nemen we de eerste 50 punten (niet de reserve batch).
+
+```{r}
+# pilootstudie
+piloot_punten <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid_klasse = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  select(-c(stratum, sbp)) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370)
+
+# zandleemstreek
+zandleem_punten <- st_read(file.path(
+    "data",
+    "processed",
+    "steekproef_zandleemstreek_telpunten.geojson")) %>%
+  filter(batch == "eerste set",
+         startsWith(pointid, "Zn"))
+
+# westelijke leemstreek
+leem_punten <- st_read(file.path(
+    "data",
+    "processed",
+    "steekproef_leemstreek_telpunten.geojson")) %>%
+  filter(batch == "eerste set") %>%
+  mutate(Naam = "Westelijke leemstreek")
+```
+
+
