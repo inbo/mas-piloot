@@ -1160,7 +1160,7 @@ oude_cirkels_sbp <- oude_punten_sbp %>%
   st_buffer(300)
 
 # buffer nieuwe punten
-steekproef_raw <- tar_read(steekproef_thinned, store = targets_store) %>%
+steekproef_raw <- tar_read(steekproef_thinned_600, store = targets_store) %>%
   filter(Naam == "Leemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,

@@ -916,10 +916,10 @@ De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de zandleems
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
 De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
   
-Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden.
+Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 600 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden. Voor een vergelijking tussen 300 en 600 m thinning, zie steekproefontwerp_leemstreek.Rmd.
 
 ```{r trekking}
-steekproef <- tar_read(steekproef_final, store = targets_store) %>%
+steekproef <- tar_read(steekproef_final_600, store = targets_store) %>%
   filter(Naam == "Zandleemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
@@ -1142,7 +1142,7 @@ oude_cirkels_sbp <- oude_punten_sbp %>%
   st_buffer(300)
 
 # buffer nieuwe punten
-steekproef_raw <- tar_read(steekproef_thinned, store = targets_store) %>%
+steekproef_raw <- tar_read(steekproef_thinned_600, store = targets_store) %>%
   filter(Naam == "Zandleemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
