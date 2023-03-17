@@ -56,6 +56,7 @@ thin_sample <- function(sample, thin_dist) {
 
   # Reorder samples
   keep <- keep[order(keep$sample_order), ]
+  keep$thin_dist <- thin_dist
 
   return(keep)
 }
