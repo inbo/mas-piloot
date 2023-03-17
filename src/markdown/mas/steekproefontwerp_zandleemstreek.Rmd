@@ -1111,6 +1111,7 @@ Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand pu
 We bekijken overlap met de pilootstudie.
 Er is niet veel overlap.
 We vervangen alle telpunten uit de steekproef van de zandleemstreek door reeds bestaande punten indien ze voor minstens 50 % overlappen en ze tot hetzelfde stratum behoren.
+Indien er meerdere bestaande punten overlappen, nemen we het bestaande punt dat het meest overlapt.
 Omdat we nu een nieuwe laag van sbp gebruiken, moeten we dit stratum opnieuw berekenen voor de bestaande punten.
 
 
