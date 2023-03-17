@@ -918,10 +918,11 @@ De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de leemstree
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
 De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
   
-Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden.
+Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m of 600 m afstand ligt. Als dit het geval is, wordt het punt met de lagere `sample_order` weerhouden. We zullen beide thinning afstanden vergelijken.
 
 ```{r trekking}
-steekproef <- tar_read(steekproef_final, store = targets_store) %>%
+steekproef <- tar_read(steekproef_final_300, store = targets_store) %>%
+  bind_rows(tar_read(steekproef_final_600, store = targets_store)) %>%
   filter(Naam == "Leemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
@@ -939,10 +940,11 @@ N.B.: voor de steekproef over Vlaanderen is het best mogelijk dat een ander temp
 Kaart van de steekproef:
 
 ```{r kaart-steekproef, warning=FALSE}
-steekproef %>%
-  st_buffer(dist = 300) %>%
-  mapview(zcol = "openheid_sbp", layer = "stratum") +
-  mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
+mapview(steekproef %>% filter(thin_dist == 300) %>% st_buffer(dist = 300), 
+        zcol = "openheid_sbp", layer = "stratum_300") +
+mapview(steekproef %>% filter(thin_dist == 600) %>% st_buffer(dist = 300), 
+        zcol = "openheid_sbp", layer = "stratum_600") +
+mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
 ```
 
 De meest open landschappen zitten volledig binnen de perimeter van het SBP plan.
@@ -953,13 +955,13 @@ first_samples <- function(steekproef_df, min_n, multiplicatie) {
   factor_n <- min_n * multiplicatie
   
   steekproef_df %>%
-    group_by(openheid_sbp) %>% 
+    group_by(openheid_sbp, thin_dist) %>% 
     mutate(id = row_number()) %>% # sample_order cannot be used due to thinning 
     ungroup() %>%
     filter(id <= factor_n) %>%
     mutate(batch = ifelse(id <= min_n, batch, "reserve set")) %>%
     select(-id) %>%
-    mutate(puntenset = paste("steekproef", min_n, "per stratum", 
+    mutate(puntenset = paste("eerste", min_n, "per stratum", 
                              sep = " "))
 }
 ```
@@ -971,24 +973,33 @@ min_n_per_stratum <- c(20, 50, 100, 200)
 balansvergelijking <- do.call(rbind, lapply(min_n_per_stratum, first_samples, 
                                             steekproef_df = steekproef,
                                             multiplicatie = 1)) %>%
+  bind_rows(steekproef %>%
+              mutate(puntenset = "volledige steekproef")) %>%
   bind_rows(steekproefkader_finaal %>%
               filter(openheid_klasse %in% c("OL", "HOL")) %>% 
-              mutate(puntenset = "volledige steekproefkader")) %>%
+              mutate(puntenset = "volledige steekproefkader",
+                     thin_dist = 300)) %>%
+  bind_rows(steekproefkader_finaal %>%
+            filter(openheid_klasse %in% c("OL", "HOL")) %>% 
+            mutate(puntenset = "volledige steekproefkader",
+                   thin_dist = 600)) %>%
   mutate(sbp_akkervogels = ifelse(is_sbp,
                                   "binnen sbp",
                                   "buiten sbp")) %>%
   cbind(st_coordinates(.)) %>%
-  mutate(fillvar = factor(puntenset, levels = c(paste("steekproef", 
+  mutate(fillvar = factor(puntenset, levels = c(paste("eerste", 
                                                     c(20, 50, 100, 200), 
                                                     "per stratum", sep = " "),
+                                                "volledige steekproef",
                                                 "volledige steekproefkader")))
 
 balansvergelijking %>%
   st_drop_geometry() %>%
-  group_by(fillvar, openheid = openheid_klasse, is_sbp) %>%
+  group_by(fillvar, openheid = openheid_klasse, is_sbp, thin_dist) %>%
   summarise(n_per_stratum = n()) %>%
-  group_by(fillvar) %>%
+  group_by(fillvar, thin_dist) %>%
   mutate(n_per_trekking = sum(n_per_stratum)) %>%
+  arrange(fillvar, thin_dist, openheid, is_sbp) %>%
   kable()
 ```
 
@@ -999,7 +1010,7 @@ balansvergelijking %>%
   ggplot() +
   geom_boxplot(aes(x = sbp_akkervogels, y = openheid_waarde,
                    fill = fillvar)) +
-  facet_grid(Naam~openheid_klasse) +
+  facet_grid(thin_dist~openheid_klasse) +
   theme(legend.title = element_blank())
 ```
 
@@ -1011,7 +1022,7 @@ balansvergelijking %>%
   geom_boxplot(aes(x = sbp_akkervogels,
                    y = X,
                    fill = fillvar)) +
-  facet_grid(Naam~openheid_klasse, scales = "free") +
+  facet_grid(thin_dist~openheid_klasse, scales = "free") +
   theme(legend.title = element_blank())
 
 balansvergelijking %>%
@@ -1019,7 +1030,7 @@ balansvergelijking %>%
   geom_boxplot(aes(x = sbp_akkervogels,
                    y = Y,
                    fill = fillvar)) +
-  facet_grid(Naam~openheid_klasse, scales = "free") +
+  facet_grid(thin_dist~openheid_klasse, scales = "free") +
   theme(legend.title = element_blank())
 ```
 
@@ -1034,19 +1045,25 @@ balansvergelijking %>%
                    y = area_prop_sb,
                    fill = fillvar)) +
   scale_y_sqrt() +
-  facet_grid(~openheid_klasse) +
+  facet_grid(thin_dist~openheid_klasse) +
   labs(y = "Oppervlakte-aandeel SB beheerovereenkomsten") +
   theme(legend.title = element_blank())
 ```
 
-We zien dat de steekproef vanaf 50 punten per stratum een goede afspiegeling is van de volledige populatie (boxplots voor steekproef eerste punten en volledig steekproefkader zijn zeer gelijkend).
+We zien dat de steekproef vanaf 50 punten per stratum een goede afspiegeling is van de volledige populatie (boxplots voor steekproef eerste punten en volledig steekproefkader zijn zeer gelijkend). Ook is er bijna geen verschil tussen een thinning van 300 of 600. We besluiten voor thinning van 600 te gaan, zodat er geen overlap van telpunten is binnen eenzelfde stratum.
+
+```{r}
+steekproef <- steekproef %>%
+  filter(thin_dist == 600)
+```
+
 
 ## Visualisatie steekproef
 
 ```{r}
 mapview_n <- function(n) {
   mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
-  mapview(first_samples(steekproef, n, multiplicatie = 1) %>% 
+  mapview(first_samples(steekproef, n, multiplicatie = 1) %>%
             st_buffer(dist = 300), 
           zcol = "openheid_sbp", layer = "stratum")
 }
@@ -1112,6 +1129,7 @@ Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand pu
 We bekijken overlap met de pilootstudie.
 Er is niet veel overlap.
 We vervangen alle telpunten uit de steekproef van de leemstreek door reeds bestaande punten indien ze voor minstens 50 % overlappen en ze tot hetzelfde stratum behoren.
+Indien er meerdere bestaande punten overlappen, nemen we het bestaande punt dat het meest overlapt.
 Omdat we nu een nieuwe laag van sbp gebruiken, moeten we dit stratum opnieuw berekenen voor de bestaande punten.
 
 
@@ -1143,7 +1161,7 @@ oude_cirkels_sbp <- oude_punten_sbp %>%
   st_buffer(300)
 
 # buffer nieuwe punten
-steekproef_raw <- tar_read(steekproef_thinned, store = targets_store) %>%
+steekproef_raw <- tar_read(steekproef_thinned_600, store = targets_store) %>%
   filter(Naam == "Leemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
@@ -1164,7 +1182,10 @@ intersect <- st_intersection(oude_cirkels_sbp, cirkels_leemstreek) %>%
   filter(intersect_area >= 0.5 * 300 * 300 * pi, # 50 %
          openheid_sbp == openheid_sbp.1) %>%     # zelfde stratum
   select(plotnaam, pointid, intersect_area) %>%
-  st_drop_geometry()
+  st_drop_geometry() %>%
+  group_by(pointid) %>%
+  filter(intersect_area == max(intersect_area)) %>%
+  ungroup()
 
 intersect %>%
   mutate(intersect_prop = intersect_area / (300 * 300 * pi)) %>%

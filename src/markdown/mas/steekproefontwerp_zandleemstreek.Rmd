@@ -916,10 +916,10 @@ De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de zandleems
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
 De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
   
-Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden.
+Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 600 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden. Voor een vergelijking tussen 300 en 600 m thinning, zie steekproefontwerp_leemstreek.Rmd.
 
 ```{r trekking}
-steekproef <- tar_read(steekproef_final, store = targets_store) %>%
+steekproef <- tar_read(steekproef_final_600, store = targets_store) %>%
   filter(Naam == "Zandleemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
@@ -1111,6 +1111,7 @@ Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand pu
 We bekijken overlap met de pilootstudie.
 Er is niet veel overlap.
 We vervangen alle telpunten uit de steekproef van de zandleemstreek door reeds bestaande punten indien ze voor minstens 50 % overlappen en ze tot hetzelfde stratum behoren.
+Indien er meerdere bestaande punten overlappen, nemen we het bestaande punt dat het meest overlapt.
 Omdat we nu een nieuwe laag van sbp gebruiken, moeten we dit stratum opnieuw berekenen voor de bestaande punten.
 
 
@@ -1142,7 +1143,7 @@ oude_cirkels_sbp <- oude_punten_sbp %>%
   st_buffer(300)
 
 # buffer nieuwe punten
-steekproef_raw <- tar_read(steekproef_thinned, store = targets_store) %>%
+steekproef_raw <- tar_read(steekproef_thinned_600, store = targets_store) %>%
   filter(Naam == "Zandleemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
@@ -1163,7 +1164,11 @@ intersect <- st_intersection(oude_cirkels_sbp, cirkels_zandleemstreek) %>%
   filter(intersect_area >= 0.5 * 300 * 300 * pi, # 50 %
          openheid_sbp == openheid_sbp.1) %>%     # zelfde stratum
   select(plotnaam, pointid, intersect_area) %>%
-  st_drop_geometry()
+  st_drop_geometry() %>%
+  group_by(pointid) %>%
+  filter(intersect_area == max(intersect_area)) %>%
+  ungroup()
+  
 
 intersect %>%
   mutate(intersect_prop = intersect_area / (300 * 300 * pi)) %>%

@@ -56,6 +56,7 @@ thin_sample <- function(sample, thin_dist) {
 
   # Reorder samples
   keep <- keep[order(keep$sample_order), ]
+  keep$thin_dist <- thin_dist
 
   return(keep)
 }
@@ -89,8 +90,12 @@ replace_by_existing <- function(sample,
     filter(intersect_area >= overlap_prop * 300 * 300 * pi,
            openheid_klasse == openheid_klasse.1,
            is_sbp == is_sbp.1) %>%
-    select(definitief_punt, pointid) %>%
-    st_drop_geometry()
+    select(definitief_punt, pointid, intersect_area) %>%
+    st_drop_geometry() %>%
+    group_by(pointid) %>%
+    filter(intersect_area == max(intersect_area)) %>%
+    ungroup() %>%
+    select(-intersect_area)
 
   # Replace id and geometry
   columns <- names(sample)[names(sample) != "pointid"]
