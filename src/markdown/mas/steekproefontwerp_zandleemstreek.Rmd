@@ -238,24 +238,6 @@ We selecteren de volgende wegen.
 -   Objecttype: veldwegen en boswegen
 -   OSM Wiki: <https://wiki.openstreetmap.org/wiki/Tag:highway%3Dtrack>
 
-### (Bos)Pad
-
--   OSM definitie: `highway = path`
--   Objecttype: (bos)pad
--   OSM Wiki: <https://wiki.openstreetmap.org/wiki/NL:Tag:highway%3Dpath>
-
-### Fietspad
-
--   OSM definitie: `highway = cycleway`
--   Objecttype: fietspad
--   OSM Wiki: <https://wiki.openstreetmap.org/wiki/NL:Tag:highway%3Dcycleway>
-
-### Ruiterpad
-
--   OSM definitie: `highway = bridleway`
--   Objecttype: ruiterpad
--   OSM Wiki: <https://wiki.openstreetmap.org/wiki/Tag:highway%3Dbridleway>
-
 ### Tertiare wegen
 
 -   OSM definitie: `highway = tertiary`
@@ -1069,19 +1051,19 @@ mapview_n <- function(n) {
 }
 ```
 
-50 punten per stratum:
+Eerste 50 punten per stratum:
 
 ```{r}
 mapview_n(50)
 ```
 
-100 punten per stratum:
+Eerste 100 punten per stratum:
 
 ```{r}
 mapview_n(100)
 ```
 
-200 punten per stratum:
+Eerste 200 punten per stratum:
 
 ```{r}
 mapview_n(200)
