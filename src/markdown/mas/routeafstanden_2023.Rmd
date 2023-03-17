@@ -91,9 +91,28 @@ ggplot() +
 We testen de functie `osrmTrip()` van de **osrm** package op de eerste 6 punten.
 
 ```{r}
-trips <- osrmTrip(loc = head(punten_totaal), overview = "full")
+trips <- osrmTrip(loc = head(punten_totaal))
 mapview(trips[[1]]$trip) + 
   mapview(head(punten_totaal))
 ```
 
 De kortste route wordt berekend. Deze bedraagt `r trips[[1]]$summary$distance` km.
+
+```{r}
+#The euclidian distance matrix:
+mtx_distance <- st_distance(punten_totaal %>% filter(regio == "Zandleemstreek"), 
+                            punten_totaal %>% filter(regio == "Zandleemstreek"))
+
+clustering <- hclust(dist(mtx_distance), method = "complete")
+
+test1 <- punten_totaal %>% 
+  filter(regio == "Zandleemstreek") %>%
+  mutate(groep = factor(cutree(clustering, k = ceiling(nrow(mtx_distance) / 15))))
+
+mapview(test1, zcol = "groep")
+
+
+test1 %>% group_by(groep) %>%
+  mutate(afstand = osrmTrip(loc = geometry)[[1]]$summary$distance)
+```
+
