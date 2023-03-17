@@ -1193,12 +1193,20 @@ oude_punten_sbp %>%
 
 ## Output als KML
 
-We zullen een steekproef van 50 cirkels per stratum wegschrijven (eerste set) waarbij we ook de volgende 50 punten per stratum includeren voor als er een punt niet zou kunnen geteld worden in het veld (reserve set).
+We nemen een steekproef van 50 cirkels per stratum (eerste set) waarbij we ook de volgende 50 punten per stratum includeren voor als er een punt niet zou kunnen geteld worden in het veld (reserve set). We geven alle punten mee die niet tot de Oostelijke leemstreek behoren!
 
 ```{r}
+piloot_perimeters <-  st_read(here(
+    "data",
+    "processed",
+    "piloot_perimeters.gpkg"))
+oostelijke_leem_peri <- piloot_perimeters %>%
+  filter(Naam == "Oostelijke leemstreek")
+
 steekproef_out <- first_samples(steekproef, 50, 2) %>%
-   select(pointid, Naam, openheid_sbp, sample_order, batch, 
-          zichtbaarheid = cvvi, wegtype = value)
+  st_difference(oostelijke_leem_peri) %>%
+  select(pointid, Naam, openheid_sbp, sample_order, batch, 
+         zichtbaarheid = cvvi, wegtype = value)
 
 mapview(steekproef %>% st_buffer(300), alpha.regions = 0,
         layer = "steekproef") +

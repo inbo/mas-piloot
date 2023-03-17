@@ -1196,8 +1196,8 @@ We zullen een steekproef van 50 cirkels per stratum wegschrijven (eerste set) wa
 
 ```{r}
 steekproef_out <- first_samples(steekproef, 50, 2) %>%
-   select(pointid, Naam, openheid_sbp, sample_order, batch, 
-          zichtbaarheid = cvvi, wegtype = value)
+  select(pointid, Naam, openheid_sbp, sample_order, batch, 
+         zichtbaarheid = cvvi, wegtype = value)
 
 mapview(steekproef %>% st_buffer(300), alpha.regions = 0,
         layer = "steekproef") +
