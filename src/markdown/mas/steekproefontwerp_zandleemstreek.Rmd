@@ -1163,7 +1163,11 @@ intersect <- st_intersection(oude_cirkels_sbp, cirkels_zandleemstreek) %>%
   filter(intersect_area >= 0.5 * 300 * 300 * pi, # 50 %
          openheid_sbp == openheid_sbp.1) %>%     # zelfde stratum
   select(plotnaam, pointid, intersect_area) %>%
-  st_drop_geometry()
+  st_drop_geometry() %>%
+  group_by(pointid) %>%
+  filter(intersect_area == max(intersect_area)) %>%
+  ungroup()
+  
 
 intersect %>%
   mutate(intersect_prop = intersect_area / (300 * 300 * pi)) %>%
