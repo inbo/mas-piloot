@@ -127,6 +127,11 @@ output_finaal <- function(files, write_out) {
                Y = st_coordinates(.data$geometry)[,2]) %>%
         st_drop_geometry()
 
+      if ("thin_dist" %in% names(object)) {
+        object <- object %>%
+          select(-thin_dist)
+      }
+
       git2rdata::write_vc(object, file = paste0("output/", name),
                           sorting = "pointid")
     }
