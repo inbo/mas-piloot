@@ -918,16 +918,27 @@ De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de leemstree
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
 De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
   
-Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden.
+Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m of 600 m afstand ligt. Als dit het geval is, wordt het punt met de lagere `sample_order` weerhouden. We zullen beide thinning afstanden vergelijken.
 
 ```{r trekking}
-steekproef <- tar_read(steekproef_final, store = targets_store) %>%
+steekproef <- tar_read(steekproef_final_300, store = targets_store) %>%
+  bind_rows(tar_read(steekproef_final_600, store = targets_store)) %>%
   filter(Naam == "Leemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
                                     "buiten plan"))
          )
+```
+
+We zien alvast dat er meer punten wegvallen bij thinning 600 m t.o.v. 300 m.
+
+```{r}
+steekproef %>%
+  st_drop_geometry() %>%
+  count(openheid_sbp, thin_dist, name = "n") %>%
+  arrange(thin_dist, openheid_sbp) %>%
+  kable()
 ```
 
 Temporeel design:
@@ -939,10 +950,11 @@ N.B.: voor de steekproef over Vlaanderen is het best mogelijk dat een ander temp
 Kaart van de steekproef:
 
 ```{r kaart-steekproef, warning=FALSE}
-steekproef %>%
-  st_buffer(dist = 300) %>%
-  mapview(zcol = "openheid_sbp", layer = "stratum") +
-  mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
+mapview(steekproef %>% filter(thin_dist == 300) %>% st_buffer(dist = 300), 
+        zcol = "openheid_sbp", layer = "stratum_300") +
+mapview(steekproef %>% filter(thin_dist == 600) %>% st_buffer(dist = 300), 
+        zcol = "openheid_sbp", layer = "stratum_600") +
+mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
 ```
 
 De meest open landschappen zitten volledig binnen de perimeter van het SBP plan.
