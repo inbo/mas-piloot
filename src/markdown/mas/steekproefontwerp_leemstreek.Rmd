@@ -1050,15 +1050,20 @@ balansvergelijking %>%
   theme(legend.title = element_blank())
 ```
 
-We zien dat de steekproef vanaf 50 punten per stratum een goede afspiegeling is van de volledige populatie (boxplots voor steekproef eerste punten en volledig steekproefkader zijn zeer gelijkend).
+We zien dat de steekproef vanaf 50 punten per stratum een goede afspiegeling is van de volledige populatie (boxplots voor steekproef eerste punten en volledig steekproefkader zijn zeer gelijkend). Ook is er bijna geen verschil tussen een thinning van 300 of 600. We besluiten voor thinning van 600 te gaan, zodat er geen overlap van telpunten is binnen eenzelfde stratum.
+
+```{r}
+steekproef <- steekproef %>%
+  filter(thin_dist == 600)
+```
+
 
 ## Visualisatie steekproef
 
 ```{r}
-mapview_n <- function(n, thin) {
+mapview_n <- function(n) {
   mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
-  mapview(first_samples(steekproef, n, multiplicatie = 1) %>% 
-            filter(thin_dist == thin) %>%
+  mapview(first_samples(steekproef, n, multiplicatie = 1) %>%
             st_buffer(dist = 300), 
           zcol = "openheid_sbp", layer = "stratum")
 }
@@ -1067,19 +1072,19 @@ mapview_n <- function(n, thin) {
 Eerste 50 punten per stratum:
 
 ```{r}
-mapview_n(50, thin = 300)
+mapview_n(50)
 ```
 
 Eerste 100 punten per stratum:
 
 ```{r}
-mapview_n(100, thin = 300)
+mapview_n(100)
 ```
 
 Eerste 200 punten per stratum:
 
 ```{r}
-mapview_n(200, thin = 300)
+mapview_n(200)
 ```
 
 # Nabehandeling steekproef
