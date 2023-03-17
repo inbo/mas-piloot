@@ -931,16 +931,6 @@ steekproef <- tar_read(steekproef_final_300, store = targets_store) %>%
          )
 ```
 
-We zien alvast dat er meer punten wegvallen bij thinning 600 m t.o.v. 300 m.
-
-```{r}
-steekproef %>%
-  st_drop_geometry() %>%
-  count(openheid_sbp, thin_dist, name = "n") %>%
-  arrange(thin_dist, openheid_sbp) %>%
-  kable()
-```
-
 Temporeel design:
 
 -   elk punt wordt elk jaar opnieuw bezocht
@@ -965,13 +955,13 @@ first_samples <- function(steekproef_df, min_n, multiplicatie) {
   factor_n <- min_n * multiplicatie
   
   steekproef_df %>%
-    group_by(openheid_sbp) %>% 
+    group_by(openheid_sbp, thin_dist) %>% 
     mutate(id = row_number()) %>% # sample_order cannot be used due to thinning 
     ungroup() %>%
     filter(id <= factor_n) %>%
     mutate(batch = ifelse(id <= min_n, batch, "reserve set")) %>%
     select(-id) %>%
-    mutate(puntenset = paste("steekproef", min_n, "per stratum", 
+    mutate(puntenset = paste("eerste", min_n, "per stratum", 
                              sep = " "))
 }
 ```
@@ -983,24 +973,33 @@ min_n_per_stratum <- c(20, 50, 100, 200)
 balansvergelijking <- do.call(rbind, lapply(min_n_per_stratum, first_samples, 
                                             steekproef_df = steekproef,
                                             multiplicatie = 1)) %>%
+  bind_rows(steekproef %>%
+              mutate(puntenset = "volledige steekproef")) %>%
   bind_rows(steekproefkader_finaal %>%
               filter(openheid_klasse %in% c("OL", "HOL")) %>% 
-              mutate(puntenset = "volledige steekproefkader")) %>%
+              mutate(puntenset = "volledige steekproefkader",
+                     thin_dist = 300)) %>%
+  bind_rows(steekproefkader_finaal %>%
+            filter(openheid_klasse %in% c("OL", "HOL")) %>% 
+            mutate(puntenset = "volledige steekproefkader",
+                   thin_dist = 600)) %>%
   mutate(sbp_akkervogels = ifelse(is_sbp,
                                   "binnen sbp",
                                   "buiten sbp")) %>%
   cbind(st_coordinates(.)) %>%
-  mutate(fillvar = factor(puntenset, levels = c(paste("steekproef", 
+  mutate(fillvar = factor(puntenset, levels = c(paste("eerste", 
                                                     c(20, 50, 100, 200), 
                                                     "per stratum", sep = " "),
+                                                "volledige steekproef",
                                                 "volledige steekproefkader")))
 
 balansvergelijking %>%
   st_drop_geometry() %>%
-  group_by(fillvar, openheid = openheid_klasse, is_sbp) %>%
+  group_by(fillvar, openheid = openheid_klasse, is_sbp, thin_dist) %>%
   summarise(n_per_stratum = n()) %>%
-  group_by(fillvar) %>%
+  group_by(fillvar, thin_dist) %>%
   mutate(n_per_trekking = sum(n_per_stratum)) %>%
+  arrange(fillvar, thin_dist, openheid, is_sbp) %>%
   kable()
 ```
 
@@ -1011,7 +1010,7 @@ balansvergelijking %>%
   ggplot() +
   geom_boxplot(aes(x = sbp_akkervogels, y = openheid_waarde,
                    fill = fillvar)) +
-  facet_grid(Naam~openheid_klasse) +
+  facet_grid(thin_dist~openheid_klasse) +
   theme(legend.title = element_blank())
 ```
 
@@ -1023,7 +1022,7 @@ balansvergelijking %>%
   geom_boxplot(aes(x = sbp_akkervogels,
                    y = X,
                    fill = fillvar)) +
-  facet_grid(Naam~openheid_klasse, scales = "free") +
+  facet_grid(thin_dist~openheid_klasse, scales = "free") +
   theme(legend.title = element_blank())
 
 balansvergelijking %>%
@@ -1031,7 +1030,7 @@ balansvergelijking %>%
   geom_boxplot(aes(x = sbp_akkervogels,
                    y = Y,
                    fill = fillvar)) +
-  facet_grid(Naam~openheid_klasse, scales = "free") +
+  facet_grid(thin_dist~openheid_klasse, scales = "free") +
   theme(legend.title = element_blank())
 ```
 
@@ -1046,7 +1045,7 @@ balansvergelijking %>%
                    y = area_prop_sb,
                    fill = fillvar)) +
   scale_y_sqrt() +
-  facet_grid(~openheid_klasse) +
+  facet_grid(thin_dist~openheid_klasse) +
   labs(y = "Oppervlakte-aandeel SB beheerovereenkomsten") +
   theme(legend.title = element_blank())
 ```
@@ -1056,9 +1055,10 @@ We zien dat de steekproef vanaf 50 punten per stratum een goede afspiegeling is 
 ## Visualisatie steekproef
 
 ```{r}
-mapview_n <- function(n) {
+mapview_n <- function(n, thin) {
   mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
   mapview(first_samples(steekproef, n, multiplicatie = 1) %>% 
+            filter(thin_dist == thin) %>%
             st_buffer(dist = 300), 
           zcol = "openheid_sbp", layer = "stratum")
 }
@@ -1067,19 +1067,19 @@ mapview_n <- function(n) {
 Eerste 50 punten per stratum:
 
 ```{r}
-mapview_n(50)
+mapview_n(50, thin = 300)
 ```
 
 Eerste 100 punten per stratum:
 
 ```{r}
-mapview_n(100)
+mapview_n(100, thin = 300)
 ```
 
 Eerste 200 punten per stratum:
 
 ```{r}
-mapview_n(200)
+mapview_n(200, thin = 300)
 ```
 
 # Nabehandeling steekproef
