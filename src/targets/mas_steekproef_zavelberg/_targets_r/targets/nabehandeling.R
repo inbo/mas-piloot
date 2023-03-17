@@ -22,7 +22,7 @@ list(
     output_finaal(
       files = list(steekproefkader = steekproefkader_finaal, 
                    steekproef = steekproef_final),
-      write_out = FALSE
+      write_out = TRUE
       )
   )
 )
