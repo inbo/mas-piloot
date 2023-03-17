@@ -240,24 +240,6 @@ We selecteren de volgende wegen.
 -   Objecttype: veldwegen en boswegen
 -   OSM Wiki: <https://wiki.openstreetmap.org/wiki/Tag:highway%3Dtrack>
 
-### (Bos)Pad
-
--   OSM definitie: `highway = path`
--   Objecttype: (bos)pad
--   OSM Wiki: <https://wiki.openstreetmap.org/wiki/NL:Tag:highway%3Dpath>
-
-### Fietspad
-
--   OSM definitie: `highway = cycleway`
--   Objecttype: fietspad
--   OSM Wiki: <https://wiki.openstreetmap.org/wiki/NL:Tag:highway%3Dcycleway>
-
-### Ruiterpad
-
--   OSM definitie: `highway = bridleway`
--   Objecttype: ruiterpad
--   OSM Wiki: <https://wiki.openstreetmap.org/wiki/Tag:highway%3Dbridleway>
-
 ### Tertiare wegen
 
 -   OSM definitie: `highway = tertiary`
@@ -1070,19 +1052,19 @@ mapview_n <- function(n) {
 }
 ```
 
-50 punten per stratum:
+Eerste 50 punten per stratum:
 
 ```{r}
 mapview_n(50)
 ```
 
-100 punten per stratum:
+Eerste 100 punten per stratum:
 
 ```{r}
 mapview_n(100)
 ```
 
-200 punten per stratum:
+Eerste 200 punten per stratum:
 
 ```{r}
 mapview_n(200)
@@ -1211,12 +1193,20 @@ oude_punten_sbp %>%
 
 ## Output als KML
 
-We zullen een steekproef van 50 cirkels per stratum wegschrijven (eerste set) waarbij we ook de volgende 50 punten per stratum includeren voor als er een punt niet zou kunnen geteld worden in het veld (reserve set).
+We nemen een steekproef van 50 cirkels per stratum (eerste set) waarbij we ook de volgende 50 punten per stratum includeren voor als er een punt niet zou kunnen geteld worden in het veld (reserve set). We geven alle punten mee die niet tot de Oostelijke leemstreek behoren!
 
 ```{r}
+piloot_perimeters <-  st_read(here(
+    "data",
+    "processed",
+    "piloot_perimeters.gpkg"))
+oostelijke_leem_peri <- piloot_perimeters %>%
+  filter(Naam == "Oostelijke leemstreek")
+
 steekproef_out <- first_samples(steekproef, 50, 2) %>%
-   select(pointid, Naam, openheid_sbp, sample_order, batch, 
-          zichtbaarheid = cvvi, wegtype = value)
+  st_difference(oostelijke_leem_peri) %>%
+  select(pointid, Naam, openheid_sbp, sample_order, batch, 
+         zichtbaarheid = cvvi, wegtype = value)
 
 mapview(steekproef %>% st_buffer(300), alpha.regions = 0,
         layer = "steekproef") +
