@@ -422,19 +422,23 @@ list(
         sbp_file = sbp_akkervogels
         ),
       pattern = map(steekproef_thinned)
-    ),
-    tar_target(
-      output_objecten,
-      output_finaal(
-        files = list(steekproefkader = steekproefkader_finaal, 
-                     steekproef = steekproef_final),
-        write_out = FALSE
-        )
     )
   )
 )
 ```
 
+```{targets version-control}
+list(
+  tar_target(
+    output_objecten,
+    output_finaal(
+      files = list(steekproefkader = steekproefkader_finaal, 
+                   steekproef = steekproef_final_300),
+      write_out = FALSE
+    )
+  )
+)
+```
 
 # Analysestramien uitvoeren
 
