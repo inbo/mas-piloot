@@ -28,6 +28,7 @@ opts_knit$set(root.dir = here::here())
 # packages
 library(tidyverse)
 library(sf)
+library(mapview)
 library(osrm)
 ```
 
@@ -85,3 +86,14 @@ ggplot() +
 ```
 
 
+# Routeberekening
+
+We testen de functie `osrmTrip()` van de **osrm** package op de eerste 6 punten.
+
+```{r}
+trips <- osrmTrip(loc = head(punten_totaal), overview = "full")
+mapview(trips[[1]]$trip) + 
+  mapview(head(punten_totaal))
+```
+
+De kortste route wordt berekend. Deze bedraagt `r trips[[1]]$summary$distance` km.
