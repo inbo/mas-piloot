@@ -145,7 +145,7 @@ clustering_ol <- hclust(dist(mtx_distance_ol), method = "mcquitty")
 
 clusters_ol1 <- punten_totaal %>% 
   filter(regio == "Oostelijke leemstreek") %>%
-  mutate(groep = cutree(clustering, k = nrow(mtx_distance_ol) %/% 8)) %>%
+  mutate(groep = cutree(clustering_ol, k = nrow(mtx_distance_ol) %/% 8)) %>%
   group_by(groep) %>%
   mutate(n = n()) %>%
   ungroup() %>%
@@ -187,7 +187,7 @@ clusters_20231 <- punten_totaal %>%
   group_by(groep) %>%
   mutate(n = n()) %>%
   ungroup() %>%
-  mutate(groep = paste(regio, groep))
+  mutate(groep = paste("westleem_zandleem", groep))
 clusters_20231 <- clusters_20231 %>%
   mutate(dist = st_distance(geometry, clusters_20231 %>% filter(n == 1)))
 
@@ -228,7 +228,7 @@ clustered_points %>%
 
 # Routeberekening binnen clusters
 
-We moeten de functie lichtjes aanpassen omdat de punten vaak niet op harde wegen liggen en dichtbij elkaar waardoor er een probleem is bij de output van de functie. Daarom outputten we geen geometry, maar enkel de afstand van het kortste traject.
+We moeten de functie `osmrTrip()` lichtjes aanpassen omdat de punten vaak niet op harde wegen liggen en dichtbij elkaar waardoor er een probleem is bij de output van de functie. Daarom outputten we geen geometry, maar enkel de afstand van het kortste traject.
 
 ```{r}
 osrmTrip_nogeom <- function(loc, exclude = NULL, overview = "simplified", 
@@ -311,3 +311,16 @@ closest_dist <- clustered_points %>%
   mutate(afstand = osrmTrip_nogeom(loc = geometry)[[1]]$summary$distance)
 ```
 
+De som van alle kortste afstanden binnen elke groep telpunten is `r sum(closest_dist$afstand)` km.
+
+
+# Routeberekening naar clusters
+
+-centroide van elke groep
+-kortste afstand naar tellers
+-aantal keer op en neer naar groep punten
+-- 0.5 voor clusters 2-5
+-- 1 voor clusters 6-10
+-- 1.5 voor clusters 11-15
+-- 2 voor clusters 16-20
+--alles x2 voor heen en terug
