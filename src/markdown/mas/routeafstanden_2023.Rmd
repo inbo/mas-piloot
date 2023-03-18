@@ -32,6 +32,7 @@ library(mapview)
 library(osrm)
 ```
 
+
 # Telpunten
 
 We lezen de telpunten in van de pilootstudie van 2022 en de nieuwe steekproef in de zandleemstreek en de westelijke leemstreek. Van de nieuwe steekproef nemen we de eerste 50 punten (niet de reserve batch) en geen gerecupereerde punten (die zitten toch al in de dataset van de pilootstudie).
@@ -86,33 +87,227 @@ ggplot() +
 ```
 
 
-# Routeberekening
+# Test van routeberekening 
 
 We testen de functie `osrmTrip()` van de **osrm** package op de eerste 6 punten.
 
 ```{r}
 trips <- osrmTrip(loc = head(punten_totaal))
+
 mapview(trips[[1]]$trip) + 
   mapview(head(punten_totaal))
 ```
 
 De kortste route wordt berekend. Deze bedraagt `r trips[[1]]$summary$distance` km.
 
+
+# Clustering
+
+We clusteren de punten. Omdat de densiteit van de punten sterk verschilt tussen de pilootstudie en de nieuwe punten, moeten we de berekeningen opsplitsen.
+
+- De Moeren
+- Zandleemstreek en Westelijke leemstreek
+- Oostelijke leemstreek
+
+We clusteren de punten in groepen zodat elke groep 8 punten kan bevatten. Het is echter niet vast te leggen hoeveel punten in elke groep zitten, zodat de groottes sterk uiteenlopen. Als er een punt alleen in een groep zit, plaatsen we dit punt in de groep van het dichtstbijzijnde punt.
+
+```{r}
+# The euclidian distance matrix
+mtx_distance_dm <- st_distance(punten_totaal %>% filter(regio == "De Moeren"), 
+                            punten_totaal %>% filter(regio == "De Moeren"))
+
+# Cluster
+clustering_dm <- hclust(dist(mtx_distance_dm), method = "mcquitty")
+
+clusters_dm <- punten_totaal %>% 
+  filter(regio == "De Moeren") %>%
+  mutate(groep = paste(regio,
+    cutree(clustering_dm, k = nrow(mtx_distance_dm) %/% 8))) %>%
+  group_by(groep) %>%
+  mutate(n = n()) %>%
+  ungroup()
+
+# Visualiseer
+mapview(clusters_dm, zcol = "groep")
+```
+
+De gemiddelde groepgrootte in De Moeren is `r clusters_dm$groep %>% table() %>% mean()`.
+
+```{r}
+# The euclidian distance matrix
+mtx_distance_ol <- st_distance(punten_totaal %>% 
+                                 filter(regio == "Oostelijke leemstreek"), 
+                               punten_totaal %>% 
+                                 filter(regio == "Oostelijke leemstreek"))
+
+# Cluster
+clustering_ol <- hclust(dist(mtx_distance_ol), method = "mcquitty")
+
+clusters_ol1 <- punten_totaal %>% 
+  filter(regio == "Oostelijke leemstreek") %>%
+  mutate(groep = cutree(clustering, k = nrow(mtx_distance_ol) %/% 8)) %>%
+  group_by(groep) %>%
+  mutate(n = n()) %>%
+  ungroup() %>%
+  mutate(groep = paste(regio, groep))
+clusters_ol1 <- clusters_ol1 %>%
+  mutate(dist = st_distance(geometry, clusters_ol1 %>% filter(n == 1)))
+
+# Herbereken solo punt
+min_dist <- clusters_ol1 %>% 
+  filter(n != 1) %>% 
+  arrange(dist) %>%
+  head(1) %>%
+  pull(groep)
+
+clusters_ol <- clusters_ol1 %>%
+  mutate(groep = ifelse(n == 1, min_dist, groep))
+
+# Visualiseer
+mapview(clusters_ol, zcol = "groep")
+```
+
+De gemiddelde groepgrootte in Oostelijke leemstreek is `r clusters_ol$groep %>% table() %>% mean()`.
+
 ```{r}
 #The euclidian distance matrix:
-mtx_distance <- st_distance(punten_totaal %>% filter(regio == "Zandleemstreek"), 
-                            punten_totaal %>% filter(regio == "Zandleemstreek"))
+mtx_distance_2023 <- st_distance(punten_totaal %>% 
+                                   filter(regio %in% c("Westelijke leemstreek", 
+                                                       "Zandleemstreek")), 
+                                 punten_totaal %>% 
+                                   filter(regio %in% c("Westelijke leemstreek", 
+                                                       "Zandleemstreek")))
 
-clustering <- hclust(dist(mtx_distance), method = "complete")
+# Cluster
+clustering_2023 <- hclust(dist(mtx_distance_2023), method = "mcquitty")
 
-test1 <- punten_totaal %>% 
-  filter(regio == "Zandleemstreek") %>%
-  mutate(groep = factor(cutree(clustering, k = ceiling(nrow(mtx_distance) / 15))))
+clusters_20231 <- punten_totaal %>% 
+  filter(regio %in% c("Westelijke leemstreek", "Zandleemstreek")) %>%
+  mutate(groep = cutree(clustering_2023, k = nrow(mtx_distance_2023) %/% 8)) %>%
+  group_by(groep) %>%
+  mutate(n = n()) %>%
+  ungroup() %>%
+  mutate(groep = paste(regio, groep))
+clusters_20231 <- clusters_20231 %>%
+  mutate(dist = st_distance(geometry, clusters_20231 %>% filter(n == 1)))
 
-mapview(test1, zcol = "groep")
+# Herbereken solo punt
+min_dist <- clusters_20231 %>% 
+  filter(n != 1) %>% 
+  arrange(dist) %>%
+  head(1) %>%
+  pull(groep)
+
+clusters_2023 <- clusters_20231 %>%
+  mutate(groep = ifelse(n == 1, min_dist, groep))
+
+# Visualiseer
+mapview(clusters_2023, zcol = "groep")
+```
+
+De gemiddelde groepgrootte in de Westelijke leemstreek en Zandleemstreek is `r clusters_2023$groep %>% table() %>% mean()`.  
+  
+De verdeling van alle clustergroottes ziet er als volgt uit:
+
+```{r}
+clustered_points <-
+  bind_rows(
+    clusters_dm,
+    clusters_ol,
+    clusters_2023
+  )
+
+clustered_points %>%
+  distinct(groep, n) %>%
+  ggplot() +
+  geom_bar(aes(x = n)) +
+  labs(x = "aantal telpunten per groep (cluster)",
+       y = "aantal")
+```
 
 
-test1 %>% group_by(groep) %>%
-  mutate(afstand = osrmTrip(loc = geometry)[[1]]$summary$distance)
+# Routeberekening binnen clusters
+
+We moeten de functie lichtjes aanpassen omdat de punten vaak niet op harde wegen liggen en dichtbij elkaar waardoor er een probleem is bij de output van de functie. Daarom outputten we geen geometry, maar enkel de afstand van het kortste traject.
+
+```{r}
+osrmTrip_nogeom <- function(loc, exclude = NULL, overview = "simplified", 
+  returnclass, osrm.server = getOption("osrm.server"), 
+  osrm.profile = getOption("osrm.profile")) {
+  
+  opt <- options(error = NULL)
+  on.exit(options(opt), add = TRUE)
+  if (!missing(returnclass)) {
+    warning("\"returnclass\" is deprecated.", call. = FALSE)
+  }
+  url <- osrm:::base_url(osrm.server, osrm.profile, "trip")
+  loc <- osrm:::input_route(x = loc, id = "loc", single = FALSE, 
+    all.ids = TRUE)
+  oprj <- loc$oprj
+  url <- paste0(url, paste(osrm:::clean_coord(loc$lon), osrm:::clean_coord(loc$lat), 
+    sep = ",", collapse = ";"), "?steps=false&geometries=geojson&overview=", 
+    tolower(overview), "&generate_hints=false")
+  if (!missing(exclude)) {
+    url <- paste0(url, "&exclude=", exclude)
+  }
+  e <- try({
+    req_handle <- curl::new_handle(verbose = FALSE)
+    curl::handle_setopt(req_handle, useragent = "osrm_R_package")
+    r <- curl::curl_fetch_memory(utils::URLencode(url), 
+      handle = req_handle)
+  }, silent = TRUE)
+  if (inherits(e, "try-error")) {
+    stop(e, call. = FALSE)
+  }
+  osrm:::test_http_error(r)
+  res <- RcppSimdJson::fparse(rawToChar(r$content))
+  waypointsg <- data.frame(res$waypoints[, c(1, 2, 5)], matrix(unlist(res$waypoints$location), 
+    byrow = T, ncol = 2), id = loc$id)
+  ntour <- dim(res$trips)[1]
+  trips <- vector("list", ntour)
+  for (nt in 1:ntour) {
+    geodf <- data.frame(res$trips[nt, ]$geometry[[1]]$coordinates)
+    if (geodf[nrow(geodf), 1] != geodf[1, 1]) {
+      geodf <- rbind(geodf, geodf[1, ])
+    }
+    geodf$ind <- 1:nrow(geodf)
+    waypoints <- waypointsg[waypointsg$trips_index == (nt - 
+      1), ]
+    geodf <- merge(geodf, waypoints, by.x = c("X1", "X2"), 
+      by.y = c("X1", "X2"), all.x = T)
+    geodf <- geodf[order(geodf$ind, decreasing = F), ]
+    indexes <- geodf[!is.na(geodf$waypoint_index), "ind"]
+    wktl <- rep(NA, nrow(waypoints))
+    for (i in 1:(length(indexes) - 1)) {
+      ind0 <- indexes[i]
+      ind1 <- indexes[i + 1]
+      if (ind1 == ind0) {
+        aind <- rep(ind0, 2)
+      }
+      else {
+        aind <- ind0:ind1
+      }
+      wktl[i] <- paste("LINESTRING(", paste(geodf[aind, 
+        1], " ", geodf[aind, 2], sep = "", collapse = ","), 
+        ")", sep = "")
+    }
+    start <- (waypoints[order(waypoints$waypoint_index, 
+      decreasing = F), "id"])
+    end <- start[c(2:length(start), 1)]
+    sldf <- list(start = start, end = end, duration = res$trips[nt, 
+      ]$legs[[1]][, "duration"]/60, distance = res$trips[nt, 
+      ]$legs[[1]][, "distance"]/1000)
+    tripSummary <- list(duration = res$trips[nt, ]$duration/60, 
+      distance = res$trips[nt, ]$distance/1000)
+    trips[[nt]] <- list(trip = sldf, summary = tripSummary)
+  }
+  return(trips)
+}
+```
+
+```{r}
+closest_dist <- clustered_points %>% 
+  group_by(groep) %>%
+  mutate(afstand = osrmTrip_nogeom(loc = geometry)[[1]]$summary$distance)
 ```
 
