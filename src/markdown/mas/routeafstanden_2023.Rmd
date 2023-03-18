@@ -22,7 +22,8 @@ opts_chunk$set(
   echo = TRUE,
   warning = FALSE,
   message = FALSE,
-  out.width = "100%")
+  out.width = "100%",
+  options(scipen = 999))
 opts_knit$set(root.dir = here::here())
 
 # packages
