@@ -327,6 +327,11 @@ closest_dist %>%
 
 - centroide van elke groep
 - kortste afstand naar tellers
+  - 2 tellers uit Roeselare
+  - 2 tellers uit Gent
+  - 1 teller uit Lier
+  - 1 teller uit Leuven
+  - 1 teller uit Nieuwerkerken (Limburg) 
 - alles x2 voor heen en terug
 
 ## Minimum scenario
