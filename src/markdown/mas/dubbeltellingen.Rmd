@@ -1563,7 +1563,7 @@ relfreq_diffs %>%
   kable(digits = 3)
 ```
 
-De verschilfrequenties verschillen licht, maar we zien nog altijd vrij grote verschillen (bv. Merel). Een mogelijke verklaring is dat vrijwilligers deze algemene soorten niet gaan noteren omdat deze "niet speciaal" genoeg zijn.
+De verschilfrequenties verschillen licht, maar we zien nog altijd vrij grote verschillen (bv. Merel).
 
 
 
