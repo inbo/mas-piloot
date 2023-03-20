@@ -464,3 +464,20 @@ afstanden_df_max <- afstanden_df_min %>%
          tot_dist = dist * factor)
 ```
 
+De som van alle korste afstanden van een stad naar elke groep telpunten is `r sum(afstanden_df_max$tot_dist)` km.
+
+```{r}
+afstanden_df_max_sum <- afstanden_df_max %>%
+  st_drop_geometry() %>%
+  group_by(regio) %>%
+  summarise(teller_afstanden = sum(tot_dist)) %>%
+  full_join(closest_dist_grouped, by = "regio") %>%
+  select(regio, intra_afstanden = som_intra_afstanden, teller_afstanden) %>%
+  rowwise() %>%
+  mutate(totaal = sum(intra_afstanden, teller_afstanden))
+afstanden_df_max_sum %>%
+  kable()
+```
+
+De totale afstand die in dit scenario zal worden afgelegd is `r sum(afstanden_df_max_sum$totaal)` km.  
+  
