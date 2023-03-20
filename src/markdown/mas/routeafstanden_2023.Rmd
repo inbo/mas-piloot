@@ -174,7 +174,7 @@ group_n <- clusters_ol1 %>%
 
 clusters_ol <- clusters_ol1 %>%
   mutate(groep = ifelse(n == 1, min_dist, groep),
-         n = ifelse(n == 1, group_n, n))
+         n = ifelse(groep == min_dist, group_n + 1, n))
 
 # Visualiseer
 mapview(clusters_ol, zcol = "groep")
@@ -218,7 +218,7 @@ group_n <- clusters_20231 %>%
 
 clusters_2023 <- clusters_20231 %>%
   mutate(groep = ifelse(n == 1, min_dist, groep),
-         n = ifelse(n == 1, group_n, n))
+         n = ifelse(groep == min_dist, group_n + 1, n))
 
 # Visualiseer
 mapview(clusters_2023, zcol = "groep")
