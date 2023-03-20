@@ -334,6 +334,7 @@ closest_dist %>%
   - 1 teller uit Leuven
   - 1 teller uit Nieuwerkerken (Limburg) 
 - alles x2 voor heen en terug
+  - wordt automatisch berekend voor afstanden tussen twee punten
 
 ```{r}
 centroids <- clustered_points %>%
@@ -352,12 +353,45 @@ leuven <- c(50.878708, 4.700800)
 nieuwekerken <- c(50.866632, 5.193651)
 stad_matrix <- rbind(roeselare, gent, lier, leuven, nieuwekerken)
 
-teller_adressen <- tibble(stad = rownames(stad_matrix), lat = stad_matrix[, 1], 
+teller_adressen <- tibble(groep = rownames(stad_matrix), lat = stad_matrix[, 1], 
                           long = stad_matrix[, 2]) %>%
   st_as_sf(coords = c("long", "lat"), crs = st_crs(4326)) %>%
   st_transform(31370)
 
 mapview(teller_adressen, zcol = "stad", layer = "stad")
+```
+
+```{r}
+datalist <- vector("list", length = nrow(centroids) * nrow(teller_adressen))
+i <- 1
+
+for (cluster in 1:nrow(centroids)) {
+  for (teller in 1:nrow(teller_adressen)) {
+    dist <- osrmTrip(loc = rbind(centroids[cluster, c(1, 2)], 
+                       teller_adressen[teller, c(1, 2)]))[[1]]$summary$distance
+    
+    test <- centroids[cluster, 1] %>% 
+      st_drop_geometry() %>% 
+      pull(groep)
+    
+    stad <- teller_adressen[teller, 1] %>% 
+      st_drop_geometry() %>% 
+      pull(groep)
+    
+    df <- data.frame(groep = test, 
+                     stad,
+                     dist)
+    
+   datalist[[i]] <- df
+   i <- i + 1
+  }
+}
+
+afstanden_df <- do.call(rbind, datalist) %>%
+  group_by(groep) %>%
+  filter(dist == min(dist)) %>%
+  left_join(clustered_points %>% st_drop_geometry(), by = "groep") %>%
+  distinct(groep, stad, dist = dist.x, regio, n)
 ```
 
 
@@ -369,6 +403,8 @@ mapview(teller_adressen, zcol = "stad", layer = "stad")
   - 1.5 voor clusters met 11-15 telpunten
   - 2 voor clusters met 16-20 telpunten
 
+
+
 ## Maximum scenario
 
 - aantal keer op en neer naar groep punten
@@ -376,4 +412,5 @@ mapview(teller_adressen, zcol = "stad", layer = "stad")
   - 1 voor clusters met 6-10 telpunten
   - 2 voor clusters met 11-15 telpunten
   - 2 voor clusters met 16-20 telpunten
-  
+
+
