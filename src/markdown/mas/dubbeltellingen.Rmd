@@ -1374,6 +1374,13 @@ https://discourse.mc-stan.org/t/using-brms-to-create-generated-quantities-stan-c
 
 Mogelijks is er ook een verschil op de manier waarop broedcodes worden toegekend door de professionele teller vs de vrijwilligers.
 
+```{r}
+dubbels_2022 %>%
+  distinct(broedcode = wrntype, beschrijving = wrntype_omschrijving) %>%
+  arrange(broedcode) %>%
+  kable()
+```
+
 
 ## Data selectie
 
@@ -1415,7 +1422,34 @@ dubbels_2022_df_broed <- dubbels_2022_df_broed %>%
 
 ## Exploratie
 
-Op het eerste zicht zien we geen ovallend grote verschillen in aantal soorten gezien tenzij voor broedcode 3.
+Als we de broedcodes > 0 samen nemen zien we geen groot verschil in aantal soorten tussen professionelen en vrijwilligers voor broedcode 0, maar wel voor broedcodes groter dan 0.
+
+```{r}
+diversiteit_df_broed2 <- dubbels_2022_df_broed %>%
+  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
+                            levels = c("0", "> 0"),
+                            ordered = TRUE)) %>%
+  group_by(plotnaam, periode_in_jaar, status, broedcode) %>%
+  summarize(n = n_distinct(naam), .groups = "drop")
+
+diversiteit_df_broed2 %>%
+  group_by(status, broedcode) %>%
+  summarise(mediaan = median(n)) %>%
+  kable()
+```
+
+```{r}
+diversiteit_df_broed2 %>%
+  ggplot() +
+    geom_boxplot(aes(x = broedcode, y = n, fill = periode_in_jaar)) +
+    scale_y_continuous(breaks = seq(0, 100, 2), 
+                       limits = c(0, NA)) +
+    geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+    facet_wrap(~status) +
+    labs(x = "Broedcode", y = "Aantal soorten")
+```
+
+We bekijken vervolgens alle broedcodes. We zien dat het aantal soorten gemiddeld gezien voor broedcodes 0, 2, 3 en 5 hoger liggen bij de professionele teller dan bij de vrijwilligers, vooral broedcode 3 (Territoriaal gedrag) is opvallend in de figuur.
 
 ```{r}
 diversiteit_df_broed <- dubbels_2022_df_broed %>%
@@ -1439,36 +1473,37 @@ ggplot(diversiteit_df_broed) +
   labs(x = "Broedcode", y = "Aantal soorten")
 ```
 
-Als we de broedcodes > 0 samen nemen zien we ook geen groot verschil in aantal soorten tussen professionelen en vrijwilligers.
+
+### Waarnemingen
+
+We zien gelijkaardige trends als bij het aantal soorten. Als we de broedcodes > 0 samen nemen zien we geen groot verschil in aantal soorten tussen professionelen en vrijwilligers voor broedcode 0, maar wel voor broedcodes groter dan 0.
 
 ```{r}
-diversiteit_df_broed %>%
+waarnemingen_df_broed2 <- dubbels_2022_df_broed %>%
   mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
                             levels = c("0", "> 0"),
                             ordered = TRUE)) %>%
+  group_by(plotnaam, periode_in_jaar, status, broedcode) %>%
+  summarize(n = n(), .groups = "drop")
+
+waarnemingen_df_broed2 %>%
   group_by(status, broedcode) %>%
   summarise(mediaan = median(n)) %>%
   kable()
 ```
 
 ```{r}
-diversiteit_df_broed %>%
-  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
-                            levels = c("0", "> 0"),
-                            ordered = TRUE)) %>%
+waarnemingen_df_broed2 %>%
   ggplot() +
-    geom_boxplot(aes(x = broedcode, y = n)) +
+    geom_boxplot(aes(x = broedcode, y = n, fill = periode_in_jaar)) +
     scale_y_continuous(breaks = seq(0, 100, 2), 
                        limits = c(0, NA)) +
     geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
     facet_wrap(~status) +
-    labs(x = "Broedcode", y = "Aantal soorten")
+    labs(x = "Broedcode", y = "Aantal waarnemingen")
 ```
 
-
-### Waarnemingen
-
-We zien gelijkaardige trends als bij het aantal soorten.
+We bekijken vervolgens alle broedcodes. We zien dat het aantal soorten gemiddeld gezien voor broedcodes 0, 2, 3 en 5 hoger liggen bij de professionele teller dan bij de vrijwilligers, vooral broedcode 3 (Territoriaal gedrag) is weer opvallend in de figuur.
 
 ```{r}
 waarnemingen_df_broed <- dubbels_2022_df_broed %>%
@@ -1490,30 +1525,6 @@ ggplot(waarnemingen_df_broed) +
   geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
   facet_wrap(~status) +
   labs(x = "Broedcode", y = "Aantal waarnemingen")
-```
-
-```{r}
-waarnemingen_df_broed %>%
-  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
-                            levels = c("0", "> 0"),
-                            ordered = TRUE)) %>%
-  group_by(status, broedcode) %>%
-  summarise(mediaan = median(n)) %>%
-  kable()
-```
-
-```{r}
-waarnemingen_df_broed %>%
-  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
-                            levels = c("0", "> 0"),
-                            ordered = TRUE)) %>%
-  ggplot() +
-    geom_boxplot(aes(x = broedcode, y = n)) +
-    scale_y_continuous(breaks = seq(0, 100, 2), 
-                       limits = c(0, NA)) +
-    geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
-    facet_wrap(~status) +
-    labs(x = "Broedcode", y = "Aantal waarnemingen")
 ```
 
 
