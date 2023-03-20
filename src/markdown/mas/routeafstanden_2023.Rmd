@@ -326,7 +326,7 @@ closest_dist %>%
 
 # Routeberekening naar clusters
 
-- centroide van elke groep
+- centroïde van elke groep
 - kortste afstand naar tellers
   - 2 tellers uit Roeselare
   - 2 tellers uit Gent
@@ -336,6 +336,8 @@ closest_dist %>%
 - alles x2 voor heen en terug
   - wordt automatisch berekend voor afstanden tussen twee punten
 
+Voor elke groep telpunten berekenen we eerst het middelpunt (centroïde).
+
 ```{r}
 centroids <- clustered_points %>%
   group_by(groep) %>%
@@ -344,6 +346,8 @@ centroids <- clustered_points %>%
   left_join(clustered_points %>% st_drop_geometry(), by = "groep") %>%
   distinct(groep, regio, n, geometry)
 ```
+
+We nemen voor elke stad de coördinaten van het stadscentrum.
 
 ```{r}
 roeselare <- c(50.945005, 3.126043)
@@ -360,6 +364,8 @@ teller_adressen <- tibble(groep = rownames(stad_matrix), lat = stad_matrix[, 1],
 
 mapview(teller_adressen, zcol = "stad", layer = "stad")
 ```
+
+We berekenen voor elke stad de korste afstand naar de centroïde van elke groep telpunten. Daarna selecteren we per groep de stad die het dichtstbij ligt. Die laatste afstand is dan de korste afstand heen en terug tussen de centroïde van een groep en de dichtste stad.
 
 ```{r}
 datalist <- vector("list", length = nrow(centroids) * nrow(teller_adressen))
