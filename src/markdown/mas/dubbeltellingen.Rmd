@@ -428,8 +428,6 @@ beginner_plots <- dubbels_2022_df %>%
          ervaring != "ervaren") %>%
   distinct(plotnaam) %>%
   pull()
-
-
   
 plot_boxplots <- function(measure, var = NULL) {
   if (is.null(var)) {
@@ -1367,10 +1365,46 @@ sign_waarnemingen1 <- ifelse(sum_finaal_waarnemingen1$fixed["statusvrijwilliger"
                              "meer", "minder")
 ```
 
-We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` waarnemingen `r sign_waarnemingen1` melden dan de professionele teller (95% credible interval: `r ll_waarnemingen1` - `r ul_waarnemingen1`).
-
-
-
-
-
+We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` waarnemingen `r sign_waarnemingen1` melden dan de professionele teller (95% credible interval: `r ll_waarnemingen1` - `r ul_waarnemingen1`).  
+  
 https://discourse.mc-stan.org/t/using-brms-to-create-generated-quantities-stan-code-block/11766/10
+
+
+# Verschil in broedcode
+
+Mogelijks is er ook een verschil op de manier waarop broedcodes worden toegekend door de professionele teller vs de vrijwilligers. We selecteren alle vogels met alle broedcodes en binnen 300 m.
+
+```{r}
+dubbels_2022_df_broed <- dubbels_2022 %>%
+  st_drop_geometry() %>%
+  filter(distance2plot <= 300, soortgrp == 2) %>%
+  mutate(naam = ifelse(naam == "Gele kwikstaart (spec)", "Gele Kwikstaart",
+                       naam),
+         naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
+                       naam)) %>%
+  rename(waarnemerscode = waarneme)
+```
+
+We voegen variabelen toe gelinkt aan de plots. Enkel sbp is variabel.
+
+```{r}
+dubbels_2022_df_broed <- dubbels_2022_df_broed %>%
+  full_join(design_dubbels, by = "plotnaam")
+```
+
+We voegen variabelen toe gelinkt aan de waarnemers. We zien weinig verschil in de categoriën `ervaring` vs. `anciënniteit`. Vooral de `ervaring` variabele lijkt interessant om in acht te nemen.
+
+```{r}
+waarnemer_vars <- tibble(waarnemerscode = c("HMLE02", "DCLR00", "NRTT00", 
+                            "WBVS00", "GMRS04", "DDRT00", "ATRR00", "JJNN16"),
+                         status = c(rep("vrijwilliger", 7), "professioneel"),
+                         ervaring = c("beginner", "ervaren", "ervaren", 
+                             "ervaren", "beginner", "ervaren", "beginner", 
+                             "ervaren"), 
+                         ancienniteit = c(1, 5, 5, 4, 1, 5, 1, 5))
+
+dubbels_2022_df_broed <- dubbels_2022_df_broed %>%
+  full_join(waarnemer_vars, by = "waarnemerscode")
+```
+
+
