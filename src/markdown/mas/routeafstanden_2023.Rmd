@@ -335,19 +335,45 @@ closest_dist %>%
   - 1 teller uit Nieuwerkerken (Limburg) 
 - alles x2 voor heen en terug
 
+```{r}
+centroids <- clustered_points %>%
+  group_by(groep) %>%
+  summarise(geometry = st_union(geometry)) %>%
+  st_centroid() %>%
+  left_join(clustered_points %>% st_drop_geometry(), by = "groep") %>%
+  distinct(groep, regio, n, geometry)
+```
+
+```{r}
+roeselare <- c(50.945005, 3.126043)
+gent <- c(51.054445, 3.721669)
+lier <- c(51.132355, 4.568008)
+leuven <- c(50.878708, 4.700800)
+nieuwekerken <- c(50.866632, 5.193651)
+stad_matrix <- rbind(roeselare, gent, lier, leuven, nieuwekerken)
+
+teller_adressen <- tibble(stad = rownames(stad_matrix), lat = stad_matrix[, 1], 
+                          long = stad_matrix[, 2]) %>%
+  st_as_sf(coords = c("long", "lat"), crs = st_crs(4326)) %>%
+  st_transform(31370)
+
+mapview(teller_adressen, zcol = "stad", layer = "stad")
+```
+
+
 ## Minimum scenario
 
 - aantal keer op en neer naar groep punten
-  - 0.5 voor clusters 2-5
-  - 1 voor clusters 6-10
-  - 1.5 voor clusters 11-15
-  - 2 voor clusters 16-20
+  - 0.5 voor clusters met 2-5 telpunten
+  - 1 voor clusters met 6-10 telpunten
+  - 1.5 voor clusters met 11-15 telpunten
+  - 2 voor clusters met 16-20 telpunten
 
 ## Maximum scenario
 
 - aantal keer op en neer naar groep punten
-  - 1 voor clusters 2-5
-  - 1 voor clusters 6-10
-  - 2 voor clusters 11-15
-  - 2 voor clusters 16-20
+  - 1 voor clusters met 2-5 telpunten
+  - 1 voor clusters met 6-10 telpunten
+  - 2 voor clusters met 11-15 telpunten
+  - 2 voor clusters met 16-20 telpunten
   
