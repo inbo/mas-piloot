@@ -315,11 +315,12 @@ closest_dist <- clustered_points %>%
 De som van alle kortste afstanden binnen elke groep telpunten is `r sum(closest_dist$afstand)` km.
 
 ```{r}
-closest_dist %>%
+closest_dist_grouped <- closest_dist %>%
   st_drop_geometry() %>%
   group_by(regio) %>%
   summarise(som_intra_afstanden = sum(afstand)) %>%
-  mutate(eenheid = "km") %>%
+  mutate(eenheid = "km")
+closest_dist_grouped %>%
   kable()
 ```
 
@@ -397,7 +398,8 @@ afstanden_df <- do.call(rbind, datalist) %>%
   group_by(groep) %>%
   filter(dist == min(dist)) %>%
   left_join(clustered_points %>% st_drop_geometry(), by = "groep") %>%
-  distinct(groep, stad, dist = dist.x, regio, n)
+  distinct(groep, stad, dist = dist.x, regio, n) %>%
+  ungroup()
 ```
 
 ```{r}
@@ -407,6 +409,7 @@ afstanden_df %>%
     labs(x = "afstand", y = "aantal")
 ```
 
+Nu zitten we nog met de uitdaging dat de groepen van punten sterk verschillen in grootte. We kunnen er wel van uitgaan dat een groep van punten 16 punten in 2 dagen kan bezocht worden (dus afstand vermenigvuldigen met 2) en dat twee groepen van 3 punten samen in 1 dag kunnen bezocht worden (afstand elke groep vermenigvuldigen met 0,5).
 
 ## Minimum scenario
 
@@ -416,7 +419,36 @@ afstanden_df %>%
   - 1.5 voor clusters met 11-15 telpunten
   - 2 voor clusters met 16-20 telpunten
 
+```{r}
+afstanden_df_min <- afstanden_df %>%
+  mutate(
+    factor = case_when(
+      n <= 5 ~ 0.5,
+      n > 5 & n <= 10 ~ 1,
+      n > 10 & n <= 15 ~ 1.5,
+      n > 15 ~ 2
+      ),
+    tot_dist = dist * factor)
+```
 
+De som van alle korste afstanden van een stad naar elke groep telpunten is `r sum(afstanden_df_min$tot_dist)` km.
+
+```{r}
+afstanden_df_min_sum <- afstanden_df_min %>%
+  st_drop_geometry() %>%
+  group_by(regio) %>%
+  summarise(teller_afstanden = sum(tot_dist)) %>%
+  full_join(closest_dist_grouped, by = "regio") %>%
+  select(regio, intra_afstanden = som_intra_afstanden, teller_afstanden) %>%
+  rowwise() %>%
+  mutate(totaal = sum(intra_afstanden, teller_afstanden))
+afstanden_df_min_sum %>%
+  kable()
+```
+
+`intra_afstanden` toont de afstanden binnen groepen van telpunten. `teller_afstanden` de afstanden heen en terug van de teller (stad) naar de centroïde van elke groep punten waarbij we gecorrigeerd hebben voor de grootte van de groep punten. `totaal` is de som. De totale afstand die in dit scenario zal worden afgelegd is `r sum(afstanden_df_min_sum$totaal)` km.  
+  
+We houden in dit minimum scenario echter geen rekening dat er ook een afstand is tussen twee clusters met factor 0.5. Daarom werken we in het volgende een scenario uit zonder halve clusters.
 
 ## Maximum scenario
 
@@ -426,4 +458,9 @@ afstanden_df %>%
   - 2 voor clusters met 11-15 telpunten
   - 2 voor clusters met 16-20 telpunten
 
+```{r}
+afstanden_df_max <- afstanden_df_min %>%
+  mutate(factor = ceiling(factor),
+         tot_dist = dist * factor)
+```
 
