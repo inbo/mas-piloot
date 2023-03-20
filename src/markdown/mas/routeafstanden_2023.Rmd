@@ -90,10 +90,16 @@ ggplot() +
 
 # Test van routeberekening 
 
-We testen de functie `osrmTrip()` van de **osrm** package op de eerste 6 punten.
+We testen de functie `osrmTrip()` van de **osrm** package op de eerste 8 punten vanuit Roeselare.
 
 ```{r}
-trips <- osrmTrip(loc = head(punten_totaal))
+roeselare <- tibble(plotnaam = NA, regio = NA, 
+                    lat = 50.945005, 
+                    long = 3.126043) %>%
+  st_as_sf(coords = c("long", "lat"), crs = st_crs(4326)) %>%
+  st_transform(31370)
+
+trips <- osrmTrip(loc = bind_rows(roeselare, head(punten_totaal, 8)))
 
 mapview(trips[[1]]$trip) + 
   mapview(head(punten_totaal))
