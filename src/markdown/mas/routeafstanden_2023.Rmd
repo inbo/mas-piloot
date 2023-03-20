@@ -433,7 +433,7 @@ afstanden_df %>%
     labs(x = "afstand", y = "aantal")
 ```
 
-Nu zitten we nog met de uitdaging dat de groepen van punten sterk verschillen in grootte. We kunnen er wel van uitgaan dat een groep van punten 16 punten in 2 dagen kan bezocht worden (dus afstand vermenigvuldigen met 2) en dat twee groepen van 3 punten samen in 1 dag kunnen bezocht worden (afstand elke groep vermenigvuldigen met 0,5).
+Nu zitten we nog met de uitdaging dat de groepen van punten sterk verschillen in grootte. We kunnen er wel van uitgaan dat een groep van punten 16 punten in 2 dagen kan bezocht worden (dus afstand vermenigvuldigen met 2) en dat twee groepen van 3 punten samen in 1 dag kunnen bezocht worden (afstand elke groep vermenigvuldigen met 0.5).
 
 ## Minimum scenario
 
@@ -504,7 +504,9 @@ bind_rows(afstanden_df_min_sum %>% mutate(scenario = "minimum"),
   select(scenario, everything()) %>%
   group_by(scenario) %>%
   mutate(totaal_per_scenario = sum(route_afstanden)) %>%
-  select(everything(), eenheid) %>%
+  select(scenario, regio, afstand_per_regio = route_afstanden, 
+         totaal_per_scenario) %>%
+  mutate(eenheid = "km") %>%
   kable(digits = 2)
 ```
 
