@@ -167,8 +167,14 @@ min_dist <- clusters_ol1 %>%
   head(1) %>%
   pull(groep)
 
+group_n <- clusters_ol1 %>% 
+  filter(groep == min_dist) %>% 
+  pull(n) %>% 
+  unique()
+
 clusters_ol <- clusters_ol1 %>%
-  mutate(groep = ifelse(n == 1, min_dist, groep))
+  mutate(groep = ifelse(n == 1, min_dist, groep),
+         n = ifelse(n == 1, group_n, n))
 
 # Visualiseer
 mapview(clusters_ol, zcol = "groep")
@@ -205,8 +211,14 @@ min_dist <- clusters_20231 %>%
   head(1) %>%
   pull(groep)
 
+group_n <- clusters_20231 %>% 
+  filter(groep == min_dist) %>% 
+  pull(n) %>% 
+  unique()
+
 clusters_2023 <- clusters_20231 %>%
-  mutate(groep = ifelse(n == 1, min_dist, groep))
+  mutate(groep = ifelse(n == 1, min_dist, groep),
+         n = ifelse(n == 1, group_n, n))
 
 # Visualiseer
 mapview(clusters_2023, zcol = "groep")
@@ -222,7 +234,9 @@ clustered_points <-
     clusters_dm,
     clusters_ol,
     clusters_2023
-  )
+  ) %>%
+  mutate(regio = ifelse(regio %in% c("Westelijke leemstreek", "Zandleemstreek"),
+                        "Westelijke leemstreek/Zandleemstreek", regio))
 
 clustered_points %>%
   distinct(groep, n) %>%
