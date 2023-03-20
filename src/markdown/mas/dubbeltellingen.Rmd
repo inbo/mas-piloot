@@ -1372,7 +1372,12 @@ https://discourse.mc-stan.org/t/using-brms-to-create-generated-quantities-stan-c
 
 # Verschil in broedcode
 
-Mogelijks is er ook een verschil op de manier waarop broedcodes worden toegekend door de professionele teller vs de vrijwilligers. We selecteren alle vogels met alle broedcodes en binnen 300 m.
+Mogelijks is er ook een verschil op de manier waarop broedcodes worden toegekend door de professionele teller vs de vrijwilligers.
+
+
+## Data selectie
+
+We selecteren alle vogels met alle broedcodes en binnen 300 m.
 
 ```{r}
 dubbels_2022_df_broed <- dubbels_2022 %>%
@@ -1408,3 +1413,63 @@ dubbels_2022_df_broed <- dubbels_2022_df_broed %>%
 ```
 
 
+## Exploratie
+
+```{r}
+diversiteit_df_broed <- dubbels_2022_df_broed %>%
+  group_by(plotnaam, periode_in_jaar, status, wrntype) %>%
+  summarize(n = n_distinct(naam), .groups = "drop")
+  
+ggplot(diversiteit_df_broed) +
+  geom_boxplot(aes(x = wrntype, y = n)) +
+  scale_y_continuous(breaks = seq(0, 100, 2), 
+                     limits = c(0, NA)) +
+  geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+  facet_wrap(~status) +
+  labs(x = "Broedcode", y = "Aantal soorten")
+```
+
+```{r}
+diversiteit_df_broed %>%
+  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
+                            levels = c("0", "> 0"),
+                            ordered = TRUE)) %>%
+  ggplot() +
+    geom_boxplot(aes(x = broedcode, y = n)) +
+    scale_y_continuous(breaks = seq(0, 100, 2), 
+                       limits = c(0, NA)) +
+    geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+    facet_wrap(~status) +
+    labs(x = "Broedcode", y = "Aantal soorten")
+```
+
+
+### Waarnemingen
+
+```{r}
+waarnemingen_df_broed <- dubbels_2022_df_broed %>%
+  group_by(plotnaam, periode_in_jaar, status, wrntype) %>%
+  summarize(n = n(), .groups = "drop")
+  
+ggplot(waarnemingen_df_broed) +
+  geom_boxplot(aes(x = wrntype, y = n)) +
+  scale_y_continuous(breaks = seq(0, 100, 2), 
+                     limits = c(0, NA)) +
+  geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+  facet_wrap(~status) +
+  labs(x = "Broedcode", y = "Aantal waarnemingen")
+```
+
+```{r}
+waarnemingen_df_broed %>%
+  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
+                            levels = c("0", "> 0"),
+                            ordered = TRUE)) %>%
+  ggplot() +
+    geom_boxplot(aes(x = broedcode, y = n)) +
+    scale_y_continuous(breaks = seq(0, 100, 2), 
+                       limits = c(0, NA)) +
+    geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+    facet_wrap(~status) +
+    labs(x = "Broedcode", y = "Aantal waarnemingen")
+```
