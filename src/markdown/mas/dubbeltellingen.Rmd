@@ -1419,7 +1419,15 @@ dubbels_2022_df_broed <- dubbels_2022_df_broed %>%
 diversiteit_df_broed <- dubbels_2022_df_broed %>%
   group_by(plotnaam, periode_in_jaar, status, wrntype) %>%
   summarize(n = n_distinct(naam), .groups = "drop")
-  
+
+diversiteit_df_broed %>%
+  group_by(status, wrntype) %>%
+  summarise(mediaan = median(n)) %>%
+  rename(broedcode = wrntype) %>%
+  kable()
+```
+
+```{r}
 ggplot(diversiteit_df_broed) +
   geom_boxplot(aes(x = wrntype, y = n)) +
   scale_y_continuous(breaks = seq(0, 100, 2), 
@@ -1427,6 +1435,16 @@ ggplot(diversiteit_df_broed) +
   geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
   facet_wrap(~status) +
   labs(x = "Broedcode", y = "Aantal soorten")
+```
+
+```{r}
+diversiteit_df_broed %>%
+  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
+                            levels = c("0", "> 0"),
+                            ordered = TRUE)) %>%
+  group_by(status, broedcode) %>%
+  summarise(mediaan = median(n)) %>%
+  kable()
 ```
 
 ```{r}
@@ -1450,7 +1468,15 @@ diversiteit_df_broed %>%
 waarnemingen_df_broed <- dubbels_2022_df_broed %>%
   group_by(plotnaam, periode_in_jaar, status, wrntype) %>%
   summarize(n = n(), .groups = "drop")
-  
+
+waarnemingen_df_broed %>%
+  group_by(status, wrntype) %>%
+  summarise(mediaan = median(n)) %>%
+  rename(broedcode = wrntype) %>%
+  kable()
+```
+
+```{r}
 ggplot(waarnemingen_df_broed) +
   geom_boxplot(aes(x = wrntype, y = n)) +
   scale_y_continuous(breaks = seq(0, 100, 2), 
@@ -1458,6 +1484,17 @@ ggplot(waarnemingen_df_broed) +
   geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
   facet_wrap(~status) +
   labs(x = "Broedcode", y = "Aantal waarnemingen")
+```
+
+
+```{r}
+waarnemingen_df_broed %>%
+  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
+                            levels = c("0", "> 0"),
+                            ordered = TRUE)) %>%
+  group_by(status, broedcode) %>%
+  summarise(mediaan = median(n)) %>%
+  kable()
 ```
 
 ```{r}
