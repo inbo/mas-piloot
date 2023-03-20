@@ -400,6 +400,13 @@ afstanden_df <- do.call(rbind, datalist) %>%
   distinct(groep, stad, dist = dist.x, regio, n)
 ```
 
+```{r}
+afstanden_df %>%
+  ggplot() +
+    geom_histogram(aes(x = dist)) +
+    labs(x = "afstand", y = "aantal")
+```
+
 
 ## Minimum scenario
 
