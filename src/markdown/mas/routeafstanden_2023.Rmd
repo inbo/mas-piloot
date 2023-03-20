@@ -312,8 +312,6 @@ closest_dist <- clustered_points %>%
   mutate(afstand = osrmTrip_nogeom(loc = geometry)[[1]]$summary$distance)
 ```
 
-De som van alle kortste afstanden binnen elke groep telpunten is `r sum(closest_dist$afstand)` km.
-
 ```{r}
 closest_dist_grouped <- closest_dist %>%
   st_drop_geometry() %>%
@@ -324,6 +322,7 @@ closest_dist_grouped %>%
   kable()
 ```
 
+De som van alle kortste afstanden binnen elke groep telpunten is `r sum(closest_dist_grouped$som_intra_afstanden)` km.
 
 # Routeberekening naar clusters
 
@@ -335,7 +334,7 @@ closest_dist_grouped %>%
   - 1 teller uit Leuven
   - 1 teller uit Nieuwerkerken (Limburg) 
 - alles x2 voor heen en terug
-  - wordt automatisch berekend voor afstanden tussen twee punten
+  - wordt automatisch berekend door `osrmTrip()` voor afstanden tussen twee punten
 
 Voor elke groep telpunten berekenen we eerst het middelpunt (centroïde).
 
@@ -363,7 +362,7 @@ teller_adressen <- tibble(groep = rownames(stad_matrix), lat = stad_matrix[, 1],
   st_as_sf(coords = c("long", "lat"), crs = st_crs(4326)) %>%
   st_transform(31370)
 
-mapview(teller_adressen, zcol = "stad", layer = "stad")
+mapview(teller_adressen, zcol = "groep", layer = "groep")
 ```
 
 We berekenen voor elke stad de korste afstand naar de centroïde van elke groep telpunten. Daarna selecteren we per groep de stad die het dichtstbij ligt. Die laatste afstand is dan de korste afstand heen en terug tussen de centroïde van een groep en de dichtste stad.
@@ -479,5 +478,25 @@ afstanden_df_max_sum %>%
   kable()
 ```
 
-De totale afstand die in dit scenario zal worden afgelegd is `r sum(afstanden_df_max_sum$totaal)` km.  
+De totale afstand die in dit scenario zal worden afgelegd is `r sum(afstanden_df_max_sum$totaal)` km.
+
+
+# Samenvatting
+
+```{r}
+bind_rows(afstanden_df_min_sum %>% mutate(scenario = "minimum"), 
+          afstanden_df_max_sum %>% mutate(scenario = "maximum")) %>%
+  select(scenario, everything(), totaal_per_regio = totaal) %>%
+  group_by(scenario) %>%
+  mutate(totaal_per_scenario = sum(totaal_per_regio),
+         eenheid = "km") %>%
+  kable(digits = 2)
+```
+
+In het minimumscenario wordt in totaal (afstand binnen clusters + afstand van teller naar cluster (heen en terug)) `r sum(afstanden_df_min_sum$totaal)` km afgelegd. In het maximumscenario wordt in totaal `r sum(afstanden_df_max_sum$totaal)` km afgelegd.  
   
+We zijn er hierbij van uitgegaan dat:
+
+- Tellers per teldag alle punten van 1 cluster bezoeken (in het minimum scenario ook alle punten van 2 clusters bij kleine clusters)
+- Tellers telkens de meest korte route nemen naar telpunten en tussen punten van eenzelfde cluster
+- Alle eerste 50 punten van de nieuwe steekproef van 2023 worden geteld (geen punten beschouwd uit de reserve batch)
