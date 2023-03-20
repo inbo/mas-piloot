@@ -88,12 +88,18 @@ ggplot() +
 ```
 
 
-# Test van routeberekening 
+# Test osrm package voor routeberekening 
 
-We testen de functie `osrmTrip()` van de **osrm** package op de eerste 6 punten.
+We testen de functie `osrmTrip()` van de **osrm** package op de eerste 8 punten vanuit Roeselare.
 
 ```{r}
-trips <- osrmTrip(loc = head(punten_totaal))
+roeselare <- tibble(plotnaam = NA, regio = NA, 
+                    lat = 50.945005, 
+                    long = 3.126043) %>%
+  st_as_sf(coords = c("long", "lat"), crs = st_crs(4326)) %>%
+  st_transform(31370)
+
+trips <- osrmTrip(loc = bind_rows(roeselare, head(punten_totaal, 8)))
 
 mapview(trips[[1]]$trip) + 
   mapview(head(punten_totaal))
@@ -102,7 +108,7 @@ mapview(trips[[1]]$trip) +
 De kortste route wordt berekend. Deze bedraagt `r trips[[1]]$summary$distance` km.
 
 
-# Clustering
+# Clustering van telpunten
 
 We clusteren de punten. Omdat de densiteit van de punten sterk verschilt tussen de pilootstudie en de nieuwe punten, moeten we de berekeningen opsplitsen.
 
@@ -161,8 +167,14 @@ min_dist <- clusters_ol1 %>%
   head(1) %>%
   pull(groep)
 
+group_n <- clusters_ol1 %>% 
+  filter(groep == min_dist) %>% 
+  pull(n) %>% 
+  unique()
+
 clusters_ol <- clusters_ol1 %>%
-  mutate(groep = ifelse(n == 1, min_dist, groep))
+  mutate(groep = ifelse(n == 1, min_dist, groep),
+         n = ifelse(groep == min_dist, group_n + 1, n))
 
 # Visualiseer
 mapview(clusters_ol, zcol = "groep")
@@ -199,8 +211,14 @@ min_dist <- clusters_20231 %>%
   head(1) %>%
   pull(groep)
 
+group_n <- clusters_20231 %>% 
+  filter(groep == min_dist) %>% 
+  pull(n) %>% 
+  unique()
+
 clusters_2023 <- clusters_20231 %>%
-  mutate(groep = ifelse(n == 1, min_dist, groep))
+  mutate(groep = ifelse(n == 1, min_dist, groep),
+         n = ifelse(groep == min_dist, group_n + 1, n))
 
 # Visualiseer
 mapview(clusters_2023, zcol = "groep")
@@ -216,7 +234,9 @@ clustered_points <-
     clusters_dm,
     clusters_ol,
     clusters_2023
-  )
+  ) %>%
+  mutate(regio = ifelse(regio %in% c("Westelijke leemstreek", "Zandleemstreek"),
+                        "Westelijke leemstreek/Zandleemstreek", regio))
 
 clustered_points %>%
   distinct(groep, n) %>%
@@ -227,9 +247,82 @@ clustered_points %>%
 ```
 
 
-# Routeberekening binnen clusters
+# Routeberekening
 
-We moeten de functie `osmrTrip()` lichtjes aanpassen omdat de punten vaak niet op harde wegen liggen en dichtbij elkaar waardoor er een probleem is bij de output van de functie. Daarom outputten we geen geometry, maar enkel de afstand van het kortste traject.
+- centroïde van elke groep
+- kortste afstand naar tellers
+  - 2 tellers uit Roeselare
+  - 2 tellers uit Gent
+  - 1 teller uit Lier
+  - 1 teller uit Leuven
+  - 1 teller uit Nieuwerkerken (Limburg)
+
+Voor elke groep telpunten berekenen we eerst het middelpunt (centroïde).
+
+```{r}
+centroids <- clustered_points %>%
+  group_by(groep) %>%
+  summarise(geometry = st_union(geometry)) %>%
+  st_centroid() %>%
+  left_join(clustered_points %>% st_drop_geometry(), by = "groep") %>%
+  distinct(groep, regio, n, geometry)
+```
+
+We nemen voor elke stad de coördinaten van het stadscentrum.
+
+```{r}
+roeselare <- c(50.945005, 3.126043)
+gent <- c(51.054445, 3.721669)
+lier <- c(51.132355, 4.568008)
+leuven <- c(50.878708, 4.700800)
+nieuwekerken <- c(50.866632, 5.193651)
+stad_matrix <- rbind(roeselare, gent, lier, leuven, nieuwekerken)
+
+teller_adressen <- tibble(groep = rownames(stad_matrix), lat = stad_matrix[, 1], 
+                          long = stad_matrix[, 2]) %>%
+  st_as_sf(coords = c("long", "lat"), crs = st_crs(4326)) %>%
+  st_transform(31370)
+
+mapview(teller_adressen, zcol = "groep", layer = "groep")
+```
+
+We berekenen voor elke stad de korste afstand naar de centroïde van elke groep telpunten. Daarna selecteren we per groep de stad die het dichtstbij ligt.
+
+```{r}
+datalist <- vector("list", length = nrow(centroids) * nrow(teller_adressen))
+i <- 1
+
+for (cluster in 1:nrow(centroids)) {
+  for (teller in 1:nrow(teller_adressen)) {
+    dist <- osrmTrip(loc = rbind(centroids[cluster, c(1, 2)], 
+                       teller_adressen[teller, c(1, 2)]))[[1]]$summary$distance
+    
+    test <- centroids[cluster, 1] %>% 
+      st_drop_geometry() %>% 
+      pull(groep)
+    
+    stad <- teller_adressen[teller, 1] %>% 
+      st_drop_geometry() %>% 
+      pull(groep)
+    
+    df <- data.frame(groep = test, 
+                     stad,
+                     dist)
+    
+   datalist[[i]] <- df
+   i <- i + 1
+  }
+}
+
+afstanden_centroid <- do.call(rbind, datalist) %>%
+  group_by(groep) %>%
+  filter(dist == min(dist)) %>%
+  left_join(clustered_points %>% st_drop_geometry(), by = "groep") %>%
+  distinct(groep, stad, dist = dist.x, regio, n) %>%
+  ungroup()
+```
+
+Nu kunnen we de kortste routes berekenen tussen de tellers (stad) en de punten per cluster. We moeten de functie `osmrTrip()` lichtjes aanpassen omdat de punten vaak niet op harde wegen liggen en dichtbij elkaar waardoor er een probleem is bij de output van de functie. Daarom outputten we geen geometry, maar enkel de afstand van het kortste traject.
 
 ```{r}
 osrmTrip_nogeom <- function(loc, exclude = NULL, overview = "simplified", 
@@ -307,108 +400,54 @@ osrmTrip_nogeom <- function(loc, exclude = NULL, overview = "simplified",
 ```
 
 ```{r}
-closest_dist <- clustered_points %>% 
+afstanden_new <- afstanden_centroid %>%
+  left_join(teller_adressen, by = c("stad" = "groep")) %>%
+  st_as_sf() %>%
+  select(groep, stad, regio, n)
+
+clusterd_new <- clustered_points %>%
+  mutate(stad = NA) %>%
+  select(groep, stad, regio, n)
+
+afstanden_df <- bind_rows(afstanden_new, clusterd_new) %>% 
   group_by(groep) %>%
-  mutate(afstand = osrmTrip_nogeom(loc = geometry)[[1]]$summary$distance)
+  mutate(afstand = osrmTrip_nogeom(loc = geometry)[[1]]$summary$distance) %>%
+  distinct(groep, stad, regio, n, afstand) %>%
+  filter(!is.na(stad))
 ```
+
+We visualiseren het resultaat voor clusters `"De Moeren 2"`, `"Oostelijke leemstreek 2"` en `"westleem_zandleem 9"`
 
 ```{r}
-closest_dist_grouped <- closest_dist %>%
-  st_drop_geometry() %>%
-  group_by(regio) %>%
-  summarise(som_intra_afstanden = sum(afstand)) %>%
-  mutate(eenheid = "km")
-closest_dist_grouped %>%
-  kable()
+test1 <- osrmTrip(bind_rows(afstanden_new, clusterd_new) %>% 
+                   filter(groep == "De Moeren 2"))
+mapview(test1[[1]]$trip) + 
+  mapview(bind_rows(afstanden_new, clusterd_new) %>% 
+            filter(groep == "De Moeren 2"))
+
+test2 <- osrmTrip(bind_rows(afstanden_new, clusterd_new) %>% 
+                   filter(groep == "Oostelijke leemstreek 2"))
+mapview(test2[[1]]$trip) + 
+  mapview(bind_rows(afstanden_new, clusterd_new) %>% 
+            filter(groep == "Oostelijke leemstreek 2"))
+
+test2 <- osrmTrip(bind_rows(afstanden_new, clusterd_new) %>% 
+                   filter(groep == "westleem_zandleem 9"))
+mapview(test2[[1]]$trip) + 
+  mapview(bind_rows(afstanden_new, clusterd_new) %>% 
+            filter(groep == "westleem_zandleem 9"))
 ```
 
-De som van alle kortste afstanden binnen elke groep telpunten is `r sum(closest_dist_grouped$som_intra_afstanden)` km.
-
-# Routeberekening naar clusters
-
-- centroïde van elke groep
-- kortste afstand naar tellers
-  - 2 tellers uit Roeselare
-  - 2 tellers uit Gent
-  - 1 teller uit Lier
-  - 1 teller uit Leuven
-  - 1 teller uit Nieuwerkerken (Limburg) 
-- alles x2 voor heen en terug
-  - wordt automatisch berekend door `osrmTrip()` voor afstanden tussen twee punten
-
-Voor elke groep telpunten berekenen we eerst het middelpunt (centroïde).
-
-```{r}
-centroids <- clustered_points %>%
-  group_by(groep) %>%
-  summarise(geometry = st_union(geometry)) %>%
-  st_centroid() %>%
-  left_join(clustered_points %>% st_drop_geometry(), by = "groep") %>%
-  distinct(groep, regio, n, geometry)
-```
-
-We nemen voor elke stad de coördinaten van het stadscentrum.
-
-```{r}
-roeselare <- c(50.945005, 3.126043)
-gent <- c(51.054445, 3.721669)
-lier <- c(51.132355, 4.568008)
-leuven <- c(50.878708, 4.700800)
-nieuwekerken <- c(50.866632, 5.193651)
-stad_matrix <- rbind(roeselare, gent, lier, leuven, nieuwekerken)
-
-teller_adressen <- tibble(groep = rownames(stad_matrix), lat = stad_matrix[, 1], 
-                          long = stad_matrix[, 2]) %>%
-  st_as_sf(coords = c("long", "lat"), crs = st_crs(4326)) %>%
-  st_transform(31370)
-
-mapview(teller_adressen, zcol = "groep", layer = "groep")
-```
-
-We berekenen voor elke stad de korste afstand naar de centroïde van elke groep telpunten. Daarna selecteren we per groep de stad die het dichtstbij ligt. Die laatste afstand is dan de korste afstand heen en terug tussen de centroïde van een groep en de dichtste stad.
-
-```{r}
-datalist <- vector("list", length = nrow(centroids) * nrow(teller_adressen))
-i <- 1
-
-for (cluster in 1:nrow(centroids)) {
-  for (teller in 1:nrow(teller_adressen)) {
-    dist <- osrmTrip(loc = rbind(centroids[cluster, c(1, 2)], 
-                       teller_adressen[teller, c(1, 2)]))[[1]]$summary$distance
-    
-    test <- centroids[cluster, 1] %>% 
-      st_drop_geometry() %>% 
-      pull(groep)
-    
-    stad <- teller_adressen[teller, 1] %>% 
-      st_drop_geometry() %>% 
-      pull(groep)
-    
-    df <- data.frame(groep = test, 
-                     stad,
-                     dist)
-    
-   datalist[[i]] <- df
-   i <- i + 1
-  }
-}
-
-afstanden_df <- do.call(rbind, datalist) %>%
-  group_by(groep) %>%
-  filter(dist == min(dist)) %>%
-  left_join(clustered_points %>% st_drop_geometry(), by = "groep") %>%
-  distinct(groep, stad, dist = dist.x, regio, n) %>%
-  ungroup()
-```
+De kaarten tonen aan dat de berekeningen verlopen zijn zoals verwacht. De verdeling van de afstanden ziet er als volgt uit:
 
 ```{r}
 afstanden_df %>%
   ggplot() +
-    geom_histogram(aes(x = dist)) +
+    geom_histogram(aes(x = afstand)) +
     labs(x = "afstand", y = "aantal")
 ```
 
-Nu zitten we nog met de uitdaging dat de groepen van punten sterk verschillen in grootte. We kunnen er wel van uitgaan dat een groep van punten 16 punten in 2 dagen kan bezocht worden (dus afstand vermenigvuldigen met 2) en dat twee groepen van 3 punten samen in 1 dag kunnen bezocht worden (afstand elke groep vermenigvuldigen met 0,5).
+Nu zitten we nog met de uitdaging dat de groepen van punten sterk verschillen in grootte. We kunnen er wel van uitgaan dat een groep van punten 16 punten in 2 dagen kan bezocht worden (dus afstand vermenigvuldigen met 2) en dat twee groepen van 3 punten samen in 1 dag kunnen bezocht worden (afstand elke groep vermenigvuldigen met 0.5).
 
 ## Minimum scenario
 
@@ -427,25 +466,20 @@ afstanden_df_min <- afstanden_df %>%
       n > 10 & n <= 15 ~ 1.5,
       n > 15 ~ 2
       ),
-    tot_dist = dist * factor)
+    tot_dist = afstand * factor)
 ```
-
-De som van alle korste afstanden van een stad naar elke groep telpunten is `r sum(afstanden_df_min$tot_dist)` km.
 
 ```{r}
 afstanden_df_min_sum <- afstanden_df_min %>%
   st_drop_geometry() %>%
   group_by(regio) %>%
-  summarise(teller_afstanden = sum(tot_dist)) %>%
-  full_join(closest_dist_grouped, by = "regio") %>%
-  select(regio, intra_afstanden = som_intra_afstanden, teller_afstanden) %>%
-  rowwise() %>%
-  mutate(totaal = sum(intra_afstanden, teller_afstanden))
+  summarise(route_afstanden = sum(tot_dist)) %>%
+  mutate(eenheid = "km")
 afstanden_df_min_sum %>%
   kable()
 ```
 
-`intra_afstanden` toont de afstanden binnen groepen van telpunten. `teller_afstanden` de afstanden heen en terug van de teller (stad) naar de centroïde van elke groep punten waarbij we gecorrigeerd hebben voor de grootte van de groep punten. `totaal` is de som. De totale afstand die in dit scenario zal worden afgelegd is `r sum(afstanden_df_min_sum$totaal)` km.  
+De totale afstand die in dit scenario zal worden afgelegd is `r sum(afstanden_df_min_sum$route_afstanden)` km.  
   
 We houden in dit minimum scenario echter geen rekening dat er ook een afstand is tussen twee clusters met factor 0.5. Daarom werken we in het volgende een scenario uit zonder halve clusters.
 
@@ -460,25 +494,20 @@ We houden in dit minimum scenario echter geen rekening dat er ook een afstand is
 ```{r}
 afstanden_df_max <- afstanden_df_min %>%
   mutate(factor = ceiling(factor),
-         tot_dist = dist * factor)
+         tot_dist = afstand * factor)
 ```
-
-De som van alle korste afstanden van een stad naar elke groep telpunten is `r sum(afstanden_df_max$tot_dist)` km.
 
 ```{r}
 afstanden_df_max_sum <- afstanden_df_max %>%
   st_drop_geometry() %>%
   group_by(regio) %>%
-  summarise(teller_afstanden = sum(tot_dist)) %>%
-  full_join(closest_dist_grouped, by = "regio") %>%
-  select(regio, intra_afstanden = som_intra_afstanden, teller_afstanden) %>%
-  rowwise() %>%
-  mutate(totaal = sum(intra_afstanden, teller_afstanden))
+  summarise(route_afstanden = sum(tot_dist)) %>%
+  mutate(eenheid = "km")
 afstanden_df_max_sum %>%
   kable()
 ```
 
-De totale afstand die in dit scenario zal worden afgelegd is `r sum(afstanden_df_max_sum$totaal)` km.
+De totale afstand die in dit scenario zal worden afgelegd is `r sum(afstanden_df_max_sum$route_afstanden)` km.
 
 
 # Samenvatting
@@ -486,17 +515,20 @@ De totale afstand die in dit scenario zal worden afgelegd is `r sum(afstanden_df
 ```{r}
 bind_rows(afstanden_df_min_sum %>% mutate(scenario = "minimum"), 
           afstanden_df_max_sum %>% mutate(scenario = "maximum")) %>%
-  select(scenario, everything(), totaal_per_regio = totaal) %>%
+  select(scenario, everything()) %>%
   group_by(scenario) %>%
-  mutate(totaal_per_scenario = sum(totaal_per_regio),
-         eenheid = "km") %>%
+  mutate(totaal_per_scenario = sum(route_afstanden)) %>%
+  select(scenario, regio, afstand_per_regio = route_afstanden, 
+         totaal_per_scenario) %>%
+  mutate(eenheid = "km") %>%
   kable(digits = 2)
 ```
 
-In het minimumscenario wordt in totaal (afstand binnen clusters + afstand van teller naar cluster (heen en terug)) `r sum(afstanden_df_min_sum$totaal)` km afgelegd. In het maximumscenario wordt in totaal `r sum(afstanden_df_max_sum$totaal)` km afgelegd.  
+In het minimumscenario wordt in totaal `r sum(afstanden_df_min_sum$route_afstanden)` km afgelegd. In het maximumscenario wordt in totaal `r sum(afstanden_df_max_sum$route_afstanden)` km afgelegd.  
   
 We zijn er hierbij van uitgegaan dat:
 
 - Tellers per teldag alle punten van 1 cluster bezoeken (in het minimum scenario ook alle punten van 2 clusters bij kleine clusters)
 - Tellers telkens de meest korte route nemen naar telpunten en tussen punten van eenzelfde cluster
 - Alle eerste 50 punten van de nieuwe steekproef van 2023 worden geteld (geen punten beschouwd uit de reserve batch)
+- Een cluster punten wordt bezocht door de dichtsbijwonende teller
