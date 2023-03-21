@@ -1740,7 +1740,7 @@ if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm2.rds"))) {
 
 ```{r}
 # Comparison among models
-models_soorten <- data.frame(
+models_soorten2 <- data.frame(
   naam = c("normaal", 
            "poisson", 
            "negatief binomiaal"),
@@ -1756,7 +1756,7 @@ loo_compare(
     criterion = "loo") %>%
   as.data.frame() %>%
   rownames_to_column("model") %>%
-  left_join(models_soorten, by = "model") %>%
+  left_join(models_soorten2, by = "model") %>%
   select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
@@ -1765,20 +1765,32 @@ loo_compare(
 ```
 
 ```{r}
+fit_dubbel_soorten_norm2$data <- fit_dubbel_soorten_norm2$data %>%
+  mutate(statusbroed = paste(status, broedcode))
+
 pp_check(fit_dubbel_soorten_norm2, type = "dens_overlay_grouped", ndraws = 100, 
-         group = "status")
+         group = "statusbroed")
+
+fit_dubbel_soorten_pois2$data <- fit_dubbel_soorten_pois2$data %>%
+  mutate(statusbroed = paste(status, broedcode))
 
 pp_check(fit_dubbel_soorten_pois2, type = "bars_grouped", ndraws = 100, 
-         group = "status", facet_args = list(ncol = 1, scales = "free_y"))
+         group = "statusbroed", facet_args = list(ncol = 1, scales = "free_y"))
+
+fit_dubbel_soorten_negbin2$data <- fit_dubbel_soorten_negbin2$data %>%
+  mutate(statusbroed = paste(status, broedcode))
 
 pp_check(fit_dubbel_soorten_negbin2, type = "bars_grouped", ndraws = 100, 
          group = "status", facet_args = list(ncol = 1, scales = "free_y"))
+
+pp_check(fit_dubbel_soorten_negbin2, type = "bars_grouped", ndraws = 100, 
+         group = "statusbroed", facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
-Hoewel we discrete data hebben, besluiten we dat normale glm met normaal verdeling het beste past bij de data. De resultaten voor alle drie de modellen zijn gelijkaardig.
+Hoewel we de fit niet ideaal is, besluiten we dat de Poisson verdeling het beste past bij de data. De resultaten voor alle drie de modellen zijn gelijkaardig.
   
 We zien goede convergentie.
 
 ```{r}
-plot(fit_dubbel_soorten_norm2)
+plot(fit_dubbel_soorten_pois2)
 ```
