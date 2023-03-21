@@ -142,7 +142,8 @@ list(
     ),
   tar_target(
     perimeters_data,
-    st_read(perimeters_file)
+    st_read(perimeters_file) %>% 
+      arrange(Naam)
     ),
   tarchetypes::tar_file(
     osm_belgium,
@@ -179,6 +180,14 @@ list(
   tarchetypes::tar_file(
     sbp_overige_file,
     path_to_sbp_akkervogels(file = "sbp_overige_soorten.shp")
+  ),
+  tarchetypes::tar_file(
+    existing_file,
+    path_to_existing(file = "steekproef_piloot_avimap.geojson")
+  ),
+  tar_target(
+    existing_data,
+    st_read(existing_file)
   )
 )
 ```
@@ -203,7 +212,7 @@ list(
       leisure = c("park"),
       buffer_poly = 0, 
       layer_poly = list(aeroway = c("aerodrome")),
-      buffer_line = 50, 
+      buffer_line = 100, 
       layer_line = list(highway = c("motorway", "motorway_link")),
       update_osm_layer = FALSE
       ),
@@ -215,8 +224,7 @@ list(
       gebied = selectie_openheid_klasses,
       exclusie = exclusie_osm_landgebruiken,
       osmdata = osm_belgium,
-      paths_include = c('track', 'footway', 'path', 'cycleway', 
-      'bridleway', 'tertiary', 'tertiary_link', 'unclassified'),
+      paths_include = c("track", "tertiary", "tertiary_link", "unclassified"),
       cutting_exclude = NULL,
       historic_exclude = NULL,
       waterway = NULL,
@@ -339,7 +347,7 @@ list(
       punten_sf = plus_openheid_landschap,
       sbp = sbp_akkervogels
       ),
-    pattern = map(sbp_akkervogels, plus_openheid_landschap)
+    pattern = map(plus_openheid_landschap)
   )
 )
 ```
@@ -361,7 +369,8 @@ list(
       allocatie_binnen_sbp = 0.5,
       allocatie_leemstreek = 0,
       ol_strata = c("OL", "HOL")
-      )
+      ),
+    pattern = map(steekproefkader_finaal, target_size)
   ),
   tarchetypes::tar_group_by(
     allocatie_per_stratum,
@@ -394,25 +403,42 @@ list(
 
 ```{targets nabehandeling}
 list(
-  tar_target(
-    steekproef_thinned,
-    thin_sample(
-      sample = steekproef,
-      thin_dist = 300
-      ),
-    pattern = map(steekproef)
-  ),
-  tar_target(
-    output_objecten,
-    output_finaal(
-      files = list(steekproefkader = steekproefkader_finaal, 
-                   steekproef_thin = steekproef_thinned),
-      write_out = TRUE
-      )
+  tarchetypes::tar_map(
+    list(thin_dists = c(300, 600)),
+    tar_target(
+      steekproef_thinned,
+      thin_sample(
+        sample = steekproef,
+        thin_dist = thin_dists
+        ),
+      pattern = map(steekproef)
+    ),
+    tar_target(
+      steekproef_final,
+      replace_by_existing(
+        sample = steekproef_thinned,
+        existing_points = existing_data,
+        overlap_prop = 0.5,
+        sbp_file = sbp_akkervogels
+        ),
+      pattern = map(steekproef_thinned)
+    )
   )
 )
 ```
 
+```{targets version-control}
+list(
+  tar_target(
+    output_objecten,
+    output_finaal(
+      files = list(steekproefkader = steekproefkader_finaal, 
+                   steekproef = steekproef_final_600),
+      write_out = TRUE
+    )
+  )
+)
+```
 
 # Analysestramien uitvoeren
 

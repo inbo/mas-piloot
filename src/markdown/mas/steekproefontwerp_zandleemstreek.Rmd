@@ -14,6 +14,8 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
+renv::restore()
+
 # set up
 library(knitr)
 library(here)
@@ -78,7 +80,8 @@ Nieuwe file geschreven "zandleemstreek_perimeters.gpkg" met enkel de zandleemstr
              dsn = path_to_perimeters("zandleemstreek_perimeters.gpkg"))
 
 ```{r}
-perimeters_data <- tar_read(perimeters_data, store = targets_store)
+perimeters_data <- tar_read(perimeters_data, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 
 mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE)
 ```
@@ -101,7 +104,9 @@ We selecteren OL en HOL binnen de perimeter.
 
 ```{r}
 selectie_openheid_klasses <- tar_read(selectie_openheid_klasses, 
-                                      store = targets_store)
+                                      store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
+
 mapview(perimeters_data, color = "red", alpha.regions = 0, legend = FALSE) +
   mapview(selectie_openheid_klasses, col.regions = "red", legend = FALSE)
 ```
@@ -113,7 +118,7 @@ We gebruiken hiervoor de kenmerken [landuse](https://wiki.openstreetmap.org/wiki
 De links in voorgaande zin verwijzen naar de volledige lijst van mogelijke klassen.
 
 We knippen we onderstaande landgebruiken uit de openheid selectie.
-Rond autosnelwegen en invoegstroken en afritten van autosnelwegen trekken we een buffer van 50 m.
+Rond autosnelwegen en invoegstroken en afritten van autosnelwegen trekken we een buffer van 100 m.
 
 ### Woongebied
 
@@ -192,7 +197,8 @@ In groen de exclusiekaart en rood OL en HOL binnen de perimeter.
 
 ```{r}
 exclusie_osm_landgebruiken <- tar_read(exclusie_osm_landgebruiken,
-                                       store = targets_store)
+                                       store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 
 detail <- c("xmin" = 150000,
             "ymin" = 160000,
@@ -232,30 +238,6 @@ We selecteren de volgende wegen.
 -   Objecttype: veldwegen en boswegen
 -   OSM Wiki: <https://wiki.openstreetmap.org/wiki/Tag:highway%3Dtrack>
 
-### Voetpad
-
--   OSM definitie: `highway = footway`
--   Objecttype: voetpad
--   OSM Wiki: <https://en.wikipedia.org/wiki/nl:Voetpad>
-
-### (Bos)Pad
-
--   OSM definitie: `highway = path`
--   Objecttype: (bos)pad
--   OSM Wiki: <https://wiki.openstreetmap.org/wiki/NL:Tag:highway%3Dpath>
-
-### Fietspad
-
--   OSM definitie: `highway = cycleway`
--   Objecttype: fietspad
--   OSM Wiki: <https://wiki.openstreetmap.org/wiki/NL:Tag:highway%3Dcycleway>
-
-### Ruiterpad
-
--   OSM definitie: `highway = bridleway`
--   Objecttype: ruiterpad
--   OSM Wiki: <https://wiki.openstreetmap.org/wiki/Tag:highway%3Dbridleway>
-
 ### Tertiare wegen
 
 -   OSM definitie: `highway = tertiary`
@@ -277,7 +259,8 @@ We selecteren de volgende wegen.
 We verwijderen wegen die overlappen met de exclusiekaart en verwijderen overlappende wegen.
 
 ```{r}
-paden <- tar_read(paden, store = targets_store)
+paden <- tar_read(paden, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 
 mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
         legend = FALSE) +
@@ -313,7 +296,8 @@ Werkwijze:
 -   Potentiële telpunten moeten op minstens 300 m van de grens van de perimeter gelegen zijn
 
 ```{r}
-punten <- tar_read(punten, store = targets_store)
+punten <- tar_read(punten, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 
 mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
         legend = FALSE) +
@@ -347,7 +331,8 @@ Voor elk potentieel telpunt / telcirkel:
 
 ```{r}
 telcirkels_selectie_landgebruik <- tar_read(telcirkels_selectie_landgebruik,
-                                   store = targets_store)
+                                   store = targets_store) %>%
+  filter(startsWith(pointid, abbreviate("Zandleemstreek", 2)))
 ```
 
 We gebruiken volgende regel als criterium voor telpunten die in aanmerkingen komen voor wat betreft de samenstelling van het landgebruik in een buffer van 300 m rond het punt:
@@ -406,7 +391,10 @@ Zie:\
 We verwijderen telpunten waar de cumulatieve 'viewshed visibility index' (cvvi) kleiner is dan 0.10.
 
 ```{r}
-punten_zichtbaarheid <- tar_read(punten_zichtbaarheid, store = targets_store)
+punten_zichtbaarheid <- tar_read(punten_zichtbaarheid, 
+                                 store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
+
 plus_visibility <- add_openheid_landschap_to_frame(
       path = path_to_openheid_landschap(),
       punten_sf = punten_zichtbaarheid,
@@ -449,7 +437,9 @@ Voor de steekproeftrekking zijn vooral de oppervlakte aan soortbeschermingsmaatr
 Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
 
 ```{r bo-sbp}
-steekproefkader_finaal <- tar_read(steekproefkader_finaal, store = targets_store)
+steekproefkader_finaal <- tar_read(steekproefkader_finaal, 
+                                   store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 ```
 
 ```{r}
@@ -476,7 +466,8 @@ steekproefkader_finaal %>%
 ### Oppervlakte-aandeel hoofdteelt
 
 ```{r lbg-stats}
-lbg_statistieken <- tar_read(lbg_statistics, store = targets_store)
+lbg_statistieken <- tar_read(lbg_statistics, store = targets_store) %>%
+  filter(startsWith(pointid, abbreviate("Zandleemstreek", 2)))
 ```
 
 Belangrijkste teelten in 2022.
@@ -617,7 +608,7 @@ openheid_raster <- raster::ratify(openheid_raster)
 levels(openheid_raster)[[1]]$LO <- c("GL", "HGL", "HOL", "OL")
 
 openheid_raster %>%
-  mapview(alpha = 0.3)
+  mapview(alpha = 0.3, layer = "openheid_klasse")
 ```
 
 ```{r openheid-points}
@@ -699,7 +690,8 @@ mapview(st_intersection(bind_rows(sbp_overig, sbp_akkergvogels),
 ```
 
 ```{r}
-sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store)
+sbp_akkervogels <- tar_read(sbp_akkervogels, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek")
 ```
 
 Het oppervlakte aandeel aan SBP's binnen de zandleemstreek:
@@ -903,11 +895,12 @@ Niet echt belangrijk hier omdat we een maximum steekproef trekken en de tellers 
 
 ```{r}
 allocatie <- tar_read(allocatie_df, store = targets_store) %>%
-   mutate(openheid_sbp = paste(openheid_klasse,
-                             ifelse(is_sbp,
-                                    "binnen plan",
-                                    "buiten plan"))
-         )
+  filter(Naam == "Zandleemstreek") %>%
+  mutate(openheid_sbp = paste(openheid_klasse,
+                           ifelse(is_sbp,
+                                  "binnen plan",
+                                  "buiten plan"))
+       )
 
 allocatie %>%
   mutate(steekproeftrekking = round(popsize / 20)) %>%
@@ -923,10 +916,11 @@ De eerste bv. 300 (laagste volgnummers) zullen dan de set zijn voor de zandleems
 Indien een punt uitvalt, kan dit vervangen worden door het eerstvolgende uit de reeks dat nog niet toegewezen werd (het 301ste).
 De methode garandeert dat deze nieuwe set ruimtelijk goed gespreid is en een aselecte steekproef is.
   
-Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 300 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden.
+Om te veel overlap te voorkomen binnen enzelfde stratum, is voor elk punt binnen hetzelfde stratum nagegaan of een punt met grotere `sample_order` op minder dan 600 m afstand ligt. Als dit het geval is wordt het punt met de lagere `sample_order` weerhouden. Voor een vergelijking tussen 300 en 600 m thinning, zie steekproefontwerp_leemstreek.Rmd.
 
 ```{r trekking}
-steekproef <- tar_read(steekproef_thinned, store = targets_store) %>%
+steekproef <- tar_read(steekproef_final_600, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek") %>%
   mutate(openheid_sbp = paste(openheid_klasse,
                              ifelse(is_sbp,
                                     "binnen plan",
@@ -1057,19 +1051,19 @@ mapview_n <- function(n) {
 }
 ```
 
-50 punten per stratum:
+Eerste 50 punten per stratum:
 
 ```{r}
 mapview_n(50)
 ```
 
-100 punten per stratum:
+Eerste 100 punten per stratum:
 
 ```{r}
 mapview_n(100)
 ```
 
-200 punten per stratum:
+Eerste 200 punten per stratum:
 
 ```{r}
 mapview_n(200)
@@ -1114,9 +1108,10 @@ Bijvoorbeeld: Als een nieuw punt voor meer dan 50 % overlapt met een bestaand pu
 
 > Opvragen bij SOVON?
 
+We bekijken overlap met de pilootstudie.
 Er is niet veel overlap.
-In dit geval zal er overlap zijn met de punten uit de pilootstudie in De Moeren. 
 We vervangen alle telpunten uit de steekproef van de zandleemstreek door reeds bestaande punten indien ze voor minstens 50 % overlappen en ze tot hetzelfde stratum behoren.
+Indien er meerdere bestaande punten overlappen, nemen we het bestaande punt dat het meest overlapt.
 Omdat we nu een nieuwe laag van sbp gebruiken, moeten we dit stratum opnieuw berekenen voor de bestaande punten.
 
 
@@ -1148,7 +1143,15 @@ oude_cirkels_sbp <- oude_punten_sbp %>%
   st_buffer(300)
 
 # buffer nieuwe punten
-cirkels_zandleemstreek <- steekproef %>% 
+steekproef_raw <- tar_read(steekproef_thinned_600, store = targets_store) %>%
+  filter(Naam == "Zandleemstreek") %>%
+  mutate(openheid_sbp = paste(openheid_klasse,
+                             ifelse(is_sbp,
+                                    "binnen plan",
+                                    "buiten plan"))
+         )
+
+cirkels_zandleemstreek <- steekproef_raw %>% 
   st_buffer(300)
 ```
 
@@ -1161,7 +1164,11 @@ intersect <- st_intersection(oude_cirkels_sbp, cirkels_zandleemstreek) %>%
   filter(intersect_area >= 0.5 * 300 * 300 * pi, # 50 %
          openheid_sbp == openheid_sbp.1) %>%     # zelfde stratum
   select(plotnaam, pointid, intersect_area) %>%
-  st_drop_geometry()
+  st_drop_geometry() %>%
+  group_by(pointid) %>%
+  filter(intersect_area == max(intersect_area)) %>%
+  ungroup()
+  
 
 intersect %>%
   mutate(intersect_prop = intersect_area / (300 * 300 * pi)) %>%
@@ -1177,24 +1184,14 @@ mapview(oude_cirkels_sbp %>% filter(plotnaam %in% intersect$plotnaam),
           layer = "nieuwe punten")
 ```
 
-We vervangen de nieuwe punten in de steekproef door de bestaande.
+In dit geval zal er wat overlap zijn met de punten uit De Moeren. 
 
 ```{r}
-# Vervang id en geometry
-bestaand_overlap <- oude_punten_sbp %>%
-  inner_join(intersect, by = "plotnaam") %>%
-  select(plotnaam, pointid, regio) %>%
-  inner_join(steekproef %>% st_drop_geometry(), by = "pointid") %>%
-  select(pointid = plotnaam, key, value, Naam, tar_group, cvvi, area_prop_sb, 
-         openheid_klasse, openheid_waarde, is_sbp, in_sample, sample_order, 
-         batch, geometry, openheid_sbp)
-class(bestaand_overlap) <- class(steekproef)
-
-# voeg toe aan steekproef
-steekproef_overlap <- steekproef %>%
-  filter(!pointid %in% intersect$pointid) %>%
-  bind_rows(bestaand_overlap) %>%
-  arrange(openheid_sbp, sample_order)
+oude_punten_sbp %>%
+  st_drop_geometry() %>%
+  mutate(overlap = ifelse(plotnaam %in% intersect$plotnaam, "yes", "no")) %>%
+  count(regio, overlap) %>%
+  kable()
 ```
 
 
@@ -1203,14 +1200,21 @@ steekproef_overlap <- steekproef %>%
 We zullen een steekproef van 50 cirkels per stratum wegschrijven (eerste set) waarbij we ook de volgende 50 punten per stratum includeren voor als er een punt niet zou kunnen geteld worden in het veld (reserve set).
 
 ```{r}
-steekproef_out <- first_samples(steekproef_overlap, 50, 2) %>%
-   select(pointid, Naam, openheid_sbp, sample_order, batch, 
-          zichtbaarheid = cvvi, wegtype = value)
+steekproef_out <- first_samples(steekproef, 50, 2) %>%
+  select(pointid, Naam, openheid_sbp, sample_order, batch, 
+         zichtbaarheid = cvvi, wegtype = value)
 
-mapview(steekproef_overlap %>% st_buffer(300), alpha.regions = 0,
+mapview(steekproef %>% st_buffer(300), alpha.regions = 0,
         layer = "steekproef") +
   mapview(steekproef_out %>% st_buffer(300), zcol = "batch",
-          layer = "eerste 50 per stratum en 50")
+          layer = "eerste 50 per stratum en 50 reserve")
+```
+
+```{r}
+steekproef_out %>%
+  st_drop_geometry() %>%
+  count(openheid_sbp, batch) %>%
+  kable()
 ```
 
 ```{r}

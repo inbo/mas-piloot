@@ -17,7 +17,7 @@ list(
       leisure = c("park"),
       buffer_poly = 0, 
       layer_poly = list(aeroway = c("aerodrome")),
-      buffer_line = 50, 
+      buffer_line = 100, 
       layer_line = list(highway = c("motorway", "motorway_link")),
       update_osm_layer = FALSE
       ),
@@ -29,8 +29,7 @@ list(
       gebied = selectie_openheid_klasses,
       exclusie = exclusie_osm_landgebruiken,
       osmdata = osm_belgium,
-      paths_include = c('track', 'footway', 'path', 'cycleway', 
-      'bridleway', 'tertiary', 'tertiary_link', 'unclassified'),
+      paths_include = c("track", "tertiary", "tertiary_link", "unclassified"),
       cutting_exclude = NULL,
       historic_exclude = NULL,
       waterway = NULL,
