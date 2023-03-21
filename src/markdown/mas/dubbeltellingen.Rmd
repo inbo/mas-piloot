@@ -1794,3 +1794,85 @@ We zien goede convergentie.
 ```{r}
 plot(fit_dubbel_soorten_pois2)
 ```
+
+### Selectie random effects
+
+### Resultaten finale model
+
+$$
+\beta_0 : \text{professioneel + broedcode 0}\\
+\beta_1 : \text{vrijwilliger}\\
+\beta_2 : \text{broedcode > 0}\\
+\beta_3 : \text{vrijwilliger * broedcode > 0}\\
+$$
+
+Is er een verschil in aantal soorten met broedcode 0 tussen professionele teller vs. vrijwilliger?
+
+$$
+\beta_0 = \beta_0 + \beta_1\\
+\Rightarrow \beta_1 = 0
+$$
+
+```{r}
+effect_broed_nul <- hypothesis(
+  x = fit_dubbel_soorten_pois2,
+  "statusvrijwilliger = 0",
+  class = "b", alpha = 0.05)
+
+effect_broed_nul
+plot(effect_broed_nul)
+```
+
+Is er een verschil in aantal soorten met broedcode groter dan 0 tussen professionele teller vs. vrijwilliger?
+
+$$
+\beta_0 + \beta_2 = \beta_0 + \beta_1 + \beta_2 + \beta_3\\
+\Rightarrow \beta_1 + \beta_3= 0
+$$
+
+```{r}
+effect_broed_groot <- hypothesis(
+  x = fit_dubbel_soorten_pois2,
+  "statusvrijwilliger + statusvrijwilliger:broedcode.L = 0",
+  class = "b", alpha = 0.05)
+
+effect_broed_groot
+plot(effect_broed_groot)
+```
+
+Is er een verschil in aantal soorten tussen de professionele teller en vrijwilligers over broedcodes heen?
+
+$$
+\frac{1}{2}\beta_0 + \frac{1}{2}(\beta_0 + \beta_2) = \frac{1}{2}(\beta_0 + \beta_1) + \frac{1}{2}(\beta_0 + \beta_1 + \beta_2 + \beta_3)\\
+\Rightarrow \beta_0 + \frac{1}{2}\beta_2 = \beta_0 + \beta_1 + \frac{1}{2}\beta_2 + \frac{1}{2}\beta_3\\
+\Rightarrow \beta_1 + \frac{1}{2}\beta_3= 0
+$$
+
+```{r}
+effect_status <- hypothesis(
+  x = fit_dubbel_soorten_pois2,
+  "statusvrijwilliger +  (1/2) * statusvrijwilliger:broedcode.L = 0",
+  class = "b", alpha = 0.05)
+
+effect_status
+plot(effect_status)
+```
+
+Is er een verschil in tussen de broedcodes over status heen?
+
+$$
+\frac{1}{2}\beta_0 + \frac{1}{2}(\beta_0 + \beta_1) =  + \frac{1}{2}(\beta_0 + \beta_2) + \frac{1}{2}(\beta_0 + \beta_1 + \beta_2 + \beta_3)\\
+\Rightarrow \beta_0 + \frac{1}{2}\beta_1 = \beta_0 + \frac{1}{2}\beta_1 + \beta_2 + \frac{1}{2}\beta_3\\
+\Rightarrow \beta_2 + \frac{1}{2}\beta_3= 0
+$$
+
+```{r}
+effect_broed <- hypothesis(
+  x = fit_dubbel_soorten_pois2,
+  "broedcode.L +  (1/2) * statusvrijwilliger:broedcode.L = 0",
+  class = "b", alpha = 0.05)
+
+effect_broed
+plot(effect_broed)
+```
+
