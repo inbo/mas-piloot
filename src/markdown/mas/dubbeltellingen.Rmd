@@ -846,7 +846,7 @@ dubbels_2022_df_soortenrijkdom %>%
     scale_colour_manual(values = palette) +
     guides(colour = "none") +
     coord_cartesian(ylim = c(0, NA)) +
-    labs(y = "aantal waarnemingen")
+    labs(y = "aantal soorten")
 ```
 
 ### Testen
@@ -1616,6 +1616,20 @@ dubbels_2022_df_broed_soortenrijkdom <- dubbels_2022_df_broed2 %>%
   group_by(status_broed) %>%
   mutate(gemiddelde = median(n))
 
+fill_na <- dubbels_2022_df_broed2 %>%
+  expand(nesting(plotnaam, periode_in_jaar, status)) %>%
+  full_join(dubbels_2022_df_broed2, by = c("plotnaam", "periode_in_jaar", 
+                                           "status")) %>%
+  select(plotnaam, periode_in_jaar, status, waarnemerscode2 = waarnemerscode, 
+         ervaring2 = ervaring)
+
+dubbels_2022_df_broed_soortenrijkdom <- dubbels_2022_df_broed_soortenrijkdom %>%
+  full_join(fill_na, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  mutate(waarnemerscode = coalesce(waarnemerscode, waarnemerscode2),
+         ervaring = coalesce(ervaring, ervaring2)) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, broedcode, 
+           status_broed, waarnemerscode, ervaring, n, gemiddelde)
+
 # Overlaid histograms
 ggplot(dubbels_2022_df_broed_soortenrijkdom) +
   geom_histogram(aes(x = n, fill = status_broed), binwidth = 1, alpha = 0.5, 
@@ -1635,3 +1649,19 @@ ggplot(dubbels_2022_df_broed_soortenrijkdom, aes(x = n, fill = status_broed)) +
 ```
 
 De verticale lijn geeft de mediaan aan.
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(unique(dubbels_2022_df_broed_soortenrijkdom$plaatstijd)))
+
+dubbels_2022_df_broed_soortenrijkdom %>%
+  ggplot() +
+    geom_jitter(aes(x = status_broed, y = n, shape = ervaring), 
+                width = 0.2, height = 0) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    guides(colour = "none") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal waarnemingen")
+```
+
+
