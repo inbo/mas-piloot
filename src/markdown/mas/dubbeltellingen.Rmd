@@ -833,6 +833,7 @@ ggplot(dubbels_2022_df_soortenrijkdom, aes(x = n, fill = status)) +
   labs(x = "aantal soorten")
 ```
 
+De verticale lijn geeft het arithmetisch gemiddelde aan.
 
 ```{r}
 palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(unique(dubbels_2022_df_soortenrijkdom$plaatstijd)))
@@ -1417,20 +1418,34 @@ waarnemer_vars <- tibble(waarnemerscode = c("HMLE02", "DCLR00", "NRTT00",
 
 dubbels_2022_df_broed <- dubbels_2022_df_broed %>%
   full_join(waarnemer_vars, by = "waarnemerscode")
+
+design_broed <- dubbels_2022_df_broed %>%
+  expand(nesting(plotnaam, periode_in_jaar, status), wrntype)
+
+design_broed2 <- dubbels_2022_df_broed %>%
+  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
+                            levels = c("0", "> 0"),
+                            ordered = TRUE)) %>%
+  expand(nesting(plotnaam, periode_in_jaar, status), broedcode)
 ```
 
 
 ## Exploratie
 
-Als we de broedcodes > 0 samen nemen zien we geen groot verschil in aantal soorten tussen professionelen en vrijwilligers voor broedcode 0, maar wel voor broedcodes groter dan 0.
+Als we de broedcodes > 0 samen nemen zien we een groter aantal soorten gezien door de professionele teller dan de vrijwilligers, vooral voor broedcodes groter dan 0.
 
 ```{r}
-diversiteit_df_broed2 <- dubbels_2022_df_broed %>%
+dubbels_2022_df_broed2 <- dubbels_2022_df_broed %>%
   mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
                             levels = c("0", "> 0"),
-                            ordered = TRUE)) %>%
+                            ordered = TRUE))
+
+diversiteit_df_broed2 <- dubbels_2022_df_broed2 %>%
   group_by(plotnaam, periode_in_jaar, status, broedcode) %>%
-  summarize(n = n_distinct(naam), .groups = "drop")
+  summarize(n = n_distinct(naam), .groups = "drop") %>%
+  full_join(design_broed2, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "broedcode")) %>%
+  replace(is.na(.), 0)
 
 diversiteit_df_broed2 %>%
   group_by(status, broedcode) %>%
@@ -1449,12 +1464,15 @@ diversiteit_df_broed2 %>%
     labs(x = "Broedcode", y = "Aantal soorten")
 ```
 
-We bekijken vervolgens alle broedcodes. We zien dat het aantal soorten gemiddeld gezien voor broedcodes 0, 2, 3 en 5 hoger liggen bij de professionele teller dan bij de vrijwilligers, vooral broedcode 3 (Territoriaal gedrag) is opvallend in de figuur.
+We bekijken vervolgens alle broedcodes. We zien dat het aantal soorten gemiddeld gezien (mediaan) voor broedcodes 0, 1, 2 en 3 hoger liggen bij de professionele teller dan bij de vrijwilligers, vooral broedcode 3 (Territoriaal gedrag) is opvallend in de figuur.
 
 ```{r}
 diversiteit_df_broed <- dubbels_2022_df_broed %>%
   group_by(plotnaam, periode_in_jaar, status, wrntype) %>%
-  summarize(n = n_distinct(naam), .groups = "drop")
+  summarize(n = n_distinct(naam), .groups = "drop") %>%
+  full_join(design_broed, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "wrntype")) %>%
+  replace(is.na(.), 0)
 
 diversiteit_df_broed %>%
   group_by(status, wrntype) %>%
@@ -1476,7 +1494,7 @@ ggplot(diversiteit_df_broed) +
 
 ### Waarnemingen
 
-We zien gelijkaardige trends als bij het aantal soorten. Als we de broedcodes > 0 samen nemen zien we geen groot verschil in aantal soorten tussen professionelen en vrijwilligers voor broedcode 0, maar wel voor broedcodes groter dan 0.
+We zien gelijkaardige trends als bij het aantal soorten. Als we de broedcodes > 0 samen nemen zien we een groter aantal waarnemingen door de professionele teller dan bij de vrijwilligers, vooral bij de broedcodes groter dan 0.
 
 ```{r}
 waarnemingen_df_broed2 <- dubbels_2022_df_broed %>%
@@ -1484,7 +1502,10 @@ waarnemingen_df_broed2 <- dubbels_2022_df_broed %>%
                             levels = c("0", "> 0"),
                             ordered = TRUE)) %>%
   group_by(plotnaam, periode_in_jaar, status, broedcode) %>%
-  summarize(n = n(), .groups = "drop")
+  summarize(n = n(), .groups = "drop") %>%
+  full_join(design_broed2, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "broedcode")) %>%
+  replace(is.na(.), 0)
 
 waarnemingen_df_broed2 %>%
   group_by(status, broedcode) %>%
@@ -1503,12 +1524,15 @@ waarnemingen_df_broed2 %>%
     labs(x = "Broedcode", y = "Aantal waarnemingen")
 ```
 
-We bekijken vervolgens alle broedcodes. We zien dat het aantal soorten gemiddeld gezien voor broedcodes 0, 2, 3 en 5 hoger liggen bij de professionele teller dan bij de vrijwilligers, vooral broedcode 3 (Territoriaal gedrag) is weer opvallend in de figuur.
+We bekijken vervolgens alle broedcodes. We zien dat het aantal soorten gemiddeld gezien (mediaan) voor broedcodes 0, 2 en 3 hoger liggen bij de professionele teller dan bij de vrijwilligers, vooral broedcode 3 (Territoriaal gedrag) is weer opvallend in de figuur.
 
 ```{r}
 waarnemingen_df_broed <- dubbels_2022_df_broed %>%
   group_by(plotnaam, periode_in_jaar, status, wrntype) %>%
-  summarize(n = n(), .groups = "drop")
+  summarize(n = n(), .groups = "drop") %>%
+  full_join(design_broed, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "wrntype")) %>%
+  replace(is.na(.), 0)
 
 waarnemingen_df_broed %>%
   group_by(status, wrntype) %>%
@@ -1566,6 +1590,48 @@ relfreq_diffs %>%
 De verschilfrequenties verschillen licht, maar we zien nog altijd vrij grote verschillen (bv. Merel).
 
 
+## Statistische test
 
+Is er een significant verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers en is dit verschil anders voor broedcode 0 en broedcode groter dan 0?
 
-testen -> interactie factor broedcode (0, >0) met status
+$\text{H}_0$: Er is geen verschil in het aantal soorten met broedcode 0 gezien door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal soorten met broedcode 0 gezien door de professionele teller vs. de vrijwilligers.
+
+$\text{H}_0$: Er is geen verschil in het aantal soorten met broedcode groter dan 0 gezien door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal soorten met broedcode groter dan 0 gezien door de professionele teller vs. de vrijwilligers.
+
+```{r}
+dubbels_2022_df_broed_soortenrijkdom <- dubbels_2022_df_broed2 %>%
+  group_by(plotnaam, periode_in_jaar, status, broedcode) %>%
+  summarize(n = n_distinct(naam), .groups = "drop") %>%
+  full_join(design_broed2, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "broedcode")) %>%
+  replace(is.na(.), 0) %>%
+  mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - "),
+         status_broed = paste(status, broedcode, sep = " - ")) %>%
+  full_join(dubbels_2022_df_broed2, by = c("plotnaam", "periode_in_jaar", 
+                                           "status", "broedcode")) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, broedcode, 
+           status_broed, waarnemerscode, ervaring, n) %>%
+  group_by(status_broed) %>%
+  mutate(gemiddelde = median(n))
+
+# Overlaid histograms
+ggplot(dubbels_2022_df_broed_soortenrijkdom) +
+  geom_histogram(aes(x = n, fill = status_broed), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_broed),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+
+# Density plots with semi-transparent fill
+ggplot(dubbels_2022_df_broed_soortenrijkdom, aes(x = n, fill = status_broed)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_broed),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+```
+
+De verticale lijn geeft de mediaan aan.
