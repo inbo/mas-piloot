@@ -846,7 +846,7 @@ dubbels_2022_df_soortenrijkdom %>%
     scale_colour_manual(values = palette) +
     guides(colour = "none") +
     coord_cartesian(ylim = c(0, NA)) +
-    labs(y = "aantal soorten")
+    labs(y = "aantal soorten", x = "")
 ```
 
 ### Testen
@@ -1654,14 +1654,18 @@ De verticale lijn geeft de mediaan aan.
 palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(unique(dubbels_2022_df_broed_soortenrijkdom$plaatstijd)))
 
 dubbels_2022_df_broed_soortenrijkdom %>%
+  mutate(broedcode = factor(paste("broedcode", broedcode, sep = " "),
+                            levels = c("broedcode 0", "broedcode > 0"),
+                            ordered = TRUE)) %>%
   ggplot() +
-    geom_jitter(aes(x = status_broed, y = n, shape = ervaring), 
+    geom_jitter(aes(x = status, y = n, shape = ervaring), 
                 width = 0.2, height = 0) +
     geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
     scale_colour_manual(values = palette) +
     guides(colour = "none") +
     coord_cartesian(ylim = c(0, NA)) +
-    labs(y = "aantal waarnemingen")
+    labs(y = "aantal soorten", x = "") +
+    facet_grid(~broedcode)
 ```
 
 
