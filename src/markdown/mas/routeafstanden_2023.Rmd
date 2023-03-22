@@ -322,7 +322,7 @@ afstanden_centroid <- do.call(rbind, datalist) %>%
   ungroup()
 ```
 
-Nu kunnen we de kortste routes berekenen tussen de tellers (stad) en de punten per cluster. We moeten de functie `osmrTrip()` lichtjes aanpassen omdat de punten vaak niet op harde wegen liggen en dichtbij elkaar waardoor er een probleem is bij de output van de functie. Daarom outputten we geen geometry, maar enkel de afstand van het kortste traject.
+Nu kunnen we de kortste routes berekenen tussen de tellers (stad) en de punten per cluster. We moeten de functie `osmrTrip()` lichtjes aanpassen omdat de punten vaak niet op harde wegen liggen en dichtbij elkaar waardoor er een probleem is bij de output van de functie. Daarom outputten we geen info over de individuele lijnsegmenten, maar enkel de afstand van het kortste traject (zie: <https://github.com/riatelab/osrm/issues/120>)
 
 ```{r}
 osrmTrip_nogeom <- function(loc, exclude = NULL, overview = "simplified", 
@@ -388,9 +388,22 @@ osrmTrip_nogeom <- function(loc, exclude = NULL, overview = "simplified",
     start <- (waypoints[order(waypoints$waypoint_index, 
       decreasing = F), "id"])
     end <- start[c(2:length(start), 1)]
-    sldf <- list(start = start, end = end, duration = res$trips[nt, 
-      ]$legs[[1]][, "duration"]/60, distance = res$trips[nt, 
-      ]$legs[[1]][, "distance"]/1000)
+    
+    # https://github.com/riatelab/osrm/issues/120
+    sldf <- tryCatch(
+          expr  = st_sf(start = start, end = end, 
+                  duration = res$trips[nt, ]$legs[[1]][, "duration"]/60, 
+                  distance = res$trips[nt, ]$legs[[1]][, "distance"]/1000, 
+                  geometry = st_as_sfc(wktl, crs = 4326)),
+          error = function(call) {
+            message("An error occurred, only returning geometry of trip.")
+            message("Here's the original error message:")
+            message(paste(call))
+            
+            return(st_sf(geometry = st_as_sfc(wktl, crs = 4326)))
+            }
+          )
+    
     tripSummary <- list(duration = res$trips[nt, ]$duration/60, 
       distance = res$trips[nt, ]$distance/1000)
     trips[[nt]] <- list(trip = sldf, summary = tripSummary)
