@@ -1,0 +1,211 @@
+---
+title: "Overzichtskaart MAS 2023"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+
+# set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  out.width = "100%",
+  options(scipen = 999))
+opts_knit$set(root.dir = here::here())
+
+# packages
+library(tidyverse)
+library(sf)
+library(terra)
+library(mapview)
+
+library(targets)
+targets_store_2023 <- here("src", "targets", "mas_steekproef_zavelberg", 
+                           "_targets")
+targets_store_piloot <- here("src", "targets", "mas_steekproef_pilootfase", 
+                             "_targets")
+mbag_dir <- here()
+source(here("src", "R", "steekproefkader.R"))
+source(here("src", "R", "berekening_hulpvariabelen.R"))
+```
+
+
+# Telpunten
+
+We lezen de telpunten in van de pilootstudie van 2022 en de nieuwe steekproef in de zandleemstreek en de westelijke leemstreek. Van de nieuwe steekproef nemen we de eerste 50 punten (niet de reserve batch) en geen gerecupereerde punten (die zitten toch al in de dataset van de pilootstudie).
+
+```{r}
+# pilootstudie
+piloot_punten <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  dplyr::select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid_klasse = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  dplyr::select(-c(stratum, sbp)) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370) %>%
+  dplyr::select(plotnaam, regio)
+
+# zandleemstreek
+zandleem_punten <- st_read(file.path(
+    "data",
+    "processed",
+    "steekproef_zandleemstreek_telpunten.geojson")) %>%
+  filter(batch == "eerste set",
+         startsWith(pointid, "Zn")) %>%
+  dplyr::select(plotnaam = pointid, regio = Naam)
+
+# westelijke leemstreek
+leem_punten <- st_read(file.path(
+    "data",
+    "processed",
+    "steekproef_leemstreek_telpunten.geojson")) %>%
+  filter(batch == "eerste set") %>%
+  mutate(Naam = "Westelijke leemstreek") %>%
+  dplyr::select(plotnaam = pointid, regio = Naam)
+```
+
+```{r}
+punten_MAS <- bind_rows(
+  piloot_punten,
+  zandleem_punten,
+  leem_punten
+)
+
+telcirkels_MAS <- punten_MAS %>%
+  st_buffer(300)
+```
+
+# Perimeters
+
+We lezen de perimeters in van de pilootstudie van 2022 en de nieuwe steekproef in de zandleemstreek en de westelijke leemstreek. We combineren alle perimeters.
+
+```{r}
+peri_piloot <- tar_read(perimeters_data, store = targets_store_piloot)
+peri_2023 <- tar_read(perimeters_data, store = targets_store_2023)
+
+perimeter <- bind_rows(peri_piloot, peri_2023) %>%
+  summarise(geometry = st_buffer(st_union(geom), 0.5)) %>%
+  mutate(Naam = "2023",
+         section = "NA")
+
+mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) + 
+  mapview(punten_MAS, col.regions = "purple", alpha.regions = 1) +
+  mapview(telcirkels_MAS, color = "purple", col.regions = "purple", alpha.regions = 0)
+```
+
+# Openheid landschap
+
+```{r}
+selectie_openheid_OL <- selectie_openheid(gebied = perimeter, 
+                                          ol_strata = c("OL")) %>%
+  mutate(openheid_klasse = "open landschap")
+selectie_openheid_HOL <- selectie_openheid(gebied = perimeter,
+                                          ol_strata = c("HOL")) %>%
+  mutate(openheid_klasse = "half-open landschap")
+
+openheid <- rbind(selectie_openheid_OL, selectie_openheid_HOL)
+
+mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) + 
+  mapview(punten_MAS, col.regions = "purple", alpha.regions = 1) +
+  mapview(telcirkels_MAS, color = "purple", col.regions = "purple", 
+          alpha.regions = 0) +
+  mapview(openheid, zcol = "openheid_klasse", layer = "openheid", 
+          alpha.regions = 0.3)
+```
+
+# SPBs
+
+```{r}
+# Lees lagen in
+sbp_overig <- 
+  st_read(path_to_sbp_akkervogels("sbp_overige_soorten.shp"), 
+          quiet = TRUE) %>%
+  filter(soort %in% c("Hamster", "Bruine kiekendief", "Grauwe kiekendief", 
+                      "Zomertortel")) %>%
+  mutate(soort = ifelse(soort == "Grauwe kiekendief" & gebied == "nieuw 2023", 
+                        "Grauwe kiekendief 2023", soort)) %>%
+  dplyr::select(soort)
+sbp_akkergvogels <- 
+  st_read(path_to_sbp_akkervogels("akkervogelgebieden2022.shp"),
+          quiet = TRUE) %>%
+  mutate(soort = "akkervogels2022") %>%
+  dplyr::select(soort)
+
+# Voeg samen
+soort_beschermings_plan <- bind_rows(sbp_overig, sbp_akkergvogels) %>%
+  st_intersection(perimeter) %>%
+  group_by(soort) %>% 
+  summarize(geometry = st_union(geometry))
+
+# Laag per soort
+sbp_akkergvogels2022 <- soort_beschermings_plan %>%
+  filter(soort == "akkervogels2022")
+
+sbp_bruine_kiekendief <- soort_beschermings_plan %>%
+  filter(soort == "Bruine kiekendief")
+
+sbp_grauwe_kiekendief <- soort_beschermings_plan %>%
+  filter(soort == "Grauwe kiekendief")
+
+sbp_grauwe_kiekendief_2023 <- soort_beschermings_plan %>%
+  filter(soort == "Grauwe kiekendief 2023")
+
+sbp_hamster <- soort_beschermings_plan %>%
+  filter(soort == "Hamster")
+
+sbp_zomertortel <- soort_beschermings_plan %>%
+  filter(soort == "Zomertortel")
+
+mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) + 
+  mapview(punten_MAS, col.regions = "purple", alpha.regions = 1) +
+  mapview(telcirkels_MAS, color = "purple", col.regions = "purple", 
+          alpha.regions = 0) +
+  mapview(openheid, zcol = "openheid_klasse", layer = "openheid", 
+          alpha.regions = 0.3) +
+  mapview(sbp_akkergvogels2022, legend = FALSE) +
+  mapview(sbp_bruine_kiekendief, legend = FALSE) +
+  mapview(sbp_grauwe_kiekendief, legend = FALSE) +
+  mapview(sbp_grauwe_kiekendief_2023, legend = FALSE) +
+  mapview(sbp_hamster, legend = FALSE) +
+  mapview(sbp_zomertortel, legend = FALSE)
+```
+
+# Finale kaart
+
+```{r}
+mapviewOptions(basemaps = c("Esri.WorldImagery","CartoDB.Positron","OpenStreetMap"))
+
+mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) + 
+  mapview(punten_MAS, col.regions = "white", alpha.regions = 1) +
+  mapview(telcirkels_MAS, color = "grey", col.regions = "grey", 
+          alpha.regions = 0) +
+  mapview(openheid, zcol = "openheid_klasse", layer = "openheid", 
+          alpha.regions = 0.4) +
+  mapview(sbp_akkergvogels2022, legend = FALSE) +
+  mapview(sbp_bruine_kiekendief, legend = FALSE) +
+  mapview(sbp_grauwe_kiekendief, legend = FALSE) +
+  mapview(sbp_grauwe_kiekendief_2023, legend = FALSE) +
+  mapview(sbp_hamster, legend = FALSE) +
+  mapview(sbp_zomertortel, legend = FALSE)
+```
+
