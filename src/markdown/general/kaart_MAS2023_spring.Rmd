@@ -92,6 +92,18 @@ ggplot() +
   theme(legend.position = "bottom")
 ```
 
+# Perimeters
 
+We lezen de perimeters in van de pilootstudie van 2022 en de nieuwe steekproef in de zandleemstreek en de westelijke leemstreek. We combineren alle perimeters.
+
+```{r}
+peri_piloot <- tar_read(perimeters_data, store = targets_store_piloot)
+peri_2023 <- tar_read(perimeters_data, store = targets_store_2023)
+
+peri_combi <- bind_rows(peri_piloot, peri_2023) %>%
+  summarise(geometry = st_buffer(st_union(geom), 0.5))
+
+mapview(peri_combi, color = "red", alpha.regions = 0, legend = FALSE)
+```
 
 
