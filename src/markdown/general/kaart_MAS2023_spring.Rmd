@@ -29,6 +29,7 @@ opts_knit$set(root.dir = here::here())
 # packages
 library(tidyverse)
 library(sf)
+library(terra)
 library(mapview)
 
 library(targets)
@@ -36,6 +37,9 @@ targets_store_2023 <- here("src", "targets", "mas_steekproef_zavelberg",
                            "_targets")
 targets_store_piloot <- here("src", "targets", "mas_steekproef_pilootfase", 
                              "_targets")
+mbag_dir <- here()
+source(here("src", "R", "steekproefkader.R"))
+source(here("src", "R", "berekening_hulpvariabelen.R"))
 ```
 
 
@@ -81,15 +85,14 @@ leem_punten <- st_read(file.path(
 ```
 
 ```{r}
-punten_totaal <- bind_rows(
+punten_MAS <- bind_rows(
   piloot_punten,
   zandleem_punten,
   leem_punten
 )
 
-ggplot() +
-  geom_sf(data = punten_totaal, aes(colour = regio)) +
-  theme(legend.position = "bottom")
+telcirkels_MAS <- punten_MAS %>%
+  st_buffer(300)
 ```
 
 # Perimeters
@@ -100,10 +103,33 @@ We lezen de perimeters in van de pilootstudie van 2022 en de nieuwe steekproef i
 peri_piloot <- tar_read(perimeters_data, store = targets_store_piloot)
 peri_2023 <- tar_read(perimeters_data, store = targets_store_2023)
 
-peri_combi <- bind_rows(peri_piloot, peri_2023) %>%
-  summarise(geometry = st_buffer(st_union(geom), 0.5))
+perimeter <- bind_rows(peri_piloot, peri_2023) %>%
+  summarise(geometry = st_buffer(st_union(geom), 0.5)) %>%
+  mutate(Naam = "2023",
+         section = "NA")
 
-mapview(peri_combi, color = "red", alpha.regions = 0, legend = FALSE)
+mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) + 
+  mapview(punten_MAS, col.regions = "purple", alpha.regions = 1) +
+  mapview(telcirkels_MAS, color = "purple", col.regions = "purple", alpha.regions = 0)
 ```
 
+# Openheid landschap
+
+```{r}
+selectie_openheid_OL <- selectie_openheid(gebied = peri_combi, 
+                                          ol_strata = c("OL")) %>%
+  mutate(openheid_klasse = "open landschap")
+selectie_openheid_HOL <- selectie_openheid(gebied = peri_combi,
+                                          ol_strata = c("HOL")) %>%
+  mutate(openheid_klasse = "half-open landschap")
+
+openheid <- rbind(selectie_openheid_OL, selectie_openheid_HOL)
+
+mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) + 
+  mapview(punten_MAS, col.regions = "purple", alpha.regions = 1) +
+  mapview(telcirkels_MAS, color = "purple", col.regions = "purple", 
+          alpha.regions = 0) +
+  mapview(selectie_openheid_klasses, zcol = "openheid_klasse", layer = "openheid", 
+          alpha.regions = 0.3)
+```
 
