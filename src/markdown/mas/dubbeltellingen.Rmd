@@ -800,8 +800,8 @@ $\text{H}_a$: Er is een verschil in het aantal waarnemingen gemeld door de profe
 
 Kan een verschil in aantal soorten of aantal waarnemingen tussen professionele en vrijwillige tellers verschillen tussen broedcodes?  
   
-$\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor broedcode 0 en broedcode groter dan 0.  
-$\text{H}_a$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet even groot voor broedcode 0 en broedcode groter dan 0.
+$\text{H}_0$: Het verschil in het aantal soorten/waarnemingen gemeld door de professionele teller vs. de vrijwilligers is even groot voor broedcode 0 en broedcode groter dan 0.  
+$\text{H}_a$: Het verschil in het aantal soorten/waarnemingen gemeld door de professionele teller vs. de vrijwilligers is niet even groot voor broedcode 0 en broedcode groter dan 0.
 
 ## Effect van ervaring
 
@@ -810,8 +810,12 @@ Kan een verschil in aantal soorten of aantal waarnemingen tussen professionele e
 $\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor beginners als voor ervaren tellers.  
 $\text{H}_a$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet even groot voor beginners als voor ervaren tellers.  
   
-Het zal moeilijk zijn hiervoor een interactiemodel te fitten omdat we maar één ervaringscategorie bij de professionele teller hebben (ervaren) en twee bij de vrijwilligers (beginner en ervaren). Dit model zal allicht met **INLA** moeten gefit worden.
+Het zal moeilijk zijn hiervoor een interactiemodel te fitten omdat we maar één ervaringscategorie bij de professionele teller hebben (ervaren) en twee bij de vrijwilligers (beginner en ervaren). We passen de hypotheses aan.
 
+Kan een verschil in aantal soorten of aantal waarnemingen tussen professionele en vrijwillige tellers verschillen tussen ervaringsklasses?  
+  
+$\text{H}_0$: Er is geen verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers.  
+$\text{H}_a$: Er is wel een verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers. 
 
 # Algemene statistische testen
 
@@ -1985,15 +1989,35 @@ De exploratieve figuren tonen eenzelfde trend voor aantal waarnemingen. Dit is l
 
 ## Waarnemingen
 
-We controleren dit ook voor aantal waarnemingen ...
+We controleren kwantificeren dit effect ook voor aantal waarnemingen ...
 
 
 # Verschil in ervaring
 
-Effect ervaring? Met inla?
+We testen het verschil in aantal soorten en waarnemingen voor ervaren vs. beginnende vrijwilligers.
+
+```{r}
+test <- brm(
+    bf(n ~ ervaring  + (1 | plotnaam)), 
+    data = dubbels_2022_df_soortenrijkdom %>% filter(status == "vrijwilliger"), 
+    family = gaussian(), seed = 1234,
+    chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
+
+test2 <- brm(
+    bf(n ~ ervaring  + (1 | plotnaam)), 
+    data = dubbels_2022_df_soortenrijkdom %>% filter(status == "vrijwilliger"), 
+    family = poisson(), seed = 1234,
+    chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
+
+pp_check(test, type = "dens_overlay_grouped", ndraws = 100, 
+         group = "ervaring")
+
+pp_check(test2, type = "bars_grouped", ndraws = 100, 
+         group = "ervaring", facet_args = list(ncol = 1, scales = "free_y"))
+```
 
 
-# Correlatie aantallen en waarnemingen
+# Correlatie aantal soorten en aantal waarnemingen
 
 ...
 
