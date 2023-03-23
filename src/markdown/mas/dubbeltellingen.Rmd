@@ -396,7 +396,7 @@ dubbels_2022_df <- dubbels_2022_df %>%
   full_join(design_dubbels, by = "plotnaam")
 ```
 
-We voegen variabelen toe gelinkt aan de waarnemers. We zien weinig verschil in de categoriën `ervaring` vs. `anciënniteit`. Vooral de `ervaring` variabele lijkt interessant om in acht te nemen.
+We voegen variabelen toe gelinkt aan de waarnemers. We zien weinig verschil in de categoriën `ervaring` vs. `anciënniteit`.
 
 ```{r}
 waarnemer_vars <- tibble(waarnemerscode = c("HMLE02", "DCLR00", "NRTT00", 
@@ -1081,7 +1081,7 @@ sign_soorten1 <- ifelse(sum_finaal_soorten1$fixed["statusvrijwilliger",
                         "meer", "minder")
 ```
 
-We besluiten dat de vrijwillige tellers gemiddeld `r schatting_soorten1` soorten `r sign_soorten1` zien dan de professionele teller (95% credible interval: `r ll_soorten1` - `r ul_soorten1`).
+We besluiten dat de vrijwillige tellers gemiddeld `r schatting_soorten1` soorten `r sign_soorten1` zien dan de professionele teller (95% credible interval: `r ll_soorten1` tot `r ul_soorten1`).
 
 
 ## Aantal waarnemingen
@@ -1366,7 +1366,7 @@ sign_waarnemingen1 <- ifelse(sum_finaal_waarnemingen1$fixed["statusvrijwilliger"
                              "meer", "minder")
 ```
 
-We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` waarnemingen `r sign_waarnemingen1` melden dan de professionele teller (95% credible interval: `r ll_waarnemingen1` - `r ul_waarnemingen1`).  
+We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` waarnemingen `r sign_waarnemingen1` melden dan de professionele teller (95% credible interval: `r ll_waarnemingen1` tot `r ul_waarnemingen1`).  
   
 https://discourse.mc-stan.org/t/using-brms-to-create-generated-quantities-stan-code-block/11766/10
 
@@ -1600,7 +1600,7 @@ $\text{H}_a$: Er is een verschil in het aantal soorten met broedcode 0 gezien do
 $\text{H}_0$: Er is geen verschil in het aantal soorten met broedcode groter dan 0 gezien door de professionele teller vs. de vrijwilligers.  
 $\text{H}_a$: Er is een verschil in het aantal soorten met broedcode groter dan 0 gezien door de professionele teller vs. de vrijwilligers.
 
-$\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor broedcode 0 en broedcode groter dan 0 .
+$\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor broedcode 0 en broedcode groter dan 0 .  
 $\text{H}_a$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet even groot voor broedcode 0 en broedcode groter dan 0 .
 
 ```{r}
@@ -1790,7 +1790,7 @@ pp_check(fit_dubbel_soorten_negbin2, type = "bars_grouped", ndraws = 100,
          group = "statusbroed", facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
-Hoewel we de fit niet ideaal is, besluiten we dat de Poisson verdeling het beste past bij de data. De resultaten voor alle drie de modellen zijn gelijkaardig.
+Hoewel we de fit niet ideaal is, besluiten we dat de Poisson verdeling het beste past bij de data. Een normaalverdeling zou in dit geval ook negatieve waarnemingen toelaten (dit was geen probleem bij enkel broedcode > 0 omdat de aantallen daar hoger lagen). De resultaten voor alle drie de modellen zijn gelijkaardig.
   
 We zien goede convergentie.
 
@@ -1960,10 +1960,32 @@ ll_soorten2_broed <- round(exp(effect_broed$hypothesis$CI.Lower) - 1, 3)
 ul_soorten2_broed <- round(exp(effect_broed$hypothesis$CI.Upper) - 1, 3)
 ```
 
-Zowel voor broedcode 0 als broedcode groter dan 0 zien we dat de professionele teller meer soorten ziet dan de vrijwilligers (95% CI resp. `r ll_soorten2_broed_nul * 100` - `r ul_soorten2_broed_nul * 100` % en `r ll_soorten2_broed_groot` - `r ul_soorten2_broed_groot * 100` % verschil). Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet significant verschillend voor broedcode 0 en broedcode groter dan 0 (95% CI `r ll_soorten2_broed_nul * 100` - `r ul_soorten2_broed_nul * 100` % verschil).  
-Model fit was echter niet ideaal, maar gebasseerd op de  posterior predictive check zou het verschil van broedcode 0 tussen professioneel en vrijwilliger in werkelijkheid allicht nog extremer zijn (onderschatting aantal nullen door model). Hoe dan ook hebben we genoeg bewijs dat er geen compensatie optreedt wanneer we broedcode 0 in beschouwing nemen. Zowel voor broedcode 0 en broedcode groter dan nul zien vrijwilligers minder soorten dan de professionele teller.
+Zowel voor broedcode 0 als broedcode groter dan 0 zien we dat de professionele teller meer soorten ziet dan de vrijwilligers (95% CI resp. `r ll_soorten2_broed_nul * 100` tot `r ul_soorten2_broed_nul * 100` % en `r ll_soorten2_broed_groot` tot `r ul_soorten2_broed_groot * 100` % verschil). Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet significant verschillend voor broedcode 0 en broedcode groter dan 0 (95% CI `r ll_soorten2_broed_nul * 100` tot `r ul_soorten2_broed_nul * 100` % verschil).  
+Model fit was echter niet ideaal, maar gebasseerd op de  posterior predictive check zou het verschil van broedcode 0 tussen professioneel en vrijwilliger in werkelijkheid allicht nog extremer zijn (onderschatting aantal nullen door model). Hoe dan ook hebben we genoeg bewijs dat er geen compensatie optreedt wanneer we broedcode 0 in beschouwing nemen. Zowel voor broedcode 0 en broedcode groter dan nul zien vrijwilligers minder soorten dan de professionele teller.  
+De exploratieve figuren tonen eenzelfde trend voor aantal waarnemingen. Dit is logisch, hoe meer waarnemingen, hoe groter de kans dat je ook meer soorten zal gezien hebben. Deze twee hangen dus sterk samen.
+
+## Waarnemingen
+
+We controleren dit ook voor aantal waarnemingen.
 
 
 # Samenvatting
 
+Onze primaire interesse ging uit naar een verschil tussen professionele teller en vrijwilligers voor soorten met broedcode groter dan nul. We zien dat vrijwilligers een significant minder aantal waarnemingen en soorten melden dan de professionele teller.
 
+```{r}
+tibble(maat              = c("aantal soorten", "aantal waarnemingen"),
+       professioneel_est = c(sum_finaal_soorten1$fixed$Estimate[1],
+                             sum_finaal_waarnemingen1$fixed$Estimate[1]),
+       vrijwilliger_est  = c(sum(sum_finaal_soorten1$fixed$Estimate),
+                             sum(sum_finaal_waarnemingen1$fixed$Estimate)),
+       verschil_est      = c(hyp_soorten1$hypothesis$Estimate, 
+                             hyp_waarnemingen1$hypothesis$Estimate),
+       verschil_ll       = c(hyp_soorten1$hypothesis$CI.Lower, 
+                             hyp_waarnemingen1$hypothesis$CI.Lower),
+       verschil_ul       = c(hyp_soorten1$hypothesis$CI.Upper, 
+                             hyp_waarnemingen1$hypothesis$CI.Upper)) %>%
+  kable(digits = 2)
+```
+
+Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r effect_broed$hypothesis$CI.Lower` tot `r effect_broed$hypothesis$CI.Upper`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten bij broedcode 0 nog lager ligt in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zien bij broedcode 0, maar minder bij broedcode > 0.
