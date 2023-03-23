@@ -777,29 +777,48 @@ relfreqs_doel2 %>%
 
 Als we rekening houden met ervaring lijken de verschillen niet zo groot tussen professioneel en vrijwilliger.
 
-## Multivariate methodes
-
-...
 
 # Hypotheses
 
 We willen achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren. Welke statistische hypotheses kunnen we opstellen? Met welke factoren moeten we rekening houden?
 
-
 ## Aantal soorten
 
-Is er een significant verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers?
+Is er een significant verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers?  
+  
+$\text{H}_0$: Er is geen verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers.
 
 ## Aantal waarnemingen
 
-Is er een significant verschil in het aantal waarnemingen door de professionele teller vs. de vrijwilligers?
+Is er een significant verschil in het aantal waarnemingen door de professionele teller vs. de vrijwilligers?  
+  
+$\text{H}_0$: Er is geen verschil in het aantal waarnemingen gemeld door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal waarnemingen gemeld door de professionele teller vs. de vrijwilligers.
 
-# Statistische testen
+## Effect van broedcode
+
+Kan een verschil in aantal soorten of aantal waarnemingen tussen professionele en vrijwillige tellers verschillen tussen broedcodes?  
+  
+$\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor broedcode 0 en broedcode groter dan 0.  
+$\text{H}_a$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet even groot voor broedcode 0 en broedcode groter dan 0.
+
+## Effect van ervaring
+
+Kan een verschil in aantal soorten of aantal waarnemingen tussen professionele en vrijwillige tellers verschillen tussen ervaringsklasses?  
+  
+$\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor beginners als voor ervaren tellers.  
+$\text{H}_a$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet even groot voor beginners als voor ervaren tellers.  
+  
+Het zal moeilijk zijn hiervoor een interactiemodel te fitten omdat we maar één ervaringscategorie bij de professionele teller hebben (ervaren) en twee bij de vrijwilligers (beginner en ervaren). Dit model zal allicht met **INLA** moeten gefit worden.
+
+
+# Algemene statistische testen
 
 ## Aantal soorten
 
-Is er een significant verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers?
-
+Is er een significant verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers?  
+  
 $\text{H}_0$: Er is geen verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers.  
 $\text{H}_a$: Er is een verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers.
 
@@ -1086,8 +1105,8 @@ We besluiten dat de vrijwillige tellers gemiddeld `r schatting_soorten1` soorten
 
 ## Aantal waarnemingen
 
-Is er een significant verschil in het aantal waarnemingen gezien door de professionele teller vs. de vrijwilligers?
-
+Is er een significant verschil in het aantal waarnemingen gezien door de professionele teller vs. de vrijwilligers?  
+  
 $\text{H}_0$: Er is geen verschil in het aantal waarnemingen gemeld door de professionele teller vs. de vrijwilligers.  
 $\text{H}_a$: Er is een verschil in het aantal waarnemingen gemeld door de professionele teller vs. de vrijwilligers.
 
@@ -1600,8 +1619,8 @@ $\text{H}_a$: Er is een verschil in het aantal soorten met broedcode 0 gezien do
 $\text{H}_0$: Er is geen verschil in het aantal soorten met broedcode groter dan 0 gezien door de professionele teller vs. de vrijwilligers.  
 $\text{H}_a$: Er is een verschil in het aantal soorten met broedcode groter dan 0 gezien door de professionele teller vs. de vrijwilligers.
 
-$\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor broedcode 0 en broedcode groter dan 0 .  
-$\text{H}_a$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet even groot voor broedcode 0 en broedcode groter dan 0 .
+$\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor broedcode 0 en broedcode groter dan 0.  
+$\text{H}_a$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet even groot voor broedcode 0 en broedcode groter dan 0.
 
 ```{r}
 dubbels_2022_df_broed_soortenrijkdom <- dubbels_2022_df_broed2 %>%
@@ -1966,8 +1985,12 @@ De exploratieve figuren tonen eenzelfde trend voor aantal waarnemingen. Dit is l
 
 ## Waarnemingen
 
-We controleren dit ook voor aantal waarnemingen.
+We controleren dit ook voor aantal waarnemingen ...
 
+
+# Verschil in ervaring
+
+Effect ervaring? Met inla?
 
 # Samenvatting
 
@@ -1988,4 +2011,4 @@ tibble(maat              = c("aantal soorten", "aantal waarnemingen"),
   kable(digits = 2)
 ```
 
-Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r effect_broed$hypothesis$CI.Lower` tot `r effect_broed$hypothesis$CI.Upper`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten bij broedcode 0 nog lager ligt in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zien bij broedcode 0, maar minder bij broedcode > 0.
+Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zien met broedcode 0, maar minder met broedcode > 0.
