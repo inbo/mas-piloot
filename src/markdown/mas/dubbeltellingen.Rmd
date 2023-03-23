@@ -988,7 +988,7 @@ icc_plot <- (sd_plot^2) / (sd_plot^2 + sd_plotperiode^2 + sd_res^2)
 icc_plotperiode <- (sd_plotperiode^2) / (sd_plot^2 + sd_plotperiode^2 + sd_res^2)
 ```
 
-De correlatie tussen observaties binnen een zelfde plot is relatief laag (ICC = `r round(icc_plot, 3)`) en ook de correlatie tussen observaties binnen eenzelfde periode in eenzelfde plot ((ICC = `r round(icc_plotperiode, 3)`)). We testen of we de random effects kunnen weglaten. Hiervoor fitten we een model zonder random effect van plot en zonder enig random effect.
+De correlatie tussen observaties binnen een zelfde plot is relatief laag (ICC = `r round(icc_plot, 3)`) en ook de correlatie tussen observaties binnen eenzelfde periode in eenzelfde plot (ICC = `r round(icc_plotperiode, 3)`). We testen of we de random effects kunnen weglaten. Hiervoor fitten we een model zonder random effect van plot en zonder enig random effect.
 
 ```{r}
 dubbel_soorten_norm12 <- brm(
@@ -1373,7 +1373,7 @@ https://discourse.mc-stan.org/t/using-brms-to-create-generated-quantities-stan-c
 
 # Verschil in broedcode
 
-Mogelijks is er ook een verschil op de manier waarop broedcodes worden toegekend door de professionele teller vs de vrijwilligers.
+Mogelijks is er ook een verschil op de manier waarop broedcodes worden toegekend door de professionele teller vs de vrijwilligers. Zou het kunnen dat vrijwilligers vaker broedcode nul ingeven waardoor de vorige analyses een onvolledig beeld geven?
 
 ```{r}
 dubbels_2022 %>%
@@ -1405,7 +1405,7 @@ dubbels_2022_df_broed <- dubbels_2022_df_broed %>%
   full_join(design_dubbels, by = "plotnaam")
 ```
 
-We voegen variabelen toe gelinkt aan de waarnemers. We zien weinig verschil in de categoriën `ervaring` vs. `anciënniteit`. Vooral de `ervaring` variabele lijkt interessant om in acht te nemen.
+We voegen variabelen toe gelinkt aan de waarnemers.
 
 ```{r}
 waarnemer_vars <- tibble(waarnemerscode = c("HMLE02", "DCLR00", "NRTT00", 
@@ -1587,7 +1587,7 @@ relfreq_diffs %>%
   kable(digits = 3)
 ```
 
-De verschilfrequenties verschillen licht, maar we zien nog altijd vrij grote verschillen (bv. Merel).
+We zien nog altijd vrij grote verschillen (bv. Merel).
 
 
 ## Statistische test
@@ -1599,6 +1599,9 @@ $\text{H}_a$: Er is een verschil in het aantal soorten met broedcode 0 gezien do
 
 $\text{H}_0$: Er is geen verschil in het aantal soorten met broedcode groter dan 0 gezien door de professionele teller vs. de vrijwilligers.  
 $\text{H}_a$: Er is een verschil in het aantal soorten met broedcode groter dan 0 gezien door de professionele teller vs. de vrijwilligers.
+
+$\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor broedcode 0 en broedcode groter dan 0 .
+$\text{H}_a$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet even groot voor broedcode 0 en broedcode groter dan 0 .
 
 ```{r}
 dubbels_2022_df_broed_soortenrijkdom <- dubbels_2022_df_broed2 %>%
@@ -1926,6 +1929,22 @@ effect_status
 plot(effect_status)
 ```
 
+Is er een verschil in het effect van de broedcodes?
+
+$$
+\beta_3= 0
+$$
+
+```{r}
+effect_broed <- hypothesis(
+  x = finaal_soorten2,
+  "statusvrijwilliger:broedcode.L = 0",
+  class = "b", alpha = 0.05)
+
+effect_broed
+plot(effect_broed)
+```
+
 ## Conclusie
 
 ```{r, include=FALSE}
@@ -1936,10 +1955,13 @@ ll_soorten2_broed_groot <- round(
   exp(effect_broed_groot$hypothesis$CI.Lower) - 1, 3)
 ul_soorten2_broed_groot <- round(
   exp(effect_broed_groot$hypothesis$CI.Upper) - 1, 3)
+
+ll_soorten2_broed <- round(exp(effect_broed$hypothesis$CI.Lower) - 1, 3)
+ul_soorten2_broed <- round(exp(effect_broed$hypothesis$CI.Upper) - 1, 3)
 ```
 
-
-Zowel voor broedcode 0 als broedcode groter dan 0 zien we dat de professionele teller meer soorten ziet dan de vrijwilligers (95% CI resp. `r ll_soorten2_broed_nul * 100` - `r ul_soorten2_broed_nul * 100` % en `r ll_soorten2_broed_groot` - `r ul_soorten2_broed__groot * 100` % verschil). Model fit was echter niet ideaal, maar gebasseerd op de  posterior predictive check zou het verschil in werkelijkheid zelfs nog extremer zijn (onderschatting aantal nullen door model).
+Zowel voor broedcode 0 als broedcode groter dan 0 zien we dat de professionele teller meer soorten ziet dan de vrijwilligers (95% CI resp. `r ll_soorten2_broed_nul * 100` - `r ul_soorten2_broed_nul * 100` % en `r ll_soorten2_broed_groot` - `r ul_soorten2_broed_groot * 100` % verschil). Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet significant verschillend voor broedcode 0 en broedcode groter dan 0 (95% CI `r ll_soorten2_broed_nul * 100` - `r ul_soorten2_broed_nul * 100` % verschil).  
+Model fit was echter niet ideaal, maar gebasseerd op de  posterior predictive check zou het verschil van broedcode 0 tussen professioneel en vrijwilliger in werkelijkheid allicht nog extremer zijn (onderschatting aantal nullen door model). Hoe dan ook hebben we genoeg bewijs dat er geen compensatie optreedt wanneer we broedcode 0 in beschouwing nemen. Zowel voor broedcode 0 en broedcode groter dan nul zien vrijwilligers minder soorten dan de professionele teller.
 
 
 # Samenvatting
