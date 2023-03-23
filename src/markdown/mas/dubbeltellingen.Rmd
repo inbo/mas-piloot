@@ -1795,9 +1795,77 @@ We zien goede convergentie.
 plot(fit_dubbel_soorten_pois2)
 ```
 
+
 ### Selectie random effects
 
+```{r}
+dubbel_soorten_pois22 <- brm(
+  bf(n ~ status*broedcode + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_broed_soortenrijkdom, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_pois22"),
+  file_refit = "on_change")
+
+dubbel_soorten_pois23 <- brm(
+  bf(n ~ status*broedcode), 
+  data = dubbels_2022_df_broed_soortenrijkdom, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_pois23"),
+  file_refit = "on_change")
+
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_soorten_pois22.rds"))) {
+  fit_dubbel_soorten_pois22 <- add_criterion(dubbel_soorten_pois22, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_pois22"))
+  fit_dubbel_soorten_pois23 <- add_criterion(dubbel_soorten_pois23, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_pois23"))
+} else {
+  fit_dubbel_soorten_pois22 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_pois22.rds"))
+  fit_dubbel_soorten_pois23 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_pois23.rds"))
+}
+
+# Comparison among models
+models_norm <- data.frame(
+  naam = c("geen random effects", 
+           "plotnaam:periode_in_jaar", 
+           "plotnaam en plotnaam:periode_in_jaar"),
+  model = c("fit_dubbel_soorten_pois23", 
+            "fit_dubbel_soorten_pois22", 
+            "fit_dubbel_soorten_pois2"))
+
+
+loo_compare(
+    fit_dubbel_soorten_pois2, 
+    fit_dubbel_soorten_pois22, 
+    fit_dubbel_soorten_pois23, 
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_norm, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+We beschouwen het finale model met random effects.
+
+```{r}
+finaal_soorten2 <- fit_dubbel_soorten_pois2
+```
+
+
 ### Resultaten finale model
+
+```{r}
+sum_finaal_soorten2 <- summary(finaal_soorten2)
+sum_finaal_soorten2
+```
 
 $$
 \beta_0 : \text{professioneel + broedcode 0}\\
@@ -1815,7 +1883,7 @@ $$
 
 ```{r}
 effect_broed_nul <- hypothesis(
-  x = fit_dubbel_soorten_pois2,
+  x = finaal_soorten2,
   "statusvrijwilliger = 0",
   class = "b", alpha = 0.05)
 
@@ -1832,7 +1900,7 @@ $$
 
 ```{r}
 effect_broed_groot <- hypothesis(
-  x = fit_dubbel_soorten_pois2,
+  x = finaal_soorten2,
   "statusvrijwilliger + statusvrijwilliger:broedcode.L = 0",
   class = "b", alpha = 0.05)
 
@@ -1850,7 +1918,7 @@ $$
 
 ```{r}
 effect_status <- hypothesis(
-  x = fit_dubbel_soorten_pois2,
+  x = finaal_soorten2,
   "statusvrijwilliger +  (1/2) * statusvrijwilliger:broedcode.L = 0",
   class = "b", alpha = 0.05)
 
@@ -1858,21 +1926,22 @@ effect_status
 plot(effect_status)
 ```
 
-Is er een verschil in tussen de broedcodes over status heen?
+## Conclusie
 
-$$
-\frac{1}{2}\beta_0 + \frac{1}{2}(\beta_0 + \beta_1) =  + \frac{1}{2}(\beta_0 + \beta_2) + \frac{1}{2}(\beta_0 + \beta_1 + \beta_2 + \beta_3)\\
-\Rightarrow \beta_0 + \frac{1}{2}\beta_1 = \beta_0 + \frac{1}{2}\beta_1 + \beta_2 + \frac{1}{2}\beta_3\\
-\Rightarrow \beta_2 + \frac{1}{2}\beta_3= 0
-$$
+```{r, include=FALSE}
+ll_soorten2_broed_nul <- round(exp(effect_broed_nul$hypothesis$CI.Lower) - 1, 3)
+ul_soorten2_broed_nul <- round(exp(effect_broed_nul$hypothesis$CI.Upper) - 1, 3)
 
-```{r}
-effect_broed <- hypothesis(
-  x = fit_dubbel_soorten_pois2,
-  "broedcode.L +  (1/2) * statusvrijwilliger:broedcode.L = 0",
-  class = "b", alpha = 0.05)
-
-effect_broed
-plot(effect_broed)
+ll_soorten2_broed_groot <- round(
+  exp(effect_broed_groot$hypothesis$CI.Lower) - 1, 3)
+ul_soorten2_broed_groot <- round(
+  exp(effect_broed_groot$hypothesis$CI.Upper) - 1, 3)
 ```
+
+
+Zowel voor broedcode 0 als broedcode groter dan 0 zien we dat de professionele teller meer soorten ziet dan de vrijwilligers (95% CI resp. `r ll_soorten2_broed_nul * 100` - `r ul_soorten2_broed_nul * 100` % en `r ll_soorten2_broed_groot` - `r ul_soorten2_broed__groot * 100` % verschil). Model fit was echter niet ideaal, maar gebasseerd op de  posterior predictive check zou het verschil in werkelijkheid zelfs nog extremer zijn (onderschatting aantal nullen door model).
+
+
+# Samenvatting
+
 
