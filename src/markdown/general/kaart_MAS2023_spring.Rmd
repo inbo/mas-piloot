@@ -189,3 +189,23 @@ mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) +
   mapview(sbp_hamster, legend = FALSE) +
   mapview(sbp_zomertortel, legend = FALSE)
 ```
+
+# Finale kaart
+
+```{r}
+mapviewOptions(basemaps = c("Esri.WorldImagery","CartoDB.Positron","OpenStreetMap"))
+
+mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) + 
+  mapview(punten_MAS, col.regions = "white", alpha.regions = 1) +
+  mapview(telcirkels_MAS, color = "grey", col.regions = "grey", 
+          alpha.regions = 0) +
+  mapview(openheid, zcol = "openheid_klasse", layer = "openheid", 
+          alpha.regions = 0.4) +
+  mapview(sbp_akkergvogels2022, legend = FALSE) +
+  mapview(sbp_bruine_kiekendief, legend = FALSE) +
+  mapview(sbp_grauwe_kiekendief, legend = FALSE) +
+  mapview(sbp_grauwe_kiekendief_2023, legend = FALSE) +
+  mapview(sbp_hamster, legend = FALSE) +
+  mapview(sbp_zomertortel, legend = FALSE)
+```
+
