@@ -1,0 +1,43 @@
+---
+title: "Overzichtskaart MAS 2023"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+
+# set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  out.width = "100%",
+  options(scipen = 999))
+opts_knit$set(root.dir = here::here())
+
+# packages
+library(tidyverse)
+library(sf)
+library(mapview)
+
+library(targets)
+targets_store_2023 <- here("src", "targets", "mas_steekproef_zavelberg", 
+                           "_targets")
+targets_store_piloot <- here("src", "targets", "mas_steekproef_pilootfase", 
+                             "_targets")
+```
+
+
+
+
