@@ -1992,6 +1992,12 @@ We controleren dit ook voor aantal waarnemingen ...
 
 Effect ervaring? Met inla?
 
+
+# Correlatie aantallen en waarnemingen
+
+...
+
+
 # Samenvatting
 
 Onze primaire interesse ging uit naar een verschil tussen professionele teller en vrijwilligers voor soorten met broedcode groter dan nul. We zien dat vrijwilligers een significant minder aantal waarnemingen en soorten melden dan de professionele teller.
