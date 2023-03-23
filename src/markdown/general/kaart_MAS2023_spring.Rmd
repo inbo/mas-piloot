@@ -116,10 +116,10 @@ mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) +
 # Openheid landschap
 
 ```{r}
-selectie_openheid_OL <- selectie_openheid(gebied = peri_combi, 
+selectie_openheid_OL <- selectie_openheid(gebied = perimeter, 
                                           ol_strata = c("OL")) %>%
   mutate(openheid_klasse = "open landschap")
-selectie_openheid_HOL <- selectie_openheid(gebied = peri_combi,
+selectie_openheid_HOL <- selectie_openheid(gebied = perimeter,
                                           ol_strata = c("HOL")) %>%
   mutate(openheid_klasse = "half-open landschap")
 
@@ -129,7 +129,7 @@ mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) +
   mapview(punten_MAS, col.regions = "purple", alpha.regions = 1) +
   mapview(telcirkels_MAS, color = "purple", col.regions = "purple", 
           alpha.regions = 0) +
-  mapview(selectie_openheid_klasses, zcol = "openheid_klasse", layer = "openheid", 
+  mapview(openheid, zcol = "openheid_klasse", layer = "openheid", 
           alpha.regions = 0.3)
 ```
 
@@ -180,7 +180,7 @@ mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) +
   mapview(punten_MAS, col.regions = "purple", alpha.regions = 1) +
   mapview(telcirkels_MAS, color = "purple", col.regions = "purple", 
           alpha.regions = 0) +
-  mapview(selectie_openheid_klasses, zcol = "openheid_klasse", layer = "openheid", 
+  mapview(openheid, zcol = "openheid_klasse", layer = "openheid", 
           alpha.regions = 0.3) +
   mapview(sbp_akkergvogels2022, legend = FALSE) +
   mapview(sbp_bruine_kiekendief, legend = FALSE) +
