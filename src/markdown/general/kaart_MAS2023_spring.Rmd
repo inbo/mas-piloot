@@ -53,7 +53,7 @@ piloot_punten <- read_csv(here(
     "data",
     "processed",
     "steekproef_piloot_avimap.csv")) %>%
-  select(plotnaam = definitief_punt,
+  dplyr::select(plotnaam = definitief_punt,
          regio,
          stratum,
          X, Y) %>%
@@ -61,9 +61,9 @@ piloot_punten <- read_csv(here(
          sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
          stratum = gsub("L\\s{1}", "L\\\n", stratum),
          jaar = 2022L) %>%
-  select(-c(stratum, sbp)) %>%
+  dplyr::select(-c(stratum, sbp)) %>%
   st_as_sf(coords = c("X", "Y"), crs = 31370) %>%
-  select(plotnaam, regio)
+  dplyr::select(plotnaam, regio)
 
 # zandleemstreek
 zandleem_punten <- st_read(file.path(
@@ -72,7 +72,7 @@ zandleem_punten <- st_read(file.path(
     "steekproef_zandleemstreek_telpunten.geojson")) %>%
   filter(batch == "eerste set",
          startsWith(pointid, "Zn")) %>%
-  select(plotnaam = pointid, regio = Naam)
+  dplyr::select(plotnaam = pointid, regio = Naam)
 
 # westelijke leemstreek
 leem_punten <- st_read(file.path(
@@ -81,7 +81,7 @@ leem_punten <- st_read(file.path(
     "steekproef_leemstreek_telpunten.geojson")) %>%
   filter(batch == "eerste set") %>%
   mutate(Naam = "Westelijke leemstreek") %>%
-  select(plotnaam = pointid, regio = Naam)
+  dplyr::select(plotnaam = pointid, regio = Naam)
 ```
 
 ```{r}
@@ -133,3 +133,59 @@ mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) +
           alpha.regions = 0.3)
 ```
 
+# SPBs
+
+```{r}
+# Lees lagen in
+sbp_overig <- 
+  st_read(path_to_sbp_akkervogels("sbp_overige_soorten.shp"), 
+          quiet = TRUE) %>%
+  filter(soort %in% c("Hamster", "Bruine kiekendief", "Grauwe kiekendief", 
+                      "Zomertortel")) %>%
+  mutate(soort = ifelse(soort == "Grauwe kiekendief" & gebied == "nieuw 2023", 
+                        "Grauwe kiekendief 2023", soort)) %>%
+  dplyr::select(soort)
+sbp_akkergvogels <- 
+  st_read(path_to_sbp_akkervogels("akkervogelgebieden2022.shp"),
+          quiet = TRUE) %>%
+  mutate(soort = "akkervogels2022") %>%
+  dplyr::select(soort)
+
+# Voeg samen
+soort_beschermings_plan <- bind_rows(sbp_overig, sbp_akkergvogels) %>%
+  st_intersection(perimeter) %>%
+  group_by(soort) %>% 
+  summarize(geometry = st_union(geometry))
+
+# Laag per soort
+sbp_akkergvogels2022 <- soort_beschermings_plan %>%
+  filter(soort == "akkervogels2022")
+
+sbp_bruine_kiekendief <- soort_beschermings_plan %>%
+  filter(soort == "Bruine kiekendief")
+
+sbp_grauwe_kiekendief <- soort_beschermings_plan %>%
+  filter(soort == "Grauwe kiekendief")
+
+sbp_grauwe_kiekendief_2023 <- soort_beschermings_plan %>%
+  filter(soort == "Grauwe kiekendief 2023")
+
+sbp_hamster <- soort_beschermings_plan %>%
+  filter(soort == "Hamster")
+
+sbp_zomertortel <- soort_beschermings_plan %>%
+  filter(soort == "Zomertortel")
+
+mapview(perimeter, color = "red", alpha.regions = 0, legend = FALSE) + 
+  mapview(punten_MAS, col.regions = "purple", alpha.regions = 1) +
+  mapview(telcirkels_MAS, color = "purple", col.regions = "purple", 
+          alpha.regions = 0) +
+  mapview(selectie_openheid_klasses, zcol = "openheid_klasse", layer = "openheid", 
+          alpha.regions = 0.3) +
+  mapview(sbp_akkergvogels2022, legend = FALSE) +
+  mapview(sbp_bruine_kiekendief, legend = FALSE) +
+  mapview(sbp_grauwe_kiekendief, legend = FALSE) +
+  mapview(sbp_grauwe_kiekendief_2023, legend = FALSE) +
+  mapview(sbp_hamster, legend = FALSE) +
+  mapview(sbp_zomertortel, legend = FALSE)
+```
