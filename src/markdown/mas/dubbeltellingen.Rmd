@@ -2544,10 +2544,43 @@ tibble(maat              = c("aantal soorten", "aantal waarnemingen"),
   kable(digits = 2)
 ```
 
+```{r}
+# Raw data to plot
+plot_data_df <- dubbels_corr_df %>%
+  pivot_longer(cols = c("n_soorten", "n_waarnemingen"), names_to = "cat",
+               values_to = "n") %>%
+  mutate(cat = ifelse(cat == "n_soorten", "soorten", "waarnemingen"))
+
+# Model estimates to plot
+soorten_prof <- hypothesis(x = finaal_soorten1, "Intercept = 0", class = "b", 
+                           alpha = 0.05)
+soorten_vrij <- hypothesis(x = finaal_soorten1, 
+                           "Intercept + statusvrijwilliger = 0", class = "b", 
+                           alpha = 0.05)
+
+waarnemingen_prof <- hypothesis(x = finaal_waarnemingen1, "Intercept = 0", 
+                                class = "b", alpha = 0.05)
+waarnemingen_vrij <- hypothesis(x = finaal_waarnemingen1, 
+                           "Intercept + statusvrijwilliger = 0", class = "b", 
+                           alpha = 0.05)
+
+# visualise
+rbind.data.frame(soorten_prof$hypothesis,
+                 soorten_vrij$hypothesis, 
+                 waarnemingen_prof$hypothesis, 
+                 waarnemingen_vrij$hypothesis) %>%
+  mutate(status = rep(c("professioneel", "vrijwilliger"), times = 2),
+         cat = rep(c("soorten", "waarnemingen"), each = 2)) %>%
+  ggplot(aes(y = Estimate, x = status)) + 
+    geom_jitter(data = plot_data_df, aes(x = status, y = n), 
+                col = "firebrick", width = 0.2, height = 0, alpha = 0.1) +
+    geom_point(aes(colour = status), size = 4) +
+    geom_errorbar(aes(ymin = CI.Lower, ymax = CI.Upper, colour = status), width = 0.2) +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(x = "", y = "aantal") +
+    facet_grid(~cat)
+```
+
 Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zien met broedcode 0, maar minder met broedcode > 0. Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_broed2$hypothesis$CI.Lower, 2)` tot `r round(effect_broed2$hypothesis$CI.Upper, 2)`).
 
-
-
-
 Model fit niet altijd ideaal. Normaal verdeling voor approximatie discrete data (count data). Alle modellen gelijkaardige resultaten die ook in lijn waren met data exploratie.
-
