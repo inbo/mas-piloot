@@ -1995,10 +1995,58 @@ $\text{H}_a$: Er is wel een verschil in het aantal soorten/waarnemingen gemeld d
 ```{r}
 df_ervaring <- dubbels_2022_df_soortenrijkdom %>%
   mutate(ervaring_plot = case_when(
-        plotnaam %in% ervaren_plots ~ "ervaren plots",
-        plotnaam %in% beginner_plots ~ "beginner plots"
-      ))
+          plotnaam %in% ervaren_plots ~ "ervaren plots",
+          plotnaam %in% beginner_plots ~ "beginner plots"
+          ),
+        status_ervaring = paste(status, ervaring_plot)) %>%
+  group_by(status_ervaring) %>%
+  mutate(gemiddelde = median(n), .groups = "drop")
 
+# Overlaid histograms
+ggplot(df_ervaring) +
+  geom_histogram(aes(x = n, fill = status_ervaring), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_ervaring),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+
+# Density plots with semi-transparent fill
+ggplot(df_ervaring, aes(x = n, fill = status_ervaring)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_ervaring),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+```
+
+De verticale lijn geeft de mediaan aan.
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9, 
+             name = 'Set1'))(length(unique(df_ervaring$plaatstijd)))
+
+df_ervaring %>%
+  ggplot() +
+    geom_jitter(aes(x = status, y = n), width = 0.2, height = 0) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    guides(colour = "none") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal soorten", x = "") +
+    facet_grid(~ervaring_plot)
+
+df_ervaring %>%
+  ggplot() +
+    geom_boxplot(aes(x = ervaring_plot, y = n)) +
+    geom_jitter(aes(x = ervaring_plot, y = n), 
+                col = "firebrick", width = 0.2, height = 0) +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal soorten", x = "") +
+    facet_grid(~status)
+```
+
+```{r}
 test2 <- brm(
   bf(n ~ status*ervaring_plot  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
   data = df_ervaring, 
