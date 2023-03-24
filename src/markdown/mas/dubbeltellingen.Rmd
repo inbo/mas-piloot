@@ -1770,7 +1770,7 @@ pp_check(fit_dubbel_soorten_negbin2, type = "bars_grouped", ndraws = 100,
          group = "statusbroed", facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
-Hoewel we de fit niet ideaal is, besluiten we dat de Poisson verdeling het beste past bij de data. Een normaalverdeling zou in dit geval ook negatieve waarnemingen toelaten (dit was geen probleem bij enkel broedcode > 0 omdat de aantallen daar hoger lagen). De resultaten voor alle drie de modellen zijn gelijkaardig.
+Hoewel we de fit niet ideaal is, besluiten we dat de Poisson verdeling het beste past bij de data. Een normaalverdeling zou in dit geval ook negatieve aantallen toelaten (dit was geen probleem bij enkel broedcode > 0 omdat de aantallen daar hoger lagen). De resultaten voor alle drie de modellen zijn gelijkaardig.
   
 We zien goede convergentie.
 
@@ -1897,7 +1897,7 @@ plot(effect_status)
 Is er een verschil in het effect van de broedcodes?
 
 $$
-\beta_3= 0
+\beta_3 = 0
 $$
 
 ```{r}
@@ -1933,7 +1933,127 @@ De exploratieve figuren tonen eenzelfde trend voor aantal waarnemingen. Dit is l
 
 We controleren en kwantificeren dit effect ook voor aantal waarnemingen.
 
+```{r}
+dubbels_2022_df_broed_waarnemingen <- dubbels_2022_df_broed2 %>%
+  group_by(plotnaam, periode_in_jaar, status, broedcode) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  full_join(design_broed2, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "broedcode")) %>%
+  replace(is.na(.), 0) %>%
+  mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - "),
+         status_broed = paste(status, broedcode, sep = " - ")) %>%
+  full_join(dubbels_2022_df_broed2, by = c("plotnaam", "periode_in_jaar", 
+                                           "status", "broedcode")) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, broedcode, 
+           status_broed, waarnemerscode, ervaring, n) %>%
+  group_by(status_broed) %>%
+  mutate(gemiddelde = median(n))
 
+fill_na <- dubbels_2022_df_broed2 %>%
+  expand(nesting(plotnaam, periode_in_jaar, status)) %>%
+  full_join(dubbels_2022_df_broed2, by = c("plotnaam", "periode_in_jaar", 
+                                           "status")) %>%
+  select(plotnaam, periode_in_jaar, status, waarnemerscode2 = waarnemerscode, 
+         ervaring2 = ervaring)
+
+dubbels_2022_df_broed_waarnemingen <- dubbels_2022_df_broed_waarnemingen %>%
+  full_join(fill_na, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  mutate(waarnemerscode = coalesce(waarnemerscode, waarnemerscode2),
+         ervaring = coalesce(ervaring, ervaring2)) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, broedcode, 
+           status_broed, waarnemerscode, ervaring, n, gemiddelde)
+
+# Overlaid histograms
+ggplot(dubbels_2022_df_broed_waarnemingen) +
+  geom_histogram(aes(x = n, fill = status_broed), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_broed),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal waarnemingen")
+
+# Density plots with semi-transparent fill
+ggplot(dubbels_2022_df_broed_waarnemingen, aes(x = n, fill = status_broed)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_broed),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal waarnemingen")
+```
+
+De verticale lijn geeft de mediaan aan.
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(unique(dubbels_2022_df_broed_waarnemingen$plaatstijd)))
+
+dubbels_2022_df_broed_waarnemingen %>%
+  mutate(broedcode = factor(paste("broedcode", broedcode, sep = " "),
+                            levels = c("broedcode 0", "broedcode > 0"),
+                            ordered = TRUE)) %>%
+  ggplot() +
+    geom_jitter(aes(x = status, y = n, shape = ervaring), 
+                width = 0.2, height = 0) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    guides(colour = "none") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal waarnemingen", x = "") +
+    facet_grid(~broedcode)
+```
+
+### Model fit
+
+We fitten het finale Poisson model van het aantal soorten, maar nu met aantal waarnemingen als respons.
+
+```{r}
+dubbel_waarnemingen_pois2 <- brm(
+  bf(n ~ status*broedcode + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_broed_waarnemingen, family = poisson(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_waarnemingen_pois2"),
+  file_refit = "on_change")
+```
+
+Model fit is opnieuw niet ideaal, maar goed genoeg om verder te werken.
+
+```{r}
+dubbel_waarnemingen_pois2$data <- dubbel_waarnemingen_pois2$data %>%
+  mutate(statusbroed = paste(status, broedcode))
+
+pp_check(dubbel_waarnemingen_pois2, type = "bars_grouped", ndraws = 100, 
+         group = "statusbroed", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+We zien goede convergentie.
+
+```{r}
+plot(dubbel_waarnemingen_pois2)
+```
+
+### Resultaten finale model
+
+```{r}
+summary(dubbel_waarnemingen_pois2)
+```
+
+
+Is er een verschil in het effect van de broedcodes?
+
+$$
+\beta_3 = 0
+$$
+
+```{r}
+effect_broed2 <- hypothesis(
+  x = dubbel_waarnemingen_pois2,
+  "statusvrijwilliger:broedcode.L = 0",
+  class = "b", alpha = 0.05)
+
+effect_broed2
+plot(effect_broed2)
+```
+
+Zoals verwacht zien we ook hier geen differentieel effect van broedcode in aantal waarnemingen tussen professionele teller en vrijwilligers.
 
 # Verschil in ervaring
 
@@ -1996,14 +2116,6 @@ df_ervaring %>%
     coord_cartesian(ylim = c(0, NA)) +
     labs(y = "aantal soorten", x = "") +
     facet_grid(~status)
-```
-
-```{r}
-test2 <- brm(
-  bf(n ~ status*ervaring_plot  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
-  data = df_ervaring, 
-  family = gaussian(), seed = 1234,
-  chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
 ```
 
 ### Modellen fitten
@@ -2226,6 +2338,113 @@ Er is geen significant verschil in aantal soorten gezien door beginnende vs. erv
 
 We controleren en kwantificeren dit effect ook voor aantal waarnemingen.
 
+```{r}
+df_ervaring2 <- dubbels_2022_df_waarnemingen %>%
+  mutate(ervaring_plot = case_when(
+          plotnaam %in% ervaren_plots ~ "ervaren plots",
+          plotnaam %in% beginner_plots ~ "beginner plots"
+          ),
+        status_ervaring = paste(status, ervaring_plot)) %>%
+  group_by(status_ervaring) %>%
+  mutate(gemiddelde = median(n), .groups = "drop")
+
+# Overlaid histograms
+ggplot(df_ervaring2) +
+  geom_histogram(aes(x = n, fill = status_ervaring), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_ervaring),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal waarnemingen")
+
+# Density plots with semi-transparent fill
+ggplot(df_ervaring2, aes(x = n, fill = status_ervaring)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_ervaring),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal waarnemingen")
+```
+
+De verticale lijn geeft de mediaan aan.
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9, 
+             name = 'Set1'))(length(unique(df_ervaring2$plaatstijd)))
+
+df_ervaring2 %>%
+  ggplot() +
+    geom_jitter(aes(x = status, y = n), width = 0.2, height = 0) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    guides(colour = "none") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal waarnemingen", x = "") +
+    facet_grid(~ervaring_plot)
+
+df_ervaring2 %>%
+  ggplot() +
+    geom_boxplot(aes(x = ervaring_plot, y = n)) +
+    geom_jitter(aes(x = ervaring_plot, y = n), 
+                col = "firebrick", width = 0.2, height = 0) +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal waarnemingen", x = "") +
+    facet_grid(~status)
+```
+
+### Model fit
+
+We fitten het finale model van het aantal soorten, maar nu met aantal waarnemingen als respons.
+
+```{r}
+dubbel_waarnemingen_norm32 <- brm(
+  bf(n ~ status*ervaring_plot + (1 | plotnaam:periode_in_jaar)),
+  data = df_ervaring2, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_waarnemingen_norm32"),
+  file_refit = "on_change")
+```
+
+Model fit is niet ideaal, maar goed genoeg om verder te werken.
+
+```{r}
+dubbel_waarnemingen_norm32$data <- dubbel_waarnemingen_norm32$data %>%
+  mutate(statuservaring = paste(status, ervaring_plot))
+
+pp_check(dubbel_waarnemingen_norm32, type = "dens_overlay_grouped", ndraws = 100, 
+         group = "statuservaring")
+```
+
+We zien goede convergentie.
+
+```{r}
+plot(dubbel_waarnemingen_norm32)
+```
+
+### Resultaten finale model
+
+```{r}
+summary(dubbel_waarnemingen_norm32)
+```
+
+Is er een verschil in het effect van de broedcodes?
+
+$$
+\beta_3 = 0
+$$
+
+```{r}
+effect_broed2 <- hypothesis(
+  x = dubbel_waarnemingen_norm32,
+  "statusvrijwilliger:broedcode.L = 0",
+  class = "b", alpha = 0.05)
+
+effect_broed2
+plot(effect_broed2)
+```
+
+Zoals verwacht zien we ook hier geen verschil in aantal waarnemingen tussen beginnende en ervaren vrijwilligers.
+
 
 # Correlatie aantal soorten en aantal waarnemingen
 
@@ -2251,4 +2470,10 @@ tibble(maat              = c("aantal soorten", "aantal waarnemingen"),
   kable(digits = 2)
 ```
 
-Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zien met broedcode 0, maar minder met broedcode > 0.
+Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zien met broedcode 0, maar minder met broedcode > 0. Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_broed2$hypothesis$CI.Lower, 2)` tot `r round(effect_broed2$hypothesis$CI.Upper, 2)`).
+
+
+
+
+Model fit niet altijd ideaal. Normaal verdeling voor approximatie discrete data (count data). Alle modellen gelijkaardige resultaten die ook in lijn waren met data exploratie.
+
