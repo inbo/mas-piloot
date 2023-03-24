@@ -1800,9 +1800,6 @@ fit_dubbel_soorten_negbin2$data <- fit_dubbel_soorten_negbin2$data %>%
   mutate(statusbroed = paste(status, broedcode))
 
 pp_check(fit_dubbel_soorten_negbin2, type = "bars_grouped", ndraws = 100, 
-         group = "status", facet_args = list(ncol = 1, scales = "free_y"))
-
-pp_check(fit_dubbel_soorten_negbin2, type = "bars_grouped", ndraws = 100, 
          group = "statusbroed", facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
@@ -1987,6 +1984,8 @@ We controleren kwantificeren dit effect ook voor aantal waarnemingen ...
 
 # Verschil in ervaring
 
+## Statistische test
+
 Is er een verschil in het aantal soorten gemeld door ervaren vs. beginnende vrijwillige tellers?  
   
 $\text{H}_0$: Er is geen verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers.  
@@ -2052,10 +2051,133 @@ test2 <- brm(
   data = df_ervaring, 
   family = gaussian(), seed = 1234,
   chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
-
-pp_check(test2, type = "dens_overlay_grouped", ndraws = 100, 
-         group = "status")
 ```
+
+### Modellen fitten
+
+We fitten 3 modellen met **brms**.
+
+- Normaal verdeling
+- Poisson verdeling
+- Negatief binomiaal verdeling
+
+```{r}
+model_path <- "./src/markdown/mas/brms_models/"
+
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 4000          # number of iterations (incl. burn-in)
+burnin <- niter / 2    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+
+# 1. Normal
+dubbel_soorten_norm3 <- brm(
+  bf(n ~ status*ervaring_plot + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = df_ervaring, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_norm3"),
+  file_refit = "on_change")
+
+# 2. Poisson
+dubbel_soorten_pois3 <- brm(
+  bf(n ~ status*ervaring_plot + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = df_ervaring, family = poisson(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_pois3"),
+  file_refit = "on_change")
+
+# 3. Negative binomial
+dubbel_soorten_negbin3 <- brm(
+  bf(n ~ status*ervaring_plot + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = df_ervaring, family = negbinomial(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.9),
+  file = paste0(model_path, "dubbel_soorten_negbin3"),
+  file_refit = "on_change")
+```
+
+### Model selectie
+
+We vergelijken de modellen gebruikmakend van leave-one-out cross-validation.
+
+```{r}
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm3.rds"))) {
+  fit_dubbel_soorten_norm3 <- add_criterion(dubbel_soorten_norm3, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_norm3"))
+  fit_dubbel_soorten_pois3 <- add_criterion(dubbel_soorten_pois3, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_pois3"))
+  fit_dubbel_soorten_negbin3 <- add_criterion(dubbel_soorten_negbin3, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_negbin3"))
+} else {
+  fit_dubbel_soorten_norm3 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_norm3.rds"))
+  fit_dubbel_soorten_pois3 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_pois3.rds"))
+  fit_dubbel_soorten_negbin3 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_negbin3.rds"))
+}
+```
+
+```{r}
+# Comparison among models
+models_soorten3 <- data.frame(
+  naam = c("normaal", 
+           "poisson", 
+           "negatief binomiaal"),
+  model = c("fit_dubbel_soorten_norm3", 
+            "fit_dubbel_soorten_pois3", 
+            "fit_dubbel_soorten_negbin3"))
+
+
+loo_compare(
+    fit_dubbel_soorten_norm3, 
+    fit_dubbel_soorten_pois3, 
+    fit_dubbel_soorten_negbin3, 
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_soorten3, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+```{r}
+fit_dubbel_soorten_norm3$data <- fit_dubbel_soorten_norm3$data %>%
+  mutate(statuservaring = paste(status, ervaring_plot))
+
+pp_check(fit_dubbel_soorten_norm3, type = "dens_overlay_grouped", ndraws = 100, 
+         group = "statuservaring")
+
+fit_dubbel_soorten_pois3$data <- fit_dubbel_soorten_pois3$data %>%
+  mutate(statuservaring = paste(status, ervaring_plot))
+
+pp_check(fit_dubbel_soorten_pois3, type = "bars_grouped", ndraws = 100, 
+         group = "statuservaring", facet_args = list(ncol = 1, scales = "free_y"))
+
+fit_dubbel_soorten_negbin3$data <- fit_dubbel_soorten_negbin3$data %>%
+  mutate(statuservaring = paste(status, ervaring_plot))
+
+pp_check(fit_dubbel_soorten_negbin3, type = "bars_grouped", ndraws = 100, 
+         group = "statuservaring", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Hoewel we de fit niet ideaal is, besluiten we dat de Poisson verdeling het beste past bij de data. Een normaalverdeling zou in dit geval ook negatieve waarnemingen toelaten (dit was geen probleem bij enkel broedcode > 0 omdat de aantallen daar hoger lagen). De resultaten voor alle drie de modellen zijn gelijkaardig.
+  
+We zien goede convergentie.
+
+```{r}
+plot(fit_dubbel_soorten_norm3)
+```
+
+
+
 
 $$
 \beta_0 : \text{professioneel + beginner plots}\\
