@@ -44,12 +44,7 @@ source(here("src", "R", "berekening_hulpvariabelen.R"))
 # Doel {#doel}
 
 Achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren.  
-We volgen twee pistes: 
-
-1.  enkel de waarnemingen met broedcode > 0
-2.  alle waarnemingen meenemen
-
-Waarnemingen met broedcode = 0 zijn meer op toeval berust (trekkers/pleisteraars of roofvogels) (mail Johannes 13-01-2023).
+We zijn vooral geïnteresseerd in waarnemingen met broedcode groter dan 0. Waarnemingen met broedcode 0 zijn meer op toeval berust (trekkers/pleisteraars of roofvogels) (mail Johannes 13-01-2023).
 
 # Inlezen data {#inlezen-data}
 
@@ -291,8 +286,6 @@ Johannes heeft in 2022 in De Moeren 11 pots als controle dubbel geteld. Het gaat
 9.  DM_368.14 : nieuw mas-punt
 10.  DM_39.22 : nieuw mas-punt
 11.  DM_137.2 : nieuw mas-punt, daar heb ik per toeval de laatste ronde 2 keer geteld. De laatste telling (15 juli) mag je laten vallen
-
-> voorlopig beginnen met data van 2022
 
 ```{r}
 dubbels_2022_raw <- mas_31370_pipeline1 %>%
@@ -810,7 +803,7 @@ De professionele teller is ervaren, maar bij de vrijwilligers hebben we twee erv
 $\text{H}_0$: Er is geen verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers.  
 $\text{H}_a$: Er is wel een verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers. 
 
-# Algemene statistische testen
+# Statistische testen
 
 ## Aantal soorten
 
@@ -865,7 +858,7 @@ dubbels_2022_df_soortenrijkdom %>%
     labs(y = "aantal soorten", x = "")
 ```
 
-### Testen
+### Eenvoudige testen
 
 ```{r}
 t.test(n ~ status, data = dubbels_2022_df_soortenrijkdom, paired = TRUE)
@@ -1136,7 +1129,7 @@ dubbels_2022_df_waarnemingen %>%
     labs(y = "aantal waarnemingen")
 ```
 
-### Testen
+### Eenvoudige testen
 
 ```{r}
 t.test(n ~ status, data = dubbels_2022_df_waarnemingen, paired = TRUE)
@@ -1357,7 +1350,7 @@ We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` wa
 
 # Verschil in broedcode
 
-Mogelijks is er ook een verschil op de manier waarop broedcodes worden toegekend door de professionele teller vs de vrijwilligers. Zou het kunnen dat vrijwilligers vaker broedcode nul ingeven waardoor de vorige analyses een onvolledig beeld geven?
+Mogelijks is er ook een verschil op de manier waarop broedcodes worden toegekend door de professionele teller vs. de vrijwilligers. Zou het kunnen dat vrijwilligers vaker broedcode nul ingeven waardoor de vorige analyses een onvolledig beeld geven?
 
 ```{r}
 dubbels_2022 %>%
@@ -2581,7 +2574,7 @@ rbind.data.frame(soorten_prof$hypothesis,
     facet_grid(~cat)
 ```
 
-Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zien met broedcode 0, maar minder met broedcode > 0. Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_broed2$hypothesis$CI.Lower, 2)` tot `r round(effect_broed2$hypothesis$CI.Upper, 2)`).
+Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zouden noteren met broedcode 0, maar minder met broedcode > 0. Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_broed2$hypothesis$CI.Lower, 2)` tot `r round(effect_broed2$hypothesis$CI.Upper, 2)`).
 
 Ook vonden we dat er geen significant verschil was in aantal soorten tussen beginnende en ervaren vrijwilligers (95 %  CI: `r round(effect_ervaring$hypothesis$CI.Lower, 2)` tot `r round(effect_ervaring$hypothesis$CI.Upper, 2)`). Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_ervaring2$hypothesis$CI.Lower, 2)` tot `r round(effect_ervaring2$hypothesis$CI.Upper, 2)`).
 
