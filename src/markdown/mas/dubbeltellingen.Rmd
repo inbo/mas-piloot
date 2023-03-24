@@ -515,7 +515,7 @@ plot_boxplots("aantal waarnemingen", "ervaring")
 plot_boxplots("aantal individuen", "ervaring")
 ```
 
-Het aantal soorten lijkt nog altijd iets groter bij de professionele teller dan bij de vrijwilligers. We zien dat het verschil in aantal waarnemingen en individuen tussen professionele teller en vrijwilligers vooral aanwezig is in de plots waar ervaren vrijwilligers geteld hebben (ervaren plots) in telperiodes R1-R3. Daar heeft de professionele teller meer waarnemingen en individuen gezien. Er lijkt geen groot verschil te zijn tussen beginners en ervaren vrijwilligers (ondanks dat ze verschillende plots geteld hebben!)
+Het aantal soorten lijkt nog altijd iets groter bij de professionele teller dan bij de vrijwilligers. We zien dat het verschil in aantal waarnemingen en individuen tussen professionele teller en vrijwilligers vooral aanwezig is in de plots waar ervaren vrijwilligers geteld hebben (ervaren plots) in telperiodes R1-R3. Daar heeft de professionele teller meer waarnemingen en individuen gezien. Er lijkt geen groot verschil te zijn tussen beginners en ervaren vrijwilligers (ondanks dat ze verschillende plots geteld hebben!).
 
 ## Relatieve frequentie
 
@@ -805,14 +805,7 @@ $\text{H}_a$: Het verschil in het aantal soorten/waarnemingen gemeld door de pro
 
 ## Effect van ervaring
 
-Kan een verschil in aantal soorten of aantal waarnemingen tussen professionele en vrijwillige tellers verschillen tussen ervaringsklasses?  
-  
-$\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor beginners als voor ervaren tellers.  
-$\text{H}_a$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet even groot voor beginners als voor ervaren tellers.  
-  
-Het zal moeilijk zijn hiervoor een interactiemodel te fitten omdat we maar één ervaringscategorie bij de professionele teller hebben (ervaren) en twee bij de vrijwilligers (beginner en ervaren). We passen de hypotheses aan.
-
-Kan een verschil in aantal soorten of aantal waarnemingen tussen professionele en vrijwillige tellers verschillen tussen ervaringsklasses?  
+De professionele teller is ervaren, maar bij de vrijwilligers hebben we twee ervaringscategoriën: beginner en ervaren. Is er een verschil in het aantal soorten of aantal waarnemingen tussen ervaren en beginnende vrijwillige tellers?  
   
 $\text{H}_0$: Er is geen verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers.  
 $\text{H}_a$: Er is wel een verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers. 
@@ -1983,7 +1976,7 @@ ll_soorten2_broed <- round(exp(effect_broed$hypothesis$CI.Lower) - 1, 3)
 ul_soorten2_broed <- round(exp(effect_broed$hypothesis$CI.Upper) - 1, 3)
 ```
 
-Zowel voor broedcode 0 als broedcode groter dan 0 zien we dat de professionele teller meer soorten ziet dan de vrijwilligers (95% CI resp. `r ll_soorten2_broed_nul * 100` tot `r ul_soorten2_broed_nul * 100` % en `r ll_soorten2_broed_groot` tot `r ul_soorten2_broed_groot * 100` % verschil). Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet significant verschillend voor broedcode 0 en broedcode groter dan 0 (95% CI `r ll_soorten2_broed_nul * 100` tot `r ul_soorten2_broed_nul * 100` % verschil).  
+Zowel voor broedcode 0 als broedcode groter dan 0 zien we dat de professionele teller meer soorten ziet dan de vrijwilligers (95% CI resp. `r ll_soorten2_broed_nul * 100` tot `r ul_soorten2_broed_nul * 100` % en `r ll_soorten2_broed_groot * 100` tot `r ul_soorten2_broed_groot * 100` % verschil). Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet significant verschillend voor broedcode 0 en broedcode groter dan 0 (95% CI `r ll_soorten2_broed_nul * 100` tot `r ul_soorten2_broed_nul * 100` % verschil).  
 Model fit was echter niet ideaal, maar gebasseerd op de  posterior predictive check zou het verschil van broedcode 0 tussen professioneel en vrijwilliger in werkelijkheid allicht nog extremer zijn (onderschatting aantal nullen door model). Hoe dan ook hebben we genoeg bewijs dat er geen compensatie optreedt wanneer we broedcode 0 in beschouwing nemen. Zowel voor broedcode 0 en broedcode groter dan nul zien vrijwilligers minder soorten dan de professionele teller.  
 De exploratieve figuren tonen eenzelfde trend voor aantal waarnemingen. Dit is logisch, hoe meer waarnemingen, hoe groter de kans dat je ook meer soorten zal gezien hebben. Deze twee hangen dus sterk samen.
 
@@ -1994,26 +1987,50 @@ We controleren kwantificeren dit effect ook voor aantal waarnemingen ...
 
 # Verschil in ervaring
 
-We testen het verschil in aantal soorten en waarnemingen voor ervaren vs. beginnende vrijwilligers.
+Is er een verschil in het aantal soorten gemeld door ervaren vs. beginnende vrijwillige tellers?  
+  
+$\text{H}_0$: Er is geen verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers.  
+$\text{H}_a$: Er is wel een verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers. 
 
 ```{r}
-test <- brm(
-    bf(n ~ ervaring  + (1 | plotnaam)), 
-    data = dubbels_2022_df_soortenrijkdom %>% filter(status == "vrijwilliger"), 
-    family = gaussian(), seed = 1234,
-    chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
+df_ervaring <- dubbels_2022_df_soortenrijkdom %>%
+  mutate(ervaring_plot = case_when(
+        plotnaam %in% ervaren_plots ~ "ervaren plots",
+        plotnaam %in% beginner_plots ~ "beginner plots"
+      ))
 
 test2 <- brm(
-    bf(n ~ ervaring  + (1 | plotnaam)), 
-    data = dubbels_2022_df_soortenrijkdom %>% filter(status == "vrijwilliger"), 
-    family = poisson(), seed = 1234,
-    chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
+  bf(n ~ status*ervaring_plot  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = df_ervaring, 
+  family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
 
-pp_check(test, type = "dens_overlay_grouped", ndraws = 100, 
-         group = "ervaring")
+pp_check(test2, type = "dens_overlay_grouped", ndraws = 100, 
+         group = "status")
+```
 
-pp_check(test2, type = "bars_grouped", ndraws = 100, 
-         group = "ervaring", facet_args = list(ncol = 1, scales = "free_y"))
+$$
+\beta_0 : \text{professioneel + beginner plots}\\
+\beta_1 : \text{vrijwilliger}\\
+\beta_2 : \text{ervaren plots}\\
+\beta_3 : \text{vrijwilliger * ervaren plots}\\
+$$
+
+Is er een verschil in aantal soorten tussen beginnende vrijwilligers en ervaren vrijwilligers?
+
+$$
+\beta_0 + \beta_1 = \beta_0 + \beta_1 + \beta_2 + \beta_3\\
+\Rightarrow \beta_2 + \beta_3= 0
+$$
+
+```{r}
+effect_ervaring <- hypothesis(
+  x = test2,
+  "ervaring_plotervarenplots + statusvrijwilliger:ervaring_plotervarenplots = 0",
+  class = "b", alpha = 0.05)
+
+effect_ervaring
+plot(effect_ervaring)
 ```
 
 
