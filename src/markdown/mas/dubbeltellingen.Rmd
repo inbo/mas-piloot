@@ -1280,6 +1280,7 @@ dubbel_waarnemingen_norm12 <- brm(
   bf(n ~ status + (1 | plotnaam:periode_in_jaar)), 
   data = dubbels_2022_df_waarnemingen, family = gaussian(), seed = 1234,
   chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.9),
   file = paste0(model_path, "dubbel_waarnemingen_norm12"),
   file_refit = "on_change")
 
@@ -2434,13 +2435,13 @@ $$
 $$
 
 ```{r}
-effect_broed2 <- hypothesis(
+effect_ervaring2 <- hypothesis(
   x = dubbel_waarnemingen_norm32,
-  "statusvrijwilliger:broedcode.L = 0",
+  "statusvrijwilliger:ervaring_plotervarenplots = 0",
   class = "b", alpha = 0.05)
 
-effect_broed2
-plot(effect_broed2)
+effect_ervaring2
+plot(effect_ervaring2)
 ```
 
 Zoals verwacht zien we ook hier geen verschil in aantal waarnemingen tussen beginnende en ervaren vrijwilligers.
@@ -2448,7 +2449,80 @@ Zoals verwacht zien we ook hier geen verschil in aantal waarnemingen tussen begi
 
 # Correlatie aantal soorten en aantal waarnemingen
 
-...
+We hebben het verschil tussen professionele teller en vrijwilligers getest op basis van het aantal soorten en het aantal waarnemingen. Dit zijn geen onafhankelijke maten. Dit is logisch, hoe meer waarnemingen, hoe groter de kans dat je ook meer soorten zal gezien hebben. In dit deel visualiseren we dit even.
+
+```{r}
+dubbels_corr_df <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, status) %>%
+  summarize(n_soorten = n_distinct(naam), 
+            n_waarnemingen = n(),
+            .groups = "drop") %>%
+  ungroup() %>%
+  mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
+  full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
+           ervaring, n_soorten, n_waarnemingen)
+
+dubbels_corr_df %>%
+  ggplot(aes(x = n_waarnemingen, y = n_soorten)) +
+    geom_point() +
+    labs(y = "aantal soorten", x = "aantal waarnemingen")
+```
+
+We zien inderdaad dat het aantal soorten toeneemt met het aantal waarnemingen. Dit vlakt wel af naarmate het aantal waarnemingen toeneemt. Elk punt is een aantal op een plot in een bepaalde telperiode.
+
+We fitten een model. We zien goede fit en convergentie.
+
+```{r}
+corr_soorten_waarnemingen <- brm(
+  bf(n_soorten ~ log(n_waarnemingen)*status  + (1 | plotnaam)),
+  data = dubbels_corr_df, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
+
+pp_check(corr_soorten_waarnemingen , type = "dens_overlay_grouped", ndraws = 100, 
+         group = "status")
+
+plot(corr_soorten_waarnemingen)
+```
+
+```{r}
+min_prof <- dubbels_corr_df %>% 
+  filter(status == "professioneel") %>%
+  pull(n_waarnemingen) %>% min()
+max_prof <- dubbels_corr_df %>% 
+  filter(status == "professioneel") %>%
+  pull(n_waarnemingen) %>% max()
+min_vrij <- dubbels_corr_df %>% 
+  filter(status == "vrijwilliger") %>%
+  pull(n_waarnemingen) %>% min()
+max_vrij <- dubbels_corr_df %>% 
+  filter(status == "vrijwilliger") %>%
+  pull(n_waarnemingen) %>% max()
+
+new_df <- tibble(
+  n_waarnemingen = 
+    c(seq(from = min_prof, to = max_prof, 
+          length.out = nrow(dubbels_corr_df) / 2),
+      seq(from = min_vrij, to = max_vrij, 
+          length.out = nrow(dubbels_corr_df) / 2)),
+  status = rep(c("professioneel", "vrijwilliger"), 
+               each = nrow(dubbels_corr_df) / 2))
+
+fit <- fitted(corr_soorten_waarnemingen,
+              scale = "response",
+              re_formula = NA,
+              newdata = new_df) %>%
+  as_tibble() %>%
+  bind_cols(new_df)
+
+dubbels_corr_df %>%
+  ggplot(aes(x = n_waarnemingen, y = n_soorten)) +
+    geom_point(aes(col = status)) +
+    geom_smooth(data = fit, 
+                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5, colour = status),
+                stat = "identity") +
+    labs(y = "aantal soorten", x = "aantal waarnemingen")
+```
 
 
 # Samenvatting
