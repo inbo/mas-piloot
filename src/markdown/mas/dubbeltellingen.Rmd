@@ -43,8 +43,9 @@ source(here("src", "R", "berekening_hulpvariabelen.R"))
 
 # Doel {#doel}
 
-Achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren.  
-We zijn vooral geïnteresseerd in waarnemingen met broedcode groter dan 0. Waarnemingen met broedcode 0 zijn meer op toeval berust (trekkers/pleisteraars of roofvogels) (mail Johannes 13-01-2023).
+Achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren.
+We zijn vooral geïnteresseerd in waarnemingen met broedcode groter dan 0.
+Waarnemingen met broedcode 0 zijn meer op toeval berust (trekkers/pleisteraars of roofvogels) (mail Johannes 13-01-2023).
 
 # Inlezen data {#inlezen-data}
 
@@ -275,17 +276,19 @@ dubbeltgetelde_plots <- c("DM_18", "VL0086", "VL0091", "VL0105", "DM_1039.1",
 
 Johannes heeft in 2022 in De Moeren 11 pots als controle dubbel geteld. Het gaat om `r dubbeltgetelde_plots` (mail Johannes 13-01-2023).
 
-1.  DM_18 : de vrijwilliger heeft door omstandigheden dit punt tijdens de 2e ronde vergeten tellen. Uit een vergelijking van de andere drie rondes kan misschien wel wat gehaald worden. Bij dit punt merkten we ook dat de vrijwilliger "haas" in opmerkingen vermeldde i.p.v. ze in te voeren op kaart net zoals de vogelsoorten.
-2.  VL0086 : oud mas-punt, dus tijdsreeks van 5 jaar. Daarmee kan een langere vergelijking gemaakt worden (variatie op tellingen over de jaren door dezelfde vrijwilliger)
-3.  VL0091 :  oud mas-punt, dus tijdsreeks van 5 jaar.
-4.  VL0105 :  oud mas-punt, dus tijdsreeks van 4 jaar.
+1.  DM_18: de vrijwilliger heeft door omstandigheden dit punt tijdens de 2e ronde vergeten tellen. Uit een vergelijking van de andere drie rondes kan misschien wel wat gehaald worden. Bij dit punt merkten we ook dat de vrijwilliger "haas" in opmerkingen vermeldde i.p.v. ze in te voeren op kaart net zoals de vogelsoorten.
+2.  VL0086: oud mas-punt, dus tijdsreeks van 5 jaar. Daarmee kan een langere vergelijking gemaakt worden (variatie op tellingen over de jaren door dezelfde vrijwilliger)
+3.  VL0091:  oud mas-punt, dus tijdsreeks van 5 jaar.
+4.  VL0105:  oud mas-punt, dus tijdsreeks van 4 jaar.
 5.  DM_1039.1: nieuw mas-punt
-6.  DM_256.1.27 : nieuw mas-punt
-7.  DM_262.4 : nieuw mas-punt
-8.  DM_222.6 : nieuw mas-punt
-9.  DM_368.14 : nieuw mas-punt
-10.  DM_39.22 : nieuw mas-punt
-11.  DM_137.2 : nieuw mas-punt, daar heb ik per toeval de laatste ronde 2 keer geteld. De laatste telling (15 juli) mag je laten vallen
+6.  DM_256.1.27: nieuw mas-punt
+7.  DM_262.4: nieuw mas-punt
+8.  DM_222.6: nieuw mas-punt
+9.  DM_368.14: nieuw mas-punt
+10.  DM_39.22: nieuw mas-punt
+11.  DM_137.2: nieuw mas-punt, daar heb ik per toeval de laatste ronde 2 keer geteld. De laatste telling (15 juli) mag je laten vallen  
+  
+We selecteren de data van deze plots in 2022.
 
 ```{r}
 dubbels_2022_raw <- mas_31370_pipeline1 %>%
@@ -297,9 +300,10 @@ waarnemers_raw <- dubbels_2022_raw %>%
   distinct(plotnaam, jaar, periode_in_jaar, waarneme) %>%
   mutate(val = 1) %>%
   pivot_wider(names_from = waarneme, values_from = val) %>%
-  mutate(across(-c(plotnaam, jaar, periode_in_jaar), ~replace(.x, .x == 1, 
-                                                          cur_column()))) %>%
-  unite("waarnemers", -c(plotnaam, jaar, periode_in_jaar), sep = ", ", na.rm = TRUE)
+  mutate(across(-c(plotnaam, jaar, periode_in_jaar), 
+                ~replace(.x, .x == 1, cur_column()))) %>%
+  unite("waarnemers", -c(plotnaam, jaar, periode_in_jaar), sep = ", ", 
+        na.rm = TRUE)
 
 dubbels_2022_raw %>%
   st_drop_geometry() %>% 
@@ -312,7 +316,7 @@ dubbels_2022_raw %>%
   kable()
 ```
 
-We zien inderdaad dat in DM_18 in telperiode 2 maar 1x geteld is en dat in DM_137.2 in telperiode 4 op 3 verschillende dagen geteld is. We merken verder op dat in 2 gevallen een tweede telling buiten telperiode 4 is gedaan (periode_in_jaar = NA). Telperiode 4 loopt van `r r4_start` - `r r4_stop`. Verder zien we dat twee tellingen op dezelfde dag zijn gebeurt.
+We zien inderdaad dat in DM_18 in telperiode 2 maar 1x geteld is en dat in DM_137.2 in telperiode 4 op 3 verschillende dagen geteld is. We merken verder op dat in 2 gevallen een tweede telling buiten telperiode 4 is gedaan (periode_in_jaar = NA). Telperiode 4 loopt van `r r4_start` tot `r r4_stop`. Verder zien we dat twee tellingen op dezelfde dag zijn gebeurt.
 
 ```{r}
 dubbels_2022_raw %>%
@@ -342,8 +346,8 @@ waarnemers <- dubbels_2022 %>%
   distinct(plotnaam, jaar, periode_in_jaar, waarneme) %>%
   mutate(val = 1) %>%
   pivot_wider(names_from = waarneme, values_from = val) %>%
-  mutate(across(-c(plotnaam, jaar, periode_in_jaar), ~replace(.x, .x == 1, 
-                                                          cur_column()))) %>%
+  mutate(across(-c(plotnaam, jaar, periode_in_jaar), 
+                ~replace(.x, .x == 1, cur_column()))) %>%
   unite(waarnemers, -c(plotnaam, jaar, periode_in_jaar), sep = ", ", 
         na.rm = TRUE)
 
@@ -389,7 +393,7 @@ dubbels_2022_df <- dubbels_2022_df %>%
   full_join(design_dubbels, by = "plotnaam")
 ```
 
-We voegen variabelen toe gelinkt aan de waarnemers. We zien weinig verschil in de categoriën `ervaring` vs. `anciënniteit`.
+We voegen variabelen toe gelinkt aan de waarnemers. We zien weinig verschil in de categoriën `ervaring` vs. `ancienniteit`.
 
 ```{r}
 waarnemer_vars <- tibble(waarnemerscode = c("HMLE02", "DCLR00", "NRTT00", 
@@ -430,8 +434,10 @@ plot_boxplots <- function(measure, var = NULL) {
   } else if (var == "ervaring") {
     diversiteit_df <- dubbels_2022_df %>%
       mutate(ervaring = case_when(
-        status != "vrijwilliger" & plotnaam %in% ervaren_plots ~ "ervaren\n(ervaren plots)",
-        status != "vrijwilliger" & plotnaam %in% beginner_plots ~ "ervaren\n(beginner plots)",
+        status != "vrijwilliger" & plotnaam %in% ervaren_plots 
+          ~ "ervaren\n(ervaren plots)",
+        status != "vrijwilliger" & plotnaam %in% beginner_plots 
+          ~ "ervaren\n(beginner plots)",
         TRUE ~ ervaring
       )) %>%
       group_by(plotnaam, periode_in_jaar, status, ervaring)
@@ -494,7 +500,7 @@ De boxplots suggereren dat de professionele teller in gemiddeld gezien meer indi
 
 ### Ervaring
 
-Zien we deze verschillen nog steeds als we rekening houden met de ervaring van de vrijwilligers of het aantal jaar dat ze al meetellen? Hoe meer plots je bezoekt, hoe meer soorten, waarnemingen, individuen je hebt. Daarom splitsen we ook de professionele metingen op. Ervaren plots zijn telpunten geteld door ervaren vrijwilligers. Beginner plots zijn telpunten geteld door beginner vrijwilligers.
+Zien we deze verschillen nog steeds als we rekening houden met de ervaring van de vrijwilligers of het aantal jaar dat ze al meetellen? Omdat we met paarsgewijze verschillen zitten maken we een variabele `ervaring_plot` die toelaat om plots geteld door ervaren vrijwilligers te vergelijken met dezelfde plots geteld door de professionele teller en plots geteld door beginnende vrijwilligers te vergelijken met dezelfde plots geteld door de professionele teller.
 
 ```{r}
 plot_boxplots("aantal soorten", "ervaring")
@@ -868,15 +874,23 @@ t.test(n ~ status, data = dubbels_2022_df_soortenrijkdom, paired = TRUE)
 wilcox.test(n ~ status, data = dubbels_2022_df_soortenrijkdom, paired = TRUE)
 ```
 
-*The impact of ties means the Wilcoxon rank sum distribution cannot be used to calculate exact p-values. If ties occur in our data and we have fewer than 50 observations, the wilcox.test function returns a normal approximated p-value along with a warning message that says “cannot compute exact p-value with ties”.*
+*The impact of ties means the Wilcoxon rank sum distribution cannot be used to calculate exact p-values. If ties occur in our data and we have fewer than 50 observations, the wilcox.test function returns a normal approximated p-value along with a warning message that says “cannot compute exact p-value with ties”.*  
+  
+De statistische testen tonen aan dat er inderdaad een significant verschil is tussen het aantal soorten gezien door de professionele teller vs. de vrijwilligers. Dit was eerder exploratief. We gaan nu verder met model gebaseerde technieken.
 
 ### Model based
 
-We fitten 3 modellen met **brms**.
+Beschouw $Y_{ijk}$ een observatie $i$ van een aantal soorten in eenzelfde plot $j$ en eenzelfde telperiode $k$. Deze observaties zijn door zowel een professionele teller $X_{status} = 0$ als een vrijwillige teller $X_{status} = 1$ gedaan. We voegen een random effect toe van telperiode genest in plot $b_{1}$. Bovendien kunnen aantallen van eenzelfde plot meer op elkaar lijken dan aantallen dan aantallen van verschillende plots. We voegen ook een random effect toe van plot $b_{2}$. In een later stadium kunnen we testen of deze laatste noodzakelijk is.
 
-- Normaal verdeling
-- Poisson verdeling
-- Negatief binomiaal verdeling
+$$
+g(\text{E}(Y_{ijk})) = \beta_0 + \beta_{1}X_{status} + b_{1,jk} + b_{2,k}
+$$
+
+We fitten 3 modellen met **brms** met verschillende responsdistributies (en link functies $g()$).
+
+- Normaal verdeling (identity link)
+- Poisson verdeling (log link)
+- Negatief binomiaal verdeling (log link)
 
 ```{r}
 model_path <- "./src/markdown/mas/brms_models/"
@@ -1596,6 +1610,7 @@ dubbels_2022_df_broed_soortenrijkdom <- dubbels_2022_df_broed2 %>%
   group_by(status_broed) %>%
   mutate(gemiddelde = median(n))
 
+# Voeg waarnemernamen en -variabelen toe bij nultellingen
 fill_na <- dubbels_2022_df_broed2 %>%
   expand(nesting(plotnaam, periode_in_jaar, status)) %>%
   full_join(dubbels_2022_df_broed2, by = c("plotnaam", "periode_in_jaar", 
@@ -1651,7 +1666,7 @@ dubbels_2022_df_broed_soortenrijkdom %>%
 
 ### Modellen fitten
 
-We fitten 3 modellen met **brms**.
+We fitten 3 modellen met **brms**. We voegen nu ook een interactie toe tussen broedcode en status.
 
 - Normaal verdeling
 - Poisson verdeling
@@ -1943,6 +1958,7 @@ dubbels_2022_df_broed_waarnemingen <- dubbels_2022_df_broed2 %>%
   group_by(status_broed) %>%
   mutate(gemiddelde = median(n))
 
+# Voeg waarnemernamen en -variabelen toe bij nultellingen
 fill_na <- dubbels_2022_df_broed2 %>%
   expand(nesting(plotnaam, periode_in_jaar, status)) %>%
   full_join(dubbels_2022_df_broed2, by = c("plotnaam", "periode_in_jaar", 
@@ -2058,6 +2074,8 @@ Is er een verschil in het aantal soorten gemeld door ervaren vs. beginnende vrij
 $\text{H}_0$: Er is geen verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers.  
 $\text{H}_a$: Er is wel een verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers. 
 
+Omdat we met paarsgewijze verschillen zitten maken we een variabele `ervaring_plot` die toelaat om plots geteld door ervaren vrijwilligers te vergelijken met dezelfde plots geteld door de professionele teller en plots geteld door beginnende vrijwilligers te vergelijken met dezelfde plots geteld door de professionele teller.
+
 ```{r}
 df_ervaring <- dubbels_2022_df_soortenrijkdom %>%
   mutate(ervaring_plot = case_when(
@@ -2114,7 +2132,7 @@ df_ervaring %>%
 
 ### Modellen fitten
 
-We fitten 3 modellen met **brms**.
+We fitten 3 modellen met **brms**. We voegen nu een interactie 'ervaring plot' toe met status.
 
 - Normaal verdeling
 - Poisson verdeling
@@ -2421,23 +2439,23 @@ plot(dubbel_waarnemingen_norm32)
 summary(dubbel_waarnemingen_norm32)
 ```
 
-Is er een verschil in het effect van de broedcodes?
+Is er een verschil in aantal waarnemingen tussen beginnende vrijwilligers en ervaren vrijwilligers?
 
 $$
-\beta_3 = 0
+\beta_2 + \beta_3 = 0
 $$
 
 ```{r}
 effect_ervaring2 <- hypothesis(
   x = dubbel_waarnemingen_norm32,
-  "statusvrijwilliger:ervaring_plotervarenplots = 0",
+  "ervaring_plotervarenplots + statusvrijwilliger:ervaring_plotervarenplots = 0",
   class = "b", alpha = 0.05)
 
 effect_ervaring2
 plot(effect_ervaring2)
 ```
 
-Zoals verwacht zien we ook hier geen verschil in aantal waarnemingen tussen beginnende en ervaren vrijwilligers.
+Zoals verwacht zien we ook hier geen significant verschil in aantal waarnemingen tussen beginnende en ervaren vrijwilligers.
 
 
 # Correlatie aantal soorten en aantal waarnemingen
@@ -2576,7 +2594,7 @@ rbind.data.frame(soorten_prof$hypothesis,
 
 Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zouden noteren met broedcode 0, maar minder met broedcode > 0. Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_broed2$hypothesis$CI.Lower, 2)` tot `r round(effect_broed2$hypothesis$CI.Upper, 2)`).
 
-Ook vonden we dat er geen significant verschil was in aantal soorten tussen beginnende en ervaren vrijwilligers (95 %  CI: `r round(effect_ervaring$hypothesis$CI.Lower, 2)` tot `r round(effect_ervaring$hypothesis$CI.Upper, 2)`). Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_ervaring2$hypothesis$CI.Lower, 2)` tot `r round(effect_ervaring2$hypothesis$CI.Upper, 2)`).
+Ook vonden we dat er geen significant verschil was in aantal soorten (data broedcode > 0) tussen beginnende en ervaren vrijwilligers (95 %  CI: `r round(effect_ervaring$hypothesis$CI.Lower, 2)` tot `r round(effect_ervaring$hypothesis$CI.Upper, 2)`). Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_ervaring2$hypothesis$CI.Lower, 2)` tot `r round(effect_ervaring2$hypothesis$CI.Upper, 2)`).
 
 We moeten opmerken dat deze resultaten gebaseerd zijn op modellen die niet altijd een goede weerspiegeling waren van de data. De respons data waren aantallen en dus positief en discreet van aard. Desondanks kozen we vaak voor modellen met een normaal verdeling. Dit gaf eenvoudig interpreteerbare resultaten en was ook vaak niet problematisch omdat de aantallen vaak hoog genoeg lagen (en er dus geen negatieve waarden zouden voorspeld worden door het model). In verschillende gevallen werden de resultaten van de Poisson en Negatief binomiaal modellen vergeleken met het Normaal model. Na omrekenen gaven deze modellen gelijkaardige resultaten. Bovendien waren we telkens geïnteresseerd in specifieke hypotheses. Hoewel precieze credible intervals van de verschillende modellen wel verschilden, gaven ze wel een eenduidig antwoord op onze vragen. Deze waren ook telkens in lijn met de data exploratie.
 
