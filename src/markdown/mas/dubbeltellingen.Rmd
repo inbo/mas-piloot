@@ -825,7 +825,8 @@ dubbels_2022_df_soortenrijkdom <- dubbels_2022_df %>%
   summarize(n = n_distinct(naam), .groups = "drop") %>%
   ungroup() %>%
   mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
-  full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  full_join(dubbels_2022_df, 
+            by = c("plotnaam", "periode_in_jaar", "status")) %>%
   distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
            ervaring, n) %>%
   group_by(status) %>%
@@ -1105,7 +1106,8 @@ dubbels_2022_df_waarnemingen <- dubbels_2022_df %>%
   summarize(n = n(), .groups = "drop") %>%
   ungroup() %>%
   mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
-  full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  full_join(dubbels_2022_df, 
+            by = c("plotnaam", "periode_in_jaar", "status")) %>%
   distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
            ervaring, n) %>%
   group_by(status) %>%
@@ -1299,7 +1301,7 @@ if (!file.exists(paste0(model_path, "fit_dubbel_waarnemingen_norm12.rds"))) {
     file = paste0(model_path, "fit_dubbel_waarnemingen_norm12"))
 } else {
   fit_dubbel_waarnemingen_norm12 <- readRDS(paste0(model_path, 
-                                             "fit_dubbel_waarnemingen_norm12.rds"))
+                                      "fit_dubbel_waarnemingen_norm12.rds"))
 }
 
 # Comparison among models
@@ -1355,8 +1357,8 @@ ll_waarnemingen1 <- round(
   sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "l-95% CI"], 3)
 ul_waarnemingen1 <- round(
   sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "u-95% CI"], 3)
-sign_waarnemingen1 <- ifelse(sum_finaal_waarnemingen1$fixed["statusvrijwilliger", 
-                                                     "Estimate"] > 0, 
+sign_waarnemingen1 <- ifelse(
+  sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "Estimate"] > 0, 
                              "meer", "minder")
 ```
 
@@ -1701,9 +1703,9 @@ dubbel_soorten_pois2 <- brm(
 # 3. Negative binomial
 dubbel_soorten_negbin2 <- brm(
   bf(n ~ status*broedcode + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
-  data = dubbels_2022_df_broed_soortenrijkdom, family = negbinomial(), seed = 1234,
-  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
-  control = list(adapt_delta = 0.9),
+  data = dubbels_2022_df_broed_soortenrijkdom, family = negbinomial(), 
+  seed = 1234, chains = nchains, warmup = burnin, iter = niter, 
+  cores = nparallel, control = list(adapt_delta = 0.9),
   file = paste0(model_path, "dubbel_soorten_negbin2"),
   file_refit = "on_change")
 ```
@@ -2238,13 +2240,15 @@ fit_dubbel_soorten_pois3$data <- fit_dubbel_soorten_pois3$data %>%
   mutate(statuservaring = paste(status, ervaring_plot))
 
 pp_check(fit_dubbel_soorten_pois3, type = "bars_grouped", ndraws = 100, 
-         group = "statuservaring", facet_args = list(ncol = 1, scales = "free_y"))
+         group = "statuservaring", 
+         facet_args = list(ncol = 1, scales = "free_y"))
 
 fit_dubbel_soorten_negbin3$data <- fit_dubbel_soorten_negbin3$data %>%
   mutate(statuservaring = paste(status, ervaring_plot))
 
 pp_check(fit_dubbel_soorten_negbin3, type = "bars_grouped", ndraws = 100, 
-         group = "statuservaring", facet_args = list(ncol = 1, scales = "free_y"))
+         group = "statuservaring", 
+         facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
 Hoewel we de fit niet ideaal is, besluiten we dat de Normaal verdeling het beste past bij de data.
@@ -2424,8 +2428,8 @@ Model fit is niet ideaal, maar goed genoeg om verder te werken.
 dubbel_waarnemingen_norm32$data <- dubbel_waarnemingen_norm32$data %>%
   mutate(statuservaring = paste(status, ervaring_plot))
 
-pp_check(dubbel_waarnemingen_norm32, type = "dens_overlay_grouped", ndraws = 100, 
-         group = "statuservaring")
+pp_check(dubbel_waarnemingen_norm32, type = "dens_overlay_grouped", 
+         ndraws = 100, group = "statuservaring")
 ```
 
 We zien goede convergentie.
@@ -2471,7 +2475,8 @@ dubbels_corr_df <- dubbels_2022_df %>%
             .groups = "drop") %>%
   ungroup() %>%
   mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
-  full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  full_join(dubbels_2022_df, 
+            by = c("plotnaam", "periode_in_jaar", "status")) %>%
   distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
            ervaring, n_soorten, n_waarnemingen)
 
@@ -2491,8 +2496,8 @@ corr_soorten_waarnemingen <- brm(
   data = dubbels_corr_df, family = gaussian(), seed = 1234,
   chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
 
-pp_check(corr_soorten_waarnemingen , type = "dens_overlay_grouped", ndraws = 100, 
-         group = "status")
+pp_check(corr_soorten_waarnemingen , type = "dens_overlay_grouped", 
+         ndraws = 100, group = "status")
 
 plot(corr_soorten_waarnemingen)
 ```
@@ -2533,6 +2538,7 @@ dubbels_corr_df %>%
     geom_smooth(data = fit, 
                 aes(y = Estimate, ymin = Q2.5, ymax = Q97.5, colour = status),
                 stat = "identity") +
+    coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
     labs(y = "aantal soorten", x = "aantal waarnemingen")
 ```
 
@@ -2587,7 +2593,8 @@ rbind.data.frame(soorten_prof$hypothesis,
     geom_jitter(data = plot_data_df, aes(x = status, y = n), 
                 col = "firebrick", width = 0.2, height = 0, alpha = 0.1) +
     geom_point(aes(colour = status), size = 4) +
-    geom_errorbar(aes(ymin = CI.Lower, ymax = CI.Upper, colour = status), width = 0.2) +
+    geom_errorbar(aes(ymin = CI.Lower, ymax = CI.Upper, colour = status), 
+                  width = 0.2) +
     coord_cartesian(ylim = c(0, NA)) +
     labs(x = "", y = "aantal") +
     facet_grid(~cat)
