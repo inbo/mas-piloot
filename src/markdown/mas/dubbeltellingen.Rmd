@@ -2492,7 +2492,7 @@ We fitten een model. We zien goede fit en convergentie.
 
 ```{r}
 corr_soorten_waarnemingen <- brm(
-  bf(n_soorten ~ log(n_waarnemingen)*status  + (1 | plotnaam)),
+  bf(n_soorten ~ 0 + log(n_waarnemingen)*status  + (1 | plotnaam)),
   data = dubbels_corr_df, family = gaussian(), seed = 1234,
   chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
 
@@ -2541,6 +2541,31 @@ dubbels_corr_df %>%
     coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
     labs(y = "aantal soorten", x = "aantal waarnemingen")
 ```
+
+Is de curve gelijk voor professionele en vrijwillige tellers?
+
+$$
+\begin{cases}
+  \beta_2 = \beta_3, & \text{baseline} \\
+  \beta_1 = \beta_1 + \beta_4,  & \text{slope}
+\end{cases}\\
+\Rightarrow 
+\begin{cases}
+  \beta_2 - \beta_3 = 0, & \text{baseline} \\
+  \beta_4 = 0,  & \text{slope}
+\end{cases}\\
+\Rightarrow \beta_2 - \beta_3 = \beta_4 \\
+\Rightarrow \beta_2 - \beta_3 - \beta_4 = 0
+$$
+
+```{r}
+hyp_curve <- hypothesis(corr_soorten_waarnemingen,
+  "statusprofessioneel - statusvrijwilliger - logn_waarnemingen:statusvrijwilliger = 0")
+hyp_curve
+plot(hyp_curve)
+```
+
+De curves voor professionele en vrijwillige tellers verschillen niet significant van elkaar.
 
 
 # Samenvatting
