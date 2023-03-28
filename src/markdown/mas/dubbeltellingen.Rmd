@@ -1,5 +1,5 @@
 ---
-title: "Vergelijking dubbeltellingen"
+title: "Vergelijking van gepaarde tellingen tussen vrijwillige en professionele tellers"
 author: "Ward Langeraert"
 date: "`r Sys.Date()`"
 output:
@@ -47,6 +47,7 @@ Achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaar
 We zijn vooral geïnteresseerd in waarnemingen met broedcode groter dan 0.
 Waarnemingen met broedcode 0 zijn meer op toeval berust (trekkers/pleisteraars of roofvogels) (mail Johannes 13-01-2023).
 
+Voor wie niet geïnteresseerd is in de technische kant van het verhaal, kan de volgende hoofdstukken overslaan en onmiddellijk naar de [samenvatting](#samenvatting) gaan.
 # Inlezen data {#inlezen-data}
 
 We selecteren eerst de MAS-data binnen de telrondes.
@@ -274,7 +275,7 @@ dubbeltgetelde_plots <- c("DM_18", "VL0086", "VL0091", "VL0105", "DM_1039.1",
                           "DM_39.22", "DM_137.2")
 ```
 
-Johannes heeft in 2022 in De Moeren 11 pots als controle dubbel geteld. Het gaat om `r dubbeltgetelde_plots` (mail Johannes 13-01-2023).
+Johannes heeft in 2022 in De Moeren 11 plots als controle dubbel geteld. Het gaat om `r dubbeltgetelde_plots` (mail Johannes 13-01-2023).
 
 1.  DM_18: de vrijwilliger heeft door omstandigheden dit punt tijdens de 2e ronde vergeten tellen. Uit een vergelijking van de andere drie rondes kan misschien wel wat gehaald worden. Bij dit punt merkten we ook dat de vrijwilliger "haas" in opmerkingen vermeldde i.p.v. ze in te voeren op kaart net zoals de vogelsoorten.
 2.  VL0086: oud mas-punt, dus tijdsreeks van 5 jaar. Daarmee kan een langere vergelijking gemaakt worden (variatie op tellingen over de jaren door dezelfde vrijwilliger)
