@@ -2478,7 +2478,8 @@ dubbels_corr_df <- dubbels_2022_df %>%
   full_join(dubbels_2022_df, 
             by = c("plotnaam", "periode_in_jaar", "status")) %>%
   distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
-           ervaring, n_soorten, n_waarnemingen)
+           ervaring, n_soorten, n_waarnemingen) %>%
+  mutate(plot_stat = paste(plotnaam, status))
 
 dubbels_corr_df %>%
   ggplot(aes(x = n_waarnemingen, y = n_soorten)) +
@@ -2486,9 +2487,26 @@ dubbels_corr_df %>%
     labs(y = "aantal soorten", x = "aantal waarnemingen")
 ```
 
-We zien inderdaad dat het aantal soorten toeneemt met het aantal waarnemingen. Dit vlakt wel af naarmate het aantal waarnemingen toeneemt. Elk punt is een aantal op een plot in een bepaalde telperiode.
+We zien inderdaad dat het aantal soorten toeneemt met het aantal waarnemingen. Dit vlakt wel af naarmate het aantal waarnemingen toeneemt. Elk punt is een aantal op een plot in een bepaalde telperiode.  
+De volgende figuur toont de verschillen tussen de professionele en vrijwillige tellers met effecten per plot met intercept gelijk aan nul (geen soorten bij nul waarnemingen).
 
-We fitten een model waarbij de intercepten voor zowel de professionele teller ($\beta_0$) als de vrijwilligers ($\beta_0 + \beta_2$) gelijk zijn aan nul (nul soorten bij nul waarnemingen). We krijgen dus enkel een slope voor de professionele teller ($\beta_1$) en een slope voor de vrijwilligers ($\beta_1 + \beta_3$). 
+```{r}
+dubbels_corr_df %>%
+  ggplot(aes(x = log(n_waarnemingen), y = n_soorten, col = status,
+             group = plot_stat)) +
+    geom_point() +
+    geom_smooth(method = lm,
+                formula = 'y ~ 0 + x',
+                se     = FALSE,
+                size   = .5, 
+                alpha  = .8
+                ) + 
+    labs(y = "aantal soorten", x = "log(aantal waarnemingen)")
+```
+
+## Model fit
+
+We fitten een model waarbij de intercepten voor zowel de professionele teller ($\beta_0$) als de vrijwilligers ($\beta_0 + \beta_2$) gelijk zijn aan nul (nul soorten bij nul waarnemingen). We krijgen dus enkel een slope voor de professionele teller ($\beta_1$) en een slope voor de vrijwilligers ($\beta_1 + \beta_3$). We voegen random slopes toe per plot $j$ voor professionelen ($b_1$) en vrijwilligers (($b_1 + b_2$).
 
 $$
 \text{E}(Y_{ij}) = \beta_{1}\ln{(X_{wnm, i})} + \beta_{2}\ln{(X_{wnm, i})}\times X_{status, i}  + b_{1,j}\ln{(X_{wnm, i})} + b_{2,j}\ln{(X_{wnm, i})}\times X_{status, i}
@@ -2498,22 +2516,9 @@ We zien goede fit en convergentie.
 
 ```{r}
 corr_soorten_waarnemingen <- brm(
-  bf(n_soorten ~ 0 + log(n_waarnemingen) + log(n_waarnemingen):status 
-     + (1 | plotnaam), cmc = FALSE),
-  data = dubbels_corr_df, family = gaussian(), seed = 1234, 
-  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
-  control = list(adapt_delta = 0.95))
-
-test <- brm(
     bf(n_soorten ~ 0 + log(n_waarnemingen) + log(n_waarnemingen):status 
-       + (0 + log(n_waarnemingen) + log(n_waarnemingen):status | plotnaam), cmc = FALSE),
-    data = dubbels_corr_df, family = gaussian(), seed = 1234, 
-    chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
-    control = list(adapt_delta = 0.95))
-
-test2 <- brm(
-    bf(n_soorten ~ 0 + log(n_waarnemingen) + log(n_waarnemingen):status 
-       + (0 + log(n_waarnemingen) | plotnaam), cmc = FALSE),
+       + (0 + log(n_waarnemingen) + log(n_waarnemingen):status | plotnaam), 
+       cmc = FALSE),
     data = dubbels_corr_df, family = gaussian(), seed = 1234, 
     chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
     control = list(adapt_delta = 0.95))
@@ -2523,6 +2528,15 @@ pp_check(corr_soorten_waarnemingen , type = "dens_overlay_grouped",
 
 plot(corr_soorten_waarnemingen)
 ```
+
+## Resultaten
+
+```{r}
+summary(corr_soorten_waarnemingen)
+```
+
+
+Visualisatie respons schaal:
 
 ```{r}
 min_prof <- dubbels_corr_df %>% 
@@ -2555,14 +2569,18 @@ fit <- fitted(corr_soorten_waarnemingen,
   bind_cols(new_df)
 
 dubbels_corr_df %>%
-  ggplot(aes(x = n_waarnemingen, y = n_soorten)) +
-    geom_point(aes(col = status)) +
+  ggplot(aes(x = n_waarnemingen, y = n_soorten, col = status)) +
+    geom_point() +
     geom_smooth(data = fit, 
-                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5, colour = status),
+                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5),
                 stat = "identity") +
     coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
     labs(y = "aantal soorten", x = "aantal waarnemingen")
+```
 
+Visualisatie log schaal:
+
+```{r}
 fit_lin <- fitted(corr_soorten_waarnemingen,
               scale = "linear",
               re_formula = NA,
@@ -2571,11 +2589,11 @@ fit_lin <- fitted(corr_soorten_waarnemingen,
   bind_cols(new_df)
 
 dubbels_corr_df %>%
-  ggplot(aes(x = log(n_waarnemingen), y = n_soorten)) +
-    geom_point(aes(col = status)) +
+  ggplot(aes(x = log(n_waarnemingen), y = n_soorten, col = status)) +
+    geom_point() +
     geom_smooth(data = fit_lin, 
-                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5, colour = status),
-                stat = "identity") +
+                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5),
+                stat = "identity", size = 1.2) +
     coord_cartesian(ylim = c(0, NA)) +
     labs(y = "aantal soorten", x = "log(aantal waarnemingen)")
 ```
@@ -2583,27 +2601,28 @@ dubbels_corr_df %>%
 Is de curve gelijk voor professionele en vrijwillige tellers?
 
 $$
-\begin{cases}
-  \beta_2 = \beta_3, & \text{baseline} \\
-  \beta_1 = \beta_1 + \beta_4,  & \text{slope}
-\end{cases}\\
-\Rightarrow 
-\begin{cases}
-  \beta_2 - \beta_3 = 0, & \text{baseline} \\
-  \beta_4 = 0,  & \text{slope}
-\end{cases}\\
-\Rightarrow \beta_2 - \beta_3 = \beta_4 \\
-\Rightarrow \beta_2 - \beta_3 - \beta_4 = 0
+\beta_2 = 0
 $$
 
 ```{r}
 hyp_curve <- hypothesis(corr_soorten_waarnemingen,
-  "statusprofessioneel - statusvrijwilliger - logn_waarnemingen:statusvrijwilliger = 0")
+  "logn_waarnemingen:statusvrijwilliger = 0",
+  class = "b", alpha = 0.05)
 hyp_curve
 plot(hyp_curve)
 ```
 
-De curves voor professionele en vrijwillige tellers verschillen niet significant van elkaar.
+```{r, include=FALSE}
+slope_prof <- hypothesis(corr_soorten_waarnemingen,
+  "logn_waarnemingen*log(2) = 0",
+  class = "b", alpha = 0.05)
+
+slope_vrij <- hypothesis(corr_soorten_waarnemingen,
+  "(logn_waarnemingen + logn_waarnemingen:statusvrijwilliger)*log(2) = 0",
+  class = "b", alpha = 0.05)
+```
+
+De curve voor professionele en vrijwillige tellers verschillen significant van elkaar. Het aantal soorten neemt sneller toe met aantal waarnemingen voor professionele teller dan voor vrijwilligers. Een verdubbeling van aantal waarnemingen komt overeen met een toename van `r round(slope_prof$hypothesis$Estimate, 2)` soorten voor de professionele teller (95 %  CI: `r round(slope_prof$hypothesis$CI.Lower, 2)` tot `r round(slope_prof$hypothesis$CI.Upper, 2)`) en een toename van `r round(slope_vrij$hypothesis$Estimate, 2)` soorten voor vrijwillige tellers (95 %  CI: `r round(slope_vrij$hypothesis$CI.Lower, 2)` tot `r round(slope_vrij$hypothesis$CI.Upper, 2)`).
 
 
 # Samenvatting
