@@ -1271,7 +1271,7 @@ steekproef_out %>%
 ## Manuele controle
 
 Johannes doet manuele controle van de puntenset.
-In de Westelijke leemstreek zijn ***???*** punten gevonden die niet mogelijk zijn om te tellen (track verdwenen).  
+In de Westelijke leemstreek zijn 23 punten gevonden die niet mogelijk zijn om te tellen.  
   
 Het resultaat wordt als CSV en KML teruggestuurd. Een eerste kolom `beslissing` wordt toegevoegd met de volgende zaken:
 
