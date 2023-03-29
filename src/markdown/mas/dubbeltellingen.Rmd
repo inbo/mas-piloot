@@ -825,7 +825,8 @@ dubbels_2022_df_soortenrijkdom <- dubbels_2022_df %>%
   summarize(n = n_distinct(naam), .groups = "drop") %>%
   ungroup() %>%
   mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
-  full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  full_join(dubbels_2022_df, 
+            by = c("plotnaam", "periode_in_jaar", "status")) %>%
   distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
            ervaring, n) %>%
   group_by(status) %>%
@@ -884,7 +885,7 @@ De statistische testen tonen aan dat er inderdaad een significant verschil is tu
 Beschouw $Y_{ijk}$ een observatie $i$ van een aantal soorten in eenzelfde plot $j$ en eenzelfde telperiode $k$. Deze observaties zijn door zowel een professionele teller $X_{status} = 0$ als een vrijwillige teller $X_{status} = 1$ gedaan. We voegen een random effect toe van telperiode genest in plot $b_{1}$. Bovendien kunnen aantallen van eenzelfde plot meer op elkaar lijken dan aantallen dan aantallen van verschillende plots. We voegen ook een random effect toe van plot $b_{2}$. In een later stadium kunnen we testen of deze laatste noodzakelijk is.
 
 $$
-g(\text{E}(Y_{ijk})) = \beta_0 + \beta_{1}X_{status} + b_{1,jk} + b_{2,k}
+g(\text{E}(Y_{ijk})) = \beta_0 + \beta_{1}X_{status, i} + b_{1,jk} + b_{2,k}
 $$
 
 We fitten 3 modellen met **brms** met verschillende responsdistributies (en link functies $g()$).
@@ -1105,7 +1106,8 @@ dubbels_2022_df_waarnemingen <- dubbels_2022_df %>%
   summarize(n = n(), .groups = "drop") %>%
   ungroup() %>%
   mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
-  full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  full_join(dubbels_2022_df, 
+            by = c("plotnaam", "periode_in_jaar", "status")) %>%
   distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
            ervaring, n) %>%
   group_by(status) %>%
@@ -1299,7 +1301,7 @@ if (!file.exists(paste0(model_path, "fit_dubbel_waarnemingen_norm12.rds"))) {
     file = paste0(model_path, "fit_dubbel_waarnemingen_norm12"))
 } else {
   fit_dubbel_waarnemingen_norm12 <- readRDS(paste0(model_path, 
-                                             "fit_dubbel_waarnemingen_norm12.rds"))
+                                      "fit_dubbel_waarnemingen_norm12.rds"))
 }
 
 # Comparison among models
@@ -1355,8 +1357,8 @@ ll_waarnemingen1 <- round(
   sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "l-95% CI"], 3)
 ul_waarnemingen1 <- round(
   sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "u-95% CI"], 3)
-sign_waarnemingen1 <- ifelse(sum_finaal_waarnemingen1$fixed["statusvrijwilliger", 
-                                                     "Estimate"] > 0, 
+sign_waarnemingen1 <- ifelse(
+  sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "Estimate"] > 0, 
                              "meer", "minder")
 ```
 
@@ -1701,9 +1703,9 @@ dubbel_soorten_pois2 <- brm(
 # 3. Negative binomial
 dubbel_soorten_negbin2 <- brm(
   bf(n ~ status*broedcode + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
-  data = dubbels_2022_df_broed_soortenrijkdom, family = negbinomial(), seed = 1234,
-  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
-  control = list(adapt_delta = 0.9),
+  data = dubbels_2022_df_broed_soortenrijkdom, family = negbinomial(), 
+  seed = 1234, chains = nchains, warmup = burnin, iter = niter, 
+  cores = nparallel, control = list(adapt_delta = 0.9),
   file = paste0(model_path, "dubbel_soorten_negbin2"),
   file_refit = "on_change")
 ```
@@ -2238,13 +2240,15 @@ fit_dubbel_soorten_pois3$data <- fit_dubbel_soorten_pois3$data %>%
   mutate(statuservaring = paste(status, ervaring_plot))
 
 pp_check(fit_dubbel_soorten_pois3, type = "bars_grouped", ndraws = 100, 
-         group = "statuservaring", facet_args = list(ncol = 1, scales = "free_y"))
+         group = "statuservaring", 
+         facet_args = list(ncol = 1, scales = "free_y"))
 
 fit_dubbel_soorten_negbin3$data <- fit_dubbel_soorten_negbin3$data %>%
   mutate(statuservaring = paste(status, ervaring_plot))
 
 pp_check(fit_dubbel_soorten_negbin3, type = "bars_grouped", ndraws = 100, 
-         group = "statuservaring", facet_args = list(ncol = 1, scales = "free_y"))
+         group = "statuservaring", 
+         facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
 Hoewel we de fit niet ideaal is, besluiten we dat de Normaal verdeling het beste past bij de data.
@@ -2424,8 +2428,8 @@ Model fit is niet ideaal, maar goed genoeg om verder te werken.
 dubbel_waarnemingen_norm32$data <- dubbel_waarnemingen_norm32$data %>%
   mutate(statuservaring = paste(status, ervaring_plot))
 
-pp_check(dubbel_waarnemingen_norm32, type = "dens_overlay_grouped", ndraws = 100, 
-         group = "statuservaring")
+pp_check(dubbel_waarnemingen_norm32, type = "dens_overlay_grouped", 
+         ndraws = 100, group = "statuservaring")
 ```
 
 We zien goede convergentie.
@@ -2471,9 +2475,11 @@ dubbels_corr_df <- dubbels_2022_df %>%
             .groups = "drop") %>%
   ungroup() %>%
   mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
-  full_join(dubbels_2022_df, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  full_join(dubbels_2022_df, 
+            by = c("plotnaam", "periode_in_jaar", "status")) %>%
   distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
-           ervaring, n_soorten, n_waarnemingen)
+           ervaring, n_soorten, n_waarnemingen) %>%
+  mutate(plot_stat = paste(plotnaam, status))
 
 dubbels_corr_df %>%
   ggplot(aes(x = n_waarnemingen, y = n_soorten)) +
@@ -2481,21 +2487,56 @@ dubbels_corr_df %>%
     labs(y = "aantal soorten", x = "aantal waarnemingen")
 ```
 
-We zien inderdaad dat het aantal soorten toeneemt met het aantal waarnemingen. Dit vlakt wel af naarmate het aantal waarnemingen toeneemt. Elk punt is een aantal op een plot in een bepaalde telperiode.
+We zien inderdaad dat het aantal soorten toeneemt met het aantal waarnemingen. Dit vlakt wel af naarmate het aantal waarnemingen toeneemt. Elk punt is een aantal op een plot in een bepaalde telperiode.  
+De volgende figuur toont de verschillen tussen de professionele en vrijwillige tellers met effecten per plot met intercept gelijk aan nul (geen soorten bij nul waarnemingen).
 
-We fitten een model. We zien goede fit en convergentie.
+```{r}
+dubbels_corr_df %>%
+  ggplot(aes(x = log(n_waarnemingen), y = n_soorten, col = status,
+             group = plot_stat)) +
+    geom_point() +
+    geom_smooth(method = lm,
+                formula = 'y ~ 0 + x',
+                se     = FALSE,
+                size   = .5, 
+                alpha  = .8
+                ) + 
+    labs(y = "aantal soorten", x = "log(aantal waarnemingen)")
+```
+
+## Model fit
+
+We fitten een model waarbij de intercepten voor zowel de professionele teller ($\beta_0$) als de vrijwilligers ($\beta_0 + \beta_2$) gelijk zijn aan nul (nul soorten bij nul waarnemingen). We krijgen dus enkel een slope voor de professionele teller ($\beta_1$) en een slope voor de vrijwilligers ($\beta_1 + \beta_3$). We voegen random slopes toe per plot $j$ voor professionelen ($b_1$) en vrijwilligers ($b_1 + b_2$).
+
+$$
+\text{E}(Y_{ij}) = \beta_{1}\ln{(X_{wnm, i})} + \beta_{2}\ln{(X_{wnm, i})}\times X_{status, i}  + b_{1,j}\ln{(X_{wnm, i})} + b_{2,j}\ln{(X_{wnm, i})}\times X_{status, i}
+$$
+
+We zien goede fit en convergentie.
 
 ```{r}
 corr_soorten_waarnemingen <- brm(
-  bf(n_soorten ~ log(n_waarnemingen)*status  + (1 | plotnaam)),
-  data = dubbels_corr_df, family = gaussian(), seed = 1234,
-  chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
+    bf(n_soorten ~ 0 + log(n_waarnemingen) + log(n_waarnemingen):status 
+       + (0 + log(n_waarnemingen) + log(n_waarnemingen):status | plotnaam), 
+       cmc = FALSE),
+    data = dubbels_corr_df, family = gaussian(), seed = 1234, 
+    chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+    control = list(adapt_delta = 0.95))
 
-pp_check(corr_soorten_waarnemingen , type = "dens_overlay_grouped", ndraws = 100, 
-         group = "status")
+pp_check(corr_soorten_waarnemingen , type = "dens_overlay_grouped", 
+         ndraws = 100, group = "status")
 
 plot(corr_soorten_waarnemingen)
 ```
+
+## Resultaten
+
+```{r}
+summary(corr_soorten_waarnemingen)
+```
+
+
+Visualisatie respons schaal:
 
 ```{r}
 min_prof <- dubbels_corr_df %>% 
@@ -2528,13 +2569,60 @@ fit <- fitted(corr_soorten_waarnemingen,
   bind_cols(new_df)
 
 dubbels_corr_df %>%
-  ggplot(aes(x = n_waarnemingen, y = n_soorten)) +
-    geom_point(aes(col = status)) +
+  ggplot(aes(x = n_waarnemingen, y = n_soorten, col = status)) +
+    geom_point() +
     geom_smooth(data = fit, 
-                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5, colour = status),
+                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5),
                 stat = "identity") +
+    coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
     labs(y = "aantal soorten", x = "aantal waarnemingen")
 ```
+
+Visualisatie log schaal:
+
+```{r}
+fit_lin <- fitted(corr_soorten_waarnemingen,
+              scale = "linear",
+              re_formula = NA,
+              newdata = new_df) %>%
+  as_tibble() %>%
+  bind_cols(new_df)
+
+dubbels_corr_df %>%
+  ggplot(aes(x = log(n_waarnemingen), y = n_soorten, col = status)) +
+    geom_point() +
+    geom_smooth(data = fit_lin, 
+                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5),
+                stat = "identity", size = 1.2) +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal soorten", x = "log(aantal waarnemingen)")
+```
+
+Is de curve gelijk voor professionele en vrijwillige tellers?
+
+$$
+\beta_2 = 0
+$$
+
+```{r}
+hyp_curve <- hypothesis(corr_soorten_waarnemingen,
+  "logn_waarnemingen:statusvrijwilliger = 0",
+  class = "b", alpha = 0.05)
+hyp_curve
+plot(hyp_curve)
+```
+
+```{r}
+slope_prof <- hypothesis(corr_soorten_waarnemingen,
+  "logn_waarnemingen*log(2) = 0",
+  class = "b", alpha = 0.05)
+
+slope_vrij <- hypothesis(corr_soorten_waarnemingen,
+  "(logn_waarnemingen + logn_waarnemingen:statusvrijwilliger)*log(2) = 0",
+  class = "b", alpha = 0.05)
+```
+
+De curve voor professionele en vrijwillige tellers verschillen significant van elkaar. Het aantal soorten neemt sneller toe met aantal waarnemingen voor professionele teller dan voor vrijwilligers. Een verdubbeling van aantal waarnemingen komt bijvoorbeeld overeen met een toename van `r round(slope_prof$hypothesis$Estimate, 2)` soorten voor de professionele teller (95 %  CI: `r round(slope_prof$hypothesis$CI.Lower, 2)` tot `r round(slope_prof$hypothesis$CI.Upper, 2)`) en een toename van `r round(slope_vrij$hypothesis$Estimate, 2)` soorten voor vrijwillige tellers (95 %  CI: `r round(slope_vrij$hypothesis$CI.Lower, 2)` tot `r round(slope_vrij$hypothesis$CI.Upper, 2)`).
 
 
 # Samenvatting
@@ -2587,7 +2675,8 @@ rbind.data.frame(soorten_prof$hypothesis,
     geom_jitter(data = plot_data_df, aes(x = status, y = n), 
                 col = "firebrick", width = 0.2, height = 0, alpha = 0.1) +
     geom_point(aes(colour = status), size = 4) +
-    geom_errorbar(aes(ymin = CI.Lower, ymax = CI.Upper, colour = status), width = 0.2) +
+    geom_errorbar(aes(ymin = CI.Lower, ymax = CI.Upper, colour = status), 
+                  width = 0.2) +
     coord_cartesian(ylim = c(0, NA)) +
     labs(x = "", y = "aantal") +
     facet_grid(~cat)
@@ -2599,4 +2688,4 @@ Ook vonden we dat er geen significant verschil was in aantal soorten (data broed
 
 We moeten opmerken dat deze resultaten gebaseerd zijn op modellen die niet altijd een goede weerspiegeling waren van de data. De respons data waren aantallen en dus positief en discreet van aard. Desondanks kozen we vaak voor modellen met een normaal verdeling. Dit gaf eenvoudig interpreteerbare resultaten en was ook vaak niet problematisch omdat de aantallen vaak hoog genoeg lagen (en er dus geen negatieve waarden zouden voorspeld worden door het model). In verschillende gevallen werden de resultaten van de Poisson en Negatief binomiaal modellen vergeleken met het Normaal model. Na omrekenen gaven deze modellen gelijkaardige resultaten. Bovendien waren we telkens geïnteresseerd in specifieke hypotheses. Hoewel precieze credible intervals van de verschillende modellen wel verschilden, gaven ze wel een eenduidig antwoord op onze vragen. Deze waren ook telkens in lijn met de data exploratie.
 
-Ten slotte kozen we het aantal soorten en het aantal waarnemingen als maten om te achterhalen of tellingen van vrijwilligers en de professionele teller gelijkaardige resultaten opleverden. Dit zijn geen onafhankelijke maten. Zoals verwacht toonden we aan dat deze log lineair verwant zijn aan elkaar. Hoe meer waarnemingen, hoe meer soorten. Naarmate het aantal waarnemingen een bepaalde grootte overschrijdt, vlakt het aantal soorten af.
+Ten slotte kozen we het aantal soorten en het aantal waarnemingen als maten om te achterhalen of tellingen van vrijwilligers en de professionele teller gelijkaardige resultaten opleverden. Dit zijn geen onafhankelijke maten. Zoals verwacht toonden we aan dat deze log lineair verwant zijn aan elkaar. Hoe meer waarnemingen, hoe meer soorten. Naarmate het aantal waarnemingen een bepaalde grootte overschrijdt, vlakt het aantal soorten af. Ook hier zagen we een verschil tussen professionele en vrijwillige tellers met over de totale range van aantal waarnemingen een lager aantal soorten gezien door vrijwillige tellers (95 %  CI: `r round(hyp_curve$hypothesis$CI.Lower, 2)` tot `r round(hyp_curve$hypothesis$CI.Upper, 2)`).
