@@ -2194,8 +2194,8 @@
       "Repository": "https://inbo.r-universe.dev",
       "RemoteUrl": "https://github.com/tidyverse/lubridate",
       "RemoteRef": "HEAD",
-      "RemoteSha": "c4714046ec412e669906ab8d1cd9a8e4fb125e13",
-      "Hash": "c00dc2b6d235358d3b876e5d3cd2906b",
+      "RemoteSha": "be024010ededa0d09cffe6e323777e3ab266f419",
+      "Hash": "16c7ce1bc02b20b0a2371d545e315812",
       "Requirements": [
         "cpp11",
         "generics"
@@ -3466,7 +3466,7 @@
       "Repository": "https://ropensci.r-universe.dev",
       "RemoteUrl": "https://github.com/ropensci/tarchetypes",
       "RemoteRef": "main",
-      "RemoteSha": "441948ced3a9b5b97f9b43fee610b7593fbc9b53",
+      "RemoteSha": "4f75effd39342dd863fb6970fcbf54dcf92cbb13",
       "Hash": "e9acaa614fb0940956b59a5219fc253a",
       "Requirements": [
         "digest",

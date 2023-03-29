@@ -1,0 +1,2691 @@
+---
+title: "Vergelijking van gepaarde tellingen tussen vrijwillige en professionele tellers"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here::here())
+
+# Packages
+library(tidyverse)
+library(INBOtheme)
+
+library(targets)
+library(sf)
+library(terra)
+library(lubridate)
+library(brms)
+
+# Source
+targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+mbag_dir <- here()
+source(here("src", "R", "wfs_wcs.R"))
+source(here("src", "R", "berekening_hulpvariabelen.R"))
+```
+
+# Doel {#doel}
+
+Achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren.
+We zijn vooral geïnteresseerd in waarnemingen met broedcode groter dan 0.
+Waarnemingen met broedcode 0 zijn meer op toeval berust (trekkers/pleisteraars of roofvogels) (mail Johannes 13-01-2023).
+
+Voor wie niet geïnteresseerd is in de technische kant van het verhaal, kan de volgende hoofdstukken overslaan en onmiddellijk naar de [samenvatting](#samenvatting) gaan.
+# Inlezen data {#inlezen-data}
+
+We selecteren eerst de MAS-data binnen de telrondes.
+
+```{r ronde-intervallen}
+r1_start <- "04-01"
+r1_stop <- "04-20"
+r2_start <- "04-21"
+r2_stop <- "05-10"
+r3_start <- "05-11"
+r3_stop <- "06-10"
+r4_start <- "06-21"
+r4_stop <- "07-15"
+```
+
+```{r inlezen-mas-waarnemingen-2018-2022}
+mas <- read_sf(
+  here("data/mas/20220906_qgis_export_sovon_wfs.gpkg")) %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    ))
+```
+
+De CRS moet aangepast worden naar Lambert 72.
+Dit doen we via een specifieke pipeline, zie: <https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/>
+
+```{r mas-waarnemingen-conversie-31370}
+Sys.setenv("PROJ_NETWORK" = "ON")
+sf_proj_network(TRUE)
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+glimpse(pipelines)
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# If the grids are installed, this should match the first line of the pipelines object.
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% pull(definition)
+
+mas_31370_pipeline1 <- 
+  st_transform(st_geometry(mas), "EPSG:31370",
+               pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(mas), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf
+```
+
+```{r inlezen-polygoon-lagen}
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
+
+vlaanderen <- get_feature_wfs(
+  wfs = "https://eservices.minfin.fgov.be/arcgis/services/R2C/Regions/MapServer/WFSServer",
+  layername = "regions",
+  crs = "EPSG:31370",
+  filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
+  select(NameDUT)
+
+sbp_akkervogels <- tar_read(sbp_akkervogels,
+                            store = targets_store)
+
+```
+
+We bepalen alle plot-jaar combinaties waarvoor er waarnemingen zijn.
+Het kan ook zijn dat een plot bezocht is, maar dat er geen waarnemingen van zijn.
+
+```{r plot-jaar-waarnemingen-2018-2022}
+plot_jaar_met_waarnemingen <- mas_31370_pipeline1 %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
+```
+
+Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden.
+Voor 2018-2021 moeten we er *voorlopig* vanuit gaan dat als er geen waarnemingen zijn voor een bepaald telpunt, het telpunt niet geteld werd.
+
+<!--De plot-jaar lijsten voor 2018-2021 opvragen die bezocht werden zodat we nullen/afwezigheden correct kunnen toevoegen-->
+
+We stellen nu eerst een lijst samen van plot - jaar combinaties die bezocht zijn.
+Hiervoor moeten we eerst het design inlezen van 2022.
+
+```{r design_2022}
+design2022_raw <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370)
+
+plot_bezocht_2022 <- design2022_raw %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
+```
+
+Vervolgens samenvoegen met 2018-2021
+
+```{r plot-jaar-bezocht-2018-2022}
+# veronderstel dat bezocht gelijk is aan die met waarnemingen voor 2018-2021
+plot_jaar_bezocht <- plot_jaar_met_waarnemingen %>%
+  filter(jaar < 2022) %>%
+  rbind(plot_bezocht_2022)
+```
+
+Zijn er bezochte plots waarvan er geen waarnemingen zijn?
+
+```{r bezocht-zonder-waarnemingen}
+pjb <- plot_jaar_bezocht %>%
+  anti_join(plot_jaar_met_waarnemingen)
+
+pjb %>%
+  kable()
+```
+
+Ja, in `r nrow(pjb)` telpunten werd niets waargenomen.
+Dus het is aannemelijk dat dit ook in de eerdere jaren soms het geval zal geweest zijn.
+
+We voegen nu eerst de locatie van de telpunten toe aan `plot_jaar_bezocht`.
+De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON.
+Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn.
+Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest).
+Het kan ook zijn dat het wel bezocht is geweest, maar dat er geen waarnemingen zijn.
+
+```{r telpunten-2018-2021}
+telpunten_2018_2021 <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
+) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger"))
+
+telpunten_2018_2021_amersfoort <- telpunten_2018_2021 %>%
+  st_drop_geometry() %>%
+  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
+
+telpunten_2018_2021 <- st_transform(
+  st_geometry(telpunten_2018_2021_amersfoort), "EPSG:31370",
+  pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(telpunten_2018_2021), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf %>%
+  mutate(regio = gsub("Vlaanderen - ", "", regio),
+         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio),
+         regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio))
+```
+
+```{r telpunten-2018-2022-locaties}
+telpunten_2018_2021_geom_only <- telpunten_2018_2021 %>%
+  select(plotnaam = naam, regio)
+
+telpunten_2022_geom_only <- design2022_raw %>%
+  select(plotnaam, regio)
+
+# locaties 2022 zijn verkeerd in design_2022 voor VL plots
+telpunten_geom_only <- bind_rows(
+  telpunten_2018_2021_geom_only,
+  telpunten_2022_geom_only %>% filter(!grepl("VL", .$plotnaam))
+)
+```
+
+Nu voegen we de geometry toe aan de plot - jaar combinaties via een inner join.
+Opgepast!
+Er zijn een aantal telpunten die in geen enkel jaar werden bezocht.
+Deze worden in deze stap verwijderd.
+Het kan ook zijn dat er hier een aantal onterecht verwijderd worden (wel bezocht, maar geen waarnemingen).
+Zoals eerder aangegeven in commentaar moeten we dit navragen.
+
+```{r toevoegen-geoms}
+plot_jaar_bezocht_sf <- telpunten_geom_only %>%
+  inner_join(plot_jaar_bezocht)
+```
+
+Tot slot voegen we aan `plot_jaar_bezocht_sf` de strata toe waartoe ze behoren.
+We gebruiken hiervoor dezelfde code als werd gebruikt in het `targets` project voor het trekken van de pilootsteekproef 2022.
+
+```{r toevoegen-strata}
+telpunten_strata <- add_openheid_landschap_to_frame(
+  path = path_to_openheid_landschap(),
+  punten_sf = plot_jaar_bezocht_sf %>% distinct(plotnaam, regio, geometry),
+  gebied = vlaanderen,
+  cutlevels = c(1.25, 1.35, 1.51),
+  class_labels = c("GL", "HGL", "HOL", "OL")) %>%
+  select(plotnaam, regio, openheid = openheid_klasse) %>%
+  mutate(sbp = st_intersects(.,
+                             st_union(sbp_akkervogels),
+                             sparse = FALSE) %>%
+           as.logical(),
+         sbp = ifelse(sbp, "binnen", "buiten")
+  ) %>%
+  mutate(stratum = paste0(openheid, "\n", sbp, " plan"))
+
+design_2018_2022_sf <- plot_jaar_bezocht_sf %>%
+  st_join(telpunten_strata %>% select(-plotnaam, -regio)) %>%
+  filter(regio %in% c("Oostelijke leemstreek", "De Moeren")) %>%
+  mutate(openheid = as.character(openheid))
+```
+
+# Data preparatie
+
+```{r}
+dubbeltgetelde_plots <- c("DM_18", "VL0086", "VL0091", "VL0105", "DM_1039.1", 
+                          "DM_256.1.27", "DM_262.4", "DM_222.6", "DM_368.14", 
+                          "DM_39.22", "DM_137.2")
+```
+
+Johannes heeft in 2022 in De Moeren 11 plots als controle dubbel geteld. Het gaat om `r dubbeltgetelde_plots` (mail Johannes 13-01-2023).
+
+1.  DM_18: de vrijwilliger heeft door omstandigheden dit punt tijdens de 2e ronde vergeten tellen. Uit een vergelijking van de andere drie rondes kan misschien wel wat gehaald worden. Bij dit punt merkten we ook dat de vrijwilliger "haas" in opmerkingen vermeldde i.p.v. ze in te voeren op kaart net zoals de vogelsoorten.
+2.  VL0086: oud mas-punt, dus tijdsreeks van 5 jaar. Daarmee kan een langere vergelijking gemaakt worden (variatie op tellingen over de jaren door dezelfde vrijwilliger)
+3.  VL0091:  oud mas-punt, dus tijdsreeks van 5 jaar.
+4.  VL0105:  oud mas-punt, dus tijdsreeks van 4 jaar.
+5.  DM_1039.1: nieuw mas-punt
+6.  DM_256.1.27: nieuw mas-punt
+7.  DM_262.4: nieuw mas-punt
+8.  DM_222.6: nieuw mas-punt
+9.  DM_368.14: nieuw mas-punt
+10.  DM_39.22: nieuw mas-punt
+11.  DM_137.2: nieuw mas-punt, daar heb ik per toeval de laatste ronde 2 keer geteld. De laatste telling (15 juli) mag je laten vallen  
+  
+We selecteren de data van deze plots in 2022.
+
+```{r}
+dubbels_2022_raw <- mas_31370_pipeline1 %>%
+  filter(jaar == 2022,
+         plotnaam %in% dubbeltgetelde_plots)
+
+waarnemers_raw <- dubbels_2022_raw %>%
+  st_drop_geometry() %>% 
+  distinct(plotnaam, jaar, periode_in_jaar, waarneme) %>%
+  mutate(val = 1) %>%
+  pivot_wider(names_from = waarneme, values_from = val) %>%
+  mutate(across(-c(plotnaam, jaar, periode_in_jaar), 
+                ~replace(.x, .x == 1, cur_column()))) %>%
+  unite("waarnemers", -c(plotnaam, jaar, periode_in_jaar), sep = ", ", 
+        na.rm = TRUE)
+
+dubbels_2022_raw %>%
+  st_drop_geometry() %>% 
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  summarise(n_waarnemers = n_distinct(waarneme),
+            n_datums = n_distinct(datum)) %>%
+  ungroup() %>%
+  full_join(waarnemers_raw, by = c("plotnaam", "jaar", "periode_in_jaar")) %>%
+  arrange(plotnaam, jaar, periode_in_jaar) %>%
+  kable()
+```
+
+We zien inderdaad dat in DM_18 in telperiode 2 maar 1x geteld is en dat in DM_137.2 in telperiode 4 op 3 verschillende dagen geteld is. We merken verder op dat in 2 gevallen een tweede telling buiten telperiode 4 is gedaan (periode_in_jaar = NA). Telperiode 4 loopt van `r r4_start` tot `r r4_stop`. Verder zien we dat twee tellingen op dezelfde dag zijn gebeurt.
+
+```{r}
+dubbels_2022_raw %>%
+  st_drop_geometry() %>% 
+  filter(plotnaam %in% c("DM_222.6", "VL0086"),
+         periode_in_jaar %in% c(NA, "R4")) %>%
+  select(plotnaam, periode_in_jaar, datum, waarnemer = waarneme) %>%
+  distinct() %>%
+  arrange(plotnaam, datum) %>%
+  kable()
+```
+
+-  We verwijderen de laatste telling van DM_137.2 (15 juli).
+-  We vervangen NA door R4
+-  We verwijderen R2 in DM_18
+
+```{r}
+dubbels_2022 <- dubbels_2022_raw %>%
+  filter(!(plotnaam == "DM_137.2" & datum == as.Date("2022-07-15")),
+         !(plotnaam == "DM_18" & periode_in_jaar == "R2")) %>%
+  mutate(periode_in_jaar = ifelse(is.na(periode_in_jaar), 
+                                  "R4", 
+                                  periode_in_jaar))
+  
+waarnemers <- dubbels_2022 %>%
+  st_drop_geometry() %>% 
+  distinct(plotnaam, jaar, periode_in_jaar, waarneme) %>%
+  mutate(val = 1) %>%
+  pivot_wider(names_from = waarneme, values_from = val) %>%
+  mutate(across(-c(plotnaam, jaar, periode_in_jaar), 
+                ~replace(.x, .x == 1, cur_column()))) %>%
+  unite(waarnemers, -c(plotnaam, jaar, periode_in_jaar), sep = ", ", 
+        na.rm = TRUE)
+
+dubbels_2022 %>%
+  st_drop_geometry() %>% 
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  summarise(n_waarnemers = n_distinct(waarneme),
+            n_datums = n_distinct(datum)) %>%
+  ungroup() %>%
+  full_join(waarnemers, by = c("plotnaam", "jaar", "periode_in_jaar")) %>%
+  arrange(plotnaam, jaar, periode_in_jaar) %>%
+  kable()
+```
+
+# Data selectie
+
+We selecteren alle vogels met broedcode > 0 en binnen 300 m.
+
+```{r}
+dubbels_2022_df <- dubbels_2022 %>%
+  st_drop_geometry() %>%
+  filter(wrntype > 0L, distance2plot <= 300, soortgrp == 2) %>%
+  mutate(naam = ifelse(naam == "Gele kwikstaart (spec)", "Gele Kwikstaart",
+                       naam),
+         naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
+                       naam)) %>%
+  rename(waarnemerscode = waarneme)
+```
+
+We voegen variabelen toe gelinkt aan de plots. Enkel sbp is variabel.
+
+```{r}
+design_dubbels <- design_2018_2022_sf %>%
+  st_drop_geometry() %>%
+  filter(jaar == 2022,
+         plotnaam %in% dubbeltgetelde_plots) %>%
+  select(-c(jaar, stratum))
+
+design_dubbels %>%
+  kable()
+
+dubbels_2022_df <- dubbels_2022_df %>%
+  full_join(design_dubbels, by = "plotnaam")
+```
+
+We voegen variabelen toe gelinkt aan de waarnemers. We zien weinig verschil in de categoriën `ervaring` vs. `ancienniteit`.
+
+```{r}
+waarnemer_vars <- tibble(waarnemerscode = c("HMLE02", "DCLR00", "NRTT00", 
+                            "WBVS00", "GMRS04", "DDRT00", "ATRR00", "JJNN16"),
+                         status = c(rep("vrijwilliger", 7), "professioneel"),
+                         ervaring = c("beginner", "ervaren", "ervaren", 
+                             "ervaren", "beginner", "ervaren", "beginner", 
+                             "ervaren"), 
+                         ancienniteit = c(1, 5, 5, 4, 1, 5, 1, 5))
+
+waarnemer_vars %>%
+  kable()
+
+dubbels_2022_df <- dubbels_2022_df %>%
+  full_join(waarnemer_vars, by = "waarnemerscode")
+```
+
+# Data exploratie
+## Aantallen
+
+```{r}
+ervaren_plots <- dubbels_2022_df %>%
+  filter(status == "vrijwilliger",
+         ervaring == "ervaren") %>%
+  distinct(plotnaam) %>%
+  pull()
+beginner_plots <- dubbels_2022_df %>%
+  filter(status == "vrijwilliger",
+         ervaring != "ervaren") %>%
+  distinct(plotnaam) %>%
+  pull()
+  
+plot_boxplots <- function(measure, var = NULL) {
+  if (is.null(var)) {
+    var <- "status"
+    diversiteit_df <- dubbels_2022_df %>%
+      group_by(plotnaam, periode_in_jaar, status)
+  } else if (var == "ervaring") {
+    diversiteit_df <- dubbels_2022_df %>%
+      mutate(ervaring = case_when(
+        status != "vrijwilliger" & plotnaam %in% ervaren_plots 
+          ~ "ervaren\n(ervaren plots)",
+        status != "vrijwilliger" & plotnaam %in% beginner_plots 
+          ~ "ervaren\n(beginner plots)",
+        TRUE ~ ervaring
+      )) %>%
+      group_by(plotnaam, periode_in_jaar, status, ervaring)
+  } else {
+    diversiteit_df <- dubbels_2022_df %>%
+      group_by(plotnaam, periode_in_jaar, status, .data[[var]])
+  }
+  
+  if (measure == "aantal soorten") {
+    diversiteit_df <- diversiteit_df %>%
+      summarize(n = n_distinct(naam), .groups = "drop")
+  } else if (measure == "aantal waarnemingen") {
+    diversiteit_df <- diversiteit_df %>%
+      summarize(n = n(), .groups = "drop")
+  } else if (measure == "aantal individuen") {
+    diversiteit_df <- diversiteit_df %>%
+      summarize(n = sum(aantal), .groups = "drop")
+  } else {
+    stop('Geef geldige measure in: c("aantal soorten", "aantal waarnemingen", 
+         "aantal individuen")!', call. = FALSE)
+  }
+  
+  ggplot(diversiteit_df) +
+    geom_boxplot(aes(x = as.factor(.data[[var]]), y = n,
+                     fill = periode_in_jaar)) +
+    scale_y_continuous(breaks = seq(0, 100, 2), 
+                       limits = c(0, NA)) +
+    geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+    facet_wrap(~status, scales = "free_x") +
+    labs(y = measure, x = var, fill = "Telperiode")
+}
+```
+
+```{r}
+dubbels_2022_df %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(n_plots = n_distinct(plotnaam)) %>%
+  kable()
+```
+
+### Status
+
+```{r}
+plot_boxplots("aantal soorten")
+```
+
+De boxplots suggereren dat de professionele teller in gemiddeld gezien meer soorten ziet per telperiode dan de vrijwilligers. Het kan natuurlijk wel zijn dat verschillende soorten gezien zijn.  
+
+```{r}
+plot_boxplots("aantal waarnemingen")
+```
+
+De boxplots suggereren dat de professionele teller in gemiddeld gezien meer waarnemingen ingeeft per telperiode dan de vrijwilligers. In telperiode 4 is er geen groot verschil.
+
+```{r}
+plot_boxplots("aantal individuen")
+```
+
+De boxplots suggereren dat de professionele teller in gemiddeld gezien meer individuen ziet per telperiode dan de vrijwilligers. In telperiode 4 is er geen groot verschil.
+
+### Ervaring
+
+Zien we deze verschillen nog steeds als we rekening houden met de ervaring van de vrijwilligers of het aantal jaar dat ze al meetellen? Omdat we met paarsgewijze verschillen zitten maken we een variabele `ervaring_plot` die toelaat om plots geteld door ervaren vrijwilligers te vergelijken met dezelfde plots geteld door de professionele teller en plots geteld door beginnende vrijwilligers te vergelijken met dezelfde plots geteld door de professionele teller.
+
+```{r}
+plot_boxplots("aantal soorten", "ervaring")
+```
+
+```{r}
+plot_boxplots("aantal waarnemingen", "ervaring")
+```
+
+```{r}
+plot_boxplots("aantal individuen", "ervaring")
+```
+
+Het aantal soorten lijkt nog altijd iets groter bij de professionele teller dan bij de vrijwilligers. We zien dat het verschil in aantal waarnemingen en individuen tussen professionele teller en vrijwilligers vooral aanwezig is in de plots waar ervaren vrijwilligers geteld hebben (ervaren plots) in telperiodes R1-R3. Daar heeft de professionele teller meer waarnemingen en individuen gezien. Er lijkt geen groot verschil te zijn tussen beginners en ervaren vrijwilligers (ondanks dat ze verschillende plots geteld hebben!).
+
+## Relatieve frequentie
+
+Zien we gelijkaardige trends als we per soort kijken?
+
+### Status
+
+```{r}
+relfreqs <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, status, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+
+top_n <- 20
+```
+
+In totaal zijn `r length(unique(relfreqs$naam))` soorten gezien. De boxplots tonen de relatieve frequenties in een bepaalde telperiode voor de professionele teller en de vrijwilligers.
+
+```{r}
+relfreqs %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - top_n) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+
+relfreqs %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) <= length(unique(naam)) - top_n,
+         as.numeric(naam) > length(unique(naam)) - (2 * top_n)) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+
+relfreqs %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) <= length(unique(naam)) - (2 * top_n)) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+```
+
+Verschil in gemiddelde relatieve frequentie tussen professionele teller en vrijwilligers.
+
+```{r}
+relfreq_diffs <- relfreqs %>%
+  group_by(status, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(status, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = status,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = professioneel - vrijwilliger) %>%
+  ungroup() %>%
+  arrange(desc(verschilfreq))
+
+relfreq_diffs %>%
+  kable(digits = 3)
+```
+
+Een '+' wil zeggen dat de professionele teller gemiddeld een hogere relatieve frequentie ziet dan de vrijwilligers van een soort (positief verschil) en een '-' dat de vrijwilligers een hogere relatieve frequentie zien van een soort. Zowel in de figuren als in de tabel zien we dat de professionele teller een voor de meeste soorten een hogere relatieve frequentie ziet dan de vrijwilligers.
+
+```{r}
+relfreq_diffs_tab <- relfreq_diffs %>%
+  mutate(diff = factor(
+    case_when(
+      verschilfreq > 0 ~ "+",
+      verschilfreq < 0 ~ "-",
+      TRUE ~ "0"
+    ), levels = c("+", "0", "-"))
+  ) %>%
+  count(diff) %>%
+  mutate(perc = n / sum(.data$n))
+
+relfreq_diffs_tab %>%
+  kable()
+```
+
+### Ervaring
+
+Zien we gelijkaardige trends als we ervaring mee in rekening brengen? Hier moeten we niet opsplitsen in beginner plots en ervaren plots omdat de relatieve frequentie relatief is en dus niet omhoog gaat met toenemend aantal plots.
+
+```{r}
+relfreqs_ervaring <- dubbels_2022_df %>%
+  mutate(ervaring = case_when(
+        plotnaam %in% ervaren_plots ~ "ervaren plots",
+        plotnaam %in% beginner_plots ~ "beginner plots",
+        TRUE ~ ervaring
+      )) %>%
+  mutate(status = paste(status, ervaring, sep = " - ")) %>%
+  group_by(plotnaam, periode_in_jaar, status, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+
+top_n <- 20
+```
+
+```{r}
+relfreqs_ervaring %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - top_n) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+
+relfreqs_ervaring %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) <= length(unique(naam)) - top_n,
+         as.numeric(naam) > length(unique(naam)) - (2 * top_n)) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+
+relfreqs_ervaring %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  filter(as.numeric(naam) <= length(unique(naam)) - (2 * top_n)) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(x = "", y = "Relatieve frequentie")
+```
+
+```{r}
+relfreqs_ervaring_diffs <- relfreqs_ervaring %>%
+  group_by(status, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(status, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = status,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  ungroup() %>%
+  rowwise() %>%
+  mutate(max_val = pmax(`professioneel - beginner plots`, `professioneel - ervaren plots`,
+                        `vrijwilliger - beginner plots`, `vrijwilliger - ervaren plots`),
+         "grootste gem. rel.freq." = case_when(
+           max_val == `professioneel - beginner plots` ~ "professioneel - beginner plots",
+           max_val == `professioneel - ervaren plots` ~ "professioneel - ervaren plots",
+           max_val == `vrijwilliger - beginner plots` ~ "vrijwilliger - beginner plots",
+           max_val == `vrijwilliger - ervaren plots` ~ "vrijwilliger - ervaren plots"
+         )) %>%
+  select(-max_val) %>%
+  arrange(desc(`professioneel - ervaren plots`)) 
+
+relfreqs_ervaring_diffs %>%
+  kable(digits = 2)
+```
+
+Het is moeilijk om de figuren te interpreteren. De volgende tabel geeft wel aan dat de professionele teller zowel in beginner plots als ervaren plots vaker een hogere gemiddelde relatieve frequentie ziet.
+
+```{r}
+relfreqs_ervaring_diffs %>%
+  count(`grootste gem. rel.freq.`) %>%
+  separate(`grootste gem. rel.freq.`, into = c("status", "ervaring"),
+           sep = " - ") %>%
+  pivot_wider(names_from = status, values_from = n) %>%
+  kable()
+```
+
+## Doelsoorten
+
+We vergelijken de relatieve frequentie van enkele specifieke soorten.
+
+```{r}
+doelsoorten <- c("Veldleeuwerik", "Gele Kwikstaart", "Geelgors", "Fazant")
+dubbels_2022_doel_df <- dubbels_2022_df %>% 
+  filter(naam %in% doelsoorten)
+```
+
+```{r}
+relfreqs_doel <- dubbels_2022_doel_df %>%
+  group_by(plotnaam, periode_in_jaar, status, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+
+relfreq_diffs_doel <- relfreqs_doel %>%
+  group_by(status, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(status, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = status,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = professioneel - vrijwilliger) %>%
+  ungroup() %>%
+  arrange(desc(verschilfreq))
+```
+
+```{r}
+relfreq_diffs_doel %>%
+  kable(digits = 3)
+```
+
+Zonder rekening te houden met ervaring zien we dat de professionele teller een hogere relatieve frequentie ziet.
+
+```{r}
+relfreqs_doel2 <- dubbels_2022_doel_df %>%
+  mutate(ervaring = case_when(
+        plotnaam %in% ervaren_plots ~ "ervaren plots",
+        plotnaam %in% beginner_plots ~ "beginner plots",
+        TRUE ~ ervaring
+      )) %>%
+  mutate(status = paste(status, ervaring, sep = " - ")) %>%
+  group_by(plotnaam, periode_in_jaar, status, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq") %>%
+  separate(status, into = c("status", "ervaring"), sep = " - ")
+
+relfreqs_doel2 %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "median")) %>%
+  ggplot(aes(x = naam, y = relfreq, colour = status)) +
+    geom_boxplot() +
+    labs(x = "", y = "Relatieve frequentie") +
+    facet_grid(~ervaring)
+```
+
+Als we rekening houden met ervaring lijken de verschillen niet zo groot tussen professioneel en vrijwilliger.
+
+
+# Hypotheses
+
+We willen achterhalen of tellingen van vrijwilligers en een professionele teller gelijkaardige resultaten opleveren. Welke statistische hypotheses kunnen we opstellen? Met welke factoren moeten we rekening houden?
+
+## Aantal soorten
+
+Is er een significant verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers?  
+  
+$\text{H}_0$: Er is geen verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers.
+
+## Aantal waarnemingen
+
+Is er een significant verschil in het aantal waarnemingen door de professionele teller vs. de vrijwilligers?  
+  
+$\text{H}_0$: Er is geen verschil in het aantal waarnemingen gemeld door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal waarnemingen gemeld door de professionele teller vs. de vrijwilligers.
+
+## Effect van broedcode
+
+Kan een verschil in aantal soorten of aantal waarnemingen tussen professionele en vrijwillige tellers verschillen tussen broedcodes?  
+  
+$\text{H}_0$: Het verschil in het aantal soorten/waarnemingen gemeld door de professionele teller vs. de vrijwilligers is even groot voor broedcode 0 en broedcode groter dan 0.  
+$\text{H}_a$: Het verschil in het aantal soorten/waarnemingen gemeld door de professionele teller vs. de vrijwilligers is niet even groot voor broedcode 0 en broedcode groter dan 0.
+
+## Effect van ervaring
+
+De professionele teller is ervaren, maar bij de vrijwilligers hebben we twee ervaringscategoriën: beginner en ervaren. Is er een verschil in het aantal soorten of aantal waarnemingen tussen ervaren en beginnende vrijwillige tellers?  
+  
+$\text{H}_0$: Er is geen verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers.  
+$\text{H}_a$: Er is wel een verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers. 
+
+# Statistische testen
+
+## Aantal soorten
+
+Is er een significant verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers?  
+  
+$\text{H}_0$: Er is geen verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers.
+
+```{r}
+dubbels_2022_df_soortenrijkdom <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, status) %>%
+  summarize(n = n_distinct(naam), .groups = "drop") %>%
+  ungroup() %>%
+  mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
+  full_join(dubbels_2022_df, 
+            by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
+           ervaring, n) %>%
+  group_by(status) %>%
+  mutate(gemiddelde = mean(n))
+
+# Overlaid histograms
+ggplot(dubbels_2022_df_soortenrijkdom) +
+  geom_histogram(aes(x = n, fill = status), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+
+# Density plots with semi-transparent fill
+ggplot(dubbels_2022_df_soortenrijkdom, aes(x = n, fill = status)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+```
+
+De verticale lijn geeft het arithmetisch gemiddelde aan.
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(unique(dubbels_2022_df_soortenrijkdom$plaatstijd)))
+
+dubbels_2022_df_soortenrijkdom %>%
+  ggplot() +
+    geom_jitter(aes(x = status, y = n, shape = ervaring), 
+                width = 0.2, height	= 0) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    guides(colour = "none") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal soorten", x = "")
+```
+
+### Eenvoudige testen
+
+```{r}
+t.test(n ~ status, data = dubbels_2022_df_soortenrijkdom, paired = TRUE)
+```
+
+```{r, warning=TRUE}
+wilcox.test(n ~ status, data = dubbels_2022_df_soortenrijkdom, paired = TRUE)
+```
+
+*The impact of ties means the Wilcoxon rank sum distribution cannot be used to calculate exact p-values. If ties occur in our data and we have fewer than 50 observations, the wilcox.test function returns a normal approximated p-value along with a warning message that says “cannot compute exact p-value with ties”.*  
+  
+De statistische testen tonen aan dat er inderdaad een significant verschil is tussen het aantal soorten gezien door de professionele teller vs. de vrijwilligers. Dit was eerder exploratief. We gaan nu verder met model gebaseerde technieken.
+
+### Model based
+
+Beschouw $Y_{ijk}$ een observatie $i$ van een aantal soorten in eenzelfde plot $j$ en eenzelfde telperiode $k$. Deze observaties zijn door zowel een professionele teller $X_{status} = 0$ als een vrijwillige teller $X_{status} = 1$ gedaan. We voegen een random effect toe van telperiode genest in plot $b_{1}$. Bovendien kunnen aantallen van eenzelfde plot meer op elkaar lijken dan aantallen dan aantallen van verschillende plots. We voegen ook een random effect toe van plot $b_{2}$. In een later stadium kunnen we testen of deze laatste noodzakelijk is.
+
+$$
+g(\text{E}(Y_{ijk})) = \beta_0 + \beta_{1}X_{status, i} + b_{1,jk} + b_{2,k}
+$$
+
+We fitten 3 modellen met **brms** met verschillende responsdistributies (en link functies $g()$).
+
+- Normaal verdeling (identity link)
+- Poisson verdeling (log link)
+- Negatief binomiaal verdeling (log link)
+
+```{r}
+model_path <- "./src/markdown/mas/brms_models/"
+
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 4000          # number of iterations (incl. burn-in)
+burnin <- niter / 2    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+
+# 1. Normal
+dubbel_soorten_norm1 <- brm(
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_soortenrijkdom, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_norm1"),
+  file_refit = "on_change")
+
+# 2. Poisson
+dubbel_soorten_pois1 <- brm(
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_soortenrijkdom, family = poisson(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_pois1"),
+  file_refit = "on_change")
+
+# 3. Negative binomial
+dubbel_soorten_negbin1 <- brm(
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_soortenrijkdom, family = negbinomial(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.9),
+  file = paste0(model_path, "dubbel_soorten_negbin1"),
+  file_refit = "on_change")
+```
+
+#### Model selectie
+
+We vergelijken de modellen gebruikmakend van leave-one-out cross-validation.
+
+```{r}
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm1.rds"))) {
+  fit_dubbel_soorten_norm1 <- add_criterion(dubbel_soorten_norm1, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_norm1"))
+  fit_dubbel_soorten_pois1 <- add_criterion(dubbel_soorten_pois1, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_pois1"))
+  fit_dubbel_soorten_negbin1 <- add_criterion(dubbel_soorten_negbin1, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_negbin1"))
+} else {
+  fit_dubbel_soorten_norm1 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_norm1.rds"))
+  fit_dubbel_soorten_pois1 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_pois1.rds"))
+  fit_dubbel_soorten_negbin1 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_negbin1.rds"))
+}
+```
+
+```{r}
+# Comparison among models
+models_soorten <- data.frame(
+  naam = c("normaal", 
+           "poisson", 
+           "negatief binomiaal"),
+  model = c("fit_dubbel_soorten_norm1", 
+            "fit_dubbel_soorten_pois1", 
+            "fit_dubbel_soorten_negbin1"))
+
+
+loo_compare(
+    fit_dubbel_soorten_norm1, 
+    fit_dubbel_soorten_pois1, 
+    fit_dubbel_soorten_negbin1, 
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_soorten, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+```{r}
+pp_check(fit_dubbel_soorten_norm1, type = "dens_overlay_grouped", ndraws = 100, 
+         group = "status")
+
+pp_check(fit_dubbel_soorten_pois1, type = "bars_grouped", ndraws = 100, 
+         group = "status", facet_args = list(ncol = 1, scales = "free_y"))
+
+pp_check(fit_dubbel_soorten_negbin1, type = "bars_grouped", ndraws = 100, 
+         group = "status", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Hoewel we discrete data hebben, besluiten we dat normale glm met normaal verdeling het beste past bij de data. De resultaten voor alle drie de modellen zijn gelijkaardig.
+  
+We zien goede convergentie.
+
+```{r}
+plot(fit_dubbel_soorten_norm1)
+```
+
+#### Selectie random effects
+
+```{r}
+sum_soorten1 <- summary(fit_dubbel_soorten_norm1)
+
+sd_plot <- sum_soorten1$random$plotnaam$Estimate
+sd_plotperiode <- sum_soorten1$random$`plotnaam:periode_in_jaar`$Estimate
+sd_res <- sum_soorten1$spec_pars$Estimate
+
+icc_plot <- (sd_plot^2) / (sd_plot^2 + sd_plotperiode^2 + sd_res^2)
+```
+
+De correlatie tussen observaties binnen een zelfde plot is relatief laag (ICC = `r round(icc_plot, 3)`). We testen of we de random effects van plot kunnen weglaten. Hiervoor fitten we een model zonder random effect van plot. We behouden wel het random effect `plotnaam:periode_in_jaar` omdat we met gepaarde data zitten.
+
+```{r}
+dubbel_soorten_norm12 <- brm(
+  bf(n ~ status + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_soortenrijkdom, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_norm12"),
+  file_refit = "on_change")
+
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm12.rds"))) {
+  fit_dubbel_soorten_norm12 <- add_criterion(dubbel_soorten_norm12, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_norm12"))
+} else {
+  fit_dubbel_soorten_norm12 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_norm12.rds"))
+}
+
+# Comparison among models
+models_norm <- data.frame(
+  naam = c("plotnaam:periode_in_jaar", 
+           "plotnaam en plotnaam:periode_in_jaar"),
+  model = c("fit_dubbel_soorten_norm12", 
+            "fit_dubbel_soorten_norm1"))
+
+
+loo_compare(
+    fit_dubbel_soorten_norm1, 
+    fit_dubbel_soorten_norm12,
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_norm, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+We beschouwen het finale model met enkel random effects `plotnaam:periode_in_jaar`.
+
+```{r}
+finaal_soorten1 <- fit_dubbel_soorten_norm12
+```
+
+#### Resultaten finale model
+
+En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
+
+```{r}
+sum_finaal_soorten1 <- summary(finaal_soorten1)
+sum_finaal_soorten1
+```
+
+```{r}
+hyp_soorten1 <- hypothesis(
+  x = finaal_soorten1,
+  "statusvrijwilliger = 0",
+  class = "b", alpha = 0.05)
+
+plot(hyp_soorten1)
+```
+
+```{r, include=FALSE}
+schatting_soorten1 <- abs(round(
+  sum_finaal_soorten1$fixed["statusvrijwilliger", "Estimate"], 3))
+ll_soorten1 <- round(
+  sum_finaal_soorten1$fixed["statusvrijwilliger", "l-95% CI"], 3)
+ul_soorten1 <- round(
+  sum_finaal_soorten1$fixed["statusvrijwilliger", "u-95% CI"], 3)
+sign_soorten1 <- ifelse(sum_finaal_soorten1$fixed["statusvrijwilliger", 
+                                           "Estimate"] > 0, 
+                        "meer", "minder")
+```
+
+We besluiten dat de vrijwillige tellers gemiddeld `r schatting_soorten1` soorten `r sign_soorten1` zien dan de professionele teller (95% credible interval: `r ll_soorten1` tot `r ul_soorten1`).
+
+
+## Aantal waarnemingen
+
+Is er een significant verschil in het aantal waarnemingen gezien door de professionele teller vs. de vrijwilligers?  
+  
+$\text{H}_0$: Er is geen verschil in het aantal waarnemingen gemeld door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal waarnemingen gemeld door de professionele teller vs. de vrijwilligers.
+
+```{r}
+dubbels_2022_df_waarnemingen <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, status) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  ungroup() %>%
+  mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
+  full_join(dubbels_2022_df, 
+            by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
+           ervaring, n) %>%
+  group_by(status) %>%
+  mutate(gemiddelde = mean(n))
+
+# Overlaid histograms
+ggplot(dubbels_2022_df_waarnemingen) +
+  geom_histogram(aes(x = n, fill = status), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal waarnemingen")
+
+# Density plots with semi-transparent fill
+ggplot(dubbels_2022_df_waarnemingen, aes(x = n, fill = status)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal waarnemingen")
+```
+
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(unique(dubbels_2022_df_waarnemingen$plaatstijd)))
+
+dubbels_2022_df_waarnemingen %>%
+  ggplot() +
+    geom_jitter(aes(x = status, y = n, shape = ervaring), 
+                width = 0.2, height	= 0) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    guides(colour = "none") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal waarnemingen")
+```
+
+### Eenvoudige testen
+
+```{r}
+t.test(n ~ status, data = dubbels_2022_df_waarnemingen, paired = TRUE)
+```
+
+```{r, warning=TRUE}
+wilcox.test(n ~ status, data = dubbels_2022_df_waarnemingen, paired = TRUE)
+```
+
+*The impact of ties means the Wilcoxon rank sum distribution cannot be used to calculate exact p-values. If ties occur in our data and we have fewer than 50 observations, the wilcox.test function returns a normal approximated p-value along with a warning message that says “cannot compute exact p-value with ties”.*
+
+### Model based
+
+We fitten 3 modellen met **brms**.
+
+- Normaal verdeling
+- Poisson verdeling
+- Negatief binomiaal verdeling
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 4000          # number of iterations (incl. burn-in)
+burnin <- niter / 2    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+
+# 1. Normal
+dubbel_waarnemingen_norm1 <- brm( 
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_waarnemingen, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_waarnemingen_norm1"),
+  file_refit = "on_change")
+
+# 2. Poisson
+dubbel_waarnemingen_pois1 <- brm( 
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_waarnemingen, family = poisson(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_waarnemingen_pois1"),
+  file_refit = "on_change")
+
+# 3. Negative binomial
+dubbel_waarnemingen_negbin1 <- brm( 
+  bf(n ~ status  + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_waarnemingen, family = negbinomial(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.9),
+  file = paste0(model_path, "dubbel_waarnemingen_negbin1"),
+  file_refit = "on_change")
+```
+
+#### Model selectie
+
+We vergelijken de modellen gebruikmakend van leave-one-out cross-validation.
+
+```{r}
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_waarnemingen_norm1.rds"))) {
+  fit_dubbel_waarnemingen_norm1 <- add_criterion(dubbel_waarnemingen_norm1, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_waarnemingen_norm1"))
+  fit_dubbel_waarnemingen_pois1 <- add_criterion(dubbel_waarnemingen_pois1, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_waarnemingen_pois1"))
+  fit_dubbel_waarnemingen_negbin1 <- add_criterion(dubbel_waarnemingen_negbin1, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_waarnemingen_negbin1"))
+} else {
+  fit_dubbel_waarnemingen_norm1 <- readRDS(paste0(model_path, 
+                                     "fit_dubbel_waarnemingen_norm1.rds"))
+  fit_dubbel_waarnemingen_pois1 <- readRDS(paste0(model_path, 
+                                     "fit_dubbel_waarnemingen_pois1.rds"))
+  fit_dubbel_waarnemingen_negbin1 <- readRDS(paste0(model_path, 
+                                     "fit_dubbel_waarnemingen_negbin1.rds"))
+}
+```
+
+```{r}
+# Comparison among models
+models_waarnemingen <- data.frame(
+  naam = c("normaal", 
+           "poisson", 
+           "negatief binomiaal"),
+  model = c("fit_dubbel_waarnemingen_norm1", 
+            "fit_dubbel_waarnemingen_pois1", 
+            "fit_dubbel_waarnemingen_negbin1"))
+
+
+loo_compare(
+    fit_dubbel_waarnemingen_norm1, 
+    fit_dubbel_waarnemingen_pois1, 
+    fit_dubbel_waarnemingen_negbin1, 
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_waarnemingen, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+```{r}
+pp_check(fit_dubbel_waarnemingen_norm1, type = "dens_overlay_grouped", 
+         ndraws = 100, group = "status")
+
+pp_check(fit_dubbel_waarnemingen_pois1, type = "bars_grouped", ndraws = 100, 
+         group = "status", facet_args = list(ncol = 1, scales = "free_y"))
+
+pp_check(fit_dubbel_waarnemingen_negbin1, type = "bars_grouped", ndraws = 100, 
+         group = "status", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Hoewel we discrete data hebben, besluiten we dat normale glm met normaal verdeling het beste past bij de data. De resultaten voor alle drie de modellen zijn gelijkaardig.
+  
+We zien goede convergentie.
+
+```{r}
+plot(fit_dubbel_waarnemingen_norm1)
+```
+
+#### Selectie random effects
+
+```{r}
+sum_waarnemingen1 <- summary(fit_dubbel_waarnemingen_norm1)
+
+sd_plot <- sum_waarnemingen1$random$plotnaam$Estimate
+sd_plotperiode <- sum_waarnemingen1$random$`plotnaam:periode_in_jaar`$Estimate
+sd_res <- sum_waarnemingen1$spec_pars$Estimate
+
+icc_plot <- (sd_plot^2) / (sd_plot^2 + sd_plotperiode^2 + sd_res^2)
+icc_plotperiode <- (sd_plotperiode^2) / (sd_plot^2 + sd_plotperiode^2 + sd_res^2)
+```
+
+De correlatie tussen observaties binnen een zelfde plot is relatief hoog (ICC = `r round(icc_plot, 3)`). We testen of we deze random effects kunnen weglaten.
+
+```{r}
+dubbel_waarnemingen_norm12 <- brm(
+  bf(n ~ status + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_waarnemingen, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.9),
+  file = paste0(model_path, "dubbel_waarnemingen_norm12"),
+  file_refit = "on_change")
+
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_waarnemingen_norm12.rds"))) {
+  fit_dubbel_waarnemingen_norm12 <- add_criterion(dubbel_waarnemingen_norm12, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_waarnemingen_norm12"))
+} else {
+  fit_dubbel_waarnemingen_norm12 <- readRDS(paste0(model_path, 
+                                      "fit_dubbel_waarnemingen_norm12.rds"))
+}
+
+# Comparison among models
+models_norm <- data.frame(
+  naam = c("plotnaam:periode_in_jaar", 
+           "plotnaam en plotnaam:periode_in_jaar"),
+  model = c("fit_dubbel_waarnemingen_norm12", 
+            "fit_dubbel_waarnemingen_norm1"))
+
+
+loo_compare(
+    fit_dubbel_waarnemingen_norm1, 
+    fit_dubbel_waarnemingen_norm12,
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_norm, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+We beschouwen het finale model met random effects `plotnaam` en `plotnaam:periode_in_jaar`.
+
+```{r}
+finaal_waarnemingen1 <- fit_dubbel_waarnemingen_norm1
+```
+
+#### Resultaten finale model
+
+En gelijkaardige resultaten als de t-test. Met een duidelijk verschil tussen de professionele teller en de vrijwilligers.
+
+```{r}
+sum_finaal_waarnemingen1 <- summary(finaal_waarnemingen1)
+sum_finaal_waarnemingen1
+```
+
+```{r}
+hyp_waarnemingen1 <- hypothesis(
+  x = finaal_waarnemingen1,
+  "statusvrijwilliger = 0",
+  class = "b", alpha = 0.05)
+
+plot(hyp_waarnemingen1)
+```
+
+```{r, include=FALSE}
+schatting_waarnemingen1 <- abs(round(
+  sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "Estimate"], 3))
+ll_waarnemingen1 <- round(
+  sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "l-95% CI"], 3)
+ul_waarnemingen1 <- round(
+  sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "u-95% CI"], 3)
+sign_waarnemingen1 <- ifelse(
+  sum_finaal_waarnemingen1$fixed["statusvrijwilliger", "Estimate"] > 0, 
+                             "meer", "minder")
+```
+
+We besluiten dat de vrijwillige tellers gemiddeld `r schatting_waarnemingen1` waarnemingen `r sign_waarnemingen1` melden dan de professionele teller (95% credible interval: `r ll_waarnemingen1` tot `r ul_waarnemingen1`).  
+
+
+# Verschil in broedcode
+
+Mogelijks is er ook een verschil op de manier waarop broedcodes worden toegekend door de professionele teller vs. de vrijwilligers. Zou het kunnen dat vrijwilligers vaker broedcode nul ingeven waardoor de vorige analyses een onvolledig beeld geven?
+
+```{r}
+dubbels_2022 %>%
+  distinct(broedcode = wrntype, beschrijving = wrntype_omschrijving) %>%
+  arrange(broedcode) %>%
+  kable()
+```
+
+
+## Data selectie
+
+We selecteren alle vogels met alle broedcodes en binnen 300 m.
+
+```{r}
+dubbels_2022_df_broed <- dubbels_2022 %>%
+  st_drop_geometry() %>%
+  filter(distance2plot <= 300, soortgrp == 2) %>%
+  mutate(naam = ifelse(naam == "Gele kwikstaart (spec)", "Gele Kwikstaart",
+                       naam),
+         naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
+                       naam)) %>%
+  rename(waarnemerscode = waarneme)
+```
+
+We voegen variabelen toe gelinkt aan de plots. Enkel sbp is variabel.
+
+```{r}
+dubbels_2022_df_broed <- dubbels_2022_df_broed %>%
+  full_join(design_dubbels, by = "plotnaam")
+```
+
+We voegen variabelen toe gelinkt aan de waarnemers.
+
+```{r}
+waarnemer_vars <- tibble(waarnemerscode = c("HMLE02", "DCLR00", "NRTT00", 
+                            "WBVS00", "GMRS04", "DDRT00", "ATRR00", "JJNN16"),
+                         status = c(rep("vrijwilliger", 7), "professioneel"),
+                         ervaring = c("beginner", "ervaren", "ervaren", 
+                             "ervaren", "beginner", "ervaren", "beginner", 
+                             "ervaren"), 
+                         ancienniteit = c(1, 5, 5, 4, 1, 5, 1, 5))
+
+dubbels_2022_df_broed <- dubbels_2022_df_broed %>%
+  full_join(waarnemer_vars, by = "waarnemerscode")
+
+design_broed <- dubbels_2022_df_broed %>%
+  expand(nesting(plotnaam, periode_in_jaar, status), wrntype)
+
+design_broed2 <- dubbels_2022_df_broed %>%
+  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
+                            levels = c("0", "> 0"),
+                            ordered = TRUE)) %>%
+  expand(nesting(plotnaam, periode_in_jaar, status), broedcode)
+```
+
+
+## Exploratie
+
+Als we de broedcodes > 0 samen nemen zien we een groter aantal soorten gezien door de professionele teller dan de vrijwilligers, vooral voor broedcodes groter dan 0.
+
+```{r}
+dubbels_2022_df_broed2 <- dubbels_2022_df_broed %>%
+  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
+                            levels = c("0", "> 0"),
+                            ordered = TRUE))
+
+diversiteit_df_broed2 <- dubbels_2022_df_broed2 %>%
+  group_by(plotnaam, periode_in_jaar, status, broedcode) %>%
+  summarize(n = n_distinct(naam), .groups = "drop") %>%
+  full_join(design_broed2, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "broedcode")) %>%
+  replace(is.na(.), 0)
+
+diversiteit_df_broed2 %>%
+  group_by(status, broedcode) %>%
+  summarise(mediaan = median(n)) %>%
+  kable()
+```
+
+```{r}
+diversiteit_df_broed2 %>%
+  ggplot() +
+    geom_boxplot(aes(x = broedcode, y = n, fill = periode_in_jaar)) +
+    scale_y_continuous(breaks = seq(0, 100, 2), 
+                       limits = c(0, NA)) +
+    geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+    facet_wrap(~status) +
+    labs(x = "Broedcode", y = "Aantal soorten")
+```
+
+We bekijken vervolgens alle broedcodes. We zien dat het aantal soorten gemiddeld gezien (mediaan) voor broedcodes 0, 1, 2 en 3 hoger liggen bij de professionele teller dan bij de vrijwilligers, vooral broedcode 3 (Territoriaal gedrag) is opvallend in de figuur.
+
+```{r}
+diversiteit_df_broed <- dubbels_2022_df_broed %>%
+  group_by(plotnaam, periode_in_jaar, status, wrntype) %>%
+  summarize(n = n_distinct(naam), .groups = "drop") %>%
+  full_join(design_broed, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "wrntype")) %>%
+  replace(is.na(.), 0)
+
+diversiteit_df_broed %>%
+  group_by(status, wrntype) %>%
+  summarise(mediaan = median(n)) %>%
+  rename(broedcode = wrntype) %>%
+  kable()
+```
+
+```{r}
+ggplot(diversiteit_df_broed) +
+  geom_boxplot(aes(x = wrntype, y = n)) +
+  scale_y_continuous(breaks = seq(0, 100, 2), 
+                     limits = c(0, NA)) +
+  geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+  facet_wrap(~status) +
+  labs(x = "Broedcode", y = "Aantal soorten")
+```
+
+
+### Waarnemingen
+
+We zien gelijkaardige trends als bij het aantal soorten. Als we de broedcodes > 0 samen nemen zien we een groter aantal waarnemingen door de professionele teller dan bij de vrijwilligers, vooral bij de broedcodes groter dan 0.
+
+```{r}
+waarnemingen_df_broed2 <- dubbels_2022_df_broed %>%
+  mutate(broedcode = factor(ifelse(wrntype == 0, "0", "> 0"),
+                            levels = c("0", "> 0"),
+                            ordered = TRUE)) %>%
+  group_by(plotnaam, periode_in_jaar, status, broedcode) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  full_join(design_broed2, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "broedcode")) %>%
+  replace(is.na(.), 0)
+
+waarnemingen_df_broed2 %>%
+  group_by(status, broedcode) %>%
+  summarise(mediaan = median(n)) %>%
+  kable()
+```
+
+```{r}
+waarnemingen_df_broed2 %>%
+  ggplot() +
+    geom_boxplot(aes(x = broedcode, y = n, fill = periode_in_jaar)) +
+    scale_y_continuous(breaks = seq(0, 100, 2), 
+                       limits = c(0, NA)) +
+    geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+    facet_wrap(~status) +
+    labs(x = "Broedcode", y = "Aantal waarnemingen")
+```
+
+We bekijken vervolgens alle broedcodes. We zien dat het aantal soorten gemiddeld gezien (mediaan) voor broedcodes 0, 2 en 3 hoger liggen bij de professionele teller dan bij de vrijwilligers, vooral broedcode 3 (Territoriaal gedrag) is weer opvallend in de figuur.
+
+```{r}
+waarnemingen_df_broed <- dubbels_2022_df_broed %>%
+  group_by(plotnaam, periode_in_jaar, status, wrntype) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  full_join(design_broed, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "wrntype")) %>%
+  replace(is.na(.), 0)
+
+waarnemingen_df_broed %>%
+  group_by(status, wrntype) %>%
+  summarise(mediaan = median(n)) %>%
+  rename(broedcode = wrntype) %>%
+  kable()
+```
+
+```{r}
+ggplot(waarnemingen_df_broed) +
+  geom_boxplot(aes(x = wrntype, y = n)) +
+  scale_y_continuous(breaks = seq(0, 100, 2), 
+                     limits = c(0, NA)) +
+  geom_hline(yintercept = 0, linetype = 2, colour = "grey") +
+  facet_wrap(~status) +
+  labs(x = "Broedcode", y = "Aantal waarnemingen")
+```
+
+
+### Relatieve frequenties
+
+Wanneer we geen broedcode 0 beschouwden, zagen we een opvallend verschil in relatieve frequentie tussen vrijwilligers en professionelen in enkele algemene/eenvoudige soorten als Kauw, Merel en Holenduif. Mogelijks zagen de vrijwilligers die soorten wel, maar gaven ze deze vaker in als broedcode 0. We maken opnieuw de tabel van relatieve frequenties om te zien of dit nu wel een ander beeld geeft.
+
+```{r}
+relfreqs <- dubbels_2022_df_broed %>%
+  group_by(plotnaam, periode_in_jaar, status, naam) %>%
+  summarize(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  group_by(periode_in_jaar, status) %>%
+  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+                   .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq")
+
+relfreq_diffs <- relfreqs %>%
+  group_by(status, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(status, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = status,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = professioneel - vrijwilliger) %>%
+  ungroup() %>%
+  arrange(desc(verschilfreq))
+
+relfreq_diffs %>%
+  kable(digits = 3)
+```
+
+We zien nog altijd vrij grote verschillen (bv. Merel).
+
+
+## Statistische test
+
+Is er een significant verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers en is dit verschil anders voor broedcode 0 en broedcode groter dan 0?
+
+$\text{H}_0$: Er is geen verschil in het aantal soorten met broedcode 0 gezien door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal soorten met broedcode 0 gezien door de professionele teller vs. de vrijwilligers.
+
+$\text{H}_0$: Er is geen verschil in het aantal soorten met broedcode groter dan 0 gezien door de professionele teller vs. de vrijwilligers.  
+$\text{H}_a$: Er is een verschil in het aantal soorten met broedcode groter dan 0 gezien door de professionele teller vs. de vrijwilligers.
+
+$\text{H}_0$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is even groot voor broedcode 0 en broedcode groter dan 0.  
+$\text{H}_a$: Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet even groot voor broedcode 0 en broedcode groter dan 0.
+
+```{r}
+dubbels_2022_df_broed_soortenrijkdom <- dubbels_2022_df_broed2 %>%
+  group_by(plotnaam, periode_in_jaar, status, broedcode) %>%
+  summarize(n = n_distinct(naam), .groups = "drop") %>%
+  full_join(design_broed2, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "broedcode")) %>%
+  replace(is.na(.), 0) %>%
+  mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - "),
+         status_broed = paste(status, broedcode, sep = " - ")) %>%
+  full_join(dubbels_2022_df_broed2, by = c("plotnaam", "periode_in_jaar", 
+                                           "status", "broedcode")) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, broedcode, 
+           status_broed, waarnemerscode, ervaring, n) %>%
+  group_by(status_broed) %>%
+  mutate(gemiddelde = median(n))
+
+# Voeg waarnemernamen en -variabelen toe bij nultellingen
+fill_na <- dubbels_2022_df_broed2 %>%
+  expand(nesting(plotnaam, periode_in_jaar, status)) %>%
+  full_join(dubbels_2022_df_broed2, by = c("plotnaam", "periode_in_jaar", 
+                                           "status")) %>%
+  select(plotnaam, periode_in_jaar, status, waarnemerscode2 = waarnemerscode, 
+         ervaring2 = ervaring)
+
+dubbels_2022_df_broed_soortenrijkdom <- dubbels_2022_df_broed_soortenrijkdom %>%
+  full_join(fill_na, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  mutate(waarnemerscode = coalesce(waarnemerscode, waarnemerscode2),
+         ervaring = coalesce(ervaring, ervaring2)) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, broedcode, 
+           status_broed, waarnemerscode, ervaring, n, gemiddelde)
+
+# Overlaid histograms
+ggplot(dubbels_2022_df_broed_soortenrijkdom) +
+  geom_histogram(aes(x = n, fill = status_broed), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_broed),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+
+# Density plots with semi-transparent fill
+ggplot(dubbels_2022_df_broed_soortenrijkdom, aes(x = n, fill = status_broed)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_broed),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+```
+
+De verticale lijn geeft de mediaan aan.
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(unique(dubbels_2022_df_broed_soortenrijkdom$plaatstijd)))
+
+dubbels_2022_df_broed_soortenrijkdom %>%
+  mutate(broedcode = factor(paste("broedcode", broedcode, sep = " "),
+                            levels = c("broedcode 0", "broedcode > 0"),
+                            ordered = TRUE)) %>%
+  ggplot() +
+    geom_jitter(aes(x = status, y = n, shape = ervaring), 
+                width = 0.2, height = 0) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    guides(colour = "none") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal soorten", x = "") +
+    facet_grid(~broedcode)
+```
+
+
+### Modellen fitten
+
+We fitten 3 modellen met **brms**. We voegen nu ook een interactie toe tussen broedcode en status.
+
+- Normaal verdeling
+- Poisson verdeling
+- Negatief binomiaal verdeling
+
+```{r}
+model_path <- "./src/markdown/mas/brms_models/"
+
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 4000          # number of iterations (incl. burn-in)
+burnin <- niter / 2    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+
+# 1. Normal
+dubbel_soorten_norm2 <- brm(
+  bf(n ~ status*broedcode + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_broed_soortenrijkdom, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_norm2"),
+  file_refit = "on_change")
+
+# 2. Poisson
+dubbel_soorten_pois2 <- brm(
+  bf(n ~ status*broedcode + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_broed_soortenrijkdom, family = poisson(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_pois2"),
+  file_refit = "on_change")
+
+# 3. Negative binomial
+dubbel_soorten_negbin2 <- brm(
+  bf(n ~ status*broedcode + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_broed_soortenrijkdom, family = negbinomial(), 
+  seed = 1234, chains = nchains, warmup = burnin, iter = niter, 
+  cores = nparallel, control = list(adapt_delta = 0.9),
+  file = paste0(model_path, "dubbel_soorten_negbin2"),
+  file_refit = "on_change")
+```
+
+### Model selectie
+
+We vergelijken de modellen gebruikmakend van leave-one-out cross-validation.
+
+```{r}
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm2.rds"))) {
+  fit_dubbel_soorten_norm2 <- add_criterion(dubbel_soorten_norm2, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_norm2"))
+  fit_dubbel_soorten_pois2 <- add_criterion(dubbel_soorten_pois2, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_pois2"))
+  fit_dubbel_soorten_negbin2 <- add_criterion(dubbel_soorten_negbin2, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_negbin2"))
+} else {
+  fit_dubbel_soorten_norm2 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_norm2.rds"))
+  fit_dubbel_soorten_pois2 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_pois2.rds"))
+  fit_dubbel_soorten_negbin2 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_negbin2.rds"))
+}
+```
+
+```{r}
+# Comparison among models
+models_soorten2 <- data.frame(
+  naam = c("normaal", 
+           "poisson", 
+           "negatief binomiaal"),
+  model = c("fit_dubbel_soorten_norm2", 
+            "fit_dubbel_soorten_pois2", 
+            "fit_dubbel_soorten_negbin2"))
+
+
+loo_compare(
+    fit_dubbel_soorten_norm2, 
+    fit_dubbel_soorten_pois2, 
+    fit_dubbel_soorten_negbin2, 
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_soorten2, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+```{r}
+fit_dubbel_soorten_norm2$data <- fit_dubbel_soorten_norm2$data %>%
+  mutate(statusbroed = paste(status, broedcode))
+
+pp_check(fit_dubbel_soorten_norm2, type = "dens_overlay_grouped", ndraws = 100, 
+         group = "statusbroed")
+
+fit_dubbel_soorten_pois2$data <- fit_dubbel_soorten_pois2$data %>%
+  mutate(statusbroed = paste(status, broedcode))
+
+pp_check(fit_dubbel_soorten_pois2, type = "bars_grouped", ndraws = 100, 
+         group = "statusbroed", facet_args = list(ncol = 1, scales = "free_y"))
+
+fit_dubbel_soorten_negbin2$data <- fit_dubbel_soorten_negbin2$data %>%
+  mutate(statusbroed = paste(status, broedcode))
+
+pp_check(fit_dubbel_soorten_negbin2, type = "bars_grouped", ndraws = 100, 
+         group = "statusbroed", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Hoewel we de fit niet ideaal is, besluiten we dat de Poisson verdeling het beste past bij de data. Een normaalverdeling zou in dit geval ook negatieve aantallen toelaten (dit was geen probleem bij enkel broedcode > 0 omdat de aantallen daar hoger lagen). De resultaten voor alle drie de modellen zijn gelijkaardig.
+  
+We zien goede convergentie.
+
+```{r}
+plot(fit_dubbel_soorten_pois2)
+```
+
+
+### Selectie random effects
+
+```{r}
+dubbel_soorten_pois22 <- brm(
+  bf(n ~ status*broedcode + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_broed_soortenrijkdom, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_pois22"),
+  file_refit = "on_change")
+
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_soorten_pois22.rds"))) {
+  fit_dubbel_soorten_pois22 <- add_criterion(dubbel_soorten_pois22, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_pois22"))
+} else {
+  fit_dubbel_soorten_pois22 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_pois22.rds"))
+}
+
+# Comparison among models
+models_norm <- data.frame(
+  naam = c("plotnaam:periode_in_jaar", 
+           "plotnaam en plotnaam:periode_in_jaar"),
+  model = c("fit_dubbel_soorten_pois22", 
+            "fit_dubbel_soorten_pois2"))
+
+
+loo_compare(
+    fit_dubbel_soorten_pois2, 
+    fit_dubbel_soorten_pois22, 
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_norm, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+We beschouwen het finale model met random effects `plotnaam` en `plotnaam:periode_in_jaar`.
+
+```{r}
+finaal_soorten2 <- fit_dubbel_soorten_pois2
+```
+
+
+### Resultaten finale model
+
+```{r}
+sum_finaal_soorten2 <- summary(finaal_soorten2)
+sum_finaal_soorten2
+```
+
+$$
+\beta_0 : \text{professioneel + broedcode 0}\\
+\beta_1 : \text{vrijwilliger}\\
+\beta_2 : \text{broedcode > 0}\\
+\beta_3 : \text{vrijwilliger * broedcode > 0}\\
+$$
+
+Is er een verschil in aantal soorten met broedcode 0 tussen professionele teller vs. vrijwilliger?
+
+$$
+\beta_0 = \beta_0 + \beta_1\\
+\Rightarrow \beta_1 = 0
+$$
+
+```{r}
+effect_broed_nul <- hypothesis(
+  x = finaal_soorten2,
+  "statusvrijwilliger = 0",
+  class = "b", alpha = 0.05)
+
+effect_broed_nul
+plot(effect_broed_nul)
+```
+
+Is er een verschil in aantal soorten met broedcode groter dan 0 tussen professionele teller vs. vrijwilliger?
+
+$$
+\beta_0 + \beta_2 = \beta_0 + \beta_1 + \beta_2 + \beta_3\\
+\Rightarrow \beta_1 + \beta_3= 0
+$$
+
+```{r}
+effect_broed_groot <- hypothesis(
+  x = finaal_soorten2,
+  "statusvrijwilliger + statusvrijwilliger:broedcode.L = 0",
+  class = "b", alpha = 0.05)
+
+effect_broed_groot
+plot(effect_broed_groot)
+```
+
+Is er een verschil in aantal soorten tussen de professionele teller en vrijwilligers over broedcodes heen?
+
+$$
+\frac{1}{2}\beta_0 + \frac{1}{2}(\beta_0 + \beta_2) = \frac{1}{2}(\beta_0 + \beta_1) + \frac{1}{2}(\beta_0 + \beta_1 + \beta_2 + \beta_3)\\
+\Rightarrow \beta_0 + \frac{1}{2}\beta_2 = \beta_0 + \beta_1 + \frac{1}{2}\beta_2 + \frac{1}{2}\beta_3\\
+\Rightarrow \beta_1 + \frac{1}{2}\beta_3= 0
+$$
+
+```{r}
+effect_status <- hypothesis(
+  x = finaal_soorten2,
+  "statusvrijwilliger +  (1/2) * statusvrijwilliger:broedcode.L = 0",
+  class = "b", alpha = 0.05)
+
+effect_status
+plot(effect_status)
+```
+
+Is er een verschil in het effect van de broedcodes?
+
+$$
+\beta_3 = 0
+$$
+
+```{r}
+effect_broed <- hypothesis(
+  x = finaal_soorten2,
+  "statusvrijwilliger:broedcode.L = 0",
+  class = "b", alpha = 0.05)
+
+effect_broed
+plot(effect_broed)
+```
+
+## Conclusie
+
+```{r, include=FALSE}
+ll_soorten2_broed_nul <- round(exp(effect_broed_nul$hypothesis$CI.Lower) - 1, 3)
+ul_soorten2_broed_nul <- round(exp(effect_broed_nul$hypothesis$CI.Upper) - 1, 3)
+
+ll_soorten2_broed_groot <- round(
+  exp(effect_broed_groot$hypothesis$CI.Lower) - 1, 3)
+ul_soorten2_broed_groot <- round(
+  exp(effect_broed_groot$hypothesis$CI.Upper) - 1, 3)
+
+ll_soorten2_broed <- round(exp(effect_broed$hypothesis$CI.Lower) - 1, 3)
+ul_soorten2_broed <- round(exp(effect_broed$hypothesis$CI.Upper) - 1, 3)
+```
+
+Zowel voor broedcode 0 als broedcode groter dan 0 zien we dat de professionele teller meer soorten ziet dan de vrijwilligers (95% CI resp. `r ll_soorten2_broed_nul * 100` tot `r ul_soorten2_broed_nul * 100` % en `r ll_soorten2_broed_groot * 100` tot `r ul_soorten2_broed_groot * 100` % verschil). Het verschil in het aantal soorten gezien door de professionele teller vs. de vrijwilligers is niet significant verschillend voor broedcode 0 en broedcode groter dan 0 (95% CI `r ll_soorten2_broed_nul * 100` tot `r ul_soorten2_broed_nul * 100` % verschil).  
+Model fit was echter niet ideaal, maar gebasseerd op de  posterior predictive check zou het verschil van broedcode 0 tussen professioneel en vrijwilliger in werkelijkheid allicht nog extremer zijn (onderschatting aantal nullen door model). Hoe dan ook hebben we genoeg bewijs dat er geen compensatie optreedt wanneer we broedcode 0 in beschouwing nemen. Zowel voor broedcode 0 en broedcode groter dan nul zien vrijwilligers minder soorten dan de professionele teller.  
+De exploratieve figuren tonen eenzelfde trend voor aantal waarnemingen. Dit is logisch, hoe meer waarnemingen, hoe groter de kans dat je ook meer soorten zal gezien hebben. Deze twee hangen dus sterk samen.
+
+## Waarnemingen
+
+We controleren en kwantificeren dit effect ook voor aantal waarnemingen.
+
+```{r}
+dubbels_2022_df_broed_waarnemingen <- dubbels_2022_df_broed2 %>%
+  group_by(plotnaam, periode_in_jaar, status, broedcode) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  full_join(design_broed2, by = c("plotnaam", "periode_in_jaar", "status", 
+                                  "broedcode")) %>%
+  replace(is.na(.), 0) %>%
+  mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - "),
+         status_broed = paste(status, broedcode, sep = " - ")) %>%
+  full_join(dubbels_2022_df_broed2, by = c("plotnaam", "periode_in_jaar", 
+                                           "status", "broedcode")) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, broedcode, 
+           status_broed, waarnemerscode, ervaring, n) %>%
+  group_by(status_broed) %>%
+  mutate(gemiddelde = median(n))
+
+# Voeg waarnemernamen en -variabelen toe bij nultellingen
+fill_na <- dubbels_2022_df_broed2 %>%
+  expand(nesting(plotnaam, periode_in_jaar, status)) %>%
+  full_join(dubbels_2022_df_broed2, by = c("plotnaam", "periode_in_jaar", 
+                                           "status")) %>%
+  select(plotnaam, periode_in_jaar, status, waarnemerscode2 = waarnemerscode, 
+         ervaring2 = ervaring)
+
+dubbels_2022_df_broed_waarnemingen <- dubbels_2022_df_broed_waarnemingen %>%
+  full_join(fill_na, by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  mutate(waarnemerscode = coalesce(waarnemerscode, waarnemerscode2),
+         ervaring = coalesce(ervaring, ervaring2)) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, broedcode, 
+           status_broed, waarnemerscode, ervaring, n, gemiddelde)
+
+# Overlaid histograms
+ggplot(dubbels_2022_df_broed_waarnemingen) +
+  geom_histogram(aes(x = n, fill = status_broed), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_broed),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal waarnemingen")
+
+# Density plots with semi-transparent fill
+ggplot(dubbels_2022_df_broed_waarnemingen, aes(x = n, fill = status_broed)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_broed),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal waarnemingen")
+```
+
+De verticale lijn geeft de mediaan aan.
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(unique(dubbels_2022_df_broed_waarnemingen$plaatstijd)))
+
+dubbels_2022_df_broed_waarnemingen %>%
+  mutate(broedcode = factor(paste("broedcode", broedcode, sep = " "),
+                            levels = c("broedcode 0", "broedcode > 0"),
+                            ordered = TRUE)) %>%
+  ggplot() +
+    geom_jitter(aes(x = status, y = n, shape = ervaring), 
+                width = 0.2, height = 0) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    guides(colour = "none") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal waarnemingen", x = "") +
+    facet_grid(~broedcode)
+```
+
+### Model fit
+
+We fitten het finale Poisson model van het aantal soorten, maar nu met aantal waarnemingen als respons.
+
+```{r}
+dubbel_waarnemingen_pois2 <- brm(
+  bf(n ~ status*broedcode + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = dubbels_2022_df_broed_waarnemingen, family = poisson(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_waarnemingen_pois2"),
+  file_refit = "on_change")
+```
+
+Model fit is opnieuw niet ideaal, maar goed genoeg om verder te werken.
+
+```{r}
+dubbel_waarnemingen_pois2$data <- dubbel_waarnemingen_pois2$data %>%
+  mutate(statusbroed = paste(status, broedcode))
+
+pp_check(dubbel_waarnemingen_pois2, type = "bars_grouped", ndraws = 100, 
+         group = "statusbroed", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+We zien goede convergentie.
+
+```{r}
+plot(dubbel_waarnemingen_pois2)
+```
+
+### Resultaten finale model
+
+```{r}
+summary(dubbel_waarnemingen_pois2)
+```
+
+
+Is er een verschil in het effect van de broedcodes?
+
+$$
+\beta_3 = 0
+$$
+
+```{r}
+effect_broed2 <- hypothesis(
+  x = dubbel_waarnemingen_pois2,
+  "statusvrijwilliger:broedcode.L = 0",
+  class = "b", alpha = 0.05)
+
+effect_broed2
+plot(effect_broed2)
+```
+
+Zoals verwacht zien we ook hier geen differentieel effect van broedcode in aantal waarnemingen tussen professionele teller en vrijwilligers.
+
+# Verschil in ervaring
+
+## Statistische test
+
+Is er een verschil in het aantal soorten gemeld door ervaren vs. beginnende vrijwillige tellers?  
+  
+$\text{H}_0$: Er is geen verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers.  
+$\text{H}_a$: Er is wel een verschil in het aantal soorten/waarnemingen gemeld door beginnende vs. ervaren vrijwilligers. 
+
+Omdat we met paarsgewijze verschillen zitten maken we een variabele `ervaring_plot` die toelaat om plots geteld door ervaren vrijwilligers te vergelijken met dezelfde plots geteld door de professionele teller en plots geteld door beginnende vrijwilligers te vergelijken met dezelfde plots geteld door de professionele teller.
+
+```{r}
+df_ervaring <- dubbels_2022_df_soortenrijkdom %>%
+  mutate(ervaring_plot = case_when(
+          plotnaam %in% ervaren_plots ~ "ervaren plots",
+          plotnaam %in% beginner_plots ~ "beginner plots"
+          ),
+        status_ervaring = paste(status, ervaring_plot)) %>%
+  group_by(status_ervaring) %>%
+  mutate(gemiddelde = median(n), .groups = "drop")
+
+# Overlaid histograms
+ggplot(df_ervaring) +
+  geom_histogram(aes(x = n, fill = status_ervaring), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_ervaring),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+
+# Density plots with semi-transparent fill
+ggplot(df_ervaring, aes(x = n, fill = status_ervaring)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_ervaring),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal soorten")
+```
+
+De verticale lijn geeft de mediaan aan.
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9, 
+             name = 'Set1'))(length(unique(df_ervaring$plaatstijd)))
+
+df_ervaring %>%
+  ggplot() +
+    geom_jitter(aes(x = status, y = n), width = 0.2, height = 0) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    guides(colour = "none") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal soorten", x = "") +
+    facet_grid(~ervaring_plot)
+
+df_ervaring %>%
+  ggplot() +
+    geom_boxplot(aes(x = ervaring_plot, y = n)) +
+    geom_jitter(aes(x = ervaring_plot, y = n), 
+                col = "firebrick", width = 0.2, height = 0) +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal soorten", x = "") +
+    facet_grid(~status)
+```
+
+### Modellen fitten
+
+We fitten 3 modellen met **brms**. We voegen nu een interactie 'ervaring plot' toe met status.
+
+- Normaal verdeling
+- Poisson verdeling
+- Negatief binomiaal verdeling
+
+```{r}
+model_path <- "./src/markdown/mas/brms_models/"
+
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 4000          # number of iterations (incl. burn-in)
+burnin <- niter / 2    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+
+# 1. Normal
+dubbel_soorten_norm3 <- brm(
+  bf(n ~ status*ervaring_plot + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = df_ervaring, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.9),
+  file = paste0(model_path, "dubbel_soorten_norm3"),
+  file_refit = "on_change")
+
+# 2. Poisson
+dubbel_soorten_pois3 <- brm(
+  bf(n ~ status*ervaring_plot + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = df_ervaring, family = poisson(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_soorten_pois3"),
+  file_refit = "on_change")
+
+# 3. Negative binomial
+dubbel_soorten_negbin3 <- brm(
+  bf(n ~ status*ervaring_plot + (1 | plotnaam) + (1 | plotnaam:periode_in_jaar)), 
+  data = df_ervaring, family = negbinomial(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.9),
+  file = paste0(model_path, "dubbel_soorten_negbin3"),
+  file_refit = "on_change")
+```
+
+### Model selectie
+
+We vergelijken de modellen gebruikmakend van leave-one-out cross-validation.
+
+```{r}
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm3.rds"))) {
+  fit_dubbel_soorten_norm3 <- add_criterion(dubbel_soorten_norm3, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_norm3"))
+  fit_dubbel_soorten_pois3 <- add_criterion(dubbel_soorten_pois3, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_pois3"))
+  fit_dubbel_soorten_negbin3 <- add_criterion(dubbel_soorten_negbin3, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_negbin3"))
+} else {
+  fit_dubbel_soorten_norm3 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_norm3.rds"))
+  fit_dubbel_soorten_pois3 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_pois3.rds"))
+  fit_dubbel_soorten_negbin3 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_negbin3.rds"))
+}
+```
+
+```{r}
+# Comparison among models
+models_soorten3 <- data.frame(
+  naam = c("normaal", 
+           "poisson", 
+           "negatief binomiaal"),
+  model = c("fit_dubbel_soorten_norm3", 
+            "fit_dubbel_soorten_pois3", 
+            "fit_dubbel_soorten_negbin3"))
+
+
+loo_compare(
+    fit_dubbel_soorten_norm3, 
+    fit_dubbel_soorten_pois3, 
+    fit_dubbel_soorten_negbin3, 
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_soorten3, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+```{r}
+fit_dubbel_soorten_norm3$data <- fit_dubbel_soorten_norm3$data %>%
+  mutate(statuservaring = paste(status, ervaring_plot))
+
+pp_check(fit_dubbel_soorten_norm3, type = "dens_overlay_grouped", ndraws = 100, 
+         group = "statuservaring")
+
+fit_dubbel_soorten_pois3$data <- fit_dubbel_soorten_pois3$data %>%
+  mutate(statuservaring = paste(status, ervaring_plot))
+
+pp_check(fit_dubbel_soorten_pois3, type = "bars_grouped", ndraws = 100, 
+         group = "statuservaring", 
+         facet_args = list(ncol = 1, scales = "free_y"))
+
+fit_dubbel_soorten_negbin3$data <- fit_dubbel_soorten_negbin3$data %>%
+  mutate(statuservaring = paste(status, ervaring_plot))
+
+pp_check(fit_dubbel_soorten_negbin3, type = "bars_grouped", ndraws = 100, 
+         group = "statuservaring", 
+         facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Hoewel we de fit niet ideaal is, besluiten we dat de Normaal verdeling het beste past bij de data.
+  
+We zien goede convergentie.
+
+```{r}
+plot(fit_dubbel_soorten_norm3)
+```
+
+
+### Selectie random effects
+
+```{r}
+dubbel_soorten_norm32 <- brm(
+  bf(n ~ status*ervaring_plot + (1 | plotnaam:periode_in_jaar)),
+  data = df_ervaring, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.9),
+  file = paste0(model_path, "dubbel_soorten_norm32"),
+  file_refit = "on_change")
+
+# Perform leave-one-out cross-validation
+if (!file.exists(paste0(model_path, "fit_dubbel_soorten_norm32.rds"))) {
+  fit_dubbel_soorten_norm32 <- add_criterion(dubbel_soorten_norm32, 
+    criterion = c("loo"), 
+    file = paste0(model_path, "fit_dubbel_soorten_norm32"))
+} else {
+  fit_dubbel_soorten_norm32 <- readRDS(paste0(model_path, 
+                                             "fit_dubbel_soorten_norm32.rds"))
+}
+
+# Comparison among models
+models_norm3 <- data.frame(
+  naam = c("plotnaam:periode_in_jaar", 
+           "plotnaam en plotnaam:periode_in_jaar"),
+  model = c("fit_dubbel_soorten_norm32", 
+            "fit_dubbel_soorten_norm3"))
+
+
+loo_compare( 
+    fit_dubbel_soorten_norm32, 
+    fit_dubbel_soorten_norm3, 
+    criterion = "loo") %>%
+  as.data.frame() %>%
+  rownames_to_column("model") %>%
+  left_join(models_norm3, by = "model") %>%
+  select(model = naam, elpd_loo, p_loo, looic, elpd_diff, se_diff) %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+We beschouwen het finale model met random effects `plotnaam:periode_in_jaar`.
+
+```{r}
+finaal_soorten3 <- fit_dubbel_soorten_norm32
+```
+
+
+### Resultaten finale model
+
+```{r}
+sum_finaal_soorten3 <- summary(fit_dubbel_soorten_norm32)
+sum_finaal_soorten3
+```
+
+
+$$
+\beta_0 : \text{professioneel + beginner plots}\\
+\beta_1 : \text{vrijwilliger}\\
+\beta_2 : \text{ervaren plots}\\
+\beta_3 : \text{vrijwilliger * ervaren plots}\\
+$$
+
+Is er een verschil in aantal soorten tussen beginnende vrijwilligers en ervaren vrijwilligers?
+
+$$
+\beta_0 + \beta_1 = \beta_0 + \beta_1 + \beta_2 + \beta_3\\
+\Rightarrow \beta_2 + \beta_3= 0
+$$
+
+```{r}
+effect_ervaring <- hypothesis(
+  x = finaal_soorten3,
+  "ervaring_plotervarenplots + statusvrijwilliger:ervaring_plotervarenplots = 0",
+  class = "b", alpha = 0.05)
+
+effect_ervaring
+plot(effect_ervaring)
+```
+
+## Conclusie
+
+```{r, include=FALSE}
+ll_soorten3_ervaring <- round(effect_ervaring$hypothesis$CI.Lower, 3)
+ul_soorten3_ervaring <- round(effect_ervaring$hypothesis$CI.Upper, 3)
+```
+
+Er is geen significant verschil in aantal soorten gezien door beginnende vs. ervaren vrijwilligers (95% CI `r ll_soorten3_ervaring` tot `r ul_soorten3_ervaring`).
+
+## Waarnemingen
+
+We controleren en kwantificeren dit effect ook voor aantal waarnemingen.
+
+```{r}
+df_ervaring2 <- dubbels_2022_df_waarnemingen %>%
+  mutate(ervaring_plot = case_when(
+          plotnaam %in% ervaren_plots ~ "ervaren plots",
+          plotnaam %in% beginner_plots ~ "beginner plots"
+          ),
+        status_ervaring = paste(status, ervaring_plot)) %>%
+  group_by(status_ervaring) %>%
+  mutate(gemiddelde = median(n), .groups = "drop")
+
+# Overlaid histograms
+ggplot(df_ervaring2) +
+  geom_histogram(aes(x = n, fill = status_ervaring), binwidth = 1, alpha = 0.5, 
+                 position = "identity") +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_ervaring),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal waarnemingen")
+
+# Density plots with semi-transparent fill
+ggplot(df_ervaring2, aes(x = n, fill = status_ervaring)) + 
+  geom_density(alpha = 0.5) +
+  geom_vline(aes(xintercept = gemiddelde,  colour = status_ervaring),
+             linetype = "dashed", size = 1) +
+  coord_cartesian(xlim = c(0, NA)) +
+  labs(x = "aantal waarnemingen")
+```
+
+De verticale lijn geeft de mediaan aan.
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9, 
+             name = 'Set1'))(length(unique(df_ervaring2$plaatstijd)))
+
+df_ervaring2 %>%
+  ggplot() +
+    geom_jitter(aes(x = status, y = n), width = 0.2, height = 0) +
+    geom_line(aes(x = status, y = n, group = plaatstijd, colour = plaatstijd)) +
+    scale_colour_manual(values = palette) +
+    guides(colour = "none") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal waarnemingen", x = "") +
+    facet_grid(~ervaring_plot)
+
+df_ervaring2 %>%
+  ggplot() +
+    geom_boxplot(aes(x = ervaring_plot, y = n)) +
+    geom_jitter(aes(x = ervaring_plot, y = n), 
+                col = "firebrick", width = 0.2, height = 0) +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal waarnemingen", x = "") +
+    facet_grid(~status)
+```
+
+### Model fit
+
+We fitten het finale model van het aantal soorten, maar nu met aantal waarnemingen als respons.
+
+```{r}
+dubbel_waarnemingen_norm32 <- brm(
+  bf(n ~ status*ervaring_plot + (1 | plotnaam:periode_in_jaar)),
+  data = df_ervaring2, family = gaussian(), seed = 1234,
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  file = paste0(model_path, "dubbel_waarnemingen_norm32"),
+  file_refit = "on_change")
+```
+
+Model fit is niet ideaal, maar goed genoeg om verder te werken.
+
+```{r}
+dubbel_waarnemingen_norm32$data <- dubbel_waarnemingen_norm32$data %>%
+  mutate(statuservaring = paste(status, ervaring_plot))
+
+pp_check(dubbel_waarnemingen_norm32, type = "dens_overlay_grouped", 
+         ndraws = 100, group = "statuservaring")
+```
+
+We zien goede convergentie.
+
+```{r}
+plot(dubbel_waarnemingen_norm32)
+```
+
+### Resultaten finale model
+
+```{r}
+summary(dubbel_waarnemingen_norm32)
+```
+
+Is er een verschil in aantal waarnemingen tussen beginnende vrijwilligers en ervaren vrijwilligers?
+
+$$
+\beta_2 + \beta_3 = 0
+$$
+
+```{r}
+effect_ervaring2 <- hypothesis(
+  x = dubbel_waarnemingen_norm32,
+  "ervaring_plotervarenplots + statusvrijwilliger:ervaring_plotervarenplots = 0",
+  class = "b", alpha = 0.05)
+
+effect_ervaring2
+plot(effect_ervaring2)
+```
+
+Zoals verwacht zien we ook hier geen significant verschil in aantal waarnemingen tussen beginnende en ervaren vrijwilligers.
+
+
+# Correlatie aantal soorten en aantal waarnemingen
+
+We hebben het verschil tussen professionele teller en vrijwilligers getest op basis van het aantal soorten en het aantal waarnemingen. Dit zijn geen onafhankelijke maten. Dit is logisch, hoe meer waarnemingen, hoe groter de kans dat je ook meer soorten zal gezien hebben. In dit deel visualiseren we dit even.
+
+```{r}
+dubbels_corr_df <- dubbels_2022_df %>%
+  group_by(plotnaam, periode_in_jaar, status) %>%
+  summarize(n_soorten = n_distinct(naam), 
+            n_waarnemingen = n(),
+            .groups = "drop") %>%
+  ungroup() %>%
+  mutate(plaatstijd = paste(plotnaam, periode_in_jaar, sep = " - ")) %>%
+  full_join(dubbels_2022_df, 
+            by = c("plotnaam", "periode_in_jaar", "status")) %>%
+  distinct(plotnaam, periode_in_jaar, plaatstijd, status, waarnemerscode, 
+           ervaring, n_soorten, n_waarnemingen) %>%
+  mutate(plot_stat = paste(plotnaam, status))
+
+dubbels_corr_df %>%
+  ggplot(aes(x = n_waarnemingen, y = n_soorten)) +
+    geom_point() +
+    labs(y = "aantal soorten", x = "aantal waarnemingen")
+```
+
+We zien inderdaad dat het aantal soorten toeneemt met het aantal waarnemingen. Dit vlakt wel af naarmate het aantal waarnemingen toeneemt. Elk punt is een aantal op een plot in een bepaalde telperiode.  
+De volgende figuur toont de verschillen tussen de professionele en vrijwillige tellers met effecten per plot met intercept gelijk aan nul (geen soorten bij nul waarnemingen).
+
+```{r}
+dubbels_corr_df %>%
+  ggplot(aes(x = log(n_waarnemingen), y = n_soorten, col = status,
+             group = plot_stat)) +
+    geom_point() +
+    geom_smooth(method = lm,
+                formula = 'y ~ 0 + x',
+                se     = FALSE,
+                size   = .5, 
+                alpha  = .8
+                ) + 
+    labs(y = "aantal soorten", x = "log(aantal waarnemingen)")
+```
+
+## Model fit
+
+We fitten een model waarbij de intercepten voor zowel de professionele teller ($\beta_0$) als de vrijwilligers ($\beta_0 + \beta_2$) gelijk zijn aan nul (nul soorten bij nul waarnemingen). We krijgen dus enkel een slope voor de professionele teller ($\beta_1$) en een slope voor de vrijwilligers ($\beta_1 + \beta_3$). We voegen random slopes toe per plot $j$ voor professionelen ($b_1$) en vrijwilligers ($b_1 + b_2$).
+
+$$
+\text{E}(Y_{ij}) = \beta_{1}\ln{(X_{wnm, i})} + \beta_{2}\ln{(X_{wnm, i})}\times X_{status, i}  + b_{1,j}\ln{(X_{wnm, i})} + b_{2,j}\ln{(X_{wnm, i})}\times X_{status, i}
+$$
+
+We zien goede fit en convergentie.
+
+```{r}
+corr_soorten_waarnemingen <- brm(
+    bf(n_soorten ~ 0 + log(n_waarnemingen) + log(n_waarnemingen):status 
+       + (0 + log(n_waarnemingen) + log(n_waarnemingen):status | plotnaam), 
+       cmc = FALSE),
+    data = dubbels_corr_df, family = gaussian(), seed = 1234, 
+    chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+    control = list(adapt_delta = 0.95))
+
+pp_check(corr_soorten_waarnemingen , type = "dens_overlay_grouped", 
+         ndraws = 100, group = "status")
+
+plot(corr_soorten_waarnemingen)
+```
+
+## Resultaten
+
+```{r}
+summary(corr_soorten_waarnemingen)
+```
+
+
+Visualisatie respons schaal:
+
+```{r}
+min_prof <- dubbels_corr_df %>% 
+  filter(status == "professioneel") %>%
+  pull(n_waarnemingen) %>% min()
+max_prof <- dubbels_corr_df %>% 
+  filter(status == "professioneel") %>%
+  pull(n_waarnemingen) %>% max()
+min_vrij <- dubbels_corr_df %>% 
+  filter(status == "vrijwilliger") %>%
+  pull(n_waarnemingen) %>% min()
+max_vrij <- dubbels_corr_df %>% 
+  filter(status == "vrijwilliger") %>%
+  pull(n_waarnemingen) %>% max()
+
+new_df <- tibble(
+  n_waarnemingen = 
+    c(seq(from = min_prof, to = max_prof, 
+          length.out = nrow(dubbels_corr_df) / 2),
+      seq(from = min_vrij, to = max_vrij, 
+          length.out = nrow(dubbels_corr_df) / 2)),
+  status = rep(c("professioneel", "vrijwilliger"), 
+               each = nrow(dubbels_corr_df) / 2))
+
+fit <- fitted(corr_soorten_waarnemingen,
+              scale = "response",
+              re_formula = NA,
+              newdata = new_df) %>%
+  as_tibble() %>%
+  bind_cols(new_df)
+
+dubbels_corr_df %>%
+  ggplot(aes(x = n_waarnemingen, y = n_soorten, col = status)) +
+    geom_point() +
+    geom_smooth(data = fit, 
+                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5),
+                stat = "identity") +
+    coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
+    labs(y = "aantal soorten", x = "aantal waarnemingen")
+```
+
+Visualisatie log schaal:
+
+```{r}
+fit_lin <- fitted(corr_soorten_waarnemingen,
+              scale = "linear",
+              re_formula = NA,
+              newdata = new_df) %>%
+  as_tibble() %>%
+  bind_cols(new_df)
+
+dubbels_corr_df %>%
+  ggplot(aes(x = log(n_waarnemingen), y = n_soorten, col = status)) +
+    geom_point() +
+    geom_smooth(data = fit_lin, 
+                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5),
+                stat = "identity", size = 1.2) +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal soorten", x = "log(aantal waarnemingen)")
+```
+
+Is de curve gelijk voor professionele en vrijwillige tellers?
+
+$$
+\beta_2 = 0
+$$
+
+```{r}
+hyp_curve <- hypothesis(corr_soorten_waarnemingen,
+  "logn_waarnemingen:statusvrijwilliger = 0",
+  class = "b", alpha = 0.05)
+hyp_curve
+plot(hyp_curve)
+```
+
+```{r}
+slope_prof <- hypothesis(corr_soorten_waarnemingen,
+  "logn_waarnemingen*log(2) = 0",
+  class = "b", alpha = 0.05)
+
+slope_vrij <- hypothesis(corr_soorten_waarnemingen,
+  "(logn_waarnemingen + logn_waarnemingen:statusvrijwilliger)*log(2) = 0",
+  class = "b", alpha = 0.05)
+```
+
+De curve voor professionele en vrijwillige tellers verschillen significant van elkaar. Het aantal soorten neemt sneller toe met aantal waarnemingen voor professionele teller dan voor vrijwilligers. Een verdubbeling van aantal waarnemingen komt bijvoorbeeld overeen met een toename van `r round(slope_prof$hypothesis$Estimate, 2)` soorten voor de professionele teller (95 %  CI: `r round(slope_prof$hypothesis$CI.Lower, 2)` tot `r round(slope_prof$hypothesis$CI.Upper, 2)`) en een toename van `r round(slope_vrij$hypothesis$Estimate, 2)` soorten voor vrijwillige tellers (95 %  CI: `r round(slope_vrij$hypothesis$CI.Lower, 2)` tot `r round(slope_vrij$hypothesis$CI.Upper, 2)`).
+
+
+# Samenvatting
+
+Onze primaire interesse ging uit naar een verschil tussen professionele teller en vrijwilligers voor soorten met broedcode groter dan nul. We zien dat vrijwilligers een significant minder aantal waarnemingen en soorten melden dan de professionele teller.
+
+```{r}
+tibble(maat              = c("aantal soorten", "aantal waarnemingen"),
+       professioneel_est = c(sum_finaal_soorten1$fixed$Estimate[1],
+                             sum_finaal_waarnemingen1$fixed$Estimate[1]),
+       vrijwilliger_est  = c(sum(sum_finaal_soorten1$fixed$Estimate),
+                             sum(sum_finaal_waarnemingen1$fixed$Estimate)),
+       verschil_est      = c(hyp_soorten1$hypothesis$Estimate, 
+                             hyp_waarnemingen1$hypothesis$Estimate),
+       verschil_ll       = c(hyp_soorten1$hypothesis$CI.Lower, 
+                             hyp_waarnemingen1$hypothesis$CI.Lower),
+       verschil_ul       = c(hyp_soorten1$hypothesis$CI.Upper, 
+                             hyp_waarnemingen1$hypothesis$CI.Upper)) %>%
+  kable(digits = 2)
+```
+
+```{r}
+# Raw data to plot
+plot_data_df <- dubbels_corr_df %>%
+  pivot_longer(cols = c("n_soorten", "n_waarnemingen"), names_to = "cat",
+               values_to = "n") %>%
+  mutate(cat = ifelse(cat == "n_soorten", "soorten", "waarnemingen"))
+
+# Model estimates to plot
+soorten_prof <- hypothesis(x = finaal_soorten1, "Intercept = 0", class = "b", 
+                           alpha = 0.05)
+soorten_vrij <- hypothesis(x = finaal_soorten1, 
+                           "Intercept + statusvrijwilliger = 0", class = "b", 
+                           alpha = 0.05)
+
+waarnemingen_prof <- hypothesis(x = finaal_waarnemingen1, "Intercept = 0", 
+                                class = "b", alpha = 0.05)
+waarnemingen_vrij <- hypothesis(x = finaal_waarnemingen1, 
+                           "Intercept + statusvrijwilliger = 0", class = "b", 
+                           alpha = 0.05)
+
+# visualise
+rbind.data.frame(soorten_prof$hypothesis,
+                 soorten_vrij$hypothesis, 
+                 waarnemingen_prof$hypothesis, 
+                 waarnemingen_vrij$hypothesis) %>%
+  mutate(status = rep(c("professioneel", "vrijwilliger"), times = 2),
+         cat = rep(c("soorten", "waarnemingen"), each = 2)) %>%
+  ggplot(aes(y = Estimate, x = status)) + 
+    geom_jitter(data = plot_data_df, aes(x = status, y = n), 
+                col = "firebrick", width = 0.2, height = 0, alpha = 0.1) +
+    geom_point(aes(colour = status), size = 4) +
+    geom_errorbar(aes(ymin = CI.Lower, ymax = CI.Upper, colour = status), 
+                  width = 0.2) +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(x = "", y = "aantal") +
+    facet_grid(~cat)
+```
+
+Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zouden noteren met broedcode 0, maar minder met broedcode > 0. Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_broed2$hypothesis$CI.Lower, 2)` tot `r round(effect_broed2$hypothesis$CI.Upper, 2)`).
+
+Ook vonden we dat er geen significant verschil was in aantal soorten (data broedcode > 0) tussen beginnende en ervaren vrijwilligers (95 %  CI: `r round(effect_ervaring$hypothesis$CI.Lower, 2)` tot `r round(effect_ervaring$hypothesis$CI.Upper, 2)`). Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_ervaring2$hypothesis$CI.Lower, 2)` tot `r round(effect_ervaring2$hypothesis$CI.Upper, 2)`).
+
+We moeten opmerken dat deze resultaten gebaseerd zijn op modellen die niet altijd een goede weerspiegeling waren van de data. De respons data waren aantallen en dus positief en discreet van aard. Desondanks kozen we vaak voor modellen met een normaal verdeling. Dit gaf eenvoudig interpreteerbare resultaten en was ook vaak niet problematisch omdat de aantallen vaak hoog genoeg lagen (en er dus geen negatieve waarden zouden voorspeld worden door het model). In verschillende gevallen werden de resultaten van de Poisson en Negatief binomiaal modellen vergeleken met het Normaal model. Na omrekenen gaven deze modellen gelijkaardige resultaten. Bovendien waren we telkens geïnteresseerd in specifieke hypotheses. Hoewel precieze credible intervals van de verschillende modellen wel verschilden, gaven ze wel een eenduidig antwoord op onze vragen. Deze waren ook telkens in lijn met de data exploratie.
+
+Ten slotte kozen we het aantal soorten en het aantal waarnemingen als maten om te achterhalen of tellingen van vrijwilligers en de professionele teller gelijkaardige resultaten opleverden. Dit zijn geen onafhankelijke maten. Zoals verwacht toonden we aan dat deze log lineair verwant zijn aan elkaar. Hoe meer waarnemingen, hoe meer soorten. Naarmate het aantal waarnemingen een bepaalde grootte overschrijdt, vlakt het aantal soorten af. Ook hier zagen we een verschil tussen professionele en vrijwillige tellers met over de totale range van aantal waarnemingen een lager aantal soorten gezien door vrijwillige tellers (95 %  CI: `r round(hyp_curve$hypothesis$CI.Lower, 2)` tot `r round(hyp_curve$hypothesis$CI.Upper, 2)`).
