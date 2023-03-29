@@ -1306,5 +1306,5 @@ Het resultaat wordt als CSV en KML teruggestuurd. Een eerste kolom `beslissing` 
 
 Een tweede kolom wordt toegevoegd `vervangen door`. Dit is enkel ingevuld bij een geschrapt punt uit de eerste set met de pointid van het punt waardoor het vervangen word uit de reserve set.  
   
-Uiteindelijk moeten we tot een CSV komen waarbij enkel de punten *behouden* van de eerste batch en *vervanging* van de reserve batch geüpload worden in Avimap (met tellerscode erbij).
+Uiteindelijk moeten we tot een CSV komen waarbij enkel de punten *behouden* van de eerste batch en *vervanging* van de reserve batch geüpload worden in Avimap (met tellerscode erbij). Overlappen met reeds getelde MAS punten worden niet meegegeven (0 punten).
 
