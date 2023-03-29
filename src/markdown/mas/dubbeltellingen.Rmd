@@ -885,7 +885,7 @@ De statistische testen tonen aan dat er inderdaad een significant verschil is tu
 Beschouw $Y_{ijk}$ een observatie $i$ van een aantal soorten in eenzelfde plot $j$ en eenzelfde telperiode $k$. Deze observaties zijn door zowel een professionele teller $X_{status} = 0$ als een vrijwillige teller $X_{status} = 1$ gedaan. We voegen een random effect toe van telperiode genest in plot $b_{1}$. Bovendien kunnen aantallen van eenzelfde plot meer op elkaar lijken dan aantallen dan aantallen van verschillende plots. We voegen ook een random effect toe van plot $b_{2}$. In een later stadium kunnen we testen of deze laatste noodzakelijk is.
 
 $$
-g(\text{E}(Y_{ijk})) = \beta_0 + \beta_{1}X_{status} + b_{1,jk} + b_{2,k}
+g(\text{E}(Y_{ijk})) = \beta_0 + \beta_{1}X_{status, i} + b_{1,jk} + b_{2,k}
 $$
 
 We fitten 3 modellen met **brms** met verschillende responsdistributies (en link functies $g()$).
@@ -2488,13 +2488,35 @@ dubbels_corr_df %>%
 
 We zien inderdaad dat het aantal soorten toeneemt met het aantal waarnemingen. Dit vlakt wel af naarmate het aantal waarnemingen toeneemt. Elk punt is een aantal op een plot in een bepaalde telperiode.
 
-We fitten een model. We zien goede fit en convergentie.
+We fitten een model waarbij de intercepten voor zowel de professionele teller ($\beta_0$) als de vrijwilligers ($\beta_0 + \beta_2$) gelijk zijn aan nul (nul soorten bij nul waarnemingen). We krijgen dus enkel een slope voor de professionele teller ($\beta_1$) en een slope voor de vrijwilligers ($\beta_1 + \beta_3$). 
+
+$$
+\text{E}(Y_{ij}) = \beta_{1}\ln{(X_{wnm, i})} + \beta_{2}\ln{(X_{wnm, i})}\times X_{status, i}  + b_{1,j}\ln{(X_{wnm, i})} + b_{2,j}\ln{(X_{wnm, i})}\times X_{status, i}
+$$
+
+We zien goede fit en convergentie.
 
 ```{r}
 corr_soorten_waarnemingen <- brm(
-  bf(n_soorten ~ 0 + log(n_waarnemingen)*status  + (1 | plotnaam)),
-  data = dubbels_corr_df, family = gaussian(), seed = 1234,
-  chains = nchains, warmup = burnin, iter = niter, cores = nparallel)
+  bf(n_soorten ~ 0 + log(n_waarnemingen) + log(n_waarnemingen):status 
+     + (1 | plotnaam), cmc = FALSE),
+  data = dubbels_corr_df, family = gaussian(), seed = 1234, 
+  chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+  control = list(adapt_delta = 0.95))
+
+test <- brm(
+    bf(n_soorten ~ 0 + log(n_waarnemingen) + log(n_waarnemingen):status 
+       + (0 + log(n_waarnemingen) + log(n_waarnemingen):status | plotnaam), cmc = FALSE),
+    data = dubbels_corr_df, family = gaussian(), seed = 1234, 
+    chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+    control = list(adapt_delta = 0.95))
+
+test2 <- brm(
+    bf(n_soorten ~ 0 + log(n_waarnemingen) + log(n_waarnemingen):status 
+       + (0 + log(n_waarnemingen) | plotnaam), cmc = FALSE),
+    data = dubbels_corr_df, family = gaussian(), seed = 1234, 
+    chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
+    control = list(adapt_delta = 0.95))
 
 pp_check(corr_soorten_waarnemingen , type = "dens_overlay_grouped", 
          ndraws = 100, group = "status")
@@ -2540,6 +2562,22 @@ dubbels_corr_df %>%
                 stat = "identity") +
     coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
     labs(y = "aantal soorten", x = "aantal waarnemingen")
+
+fit_lin <- fitted(corr_soorten_waarnemingen,
+              scale = "linear",
+              re_formula = NA,
+              newdata = new_df) %>%
+  as_tibble() %>%
+  bind_cols(new_df)
+
+dubbels_corr_df %>%
+  ggplot(aes(x = log(n_waarnemingen), y = n_soorten)) +
+    geom_point(aes(col = status)) +
+    geom_smooth(data = fit_lin, 
+                aes(y = Estimate, ymin = Q2.5, ymax = Q97.5, colour = status),
+                stat = "identity") +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(y = "aantal soorten", x = "log(aantal waarnemingen)")
 ```
 
 Is de curve gelijk voor professionele en vrijwillige tellers?
