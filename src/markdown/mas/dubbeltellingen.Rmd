@@ -2612,7 +2612,7 @@ hyp_curve
 plot(hyp_curve)
 ```
 
-```{r, include=FALSE}
+```{r}
 slope_prof <- hypothesis(corr_soorten_waarnemingen,
   "logn_waarnemingen*log(2) = 0",
   class = "b", alpha = 0.05)
@@ -2622,7 +2622,7 @@ slope_vrij <- hypothesis(corr_soorten_waarnemingen,
   class = "b", alpha = 0.05)
 ```
 
-De curve voor professionele en vrijwillige tellers verschillen significant van elkaar. Het aantal soorten neemt sneller toe met aantal waarnemingen voor professionele teller dan voor vrijwilligers. Een verdubbeling van aantal waarnemingen komt overeen met een toename van `r round(slope_prof$hypothesis$Estimate, 2)` soorten voor de professionele teller (95 %  CI: `r round(slope_prof$hypothesis$CI.Lower, 2)` tot `r round(slope_prof$hypothesis$CI.Upper, 2)`) en een toename van `r round(slope_vrij$hypothesis$Estimate, 2)` soorten voor vrijwillige tellers (95 %  CI: `r round(slope_vrij$hypothesis$CI.Lower, 2)` tot `r round(slope_vrij$hypothesis$CI.Upper, 2)`).
+De curve voor professionele en vrijwillige tellers verschillen significant van elkaar. Het aantal soorten neemt sneller toe met aantal waarnemingen voor professionele teller dan voor vrijwilligers. Een verdubbeling van aantal waarnemingen komt bijvoorbeeld overeen met een toename van `r round(slope_prof$hypothesis$Estimate, 2)` soorten voor de professionele teller (95 %  CI: `r round(slope_prof$hypothesis$CI.Lower, 2)` tot `r round(slope_prof$hypothesis$CI.Upper, 2)`) en een toename van `r round(slope_vrij$hypothesis$Estimate, 2)` soorten voor vrijwillige tellers (95 %  CI: `r round(slope_vrij$hypothesis$CI.Lower, 2)` tot `r round(slope_vrij$hypothesis$CI.Upper, 2)`).
 
 
 # Samenvatting
@@ -2688,4 +2688,4 @@ Ook vonden we dat er geen significant verschil was in aantal soorten (data broed
 
 We moeten opmerken dat deze resultaten gebaseerd zijn op modellen die niet altijd een goede weerspiegeling waren van de data. De respons data waren aantallen en dus positief en discreet van aard. Desondanks kozen we vaak voor modellen met een normaal verdeling. Dit gaf eenvoudig interpreteerbare resultaten en was ook vaak niet problematisch omdat de aantallen vaak hoog genoeg lagen (en er dus geen negatieve waarden zouden voorspeld worden door het model). In verschillende gevallen werden de resultaten van de Poisson en Negatief binomiaal modellen vergeleken met het Normaal model. Na omrekenen gaven deze modellen gelijkaardige resultaten. Bovendien waren we telkens geïnteresseerd in specifieke hypotheses. Hoewel precieze credible intervals van de verschillende modellen wel verschilden, gaven ze wel een eenduidig antwoord op onze vragen. Deze waren ook telkens in lijn met de data exploratie.
 
-Ten slotte kozen we het aantal soorten en het aantal waarnemingen als maten om te achterhalen of tellingen van vrijwilligers en de professionele teller gelijkaardige resultaten opleverden. Dit zijn geen onafhankelijke maten. Zoals verwacht toonden we aan dat deze log lineair verwant zijn aan elkaar. Hoe meer waarnemingen, hoe meer soorten. Naarmate het aantal waarnemingen een bepaalde grootte overschrijdt, vlakt het aantal soorten af.
+Ten slotte kozen we het aantal soorten en het aantal waarnemingen als maten om te achterhalen of tellingen van vrijwilligers en de professionele teller gelijkaardige resultaten opleverden. Dit zijn geen onafhankelijke maten. Zoals verwacht toonden we aan dat deze log lineair verwant zijn aan elkaar. Hoe meer waarnemingen, hoe meer soorten. Naarmate het aantal waarnemingen een bepaalde grootte overschrijdt, vlakt het aantal soorten af. Ook hier zagen we een verschil tussen professionele en vrijwillige tellers met een tragere toename in aantal soorten per aantal waarnemingen voor vrijwillige tellers (95 %  CI: `r round(hyp_curve$hypothesis$CI.Lower, 2)` tot `r round(hyp_curve$hypothesis$CI.Upper, 2)`).
