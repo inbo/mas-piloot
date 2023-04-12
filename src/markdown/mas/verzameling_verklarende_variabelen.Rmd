@@ -53,3 +53,29 @@ Count data broedvogels (per soort), per telcirkel per telperiode
 
 ## Diversiteit aan hoofdteelten
 
+
+# Verklarende variabelen van secundair belang
+
+## Regio
+
+## Openheid landschap
+
+## Soortbeschermingsplan
+
+## Status teller
+
+## Oppervlakte-aandeel kleine landschapselementen
+
+## Oppervlakte-aandeel biolandbouw
+
+## Perceelsgroottes
+
+## X- en Y-coördinaten
+
+## Inertie beheerovereenkomsten
+
+## Aantal predatoren
+
+## Jaar
+
+## Telperiode
