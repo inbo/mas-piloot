@@ -17,20 +17,23 @@ renv::restore()
 
 # Set up
 library(knitr)
+library(here)
 opts_chunk$set(
   echo = TRUE,
   message = FALSE,
   warning = FALSE)
-opts_knit$set(root.dir = here::here())
+opts_knit$set(root.dir = here())
 
 # Packages
 library(tidyverse)
 library(INBOtheme)
+
+library(sf)
 ```
 
 # Kadering
 
-We willen een evaluatie van het effect van de maatregelen die getroffen worden binnen het agrarisch natuurbeleid op de trends en het voorkomen van akkervogels. Dit per soort, en op plotniveau (telcirkel).
+We willen een evaluatie van het effect van de maatregelen die getroffen worden binnen het agrarisch natuurbeleid op de trends en het voorkomen van akkervogels. Dit per soort, en op plotniveau (telcirkelniveau).
 
 Dit document geeft een overzicht van de verklarende variabelen die we gaan gebruiken in de modellen die we gaan fitten om bovenstaande te onderzoeken.
 
@@ -41,9 +44,89 @@ Dit document geeft een overzicht van de verklarende variabelen die we gaan gebru
 5. Hoe berekend?
 6. Verdere bedenkingen/opmerkingen. Zijn er bijvoorbeeld transformaties nodig?
 
-# Respons variabele
+# Inlezen data
 
-Count data broedvogels (per soort), per telcirkel per telperiode
+We moeten de variabelen bepalen/berekenen op plotniveau (= telcirkelniveau). We hebben dus een lijst nodig met alle plots die geteld zijn, op welke locatie en in welk jaar.
+
+De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON. Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn. Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest). Het kan ook zijn dat het wel bezocht is geweest, maar dat er geen waarnemingen zijn.
+
+> We moeten navragen welke punten bezocht zijn in 2018-2022. Nu weten we enkel dat een plot bezocht is als er ook effectief waarnemingen waren, maar we hebben geen idee in welke plots er nultellingen zijn geweest.
+
+```{r}
+Sys.setenv("PROJ_NETWORK" = "ON")
+sf_proj_network(TRUE)
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+
+# We dplyr::select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# If the grids are installed, this should match the first line of the pipelines object.
+chosen_pipeline_definition <- pipelines %>%
+  dplyr::filter(accuracy < 0.02) %>% 
+  pull(definition)
+
+telpunten_2018_2021 <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger"))
+
+telpunten_2018_2021_amersfoort <- telpunten_2018_2021 %>%
+  st_drop_geometry() %>%
+  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
+
+telpunten_2018_2021 <- st_transform(
+  st_geometry(telpunten_2018_2021_amersfoort), "EPSG:31370",
+  pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(telpunten_2018_2021), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf %>%
+  mutate(regio = gsub("Vlaanderen - ", "", regio),
+         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio),
+         regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio))
+```
+
+
+```{r}
+design2022_raw <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  dplyr::select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370)
+
+plot_bezocht_2022 <- design2022_raw %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam, jaar)
+```
+
+
+```{r}
+telpunten_2018_2021_geom_only <- telpunten_2018_2021 %>%
+  select(plotnaam = naam, regio)
+
+telpunten_2022_geom_only <- design2022_raw %>%
+  select(plotnaam, regio)
+
+# locaties 2022 zijn verkeerd in design_2022 voor VL plots
+telpunten_geom_only <- bind_rows(
+  telpunten_2018_2021_geom_only,
+  telpunten_2022_geom_only %>% filter(!grepl("VL", .$plotnaam))
+)
+```
+
 
 # Verklarende variabelen van prioritair belang
 ## Oppervlakte-aandeel beheerovereenkomsten
