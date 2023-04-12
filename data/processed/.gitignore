@@ -4,4 +4,6 @@ trend_aup_excel.csv
 *.kml
 *.geojson
 steekproef_piloot_controle_gmaps.csv
+MAS netwerk Vlaanderen- Westelijke_leemstreek_telpunten.csv
+MAS netwerk Vlaanderen- Zandleemstreek_telpunten.csv
 !.gitignore
