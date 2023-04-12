@@ -40,3 +40,7 @@ Dit document geeft een overzicht van de verklarende variabelen die we gaan gebru
 4. Hoe verzameld?
 5. Hoe berekend?
 6. Verdere bedenkingen/opmerkingen. Zijn er bijvoorbeeld transformaties nodig?
+
+# Respons variabele
+
+Count data broedvogels (per soort), per telcirkel per telperiode
