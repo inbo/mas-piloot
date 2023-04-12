@@ -46,7 +46,6 @@ Dit document geeft een overzicht van de verklarende variabelen die we gaan gebru
 Count data broedvogels (per soort), per telcirkel per telperiode
 
 # Verklarende variabelen van prioritair belang
-
 ## Oppervlakte-aandeel beheerovereenkomsten
 
 ## Oppervlakte-aandeel hoofdteelten
@@ -55,7 +54,6 @@ Count data broedvogels (per soort), per telcirkel per telperiode
 
 
 # Verklarende variabelen van secundair belang
-
 ## Regio
 
 ## Openheid landschap
@@ -79,3 +77,9 @@ Count data broedvogels (per soort), per telcirkel per telperiode
 ## Jaar
 
 ## Telperiode
+
+
+# Random effects
+## Telpunt
+
+## Jaar
