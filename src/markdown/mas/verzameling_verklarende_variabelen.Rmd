@@ -44,3 +44,12 @@ Dit document geeft een overzicht van de verklarende variabelen die we gaan gebru
 # Respons variabele
 
 Count data broedvogels (per soort), per telcirkel per telperiode
+
+# Verklarende variabelen van prioritair belang
+
+## Oppervlakte-aandeel beheerovereenkomsten
+
+## Oppervlakte-aandeel hoofdteelten
+
+## Diversiteit aan hoofdteelten
+
