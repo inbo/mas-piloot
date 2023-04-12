@@ -27,3 +27,16 @@ opts_knit$set(root.dir = here::here())
 library(tidyverse)
 library(INBOtheme)
 ```
+
+# Kadering
+
+We willen een evaluatie van het effect van de maatregelen die getroffen worden binnen het agrarisch natuurbeleid op de trends en het voorkomen van akkervogels. Dit per soort, en op plotniveau (telcirkel).
+
+Dit document geeft een overzicht van de verklarende variabelen die we gaan gebruiken in de modellen die we gaan fitten om bovenstaande te onderzoeken.
+
+1. Welke variabelen?
+2. Welk datatype (continu, categorisch, proporties, compositioneel ...)?
+3. Waar verzameld?
+4. Hoe verzameld?
+5. Hoe berekend?
+6. Verdere bedenkingen/opmerkingen. Zijn er bijvoorbeeld transformaties nodig?
