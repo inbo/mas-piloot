@@ -148,17 +148,17 @@
     },
     "INBOtheme": {
       "Package": "INBOtheme",
-      "Version": "0.5.11",
+      "Version": "0.6.0",
       "Source": "Repository",
       "Repository": "https://inbo.r-universe.dev",
-      "Remotes": "clauswilke/colorblindr",
       "RemoteUrl": "https://github.com/inbo/inbotheme",
       "RemoteRef": "HEAD",
-      "RemoteSha": "3ec81698ef57495b6480a51805d91cdb383cc10f",
-      "Hash": "beefb1c38c298abf12ebdb5972dc0dd1",
+      "RemoteSha": "efd415e626b2f873b1c1fe872aa55fe7257d250e",
+      "Hash": "e7f7d962abb5a037ab6447e8d9cd1d88",
       "Requirements": [
         "assertthat",
         "colorspace",
+        "conflicted",
         "ggplot2",
         "scales"
       ]
@@ -295,6 +295,16 @@
       "Repository": "CRAN",
       "Hash": "1c0aa18b97e6aaa17f93b8b866c0ace5",
       "Requirements": []
+    },
+    "RcppSimdJson": {
+      "Package": "RcppSimdJson",
+      "Version": "0.1.9",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "f4973b1ae398066b0db9274b7635709c",
+      "Requirements": [
+        "Rcpp"
+      ]
     },
     "RefManageR": {
       "Package": "RefManageR",
@@ -861,6 +871,18 @@
         "tensorA"
       ]
     },
+    "conflicted": {
+      "Package": "conflicted",
+      "Version": "1.2.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "bb097fccb22d156624fd07cd2894ddb6",
+      "Requirements": [
+        "cli",
+        "memoise",
+        "rlang"
+      ]
+    },
     "countrycode": {
       "Package": "countrycode",
       "Version": "1.4.0",
@@ -1382,20 +1404,22 @@
     },
     "ggplot2": {
       "Package": "ggplot2",
-      "Version": "3.3.6",
+      "Version": "3.4.2",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "0fb26d0674c82705c6b701d1a61e02ea",
+      "Hash": "3a147ee02e85a8941aad9909f1b43b7b",
       "Requirements": [
         "MASS",
-        "digest",
+        "cli",
         "glue",
         "gtable",
         "isoband",
+        "lifecycle",
         "mgcv",
         "rlang",
         "scales",
         "tibble",
+        "vctrs",
         "withr"
       ]
     },
@@ -1503,6 +1527,17 @@
       "Repository": "CRAN",
       "Hash": "4f2596dfb05dac67b9dc558e5c6fba2e",
       "Requirements": []
+    },
+    "googlePolylines": {
+      "Package": "googlePolylines",
+      "Version": "0.8.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "6b811143f8e8b18ef4bd6ee4b38b4a9b",
+      "Requirements": [
+        "BH",
+        "Rcpp"
+      ]
     },
     "googledrive": {
       "Package": "googledrive",
@@ -2209,6 +2244,17 @@
       "Hash": "7ce2733a9826b3aeb1775d56fd305472",
       "Requirements": []
     },
+    "mapiso": {
+      "Package": "mapiso",
+      "Version": "0.2.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "e3b5a5d6ee07cee730a38303e51df21c",
+      "Requirements": [
+        "isoband",
+        "sf"
+      ]
+    },
     "mapview": {
       "Package": "mapview",
       "Version": "2.11.0.9002",
@@ -2489,6 +2535,20 @@
       "Requirements": [
         "httr",
         "jsonlite",
+        "sf"
+      ]
+    },
+    "osrm": {
+      "Package": "osrm",
+      "Version": "4.0.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "5cbec2eecfeed5eb5f849603f0da4bd2",
+      "Requirements": [
+        "RcppSimdJson",
+        "curl",
+        "googlePolylines",
+        "mapiso",
         "sf"
       ]
     },
@@ -2975,10 +3035,10 @@
     },
     "rlang": {
       "Package": "rlang",
-      "Version": "1.0.6",
+      "Version": "1.1.0",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "4ed1f8336c8d52c3e750adcdc57228a7",
+      "Hash": "dc079ccd156cde8647360f473c1fa718",
       "Requirements": []
     },
     "rmarkdown": {
@@ -3809,13 +3869,14 @@
     },
     "vctrs": {
       "Package": "vctrs",
-      "Version": "0.4.2",
+      "Version": "0.6.1",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "0e3dfc070b2a8f0478fcdf86fb33355d",
+      "Hash": "06eceb3a5d716fd0654cc23ca3d71a99",
       "Requirements": [
         "cli",
         "glue",
+        "lifecycle",
         "rlang"
       ]
     },
