@@ -393,7 +393,16 @@ telpunten_2018_2022_hfdtlt_div <- telpunten_2018_2022_hfdtlt_long_tot %>%
 
 ### Visualisatie
 
-
+```{r}
+telpunten_2018_2022_hfdtlt_div %>%
+  ggplot() +
+    geom_bar(aes(x = n)) +
+    scale_x_continuous(breaks = seq(0, 20, 2),
+                       limits = c(0, NA)) +
+    labs(title = "Diversiteit aan hoofdteelten",
+         x = "Aantal verschillende hoofdteelten per plot", 
+         y = "Frequentie")
+```
 
 # Verklarende variabelen van secundair belang
 ## Regio
