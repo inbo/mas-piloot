@@ -155,11 +155,22 @@ telpunten_2018_2022_df <- merge(telpunten_2018_2022, as.data.frame(jaar))
 ## Oppervlakte-aandeel beheerovereenkomsten
 ### Beschrijving
 
+Het aandeel oppervlakte aan beheerovereenkomsten binnen de telcirkel (in percent).
 
+Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
+
+-   soortbeschermingsmaatregelen
+    -   perceelsniveau
+    -   randen
+-   erosiemaatregelen
+-   bufferstroken
+
+Voor de steekproeftrekking zijn vooral de oppervlakte aan soortbeschermingsmaatregelen van belang.
+Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
 
 ### Welk datatype?
 
-Continue variabele. Proportie tussen 0 en 1.
+Continue variabele. Percentage tussen 0 en 100.
 
 ### Waar verzameld?
 
@@ -174,6 +185,8 @@ Continue variabele. Proportie tussen 0 en 1.
 `BO_2022_VLM_EXTERN.shp`
 
 ### Hoe berekend?
+
+Elke overeenkomst is een polygoon met informatie over begin en einde van de beheerovereenkomst. Start is steeds op 1 januari en stop is steeds op 31 december. We filteren dus telkens de punten per jaar en we filteren de beheerovereenkomsten zodat ze reeds in werking waren in dat jaar. Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirkel te berekenen.
 
 ```{r}
 add_bo_by_year <- function(punten_df, path_bo) {
@@ -198,7 +211,7 @@ add_bo_by_year <- function(punten_df, path_bo) {
     out_df_year <- add_bo_to_frame(punten_df = punten_df_year, 
                                    bo_layer = bo_layer_year)
     
-    out_list[[i]] <- out_df_year
+    out_list[[i]] <- out_df_year %>% mutate(area_prop_sb = area_prop_sb * 100)
   }
   
   return(do.call(rbind.data.frame, out_list))
@@ -213,19 +226,21 @@ bo_file_2022 <- path_to_bo(jaar = 2022)
 telpunten_2018_2022_df <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
 ```
 
-### Verdere bedenkingen/opmerkingen?
-
 ### Visualisatie
 
 ```{r}
 telpunten_2018_2022_df %>%
   ggplot() +
-  geom_histogram(aes(x = area_prop_sb)) +
-  labs(
-    x = "Oppervlakte-aandeel soortbeschermingsmaatregelen binnen 300 m buffer",
-    y = "Aantal telpunten") +
-  facet_wrap(~jaar)
+    geom_histogram(aes(x = area_prop_sb)) +
+    labs(
+      title = "Oppervlakte-aandeel soortbeschermingsmaatregelen",
+      x = "Percentage (%)",
+      y = "Aantal telpunten") +
+    facet_wrap(~jaar)
 ```
+
+### Opmerkingen
+
 
 
 ## Oppervlakte-aandeel hoofdteelten
@@ -239,9 +254,9 @@ telpunten_2018_2022_df %>%
 
 ### Hoe berekend?
 
-### Verdere bedenkingen/opmerkingen?
-
 ### Visualisatie
+
+### Opmerkingen
 
 ## Diversiteit aan hoofdteelten
 ### Beschrijving
@@ -254,35 +269,164 @@ telpunten_2018_2022_df %>%
 
 ### Hoe berekend?
 
-### Verdere bedenkingen/opmerkingen?
-
 ### Visualisatie
 
 # Verklarende variabelen van secundair belang
 ## Regio
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## Openheid landschap
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## Soortbeschermingsplan
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## Status teller
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## Oppervlakte-aandeel kleine landschapselementen
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## Oppervlakte-aandeel biolandbouw
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## Perceelsgroottes
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## X- en Y-coördinaten
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## Inertie beheerovereenkomsten
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## Aantal predatoren
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## Jaar
+### Beschrijving
+
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 ## Telperiode
+### Beschrijving
 
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
 
 # Random effects
 ## Telpunt
