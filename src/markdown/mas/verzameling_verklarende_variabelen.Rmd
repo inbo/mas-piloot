@@ -153,11 +153,25 @@ telpunten_2018_2022_df <- merge(telpunten_2018_2022, as.data.frame(jaar))
 
 # Verklarende variabelen van prioritair belang
 ## Oppervlakte-aandeel beheerovereenkomsten
+### Beschrijving
+
+
+
 ### Welk datatype?
+
+Continue variabele. Proportie tussen 0 en 1.
 
 ### Waar verzameld?
 
+??
+
+`BO_2022_VLM_EXTERN.shp`
+
 ### Hoe verzameld?
+
+??
+
+`BO_2022_VLM_EXTERN.shp`
 
 ### Hoe berekend?
 
@@ -191,7 +205,6 @@ add_bo_by_year <- function(punten_df, path_bo) {
 }
 ```
 
-
 ```{r}
 # Path to bo file
 bo_file_2022 <- path_to_bo(jaar = 2022)
@@ -204,7 +217,20 @@ telpunten_2018_2022_df <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
 
 ### Visualisatie
 
+```{r}
+telpunten_2018_2022_df %>%
+  ggplot() +
+  geom_histogram(aes(x = area_prop_sb)) +
+  labs(
+    x = "Oppervlakte-aandeel soortbeschermingsmaatregelen binnen 300 m buffer",
+    y = "Aantal telpunten") +
+  facet_wrap(~jaar)
+```
+
+
 ## Oppervlakte-aandeel hoofdteelten
+### Beschrijving
+
 ### Welk datatype?
 
 ### Waar verzameld?
@@ -218,6 +244,8 @@ telpunten_2018_2022_df <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
 ### Visualisatie
 
 ## Diversiteit aan hoofdteelten
+### Beschrijving
+
 ### Welk datatype?
 
 ### Waar verzameld?
