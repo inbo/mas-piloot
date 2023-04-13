@@ -24,6 +24,9 @@ opts_chunk$set(
   warning = FALSE)
 opts_knit$set(root.dir = here())
 
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+
 # Packages
 library(tidyverse)
 library(INBOtheme)
@@ -46,24 +49,24 @@ Dit document geeft een overzicht van de verklarende variabelen die we gaan gebru
 
 # Inlezen data
 
-We moeten de variabelen bepalen/berekenen op plotniveau (= telcirkelniveau). We hebben dus een lijst nodig met alle plots die geteld zijn, op welke locatie en in welk jaar.
+We moeten de variabelen bepalen/berekenen op plotniveau (= telcirkelniveau). We hebben dus een lijst nodig met alle plots die geteld zijn met coördinaten.
 
 De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON. Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn. Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest). Het kan ook zijn dat het wel bezocht is geweest, maar dat er geen waarnemingen zijn.
 
-> We moeten navragen welke punten bezocht zijn in 2018-2022. Nu weten we enkel dat een plot bezocht is als er ook effectief waarnemingen waren, maar we hebben geen idee in welke plots er nultellingen zijn geweest.
+> We moeten navragen welke punten bezocht zijn in 2018-2021. Nu weten we enkel dat een plot bezocht is als er ook effectief waarnemingen waren, maar we hebben geen idee in welke plots er nultellingen zijn geweest.
 
 ```{r}
 Sys.setenv("PROJ_NETWORK" = "ON")
 sf_proj_network(TRUE)
 pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
 
-# We dplyr::select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
 # If the grids are installed, this should match the first line of the pipelines object.
 chosen_pipeline_definition <- pipelines %>%
-  dplyr::filter(accuracy < 0.02) %>% 
+  filter(accuracy < 0.02) %>% 
   pull(definition)
 
-telpunten_2018_2021 <- read_sf(
+telpunten_2018_2021_raw <- read_sf(
   here("data", "mas",
        "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")) %>%
   rename(teller_2021 = teller) %>%
@@ -76,28 +79,32 @@ telpunten_2018_2021 <- read_sf(
         regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
       TRUE ~ "vrijwilliger"))
 
-telpunten_2018_2021_amersfoort <- telpunten_2018_2021 %>%
+telpunten_2018_2021_amersfoort <- telpunten_2018_2021_raw %>%
   st_drop_geometry() %>%
   st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
 
 telpunten_2018_2021 <- st_transform(
   st_geometry(telpunten_2018_2021_amersfoort), "EPSG:31370",
   pipeline = chosen_pipeline_definition) %>% 
-  st_sf(st_drop_geometry(telpunten_2018_2021), geometry = .) %>% 
+  st_sf(st_drop_geometry(telpunten_2018_2021_raw), geometry = .) %>% 
   as_tibble %>% 
   st_as_sf %>%
   mutate(regio = gsub("Vlaanderen - ", "", regio),
          regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio),
          regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio))
+
+design_2018_2021 <- telpunten_2018_2021 %>%
+  select(plotnaam = naam)
 ```
 
+Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden. Wel zijn de locaties in 2022 verkeerd voor VL plots. Dit zijn reeds bestaande plots en zitten dus al in de lijst van 2018-2021. We selecteren voor 2022 dus enkel de nieuwe plots.
 
 ```{r}
-design2022_raw <- read_csv(here(
+design_2022_raw <- read_csv(here(
     "data",
     "processed",
     "steekproef_piloot_avimap.csv")) %>%
-  dplyr::select(plotnaam = definitief_punt,
+  select(plotnaam = definitief_punt,
          regio,
          stratum,
          X, Y) %>%
@@ -107,26 +114,29 @@ design2022_raw <- read_csv(here(
          jaar = 2022L) %>%
   st_as_sf(coords = c("X", "Y"), crs = 31370)
 
-plot_bezocht_2022 <- design2022_raw %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam, jaar)
+design_2022 <- design_2022_raw %>%
+  filter(!grepl("^VL", plotnaam)) %>%
+  select(plotnaam)
 ```
 
+Finaal voegen we alles samen. We behouden enkel plots binnen de perimeters van de pilootstudie: De Moeren en Oostelijke leemstreek.
 
 ```{r}
-telpunten_2018_2021_geom_only <- telpunten_2018_2021 %>%
-  select(plotnaam = naam, regio)
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
 
-telpunten_2022_geom_only <- design2022_raw %>%
-  select(plotnaam, regio)
-
-# locaties 2022 zijn verkeerd in design_2022 voor VL plots
-telpunten_geom_only <- bind_rows(
-  telpunten_2018_2021_geom_only,
-  telpunten_2022_geom_only %>% filter(!grepl("VL", .$plotnaam))
-)
+telpunten_2018_2022 <- bind_rows(design_2018_2021, design_2022) %>%
+  st_intersection(perimeters) %>%
+  select(plotnaam, regio = Naam)
 ```
 
+In totaal gaat het om `r nrow(telpunten_2018_2022)` telpunten. `r nrow(filter(telpunten_2018_2022, regio == "De Moeren"))` in De Moeren en `r nrow(filter(telpunten_2018_2022, regio == "Oostelijke leemstreek"))` in de Oostelijke leemstreek.
+
+```{r}
+ggplot() +
+  geom_sf(data = perimeters, colour = "firebrick") +
+  geom_sf(data = telpunten_2018_2022, size = 0.5)
+```
 
 # Verklarende variabelen van prioritair belang
 ## Oppervlakte-aandeel beheerovereenkomsten
