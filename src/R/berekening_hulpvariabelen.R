@@ -48,10 +48,13 @@ add_bo2021_to_frame <- function(
 
 add_bo_to_frame <- function(
     punten_df,
-    path_bo
+    path_bo,
+    bo_layer = NULL
     ) {
 
-  bo_layer <- read_bo(path = path_bo)
+  if (is.null(bo_layer)) {
+    bo_layer <- read_bo(path = path_bo)
+  }
 
   points_bo <- landusemetrics_grid_cell(
     grid_cell = punten_df %>%
