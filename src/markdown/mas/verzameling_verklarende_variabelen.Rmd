@@ -155,7 +155,7 @@ telpunten_2018_2022_df <- merge(telpunten_2018_2022, as.data.frame(jaar))
 ## Oppervlakte-aandeel beheerovereenkomsten
 ### Beschrijving
 
-Het aandeel oppervlakte aan beheerovereenkomsten binnen de telcirkel (in percent).
+Het aandeel oppervlakte aan beheerovereenkomsten binnen de telcirkel.
 
 Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
 
@@ -241,18 +241,32 @@ telpunten_2018_2022_bo %>%
 
 ### Opmerkingen
 
-
+- In percentage of proportie?
 
 ## Oppervlakte-aandeel hoofdteelten
 ### Beschrijving
 
+Het aandeel oppervlakte aan verschillende hoofdteelten binnen de telcirkel. Gegroepeerd volgens gewasgroep.
+
 ### Welk datatype?
+
+Continu, compositionele proporties.
 
 ### Waar verzameld?
 
-Belangrijkste teelten in 2022. Voorlopige kaart. Finale kaart wordt eind maart gepubliceerd.
+Belangrijkste teelten 2018-2021:
+https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2018  
+https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2019  
+https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2020  
+https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2021
+
+Belangrijkste teelten in 2022:
+https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen  
+Voorlopige kaart. Finale kaart wordt eind april gepubliceerd (?).
 
 ### Hoe verzameld?
+
+Download van urls.
 
 Omzetten naar .parquet file. Bijvoorbeeld voor 2019:
 
@@ -267,6 +281,8 @@ sfarrow::st_write_parquet(obj = file,
 
 ### Hoe berekend?
 
+Voor elk jaar hebben we een aparte file. We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar. Daarna gebruiken we de `calc_lbg()` functie om de proporties per telcirkel te berekenen.
+
 ```{r}
 calc_lbg_by_year <- function(punten_df) {
   # Loop over years
@@ -280,24 +296,85 @@ calc_lbg_by_year <- function(punten_df) {
     punten_df_year <- punten_df %>% filter(jaar == year)
     lbg_file_year <- path_to_lbg(jaar = year)
     
-    out_df_year <- calc_lbg(path = lbg_file,
-                            punten_sf = telpunten_2018_2022_df)
+    out_df_year <- calc_lbg(path = lbg_file_year,
+                            punten_sf = punten_df_year)
     
-    out_list[[i]] <- out_df_year
+    out_list[[i]] <- out_df_year %>% mutate(jaar = year)
   }
   
   return(do.call(rbind.data.frame, out_list)) 
 }
 ```
 
+We groeperen per gewasgroep. Voor sommige gewasgroepen is er geen data (`NA`). Er zijn twee categoriën.
+
+1. GEWASGROEP is `NA` en LBLHFDTLT is `NA`
+2. GEWASGROEP is `NA` en LBLHFDTLT is Flageolets (voor de boon), Zomerhaver of Winterhaver
+
+In het eerste geval komen de polygonen ook effectief niet met landbouwpercelen overeen. Die kunnen we dus wegfilteren. In het tweede geval moeten we de GEWASGROEP manueel aanvullen.
+
+-  Flageolets (voor de boon) $\rightarrow$ Groenten, kruiden en sierplanten
+-  Zomerhaver, Winterhaver $\rightarrow$ Granen, zaden en peulvruchten
+
 ```{r}
 # Add proportion main crop per year
-telpunten_2018_2022_hfdtlt <- calc_lbg_by_year(telpunten_2018_2022_df)
+telpunten_2018_2022_hfdtlt_long_tot <- calc_lbg_by_year(telpunten_2018_2022_df)
+telpunten_2018_2022_hfdtlt_long <- telpunten_2018_2022_hfdtlt_long_tot %>%
+  ungroup() %>%
+  filter(!is.na(LBLHFDTLT)) %>%
+  mutate(GEWASGROEP = case_when(
+    is.na(GEWASGROEP) & LBLHFDTLT %in% c("Zomerhaver", "Winterhaver") ~ 
+      "Granen, zaden en peulvruchten",
+    is.na(GEWASGROEP) & startsWith(LBLHFDTLT, "Flageolets")  ~ 
+      "Granen, zaden en peulvruchten",
+    TRUE ~ GEWASGROEP
+  ))
+
+telpunten_2018_2022_hfdtlt <- telpunten_2018_2022_hfdtlt_long %>%
+  group_by(pointid, jaar, GEWASGROEP) %>%
+  summarise(area_prop_hfdtlt = sum(area_prop), .groups = "drop") %>%
+  pivot_wider(id_cols = c(pointid, jaar), 
+              names_from = GEWASGROEP, 
+              values_from = area_prop_hfdtlt, 
+              values_fill = 0)
 ```
 
 ### Visualisatie
 
+```{r}
+telpunten_2018_2022_hfdtlt_long %>%
+  group_by(jaar, GEWASGROEP) %>%
+  summarise(area_prop_hfdtlt = median(area_prop), .groups = "drop") %>%
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), area_prop_hfdtlt, sum,
+                              decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = GEWASGROEP, y = area_prop_hfdtlt, 
+                 fill = factor(jaar, ordered = TRUE)), 
+             stat = "identity") +
+    labs(title = "Oppervlakte-aandeel gewasgroepen", fill = "Jaar",
+         x = "", y = "Mediaan proportie over telcirkels") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+```{r}
+telpunten_2018_2022_hfdtlt_long %>%
+  group_by(jaar, GEWASGROEP) %>%
+  summarise(mediaan = median(area_prop), 
+            gemiddelde = mean(area_prop),
+            min = min(area_prop),
+            max =  max(area_prop), 
+            .groups = "drop") %>%
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), mediaan, sum,
+                              decreasing = TRUE)) %>%
+  arrange(jaar, GEWASGROEP) %>%
+  kable()
+```
+
 ### Opmerkingen
+
+- In percentage of proportie?
+- Compositionele variabele somt niet to 1. Probleem? Herschalen
+- Additieve log ratio transformatie met `alr()` functie van de **compositions** package
 
 ## Diversiteit aan hoofdteelten
 ### Beschrijving
