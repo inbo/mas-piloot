@@ -32,6 +32,12 @@ library(tidyverse)
 library(INBOtheme)
 
 library(sf)
+library(lubridate)
+
+# Source
+mbag_dir <- here()
+source(file.path("src", "R", "berekening_hulpvariabelen.R"))
+source(file.path("src", "R", "geocomputations.R"))
 ```
 
 # Kadering
@@ -127,7 +133,7 @@ perimeters <- read_sf(
 
 telpunten_2018_2022 <- bind_rows(design_2018_2021, design_2022) %>%
   st_intersection(perimeters) %>%
-  select(plotnaam, regio = Naam)
+  select(pointid = plotnaam, regio = Naam)
 ```
 
 In totaal gaat het om `r nrow(telpunten_2018_2022)` telpunten. `r nrow(filter(telpunten_2018_2022, regio == "De Moeren"))` in De Moeren en `r nrow(filter(telpunten_2018_2022, regio == "Oostelijke leemstreek"))` in de Oostelijke leemstreek.
@@ -138,13 +144,91 @@ ggplot() +
   geom_sf(data = telpunten_2018_2022, size = 0.5)
 ```
 
+Ook gaan we er voorlopig van uit dat elke plot in elk jaar geteld is. Beter voorlopig te veel variabelen berekenen en achteraf filteren dan te weinig.
+
+```{r}
+jaar <- 2018:2022
+telpunten_2018_2022_df <- merge(telpunten_2018_2022, as.data.frame(jaar))
+```
+
 # Verklarende variabelen van prioritair belang
 ## Oppervlakte-aandeel beheerovereenkomsten
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+```{r}
+add_bo_by_year <- function(punten_df, path_bo) {
+  # Read in bo layer and calculate start and stop year
+  bo_layer <- read_bo(path = bo_file_2022)
+  bo_layer2 <- bo_layer %>% 
+    mutate(startjaar = year(START), 
+           stopjaar = year(STOP))
+  
+  # Loop over years
+  years <- unique(punten_df$jaar)
+  out_list <- vector(mode = "list", length = length(years))
+  
+  for (i in seq_along(years)) {
+    year <- years[i]
+    
+    # Filter by year
+    punten_df_year <- punten_df %>% filter(jaar == year)
+    bo_layer_year <- bo_layer2 %>% 
+      filter(startjaar <= year & stopjaar >= year)
+    
+    out_df_year <- add_bo_to_frame(punten_df = punten_df_year, 
+                                   bo_layer = bo_layer_year)
+    
+    out_list[[i]] <- out_df_year
+  }
+  
+  return(do.call(rbind.data.frame, out_list))
+}
+```
+
+
+```{r}
+# Path to bo file
+bo_file_2022 <- path_to_bo(jaar = 2022)
+
+# Add proportion bo per year
+telpunten_2018_2022_df <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
+```
+
+### Verdere bedenkingen/opmerkingen?
+
+### Visualisatie
 
 ## Oppervlakte-aandeel hoofdteelten
+### Welk datatype?
+
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Verdere bedenkingen/opmerkingen?
+
+### Visualisatie
 
 ## Diversiteit aan hoofdteelten
+### Welk datatype?
 
+### Waar verzameld?
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Verdere bedenkingen/opmerkingen?
+
+### Visualisatie
 
 # Verklarende variabelen van secundair belang
 ## Regio
