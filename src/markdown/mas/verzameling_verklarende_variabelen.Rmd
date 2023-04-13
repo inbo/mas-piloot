@@ -299,7 +299,7 @@ calc_lbg_by_year <- function(punten_df) {
     out_df_year <- calc_lbg(path = lbg_file_year,
                             punten_sf = punten_df_year)
     
-    out_list[[i]] <- out_df_year %>% mutate(jaar = year)
+    out_list[[i]] <- out_df_year %>% ungroup() %>% mutate(jaar = year)
   }
   
   return(do.call(rbind.data.frame, out_list)) 
@@ -320,7 +320,6 @@ In het eerste geval komen de polygonen ook effectief niet met landbouwpercelen o
 # Add proportion main crop per year
 telpunten_2018_2022_hfdtlt_long_tot <- calc_lbg_by_year(telpunten_2018_2022_df)
 telpunten_2018_2022_hfdtlt_long <- telpunten_2018_2022_hfdtlt_long_tot %>%
-  ungroup() %>%
   filter(!is.na(LBLHFDTLT)) %>%
   mutate(GEWASGROEP = case_when(
     is.na(GEWASGROEP) & LBLHFDTLT %in% c("Zomerhaver", "Winterhaver") ~ 
@@ -387,7 +386,14 @@ telpunten_2018_2022_hfdtlt_long %>%
 
 ### Hoe berekend?
 
+```{r}
+telpunten_2018_2022_hfdtlt_div <- telpunten_2018_2022_hfdtlt_long_tot %>%
+  count(pointid, jaar)
+```
+
 ### Visualisatie
+
+
 
 # Verklarende variabelen van secundair belang
 ## Regio
