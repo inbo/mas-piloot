@@ -223,13 +223,13 @@ add_bo_by_year <- function(punten_df, path_bo) {
 bo_file_2022 <- path_to_bo(jaar = 2022)
 
 # Add proportion bo per year
-telpunten_2018_2022_df <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
+telpunten_2018_2022_bo <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
 ```
 
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_df %>%
+telpunten_2018_2022_bo %>%
   ggplot() +
     geom_histogram(aes(x = area_prop_sb)) +
     labs(
@@ -250,9 +250,50 @@ telpunten_2018_2022_df %>%
 
 ### Waar verzameld?
 
+Belangrijkste teelten in 2022. Voorlopige kaart. Finale kaart wordt eind maart gepubliceerd.
+
 ### Hoe verzameld?
 
+Omzetten naar .parquet file. Bijvoorbeeld voor 2019:
+
+```
+file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
+                              "Lbgbrprc19.shp"), query = NA)
+
+sfarrow::st_write_parquet(obj = file, 
+                          dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
+                                          "lbgbrprc2019.parquet"), chunk_size = 10000)
+```
+
 ### Hoe berekend?
+
+```{r}
+calc_lbg_by_year <- function(punten_df) {
+  # Loop over years
+  years <- unique(punten_df$jaar)
+  out_list <- vector(mode = "list", length = length(years))
+  
+  for (i in seq_along(years)) {
+    year <- years[i]
+    
+    # Filter by year
+    punten_df_year <- punten_df %>% filter(jaar == year)
+    lbg_file_year <- path_to_lbg(jaar = year)
+    
+    out_df_year <- calc_lbg(path = lbg_file,
+                            punten_sf = telpunten_2018_2022_df)
+    
+    out_list[[i]] <- out_df_year
+  }
+  
+  return(do.call(rbind.data.frame, out_list)) 
+}
+```
+
+```{r}
+# Add proportion main crop per year
+telpunten_2018_2022_hfdtlt <- calc_lbg_by_year(telpunten_2018_2022_df)
+```
 
 ### Visualisatie
 
