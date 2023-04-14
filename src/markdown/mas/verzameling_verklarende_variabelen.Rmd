@@ -234,7 +234,7 @@ telpunten_2018_2022_bo %>%
     geom_histogram(aes(x = area_prop_sb)) +
     labs(
       title = "Oppervlakte-aandeel soortbeschermingsmaatregelen",
-      x = "Percentage (%)",
+      x = "Oppervlakte-aandeel (%)",
       y = "Aantal telpunten") +
     facet_wrap(~jaar)
 ```
@@ -401,8 +401,11 @@ telpunten_2018_2022_hfdtlt_div %>%
                        limits = c(0, NA)) +
     labs(title = "Diversiteit aan hoofdteelten",
          x = "Aantal verschillende hoofdteelten per plot", 
-         y = "Frequentie")
+         y = "Frequentie") +
+    facet_wrap(~jaar)
 ```
+
+### Opmerkingen
 
 # Verklarende variabelen van secundair belang
 ## Regio
@@ -418,6 +421,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 
 ### Visualisatie
 
+### Opmerkingen
+
 ## Openheid landschap
 ### Beschrijving
 
@@ -430,6 +435,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Hoe berekend?
 
 ### Visualisatie
+
+### Opmerkingen
 
 ## Soortbeschermingsplan
 ### Beschrijving
@@ -444,6 +451,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 
 ### Visualisatie
 
+### Opmerkingen
+
 ## Status teller
 ### Beschrijving
 
@@ -456,6 +465,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Hoe berekend?
 
 ### Visualisatie
+
+### Opmerkingen
 
 ## Oppervlakte-aandeel kleine landschapselementen
 ### Beschrijving
@@ -470,6 +481,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 
 ### Visualisatie
 
+### Opmerkingen
+
 ## Oppervlakte-aandeel biolandbouw
 ### Beschrijving
 
@@ -482,6 +495,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Hoe berekend?
 
 ### Visualisatie
+
+### Opmerkingen
 
 ## Perceelsgroottes
 ### Beschrijving
@@ -496,6 +511,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 
 ### Visualisatie
 
+### Opmerkingen
+
 ## X- en Y-coördinaten
 ### Beschrijving
 
@@ -508,6 +525,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Hoe berekend?
 
 ### Visualisatie
+
+### Opmerkingen
 
 ## Inertie beheerovereenkomsten
 ### Beschrijving
@@ -522,6 +541,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 
 ### Visualisatie
 
+### Opmerkingen
+
 ## Aantal predatoren
 ### Beschrijving
 
@@ -534,6 +555,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Hoe berekend?
 
 ### Visualisatie
+
+### Opmerkingen
 
 ## Jaar
 ### Beschrijving
@@ -548,6 +571,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 
 ### Visualisatie
 
+### Opmerkingen
+
 ## Telperiode
 ### Beschrijving
 
@@ -560,6 +585,8 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Hoe berekend?
 
 ### Visualisatie
+
+### Opmerkingen
 
 # Random effects
 ## Telpunt
