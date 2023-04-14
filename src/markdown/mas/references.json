@@ -461,14 +461,24 @@
                 "given": "Popko"
             }
         ],
-        "id": "klaassen",
+        "genre": "GKA-rapport 2022-01",
+        "id": "klaassen2022",
+        "issued": {
+            "date-parts": [
+                [
+                    2022
+                ]
+            ]
+        },
         "key": "P7DDYTLK",
         "language": "nl",
         "libraryid": "1",
         "page": "60",
         "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Grauwe Kiekendief – Kenniscentrum Akkervogels",
+        "publisher-place": "Scheemda",
         "source": "Zotero",
         "title": "Evaluatie van de effecten van het agrarisch natuurbeheer op voorkomen en trends van akkervogels in de provincie Groningen 2015 - 2020",
-        "type": "article-journal"
+        "type": "report"
     }
 ]
