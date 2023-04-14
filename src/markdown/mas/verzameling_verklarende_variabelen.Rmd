@@ -10,6 +10,7 @@ output:
     toc_collapsed: true
 editor_options: 
   chunk_output_type: console
+bibliography: references.json
 ---
 
 ```{r setup, include=FALSE}
@@ -42,24 +43,30 @@ source(file.path("src", "R", "geocomputations.R"))
 
 # Kadering
 
-We willen een evaluatie van het effect van de maatregelen die getroffen worden binnen het agrarisch natuurbeleid op de trends en het voorkomen van akkervogels. Dit per soort, en op plotniveau (telcirkelniveau).
+We willen een evaluatie van het effect van de maatregelen die getroffen worden binnen het agrarisch natuurbeleid op de trends en het voorkomen van akkervogels.
+Dit per soort, en op plotniveau (telcirkelniveau).
 
 Dit document geeft een overzicht van de verklarende variabelen die we gaan gebruiken in de modellen die we gaan fitten om bovenstaande te onderzoeken.
 
-1. Welke variabelen?
-2. Welk datatype (continu, categorisch, proporties, compositioneel ...)?
-3. Waar verzameld?
-4. Hoe verzameld?
-5. Hoe berekend?
-6. Verdere bedenkingen/opmerkingen. Zijn er bijvoorbeeld transformaties nodig?
+1.  Welke variabelen?
+2.  Welk datatype (continu, categorisch, proporties, compositioneel ...)?
+3.  Waar verzameld?
+4.  Hoe verzameld?
+5.  Hoe berekend?
+6.  Verdere bedenkingen/opmerkingen. Zijn er bijvoorbeeld transformaties nodig?
 
 # Inlezen data
 
-We moeten de variabelen bepalen/berekenen op plotniveau (= telcirkelniveau). We hebben dus een lijst nodig met alle plots die geteld zijn met coördinaten.
+We moeten de variabelen bepalen/berekenen op plotniveau (= telcirkelniveau).
+We hebben dus een lijst nodig met alle plots die geteld zijn met coördinaten.
 
-De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON. Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn. Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest). Het kan ook zijn dat het wel bezocht is geweest, maar dat er geen waarnemingen zijn.
+De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON.
+Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn.
+Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest).
+Het kan ook zijn dat het wel bezocht is geweest, maar dat er geen waarnemingen zijn.
 
-> We moeten navragen welke punten bezocht zijn in 2018-2021. Nu weten we enkel dat een plot bezocht is als er ook effectief waarnemingen waren, maar we hebben geen idee in welke plots er nultellingen zijn geweest.
+> We moeten navragen welke punten bezocht zijn in 2018-2021.
+> Nu weten we enkel dat een plot bezocht is als er ook effectief waarnemingen waren, maar we hebben geen idee in welke plots er nultellingen zijn geweest.
 
 ```{r}
 Sys.setenv("PROJ_NETWORK" = "ON")
@@ -103,7 +110,10 @@ design_2018_2021 <- telpunten_2018_2021 %>%
   select(plotnaam = naam)
 ```
 
-Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden. Wel zijn de locaties in 2022 verkeerd voor VL plots. Dit zijn reeds bestaande plots en zitten dus al in de lijst van 2018-2021. We selecteren voor 2022 dus enkel de nieuwe plots.
+Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden.
+Wel zijn de locaties in 2022 verkeerd voor VL plots.
+Dit zijn reeds bestaande plots en zitten dus al in de lijst van 2018-2021.
+We selecteren voor 2022 dus enkel de nieuwe plots.
 
 ```{r}
 design_2022_raw <- read_csv(here(
@@ -125,7 +135,8 @@ design_2022 <- design_2022_raw %>%
   select(plotnaam)
 ```
 
-Finaal voegen we alles samen. We behouden enkel plots binnen de perimeters van de pilootstudie: De Moeren en Oostelijke leemstreek.
+Finaal voegen we alles samen.
+We behouden enkel plots binnen de perimeters van de pilootstudie: De Moeren en Oostelijke leemstreek.
 
 ```{r}
 perimeters <- read_sf(
@@ -136,7 +147,8 @@ telpunten_2018_2022 <- bind_rows(design_2018_2021, design_2022) %>%
   select(pointid = plotnaam, regio = Naam)
 ```
 
-In totaal gaat het om `r nrow(telpunten_2018_2022)` telpunten. `r nrow(filter(telpunten_2018_2022, regio == "De Moeren"))` in De Moeren en `r nrow(filter(telpunten_2018_2022, regio == "Oostelijke leemstreek"))` in de Oostelijke leemstreek.
+In totaal gaat het om `r nrow(telpunten_2018_2022)` telpunten.
+`r nrow(filter(telpunten_2018_2022, regio == "De Moeren"))` in De Moeren en `r nrow(filter(telpunten_2018_2022, regio == "Oostelijke leemstreek"))` in de Oostelijke leemstreek.
 
 ```{r}
 ggplot() +
@@ -144,7 +156,8 @@ ggplot() +
   geom_sf(data = telpunten_2018_2022, size = 0.5)
 ```
 
-Ook gaan we er voorlopig van uit dat elke plot in elk jaar geteld is. Beter voorlopig te veel variabelen berekenen en achteraf filteren dan te weinig.
+Ook gaan we er voorlopig van uit dat elke plot in elk jaar geteld is.
+Beter voorlopig te veel variabelen berekenen en achteraf filteren dan te weinig.
 
 ```{r}
 jaar <- 2018:2022
@@ -152,7 +165,9 @@ telpunten_2018_2022_df <- merge(telpunten_2018_2022, as.data.frame(jaar))
 ```
 
 # Verklarende variabelen van prioritair belang
+
 ## Oppervlakte-aandeel beheerovereenkomsten
+
 ### Beschrijving
 
 Het aandeel oppervlakte aan beheerovereenkomsten binnen de telcirkel.
@@ -170,7 +185,8 @@ Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
 
 ### Welk datatype?
 
-Continue variabele. Percentage tussen 0 en 100.
+Continue variabele.
+Percentage tussen 0 en 100.
 
 ### Waar verzameld?
 
@@ -186,7 +202,10 @@ Continue variabele. Percentage tussen 0 en 100.
 
 ### Hoe berekend?
 
-Elke overeenkomst is een polygoon met informatie over begin en einde van de beheerovereenkomst. Start is steeds op 1 januari en stop is steeds op 31 december. We filteren dus telkens de punten per jaar en we filteren de beheerovereenkomsten zodat ze reeds in werking waren in dat jaar. Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirkel te berekenen.
+Elke overeenkomst is een polygoon met informatie over begin en einde van de beheerovereenkomst.
+Start is steeds op 1 januari en stop is steeds op 31 december.
+We filteren dus telkens de punten per jaar en we filteren de beheerovereenkomsten zodat ze reeds in werking waren in dat jaar.
+Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirkel te berekenen.
 
 ```{r}
 add_bo_by_year <- function(punten_df, path_bo) {
@@ -241,12 +260,14 @@ telpunten_2018_2022_bo %>%
 
 ### Opmerkingen
 
-- In percentage of proportie?
+-   In percentage of proportie?
 
-## Oppervlakte-aandeel hoofdteelten
+## Oppervlakte-aandeel hoofdteelten {#opp-hfdtlt}
+
 ### Beschrijving
 
-Het aandeel oppervlakte aan verschillende hoofdteelten binnen de telcirkel. Gegroepeerd volgens gewasgroep.
+Het aandeel oppervlakte aan verschillende hoofdteelten binnen de telcirkel.
+Gegroepeerd volgens gewasgroep.
 
 ### Welk datatype?
 
@@ -254,34 +275,34 @@ Continu, compositionele proporties.
 
 ### Waar verzameld?
 
-Belangrijkste teelten 2018-2021:
-https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2018  
-https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2019  
-https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2020  
-https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2021
+Belangrijkste teelten 2018-2021: <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2018>\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2019>\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2020>\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2021>
 
-Belangrijkste teelten in 2022:
-https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen  
-Voorlopige kaart. Finale kaart wordt eind april gepubliceerd (?).
+Belangrijkste teelten in 2022: <https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>\
+Voorlopige kaart.
+Finale kaart wordt eind april gepubliceerd (?).
 
 ### Hoe verzameld?
 
 Download van urls.
 
-Omzetten naar .parquet file. Bijvoorbeeld voor 2019:
+Omzetten naar .parquet file.
+Bijvoorbeeld voor 2019:
 
-```
-file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
-                              "Lbgbrprc19.shp"), query = NA)
+    file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
+                                  "Lbgbrprc19.shp"), query = NA)
 
-sfarrow::st_write_parquet(obj = file, 
-                          dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
-                                          "lbgbrprc2019.parquet"), chunk_size = 10000)
-```
+    sfarrow::st_write_parquet(obj = file, 
+                              dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
+                                              "lbgbrprc2019.parquet"), chunk_size = 10000)
 
 ### Hoe berekend?
 
-Voor elk jaar hebben we een aparte file. We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar. Daarna gebruiken we de `calc_lbg()` functie om de proporties per telcirkel te berekenen.
+Voor elk jaar hebben we een aparte file.
+We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
+Daarna gebruiken we de `calc_lbg()` functie om de proporties per telcirkel te berekenen.
 
 ```{r}
 calc_lbg_by_year <- function(punten_df) {
@@ -306,15 +327,19 @@ calc_lbg_by_year <- function(punten_df) {
 }
 ```
 
-We groeperen per gewasgroep. Voor sommige gewasgroepen is er geen data (`NA`). Er zijn twee categoriën.
+We groeperen per gewasgroep.
+Voor sommige gewasgroepen is er geen data (`NA`).
+Er zijn twee categoriën.
 
-1. GEWASGROEP is `NA` en LBLHFDTLT is `NA`
-2. GEWASGROEP is `NA` en LBLHFDTLT is Flageolets (voor de boon), Zomerhaver of Winterhaver
+1.  GEWASGROEP is `NA` en LBLHFDTLT is `NA`
+2.  GEWASGROEP is `NA` en LBLHFDTLT is Flageolets (voor de boon), Zomerhaver of Winterhaver
 
-In het eerste geval komen de polygonen ook effectief niet met landbouwpercelen overeen. Die kunnen we dus wegfilteren. In het tweede geval moeten we de GEWASGROEP manueel aanvullen.
+In het eerste geval komen de polygonen ook effectief niet met landbouwpercelen overeen.
+Die kunnen we dus wegfilteren.
+In het tweede geval moeten we de GEWASGROEP manueel aanvullen.
 
--  Flageolets (voor de boon) $\rightarrow$ Groenten, kruiden en sierplanten
--  Zomerhaver, Winterhaver $\rightarrow$ Granen, zaden en peulvruchten
+-   Flageolets (voor de boon) $\rightarrow$ Groenten, kruiden en sierplanten
+-   Zomerhaver, Winterhaver $\rightarrow$ Granen, zaden en peulvruchten
 
 ```{r}
 # Add proportion main crop per year
@@ -371,30 +396,97 @@ telpunten_2018_2022_hfdtlt_long %>%
 
 ### Opmerkingen
 
-- In percentage of proportie?
-- Compositionele variabele somt niet to 1. Probleem? Herschalen
-- Additieve log ratio transformatie met `alr()` functie van de **compositions** package
+-   In percentage of proportie?
+-   Compositionele variabele somt niet to 1. Probleem? Herschalen
+-   Additieve log ratio transformatie met `alr()` functie van de **compositions** package
 
-## Diversiteit aan hoofdteelten
+## Diversiteit aan hoofdteelten (1)
+
 ### Beschrijving
+
+Shannon index als maat voor diversiteit aan hoofdteelten binnen een telcirkel.
 
 ### Welk datatype?
 
+Continu.
+
 ### Waar verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
 
 ### Hoe verzameld?
 
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
 ### Hoe berekend?
 
+We berekenen de Shannon index $H'$ per telcirkel $t$ als volgt:
+
+$$
+H'(t) = - \sum_{i=1}^{C(t)}(p_i(t)*\ln[p_i(t)])
+$$
+
+Met $p_i(t)$ de proportie van teelt $i$ ($i = 1, ..., C(t)$) in telcirkel $t$.
+
+Voor berekening zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
 ```{r}
-telpunten_2018_2022_hfdtlt_div <- telpunten_2018_2022_hfdtlt_long_tot %>%
+telpunten_2018_2022_hfdtlt_div1 <- telpunten_2018_2022_hfdtlt_long_tot %>%
+  mutate(calc = area_prop * log(area_prop)) %>%
+  group_by(pointid, jaar) %>%
+  summarise(shannon_index = -sum(calc), .groups = "drop")
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2022_hfdtlt_div1 %>%
+  ggplot() +
+    geom_histogram(aes(x = shannon_index)) +
+    labs(title = "Diversiteit aan hoofdteelten",
+         x = "Diversiteit aan hoofdteelten per plot (Shannon index)", 
+         y = "Frequentie") +
+    facet_wrap(~jaar)
+```
+
+### Opmerkingen
+
+\
+
+## Diversiteit aan hoofdteelten (2)
+
+### Beschrijving
+
+Aantal hoofdteelten per telcirkel.
+
+### Welk datatype?
+
+Dicreet positief.
+Count data.
+
+### Waar verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+### Hoe verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+### Hoe berekend?
+
+Tel het aantal verschillende hoofdteelten per plot per jaar.
+
+Op basis van dataframe oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+```{r}
+telpunten_2018_2022_hfdtlt_div2 <- telpunten_2018_2022_hfdtlt_long_tot %>%
   count(pointid, jaar)
 ```
 
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_hfdtlt_div %>%
+telpunten_2018_2022_hfdtlt_div2 %>%
   ggplot() +
     geom_bar(aes(x = n)) +
     scale_x_continuous(breaks = seq(0, 20, 2),
@@ -407,8 +499,12 @@ telpunten_2018_2022_hfdtlt_div %>%
 
 ### Opmerkingen
 
+Deze variabele wordt gebruikt als 'gewasdiversiteit' door @klaassen. Het is waarschijnlijk niet nuttig om zowel de Shannon index als het aantal te gebruiken in het model.
+
 # Verklarende variabelen van secundair belang
+
 ## Regio
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -424,6 +520,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## Openheid landschap
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -439,6 +536,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## Soortbeschermingsplan
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -454,6 +552,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## Status teller
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -469,6 +568,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## Oppervlakte-aandeel kleine landschapselementen
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -484,6 +584,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## Oppervlakte-aandeel biolandbouw
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -499,6 +600,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## Perceelsgroottes
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -514,6 +616,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## X- en Y-coördinaten
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -529,6 +632,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## Inertie beheerovereenkomsten
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -544,6 +648,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## Aantal predatoren
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -559,6 +664,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## Jaar
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -574,6 +680,7 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 ## Telperiode
+
 ### Beschrijving
 
 ### Welk datatype?
@@ -589,6 +696,9 @@ telpunten_2018_2022_hfdtlt_div %>%
 ### Opmerkingen
 
 # Random effects
+
 ## Telpunt
 
 ## Jaar
+
+# Referenties
