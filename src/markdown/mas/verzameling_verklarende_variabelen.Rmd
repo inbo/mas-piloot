@@ -34,6 +34,7 @@ library(INBOtheme)
 
 library(sf)
 library(terra)
+library(nngeo)
 library(lubridate)
 
 # Source
@@ -634,17 +635,98 @@ We zijn enkel geïnteresseerd in OL in De Moeren en OL en HOL in de Oostelijke l
 
 ### Beschrijving
 
+Zowel binnen kerngebied als zoekzones zijn er soortbeschermende maatregelen (SB BO’s) gelegd (zie kaart VLM BO’s). In theorie waren deze maatregelen vooral bedoeld voor kerngebied, en zal daar een hogere dichtheid (bedekkingsgraad) liggen, maar de VLM heeft het toegelaten om ook in zoekzones deze maatregelen te sluiten (al was dat minder de prioriteit). Daar werd bv. in de Moeren geen rekening mee gehouden, en werden erg veel SB BO’s gelegd, ook omdat dit gebied wél kerngebied was van plan kiekendief (SBP Grauwe Kiekendief) waardoor er wel veel BO’s gesloten zijn. In de toekomst heeft VLM beloofd om meer/enkel rekening te houden met kerngebied.
+
+Voor het pilootmeetnet namen we de kerngebieden samen als onderzoeksgebied (binnen sbp) en alles hierbuiten beschouwen we als controle (buiten sbp).
+
 ### Welk datatype?
+
+Categorisch.
 
 ### Waar verzameld?
 
+??  
+VLM?
+
 ### Hoe verzameld?
+
+??  
+VLM?
 
 ### Hoe berekend?
 
+```{r}
+add_sbp_per_regio <- function(punten_sf, perimeters) {
+  
+  out_list <- vector(mode = "list", length = length(perimeters$Naam))
+  i <- 0
+  
+  for (r in perimeters$Naam) {
+    i <- i + 1
+    
+    # Filter by region
+    punten_df_regio <- punten_sf %>% filter(regio == r)
+    sbp_akkervogels_regio <- read_sbp_akkervogels(
+      path = path_to_sbp_akkervogels(), 
+      gebied = perimeters %>% filter(Naam == r))
+    
+    telpunten_2018_2022_regio <- add_stratum_sbp(
+        punten_sf = punten_df_regio, 
+        sbp       = sbp_akkervogels_regio) %>%
+      mutate(sbp = ifelse(is_sbp == TRUE, "binnen", "buiten"))
+    
+    out_list[[i]] <- telpunten_2018_2022_regio
+  }
+  
+  return(do.call(rbind.data.frame, out_list))
+}
+```
+
+```{r}
+telpunten_2018_2022_sbp <- add_sbp_per_regio(telpunten_2018_2022, perimeters)
+```
+
 ### Visualisatie
 
+```{r}
+perimeters %>%
+  rename(regio = Naam) %>%
+  filter(regio == "De Moeren") %>%
+  ggplot() +
+    geom_sf(colour = "firebrick", fill = alpha("gold", 0.2)) +
+    geom_sf(data = 
+              read_sbp_akkervogels(
+                path = path_to_sbp_akkervogels(), 
+                gebied = perimeters %>% 
+                  filter(Naam == "De Moeren")),
+            fill = alpha("green", 0.2)) +
+    geom_sf(data = telpunten_2018_2022_sbp %>% 
+              filter(regio == "De Moeren"),
+            aes(colour = sbp)) +
+
+      facet_wrap(~regio) +
+    labs(title = "Regio")
+
+perimeters %>%
+  rename(regio = Naam) %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  ggplot() +
+    geom_sf(colour = "firebrick", fill = alpha("gold", 0.2)) +
+    geom_sf(data = 
+                read_sbp_akkervogels(
+                  path = path_to_sbp_akkervogels(), 
+                  gebied = perimeters %>% 
+                    filter(Naam == "Oostelijke leemstreek")),
+              fill = alpha("green", 0.2)) +
+    geom_sf(data = telpunten_2018_2022_sbp %>% 
+              filter(regio == "Oostelijke leemstreek"),
+            aes(colour = sbp)) +
+    facet_wrap(~regio)
+```
+
 ### Opmerkingen
+
+Deze variabele is waarschijnlijk sterk collineair met aandeel beheerovereenkomsten. Bovendien varieert deze variabele niet met jaar, terwijl het beheer wel veranderde over de jaren. Dit is ook in aandeel beheerovereenkomsten opgenomen. Mogelijks is het dus niet nuttig deze variabele op te nemen.
 
 ## Status teller
 
