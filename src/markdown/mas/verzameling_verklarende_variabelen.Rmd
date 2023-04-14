@@ -762,17 +762,71 @@ n.v.t.
 
 ### Beschrijving
 
+Het aandeel oppervlakte aan kleine landschapselementen binnen de telcirkel.
+
+Landschapselementen op of aangrenzend aan landbouwgebruikspercelen in Vlaanderen (onderzoek 2017 op basis van gegevens 2015).
+
 ### Welk datatype?
+
+Continue variabele.
+Percentage tussen 0 en 100.
 
 ### Waar verzameld?
 
+https://landbouwcijfers.vlaanderen.be/open-geodata-kaart-landschapselementen
+
 ### Hoe verzameld?
+
+Download shapefiles van link.
 
 ### Hoe berekend?
 
+```{r}
+kle_path <- file.path("data", 
+  "Landschapselementen_rond_binnen_landbouwgebruikspercelen_2017",
+  "Landschapselementen_rond_binnen_landbouwgebruikspercelen_2017.gpkg")
+kle_layer <- st_read(kle_path)
+
+kle_layer %>% st_drop_geometry() %>% 
+  distinct(topklasse, subklasse, klasse) %>% 
+  arrange(topklasse, subklasse, klasse) %>%
+  kable()
+```
+
+```{r}
+test <- st_intersection(kle_layer, perimeters)
+
+# Bereken proportie kle's
+prop_kle <- landusemetrics_grid_cell(
+  grid_cell = telpunten_2018_2022 %>% st_buffer(dist = 300),
+  layer = kle_layer %>% rename(geometry = geom) %>% mutate(kle = "kle"),
+  grid_group_by_col = "pointid",
+  layer_group_by_col = "kle") %>%
+  ungroup()
+
+# Voeg afwezige kle's toe aan dataframes
+telpunten_2018_2022_kle <- telpunten_2018_2022 %>% 
+  full_join(prop_kle, by = c("pointid")) %>%
+  mutate(area_prop_kle = area_prop * 100) %>%
+  select(-c(kle, cell_area, area_m2, area_prop)) %>%
+  replace(is.na(.), 0)
+```
+
 ### Visualisatie
 
+```{r}
+telpunten_2018_2022_kle %>%
+  ggplot() +
+    geom_histogram(aes(x = area_prop_kle)) +
+    labs(
+      title = "Oppervlakte-aandeel kleine landschapselementen",
+      x = "Oppervlakte-aandeel (%)",
+      y = "Aantal telpunten")
+```
+
 ### Opmerkingen
+
+Gebruiken we oppervlakte aandeel kleine landschapselementen of splitsen we op via de classes cf. hoofdteelten.
 
 ## Oppervlakte-aandeel biolandbouw
 
