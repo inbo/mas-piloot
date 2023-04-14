@@ -832,9 +832,16 @@ Gebruiken we oppervlakte aandeel kleine landschapselementen of splitsen we op vi
 
 ### Beschrijving
 
+Het aandeel oppervlakte aan kleine landschapselementen binnen de telcirkel.
+
 ### Welk datatype?
 
+Continue variabele.
+Percentage tussen 0 en 100.
+
 ### Waar verzameld?
+
+??
 
 ### Hoe verzameld?
 
@@ -848,6 +855,8 @@ Gebruiken we oppervlakte aandeel kleine landschapselementen of splitsen we op vi
 
 ### Beschrijving
 
+Mediaan van groottes van percelen die overlappen met telcirkels. Een perceel is de combinatie van aaneenliggende landbouwgebruikspercelen met dezelfde hoofdteelt.
+
 ### Welk datatype?
 
 ### Waar verzameld?
@@ -855,6 +864,84 @@ Gebruiken we oppervlakte aandeel kleine landschapselementen of splitsen we op vi
 ### Hoe verzameld?
 
 ### Hoe berekend?
+
+```{r}
+calc_perceelsgrootte_by_year <- function(punten_df) {
+  # Loop over years
+  years <- unique(punten_df$jaar)
+  out_list <- vector(mode = "list", length = length(years))
+  
+  for (i in seq_along(years)) {
+    year <- years[i]
+    
+    # Filter by year
+    punten_df_year <- punten_df %>% filter(jaar == year)
+    lbg_binding <- st_read(file.path("data", "landbouwgebruikspercelen", 
+                                     "Shapefile", "Lbgbrprc21.shp")) %>%
+      st_transform(crs = 31370)
+    
+    # Intersection
+    intersect <- st_intersection(testpunt %>% st_buffer(300), lbg_binding)
+    
+    out_df_year <- lbg_binding %>% 
+      filter(OIDN %in% intersect$OIDN) %>%       # Filter percelen
+      full_join(st_drop_geometry(intersect)) %>% # Get poin ids back
+      
+      # Join neighbouring polygons by main crop
+      group_by(pointid, LBLHFDTLT) %>%
+      summarise() %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON") %>%
+      ungroup() %>%
+      
+      # Calculate median perceel area by point
+      mutate(area = st_area(geometry)) %>%
+      st_drop_geometry() %>%
+      group_by(pointid) %>%
+      summarise(median_area = units::drop_units(median(area)), 
+                .groups = "drop")
+    
+    out_list[[i]] <- out_df_year %>% full_join(punten_df_year)
+  }
+  
+  return(do.call(rbind.data.frame, out_list)) 
+}
+```
+
+```{r}
+lbg_binding <- st_read(here(mbag_dir, "data", "landbouwgebruikspercelen", 
+                            "Shapefile", "Lbgbrprc21.shp")) %>%
+  st_transform(crs = 31370)
+
+testpunt <- telpunten_2018_2022_df %>% filter(jaar == 2021)
+
+point <- st_intersection(testpunt %>% st_buffer(300), lbg_binding)
+
+hallo <- lbg_binding %>% 
+  filter(OIDN %in% point$OIDN) %>%
+  full_join(st_drop_geometry(point)) %>%
+  group_by(pointid, LBLHFDTLT) %>%
+  summarise() %>%
+  st_cast("MULTIPOLYGON") %>%
+  st_cast("POLYGON") %>%
+  ungroup()
+
+mapview::mapview(testpunt) + 
+  mapview::mapview(testpunt %>% st_buffer(300), col.regions = "red") +
+  mapview::mapview(hallo)
+
+hallo %>% 
+  mutate(area = st_area(geometry)) %>%
+      st_drop_geometry() %>%
+      group_by(pointid) %>%
+  summarise(median_area = units::drop_units(median(area)), 
+                .groups = "drop") %>%
+  ggplot() +
+  geom_histogram(aes(x = median_area))
+
+
+```
+
 
 ### Visualisatie
 
