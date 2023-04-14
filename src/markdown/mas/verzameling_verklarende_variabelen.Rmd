@@ -275,12 +275,14 @@ Continu, compositionele proporties.
 
 ### Waar verzameld?
 
-Belangrijkste teelten 2018-2021: <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2018>\
+Belangrijkste teelten 2018-2021:\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2018>\
 <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2019>\
 <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2020>\
 <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2021>
 
-Belangrijkste teelten in 2022: <https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>\
+Belangrijkste teelten in 2022:\
+<https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>\
 Voorlopige kaart.
 Finale kaart wordt eind april gepubliceerd (?).
 
@@ -461,7 +463,7 @@ Aantal hoofdteelten per telcirkel.
 
 ### Welk datatype?
 
-Dicreet positief.
+Discreet positief.
 Count data.
 
 ### Waar verzameld?
@@ -499,7 +501,7 @@ telpunten_2018_2022_hfdtlt_div2 %>%
 
 ### Opmerkingen
 
-Deze variabele wordt gebruikt als 'gewasdiversiteit' door @klaassen. Het is waarschijnlijk niet nuttig om zowel de Shannon index als het aantal te gebruiken in het model.
+Deze variabele wordt gebruikt als 'gewasdiversiteit' door @klaassen2022. Het is waarschijnlijk niet nuttig om zowel de Shannon index als het aantal te gebruiken in het model.
 
 # Verklarende variabelen van secundair belang
 
@@ -507,17 +509,50 @@ Deze variabele wordt gebruikt als 'gewasdiversiteit' door @klaassen. Het is waar
 
 ### Beschrijving
 
+Regio's van pilootmeetnet.
+
 ### Welk datatype?
+
+Categorisch.
 
 ### Waar verzameld?
 
+Steekproefdesign.
+
 ### Hoe verzameld?
+
+Intersectie landbouwstreek België met contour Vlaanderen en overlappend met prioritaire gebieden voor akkervogels.
+Zie `piloot_perimeters.gpkg`.
 
 ### Hoe berekend?
 
+n.v.t.
+
 ### Visualisatie
 
+```{r}
+perimeters %>%
+  rename(regio = Naam) %>%
+  filter(regio == "De Moeren") %>%
+  ggplot() +
+    geom_sf(colour = "firebrick") +
+    geom_sf(data = telpunten_2018_2022 %>% 
+              filter(regio == "De Moeren")) +
+    facet_wrap(~regio)
+
+perimeters %>%
+  rename(regio = Naam) %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  ggplot() +
+    geom_sf(colour = "firebrick") +
+    geom_sf(data = telpunten_2018_2022 %>% 
+              filter(regio == "Oostelijke leemstreek")) +
+    facet_wrap(~regio)
+```
+
 ### Opmerkingen
+
+\
 
 ## Openheid landschap
 
