@@ -693,7 +693,7 @@ perimeters %>%
   rename(regio = Naam) %>%
   filter(regio == "De Moeren") %>%
   ggplot() +
-    geom_sf(colour = "firebrick", fill = alpha("gold", 0.2)) +
+    geom_sf(colour = "firebrick", fill = alpha("lightblue", 0.2)) +
     geom_sf(data = 
               read_sbp_akkervogels(
                 path = path_to_sbp_akkervogels(), 
@@ -711,7 +711,7 @@ perimeters %>%
   rename(regio = Naam) %>%
   filter(regio == "Oostelijke leemstreek") %>%
   ggplot() +
-    geom_sf(colour = "firebrick", fill = alpha("gold", 0.2)) +
+    geom_sf(colour = "firebrick", fill = alpha("lightblue", 0.2)) +
     geom_sf(data = 
                 read_sbp_akkervogels(
                   path = path_to_sbp_akkervogels(), 
@@ -732,17 +732,31 @@ Deze variabele is waarschijnlijk sterk collineair met aandeel beheerovereenkomst
 
 ### Beschrijving
 
+Analyses van telpunten die zowel door vrijwilligers als professionele teller zijn geteld, gaven duidelijk aan dat vrijwilligers een significant lager aantal waarnemingen en soorten zien dan de professionele teller. Voor elk telpunt willen we dus ook weten of de plot geteld is door een professionele teller of een vrijwilliger.
+
 ### Welk datatype?
+
+Categorisch.
 
 ### Waar verzameld?
 
+n.v.t.
+
 ### Hoe verzameld?
+
+n.v.t.
 
 ### Hoe berekend?
 
+De volgende teller codes behoren tot professionele tellers: `c("WVNT00", "JJNN16", "NOVN00")`. Zolang het niet duidelijk is welke punten wanneer geteld zijn (incl. nulwaarnemingen) zullen we de berekeningen hier niet doen. Bovendien zijn dus enkele punten zowel door vrijwilligers als professionelen geteld en soms ook buiten telperiodes. Deze variabele moet dus berekend worden na filtering van de data.
+
 ### Visualisatie
 
+n.v.t.
+
 ### Opmerkingen
+
+\
 
 ## Oppervlakte-aandeel kleine landschapselementen
 
