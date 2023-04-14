@@ -826,7 +826,7 @@ telpunten_2018_2022_kle %>%
 
 ### Opmerkingen
 
-Gebruiken we oppervlakte aandeel kleine landschapselementen of splitsen we op via de classes cf. hoofdteelten.
+Gebruiken we oppervlakte aandeel kleine landschapselementen of splitsen we op via de klasses cf. hoofdteelten?
 
 ## Oppervlakte-aandeel biolandbouw
 
