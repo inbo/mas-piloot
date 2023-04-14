@@ -33,6 +33,7 @@ library(tidyverse)
 library(INBOtheme)
 
 library(sf)
+library(terra)
 library(lubridate)
 
 # Source
@@ -445,7 +446,7 @@ telpunten_2018_2022_hfdtlt_div1 <- telpunten_2018_2022_hfdtlt_long_tot %>%
 telpunten_2018_2022_hfdtlt_div1 %>%
   ggplot() +
     geom_histogram(aes(x = shannon_index)) +
-    labs(title = "Diversiteit aan hoofdteelten",
+    labs(title = "Diversiteit aan hoofdteelten (Shannon)",
          x = "Diversiteit aan hoofdteelten per plot (Shannon index)", 
          y = "Frequentie") +
     facet_wrap(~jaar)
@@ -493,7 +494,7 @@ telpunten_2018_2022_hfdtlt_div2 %>%
     geom_bar(aes(x = n)) +
     scale_x_continuous(breaks = seq(0, 20, 2),
                        limits = c(0, NA)) +
-    labs(title = "Diversiteit aan hoofdteelten",
+    labs(title = "Diversiteit aan hoofdteelten (aantal)",
          x = "Aantal verschillende hoofdteelten per plot", 
          y = "Frequentie") +
     facet_wrap(~jaar)
@@ -538,7 +539,8 @@ perimeters %>%
     geom_sf(colour = "firebrick") +
     geom_sf(data = telpunten_2018_2022 %>% 
               filter(regio == "De Moeren")) +
-    facet_wrap(~regio)
+    facet_wrap(~regio) +
+    labs(title = "Regio")
 
 perimeters %>%
   rename(regio = Naam) %>%
@@ -558,17 +560,75 @@ perimeters %>%
 
 ### Beschrijving
 
+We beshouwen vier categoriën van openheid landschap:
+
+-   OL open landschap
+-   HOL halfopen landschap
+-   HGL halfgesloten landschap
+-   GL gesloten landschap
+
+Akkervogelgemeenschappen worden vaak ingedeeld volgens hun affiniteit met open landschap (OLA - Open landschap Akkervogels), half-open landschap (HOLA) en kleinschalig landschap (KLA).
+Onder kleinschalig landschap verstaat men een landschap waar de percelen relatief klein zijn en het landschap in sterke mate dooraderd is door hagen, rietkragen en andere lijn- of puntvormige kleine landschapselementen (KLE's).
+De manier waarop we openheid van het landschap hebben bepaald laat niet toe om KLA te bepalen zonder bijkomende berekeningen.
+KLA zullen een subset zijn van wat wij HOL noemen, met name HOL waar de gemiddelde perceelsgrootte relatief klein is.
+
+Deze variabele verschilt niet over de jaren.
+
 ### Welk datatype?
+
+Categorisch.
 
 ### Waar verzameld?
 
+??  
+DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie
+
 ### Hoe verzameld?
+
+??  
+DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie
 
 ### Hoe berekend?
 
+We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie.
+Werkwijze:
+
+-   berekening "canopy height model" (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, ...).
+-   berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
+-   met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 300 m.
+-   deze gemiddelden zijn daarna ingedeeld in drie klassen:
+    -   OL open landschap (\> 86,5°),
+    -   HOL halfopen landschap (77,3° - 86,5°),
+    -   HGL halfgesloten landschap (71,6° - 77,3°)
+    -   GL (\< 71,6°) gesloten landschap
+
+
+Met de functie `add_openheid_landschap_to_frame()` kunnen we deze categoriën toevoegen aan de telpunten.
+
+> Hoe was dit weer? Grootste proportie in telcirkel? nee ...
+
+```{r}
+openheid_landschap_file <- path_to_openheid_landschap()
+telpunten_2018_2022_openheid <- add_openheid_landschap_to_frame(
+  path = openheid_landschap_file,
+  punten_sf = telpunten_2018_2022,
+  gebied = perimeters)
+```
+
 ### Visualisatie
 
+```{r}
+telpunten_2018_2022_openheid %>%
+  ggplot() +
+    geom_bar(aes(x = openheid_klasse)) +
+    facet_wrap(~regio) +
+    labs(x = "Openheid klasse", y = "Aantal telcirkels",
+         title = "Openheid landschap")
+```
+
 ### Opmerkingen
+
+We zijn enkel geïnteresseerd in OL in De Moeren en OL en HOL in de Oostelijke leemstreek. Voor de modellen kunnen deze eruit gefilterd worden. Verder is het mogelijk dat deze variabele niet wordt meegenomen in het model, maar dat we voor open landschap soorten bijvoorbeeld enkel waarnemingen in OL selecteren HOL voor half-open landschap soorten. 
 
 ## Soortbeschermingsplan
 
