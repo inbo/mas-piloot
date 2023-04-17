@@ -873,11 +873,13 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
   
   for (i in seq_along(years)) {
     year <- years[i]
+    number_string <- sub(".*([0-9]{2})$", "\\1", year)
     
     # Filter by year
     punten_df_year <- punten_df %>% filter(jaar == year)
     lbg_binding <- st_read(file.path("data", "landbouwgebruikspercelen", 
-                                     "Shapefile", "Lbgbrprc21.shp")) %>%
+                            "Shapefile", paste0("Lbgbrprc", number_string, 
+                                                ".shp"))) %>%
       st_transform(crs = 31370)
     
     # Intersection
@@ -907,6 +909,8 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
   return(do.call(rbind.data.frame, out_list)) 
 }
 ```
+
+> NA's oplossen
 
 ```{r}
 lbg_binding <- st_read(here(mbag_dir, "data", "landbouwgebruikspercelen", 
