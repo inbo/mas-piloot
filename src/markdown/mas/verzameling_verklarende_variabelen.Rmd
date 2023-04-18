@@ -260,6 +260,11 @@ telpunten_2018_2022_bo %>%
     facet_wrap(~jaar)
 ```
 
+```{r}
+aggregate(telpunten_2018_2022_bo$area_prop_sb, 
+          by = list(telpunten_2018_2022_bo$jaar), FUN = summary)
+```
+
 ### Opmerkingen
 
 -   In percentage of proportie?
@@ -453,6 +458,11 @@ telpunten_2018_2022_hfdtlt_div1 %>%
     facet_wrap(~jaar)
 ```
 
+```{r}
+aggregate(telpunten_2018_2022_hfdtlt_div1$shannon_index, 
+          by = list(telpunten_2018_2022_hfdtlt_div1$jaar), FUN = summary)
+```
+
 ### Opmerkingen
 
 \
@@ -499,6 +509,11 @@ telpunten_2018_2022_hfdtlt_div2 %>%
          x = "Aantal verschillende hoofdteelten per plot", 
          y = "Frequentie") +
     facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2022_hfdtlt_div2$n, 
+          by = list(telpunten_2018_2022_hfdtlt_div2$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -824,6 +839,10 @@ telpunten_2018_2022_kle %>%
       y = "Aantal telpunten")
 ```
 
+```{r}
+summary(telpunten_2018_2022_kle$area_prop_kle)
+```
+
 ### Opmerkingen
 
 Gebruiken we oppervlakte aandeel kleine landschapselementen of splitsen we op via de klasses cf. hoofdteelten?
@@ -855,15 +874,33 @@ Percentage tussen 0 en 100.
 
 ### Beschrijving
 
-Mediaan van groottes van percelen die overlappen met telcirkels. Een perceel is de combinatie van aaneenliggende landbouwgebruikspercelen met dezelfde hoofdteelt.
+Mediaan en interkwartielafstand van groottes van percelen die overlappen met telcirkels. Een perceel is de combinatie van aaneenliggende landbouwgebruikspercelen met dezelfde hoofdteelt.
 
 ### Welk datatype?
 
+Continu.
+
 ### Waar verzameld?
+
+Belangrijkste teelten 2018-2021:\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2018>\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2019>\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2020>\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2021>
+
+Belangrijkste teelten in 2022:\
+<https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>\
+Voorlopige kaart.
+Finale kaart wordt eind april gepubliceerd (?).
 
 ### Hoe verzameld?
 
+Download van urls.
+
 ### Hoe berekend?
+
+We selecteren alle landbouwgebruikspercelen die overlappen met de telcirkels. We aggregeren aaneenliggende percelen indien ze dezelfde hoofdteelt hebben. Per telcirkel berekenen we de oppervlaktes van bijbehorende percelen. We nemen finaal de mediaan en interkwartielafstand van de oppervlaktes.  
+Zoals voordien zijn er enkele `NA`'s in de `LBLHFDTLT` kolom van de laag van 2019 die effectief niet met landbouwpercelen lijken overeen te komen (vaak smalle stroken tussenin). Deze worden weggefilterd.
 
 ```{r}
 calc_perceelsgrootte_by_year <- function(punten_df) {
@@ -883,11 +920,14 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
       st_transform(crs = 31370)
     
     # Intersection
-    intersect <- st_intersection(testpunt %>% st_buffer(300), lbg_binding)
+    intersect <- st_intersection(punten_df_year %>% st_buffer(300), lbg_binding)
     
     out_df_year <- lbg_binding %>% 
       filter(OIDN %in% intersect$OIDN) %>%       # Filter percelen
-      full_join(st_drop_geometry(intersect)) %>% # Get poin ids back
+      full_join(st_drop_geometry(intersect), by = c("OIDN", "UIDN", "ALVID",
+                  "HFDTLT", "LBLHFDTLT", "GEWASGROEP", "PM", "LBLPM", "LENGTE",
+                  "OPPERVL")) %>% # Get point ids back
+      filter(!is.na(LBLHFDTLT)) %>%
       
       # Join neighbouring polygons by main crop
       group_by(pointid, LBLHFDTLT) %>%
@@ -900,7 +940,8 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
       mutate(area = st_area(geometry)) %>%
       st_drop_geometry() %>%
       group_by(pointid) %>%
-      summarise(median_area = units::drop_units(median(area)), 
+      summarise(median_area = units::drop_units(median(area)),
+                iqr_area = IQR(area),
                 .groups = "drop")
     
     out_list[[i]] <- out_df_year %>% full_join(punten_df_year)
@@ -910,66 +951,119 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
 }
 ```
 
-> NA's oplossen
+> Voorlopig niet berekenen voor 2022. Code loopt vast, maar hopelijk snel finale kaartlaag.
 
 ```{r}
-lbg_binding <- st_read(here(mbag_dir, "data", "landbouwgebruikspercelen", 
-                            "Shapefile", "Lbgbrprc21.shp")) %>%
+telpunten_2018_2022_prcl <- calc_perceelsgrootte_by_year(telpunten_2018_2022_df %>%
+                                                           filter(jaar != 2022))
+```
+
+Een voorbeeld:
+
+```{r testcase-perceelsgroottes, cache=TRUE}
+# Filter and load
+testcase <- telpunten_2018_2022_df %>%
+  filter(pointid %in% c("DM_386.7", "DM_44.45"),
+         jaar == 2021)
+lbg_binding <- st_read(file.path("data", "landbouwgebruikspercelen", 
+                        "Shapefile", "Lbgbrprc21.shp")) %>%
   st_transform(crs = 31370)
 
-testpunt <- telpunten_2018_2022_df %>% filter(jaar == 2021)
+# Intersection
+intersect <- st_intersection(testcase %>% st_buffer(300), lbg_binding)
 
-point <- st_intersection(testpunt %>% st_buffer(300), lbg_binding)
-
-hallo <- lbg_binding %>% 
-  filter(OIDN %in% point$OIDN) %>%
-  full_join(st_drop_geometry(point)) %>%
+out_df_testcase <- lbg_binding %>% 
+  filter(OIDN %in% intersect$OIDN) %>%       # Filter percelen
+  full_join(st_drop_geometry(intersect), by = c("OIDN", "UIDN", "ALVID",
+              "HFDTLT", "LBLHFDTLT", "GEWASGROEP", "PM", "LBLPM", "LENGTE",
+              "OPPERVL")) %>% # Get point ids back
+  filter(!is.na(LBLHFDTLT)) %>%
+  
+  # Join neighbouring polygons by main crop
   group_by(pointid, LBLHFDTLT) %>%
   summarise() %>%
   st_cast("MULTIPOLYGON") %>%
   st_cast("POLYGON") %>%
   ungroup()
 
-mapview::mapview(testpunt) + 
-  mapview::mapview(testpunt %>% st_buffer(300), col.regions = "red") +
-  mapview::mapview(hallo)
-
-hallo %>% 
-  mutate(area = st_area(geometry)) %>%
-      st_drop_geometry() %>%
-      group_by(pointid) %>%
-  summarise(median_area = units::drop_units(median(area)), 
-                .groups = "drop") %>%
-  ggplot() +
-  geom_histogram(aes(x = median_area))
-
-
+# Visualise
+ggplot() +
+  geom_sf(data = out_df_testcase, fill = alpha("cornflowerblue", 0.5)) +
+  geom_sf(data = st_buffer(testcase, 300), fill = alpha("white", 0),
+          linewidth = 2) +
+  geom_sf(data = testcase, colour = "firebrick", size = 2)
 ```
-
 
 ### Visualisatie
 
+```{r}
+telpunten_2018_2022_prcl %>%
+  ggplot() +
+    geom_histogram(aes(x = median_area)) +
+    labs(title = "Perceelsgroottes (mediaan)",
+         x = "Mediaan perceelsgroottes (m²)",
+         y = "Aantal telpunten")
+```
+
+```{r}
+aggregate(telpunten_2018_2022_prcl$median_area, 
+          by = list(telpunten_2018_2022_prcl$jaar), FUN = summary)
+```
+
+```{r}
+telpunten_2018_2022_prcl %>%
+  ggplot() +
+    geom_histogram(aes(x = iqr_area)) +
+    labs(title = "Perceelsgroottes (IQR)",
+         x = "IQR perceelsgroottes (m²)",
+         y = "Aantal telpunten")
+```
+
+```{r}
+aggregate(telpunten_2018_2022_prcl$iqr_area, 
+          by = list(telpunten_2018_2022_prcl$jaar), FUN = summary)
+```
+
 ### Opmerkingen
+
+-  Collineariteit mediaan en IQR onderzoeken
+-  Log-transformatie?
 
 ## X- en Y-coördinaten
 
 ### Beschrijving
 
+Spatiale component. We verwachten bv. hogere soortenrijkdom in oosten van Oostelijke leemstreek.
+
 ### Welk datatype?
+
+Continu.
 
 ### Waar verzameld?
 
+Coördinaten SOVON. Let op! Zie opmerkingen en code bij 'Inlezen data' om Amersfoort naar Lambert 72 om te zetten.
+
 ### Hoe verzameld?
+
+n.v.t.
 
 ### Hoe berekend?
 
+n.v.t.
+
 ### Visualisatie
 
+n.v.t.
+
 ### Opmerkingen
+
+\
 
 ## Inertie beheerovereenkomsten
 
 ### Beschrijving
+
+Gewogen gemiddelde van jaar sinds implementatie beheerovereenkomsten per telcirkel.
 
 ### Welk datatype?
 
@@ -987,54 +1081,107 @@ hallo %>%
 
 ### Beschrijving
 
+Aantal predatoren (kraaiachtigen, roofvogels) per telcirkel.
+
 ### Welk datatype?
+
+Discrete aantallen groter of gelijk aan nul. Count data.
 
 ### Waar verzameld?
 
+In waarnemingen dataset SOVON.
+
 ### Hoe verzameld?
+
+n.v.t.
 
 ### Hoe berekend?
 
+Aantal predatoren tellen per telcirkel. Berekenen bij laden van data.
+
 ### Visualisatie
 
+n.v.t. 
+
 ### Opmerkingen
+
+\
 
 ## Jaar
 
 ### Beschrijving
 
+Jaar van tellen.
+
 ### Welk datatype?
+
+Continu. Kan in principe ook discreet.
 
 ### Waar verzameld?
 
+n.v.t.
+
 ### Hoe verzameld?
+
+n.v.t.
 
 ### Hoe berekend?
 
+n.v.t.
+
 ### Visualisatie
 
+n.v.t.
+
 ### Opmerkingen
+
+We moeten nog een goed idee krijgen van welke punten in welke jaren geteld zijn.
 
 ## Telperiode
 
 ### Beschrijving
 
+Tot welke telperiode behoort een waarneming.
+
 ### Welk datatype?
+
+Discreet.
 
 ### Waar verzameld?
 
+n.v.t.
+
 ### Hoe verzameld?
+
+n.v.t.
 
 ### Hoe berekend?
 
+Er zijn vier telperiodes per jaar. 
+
+1.  01-04 tot 20-04
+2.  21-04 tot 10-05
+3.  11-05 tot 10-06
+4.  21-06 tot 15-07
+
 ### Visualisatie
 
+n.v.t.
+
 ### Opmerkingen
+
+Data worden gefilterd zodat enkel waarnemingen binnen deze periodes opgenomen worden.
+Bovendien heeft elke vogelsoort bepaalde datumgrenzen waarin ze als 'mogelijk broedgeval' kan worden aanzien. Deze worden ook gebruikt om waarnemingen te filteren.
+Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
 
 # Random effects
 
 ## Telpunt
 
+Random intercepts per telpunt.
+
 ## Jaar
+
+Jaar toevoegen als random factor? Autoregressive?
 
 # Referenties
