@@ -1074,7 +1074,7 @@ Gewogen gemiddelde van jaar sinds implementatie beheerovereenkomsten per telcirk
 
 ### Welk datatype?
 
-Discreet positief. Count data.
+Continu.
 
 ### Waar verzameld?
 
@@ -1169,6 +1169,8 @@ telpunten_2018_2022_bo %>%
 
 
 ### Opmerkingen
+
+Vreemd ... je hebt ofwel 0 ofwel continu tussen 1 en 5 ...
 
 ## Aantal predatoren
 
