@@ -1113,6 +1113,7 @@ add_bo_inertia <- function(punten_df, path_bo) {
     out_df_year <- st_intersection(st_buffer(punten_df_year, 300), 
                                    bo_layer_year) %>%
       st_drop_geometry() %>%
+      filter(BH_DOELST == "soortenbescherming (SB)") %>%
       mutate(inertia_row = jaar - startjaar + 1) %>%
       group_by(pointid) %>%
       summarise(inertia = mean(inertia_row), .groups = "drop")
@@ -1157,20 +1158,14 @@ telpunten_2018_2022_inertia %>%
   pivot_wider(names_from = cat, values_from = n)
 ```
 
-mismatch
-
 ```{r}
-telpunten_2018_2022_bo %>% 
-  st_drop_geometry() %>% 
-  mutate(cat = ifelse(area_prop_sb == 0, "0", ">0")) %>% 
-  count(jaar, cat) %>%
-  pivot_wider(names_from = cat, values_from = n)
+aggregate(telpunten_2018_2022_inertia$inertia, 
+          by = list(telpunten_2018_2022_inertia$jaar), FUN = summary)
 ```
-
 
 ### Opmerkingen
 
-Vreemd ... je hebt ofwel 0 ofwel continu tussen 1 en 5 ...
+Vreemde waarden: je hebt ofwel 0 ofwel continu tussen 1 en 5 ... Nuttig?
 
 ## Aantal predatoren
 
