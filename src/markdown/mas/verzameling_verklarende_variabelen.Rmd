@@ -247,6 +247,14 @@ bo_file_2022 <- path_to_bo(jaar = 2022)
 telpunten_2018_2022_bo <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
 ```
 
+```{r}
+summary_df <- tibble(
+  categorie = "prioritair", 
+  variabele = "oppervlakte-aandeel soortbeschermingsmaatregelen", 
+  eenheid = "percentage", 
+  bron = "VLM?")
+```
+
 ### Visualisatie
 
 ```{r}
@@ -372,6 +380,14 @@ telpunten_2018_2022_hfdtlt <- telpunten_2018_2022_hfdtlt_long %>%
               values_fill = 0)
 ```
 
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "prioritair", 
+  variabele = tolower(unique(telpunten_2018_2022_hfdtlt_long$GEWASGROEP)), 
+  eenheid = "proportie", 
+  bron = "landbouwgebruikspercelen kaart (LV)"))
+```
+
 ### Visualisatie
 
 ```{r}
@@ -446,6 +462,14 @@ telpunten_2018_2022_hfdtlt_div1 <- telpunten_2018_2022_hfdtlt_long_tot %>%
   summarise(shannon_index = -sum(calc), .groups = "drop")
 ```
 
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "prioritair", 
+  variabele = "gewasdiversiteit 1", 
+  eenheid = "Shannon index", 
+  bron = "landbouwgebruikspercelen kaart (LV)"))
+```
+
 ### Visualisatie
 
 ```{r}
@@ -516,6 +540,14 @@ aggregate(telpunten_2018_2022_hfdtlt_div2$n,
           by = list(telpunten_2018_2022_hfdtlt_div2$jaar), FUN = summary)
 ```
 
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "prioritair", 
+  variabele = "gewasdiversiteit 2", 
+  eenheid = "aantal", 
+  bron = "landbouwgebruikspercelen kaart (LV)"))
+```
+
 ### Opmerkingen
 
 Deze variabele wordt gebruikt als 'gewasdiversiteit' door @klaassen2022. Het is waarschijnlijk niet nuttig om zowel de Shannon index als het aantal te gebruiken in het model.
@@ -544,6 +576,14 @@ Zie `piloot_perimeters.gpkg`.
 ### Hoe berekend?
 
 n.v.t.
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "regio", 
+  eenheid = "categorisch", 
+  bron = "n.v.t."))
+```
 
 ### Visualisatie
 
@@ -631,6 +671,14 @@ telpunten_2018_2022_openheid <- add_openheid_landschap_to_frame(
   gebied = perimeters)
 ```
 
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "openheid landschap", 
+  eenheid = "categorisch", 
+  bron = "DSM, DTM?"))
+```
+
 ### Visualisatie
 
 ```{r}
@@ -701,6 +749,14 @@ add_sbp_per_regio <- function(punten_sf, perimeters) {
 telpunten_2018_2022_sbp <- add_sbp_per_regio(telpunten_2018_2022, perimeters)
 ```
 
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "soortbeschermingsplan", 
+  eenheid = "categorisch", 
+  bron = "VLM?"))
+```
+
 ### Visualisatie
 
 ```{r}
@@ -765,6 +821,14 @@ n.v.t.
 
 De volgende teller codes behoren tot professionele tellers: `c("WVNT00", "JJNN16", "NOVN00")`. Zolang het niet duidelijk is welke punten wanneer geteld zijn (incl. nulwaarnemingen) zullen we de berekeningen hier niet doen. Bovendien zijn dus enkele punten zowel door vrijwilligers als professionelen geteld en soms ook buiten telperiodes. Deze variabele moet dus berekend worden na filtering van de data.
 
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "status teller", 
+  eenheid = "categorisch", 
+  bron = "n.v.t."))
+```
+
 ### Visualisatie
 
 n.v.t.
@@ -827,6 +891,14 @@ telpunten_2018_2022_kle <- telpunten_2018_2022 %>%
   replace(is.na(.), 0)
 ```
 
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "oppervlakte-aandeel kleine landschapselementen", 
+  eenheid = "percentage", 
+  bron = "kaart landschapselementen (LV)"))
+```
+
 ### Visualisatie
 
 ```{r}
@@ -865,6 +937,14 @@ Percentage tussen 0 en 100.
 ### Hoe verzameld?
 
 ### Hoe berekend?
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "oppervlakte-aandeel biolandbouw", 
+  eenheid = "percentage", 
+  bron = "??"))
+```
 
 ### Visualisatie
 
@@ -994,6 +1074,15 @@ ggplot() +
   geom_sf(data = testcase, colour = "firebrick", size = 2)
 ```
 
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "secundair", 
+  variabele = c("centrale waarde perceelsgroottes", 
+                "variabiliteit perceelsgroottes"), 
+  eenheid = "m²", 
+  bron = "landbouwgebruikspercelen kaart (LV)"))
+```
+
 ### Visualisatie
 
 ```{r}
@@ -1050,6 +1139,15 @@ n.v.t.
 ### Hoe berekend?
 
 n.v.t.
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "secundair", 
+  variabele = c("X-coördinaat Lambert 72", 
+                "Y-coördinaat Lambert 72"), 
+  eenheid = "m", 
+  bron = "landbouwgebruikspercelen kaart (LV)"))
+```
 
 ### Visualisatie
 
@@ -1137,6 +1235,14 @@ telpunten_2018_2022_inertia <- add_bo_inertia(telpunten_2018_2022_df,
                                                bo_file_2022)
 ```
 
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "inertie beheerovereenkomsten", 
+  eenheid = "??", 
+  bron = "VLM?"))
+```
+
 ### Visualisatie
 
 ```{r}
@@ -1189,6 +1295,14 @@ n.v.t.
 
 Aantal predatoren tellen per telcirkel. Berekenen bij laden van data.
 
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "predatoren", 
+  eenheid = "aantal", 
+  bron = "n.v.t."))
+```
+
 ### Visualisatie
 
 n.v.t. 
@@ -1218,6 +1332,14 @@ n.v.t.
 ### Hoe berekend?
 
 n.v.t.
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "jaar", 
+  eenheid = "jaar", 
+  bron = "n.v.t."))
+```
 
 ### Visualisatie
 
@@ -1254,6 +1376,14 @@ Er zijn vier telperiodes per jaar.
 3.  11-05 tot 10-06
 4.  21-06 tot 15-07
 
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "telperiode", 
+  eenheid = "categorisch", 
+  bron = "n.v.t."))
+```
+
 ### Visualisatie
 
 n.v.t.
@@ -1270,8 +1400,31 @@ Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
 
 Random intercepts per telpunt.
 
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "random", 
+  variabele = "telpunt", 
+  eenheid = "categorisch", 
+  bron = "n.v.t."))
+```
+
 ## Jaar
 
 Jaar toevoegen als random factor? Autoregressive?
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "random", 
+  variabele = "jaar", 
+  eenheid = "jaar", 
+  bron = "n.v.t."))
+```
+
+# Samenvatting
+
+```{r}
+summary_df %>%
+  kable()
+```
 
 # Referenties
