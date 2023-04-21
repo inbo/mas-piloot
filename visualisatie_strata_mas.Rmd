@@ -9,7 +9,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(mapview)
 library(dplyr)
+library(sf)
 library(terra)
+library(here)
+source(here("src/R/berekening_hulpvariabelen.R"))
+mbag_dir <- here()
 ```
 
 # GIS lagen inlezen
@@ -95,8 +99,8 @@ landbouwstreken <- st_intersection(landbouwstreken, vlaanderen)
 ```{r}
 vlaanderen_openheid_landschap_raster %>%
   mapview::mapview(alpha = 0.3) +
-  mapview(soort_beschermings_plan, zcol="soort")
-
-
+  mapview(soort_beschermings_plan, zcol = "soort") +
+  mapview(landbouwstreken, alpha.regions = 0, color = "white", lwd = 2,
+          zcol = "NAAM", legend = FALSE)
 ```
 
