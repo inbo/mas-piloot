@@ -1394,6 +1394,30 @@ Data worden gefilterd zodat enkel waarnemingen binnen deze periodes opgenomen wo
 Bovendien heeft elke vogelsoort bepaalde datumgrenzen waarin ze als 'mogelijk broedgeval' kan worden aanzien. Deze worden ook gebruikt om waarnemingen te filteren.
 Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
 
+## Nabijheid natuurgebieden
+
+### Beschrijving
+
+
+### Welk datatype?
+
+
+### Waar verzameld?
+
+
+### Hoe verzameld?
+
+
+### Hoe berekend?
+
+> Qua manier van berekenen lijkt me meest relevant een oppervlakte in een buffer of nog beter een distance decay gewogen oppervlakte (cf https://www.jstor.org/stable/3071919)
+
+### Visualisatie
+
+
+### Opmerkingen
+
+
 # Random effects
 
 ## Telpunt
@@ -1436,9 +1460,7 @@ variables_df_per_year <- telpunten_2018_2022_bo %>%
   full_join(telpunten_2018_2022_prcl, by = c("pointid", "regio", "jaar", 
                                              "geometry")) %>%
   full_join(telpunten_2018_2022_inertia, by = c("pointid", "regio", "jaar", 
-                                                "geometry")) %>%
-  full_join(expand_grid(jaar = unique(telpunten_2018_2022_df$jaar), 
-                        telperiode = paste0("R", 1:4)), by = "jaar")
+                                                "geometry"))
 
 # Variables that do not vary by year
 variables_df <- cbind(telpunten_2018_2022_openheid, 
@@ -1447,8 +1469,7 @@ variables_df <- cbind(telpunten_2018_2022_openheid,
             by = c("pointid", "regio")) %>%
   full_join(st_drop_geometry(telpunten_2018_2022_kle), 
             by = c("pointid", "regio")) %>%
-  expand_grid(jaar = unique(telpunten_2018_2022_df$jaar),
-              telperiode = paste0("R", 1:4))
+  expand_grid(jaar = unique(telpunten_2018_2022_df$jaar))
 
 # column names lower case
 names(variables_df_per_year) <- tolower(names(variables_df_per_year))
@@ -1464,8 +1485,7 @@ names(variables_df) <- iconv(names(variables_df),
 
 # Join everything
 final_variables_df <- variables_df_per_year %>%
-  full_join(variables_df, by = c("pointid", "regio", "jaar", "telperiode", 
-                                 "geometry")) %>%
+  full_join(variables_df, by = c("pointid", "regio", "jaar", "geometry")) %>%
   rename(plotnaam = pointid,
          x_lambert72 = x,
          y_lambert72 = y)
