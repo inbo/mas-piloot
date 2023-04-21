@@ -182,8 +182,7 @@ Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
 -   erosiemaatregelen
 -   bufferstroken
 
-Voor de steekproeftrekking zijn vooral de oppervlakte aan soortbeschermingsmaatregelen van belang.
-Eventueel verder opgesplitst in winter-, zomer- en jaarrondmaatregelen.
+Voor ons zijn de soortbeschermingsmaatregelen van belang.
 
 ### Welk datatype?
 
@@ -303,7 +302,7 @@ Finale kaart wordt eind april gepubliceerd (?).
 
 ### Hoe verzameld?
 
-Download van urls.
+Download van url's.
 
 Omzetten naar .parquet file.
 Bijvoorbeeld voor 2019:
@@ -422,7 +421,7 @@ telpunten_2018_2022_hfdtlt_long %>%
 ### Opmerkingen
 
 -   In percentage of proportie?
--   Compositionele variabele somt niet to 1. Probleem? Herschalen
+-   Compositionele variabele somt niet to 1. Probleem? Herschalen?
 -   Additieve log ratio transformatie met `alr()` functie van de **compositions** package
 
 ## Diversiteit aan hoofdteelten (1)
@@ -489,7 +488,7 @@ aggregate(telpunten_2018_2022_hfdtlt_div1$gewas_div_shannon,
 
 ### Opmerkingen
 
-\
+/
 
 ## Diversiteit aan hoofdteelten (2)
 
@@ -610,7 +609,7 @@ perimeters %>%
 
 ### Opmerkingen
 
-\
+/
 
 ## Openheid landschap
 
@@ -710,6 +709,7 @@ Categorisch.
 
 ??  
 VLM?
+https://www.vlaanderen.be/datavindplaats/catalogus/beheergebieden-akkervogelsoorten-toestand-11-8-2017
 
 ### Hoe verzameld?
 
@@ -835,7 +835,7 @@ n.v.t.
 
 ### Opmerkingen
 
-\
+/
 
 ## Oppervlakte-aandeel kleine landschapselementen
 
@@ -975,7 +975,7 @@ Finale kaart wordt eind april gepubliceerd (?).
 
 ### Hoe verzameld?
 
-Download van urls.
+Download van url's.
 
 ### Hoe berekend?
 
@@ -1155,7 +1155,7 @@ n.v.t.
 
 ### Opmerkingen
 
-\
+/
 
 ## Inertie beheerovereenkomsten
 
@@ -1309,7 +1309,7 @@ n.v.t.
 
 ### Opmerkingen
 
-\
+/
 
 ## Jaar
 
