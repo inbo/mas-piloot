@@ -186,20 +186,15 @@ Voor ons zijn de soortbeschermingsmaatregelen van belang.
 
 ### Welk datatype?
 
-Continue variabele.
-Percentage tussen 0 en 100.
+Continue variabele tussen 0 en 1. Proportie.
 
 ### Waar verzameld?
 
-??
-
-`BO_2022_VLM_EXTERN.shp`
+Bestand aangeleverd door VLM: `BO_2022_VLM_EXTERN.shp`
 
 ### Hoe verzameld?
 
-??
-
-`BO_2022_VLM_EXTERN.shp`
+Aangevraagd.
 
 ### Hoe berekend?
 
@@ -231,7 +226,7 @@ add_bo_by_year <- function(punten_df, path_bo) {
     out_df_year <- add_bo_to_frame(punten_df = punten_df_year, 
                                    bo_layer = bo_layer_year)
     
-    out_list[[i]] <- out_df_year %>% mutate(area_prop_sb = area_prop_sb * 100)
+    out_list[[i]] <- out_df_year
   }
   
   return(do.call(rbind.data.frame, out_list))
@@ -250,8 +245,8 @@ telpunten_2018_2022_bo <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
 summary_df <- tibble(
   categorie = "prioritair", 
   variabele = "oppervlakte-aandeel soortbeschermingsmaatregelen", 
-  eenheid = "percentage", 
-  bron = "VLM?")
+  eenheid = "proportie", 
+  bron = "VLM")
 ```
 
 ### Visualisatie
@@ -262,7 +257,7 @@ telpunten_2018_2022_bo %>%
     geom_histogram(aes(x = area_prop_sb)) +
     labs(
       title = "Oppervlakte-aandeel soortbeschermingsmaatregelen",
-      x = "Oppervlakte-aandeel (%)",
+      x = "Oppervlakte-aandeel",
       y = "Aantal telpunten") +
     facet_wrap(~jaar)
 ```
@@ -274,7 +269,7 @@ aggregate(telpunten_2018_2022_bo$area_prop_sb,
 
 ### Opmerkingen
 
--   In percentage of proportie?
+In model of visualisatie eventueel transformeren (logit + klein getal?).
 
 ## Oppervlakte-aandeel hoofdteelten {#opp-hfdtlt}
 
@@ -285,7 +280,7 @@ Gegroepeerd volgens gewasgroep.
 
 ### Welk datatype?
 
-Continu, compositionele proporties.
+Continue variabelen tussen 0 en 1. Proporties.
 
 ### Waar verzameld?
 
@@ -420,9 +415,7 @@ telpunten_2018_2022_hfdtlt_long %>%
 
 ### Opmerkingen
 
--   In percentage of proportie?
--   Compositionele variabele somt niet to 1. Probleem? Herschalen?
--   Additieve log ratio transformatie met `alr()` functie van de **compositions** package
+-   Compositionele variabele somt niet to 1 $\rightarrow$ gebruiken als proporties
 
 ## Diversiteit aan hoofdteelten (1)
 
@@ -452,13 +445,15 @@ $$
 
 Met $p_i(t)$ de proportie van teelt $i$ ($i = 1, ..., C(t)$) in telcirkel $t$.
 
+Daarna nemen we de exponent zodat dit getal te interpreteren is als het aantal teelten moest elke teelt eenzelfde oppervlakte hebben (= effectief aantal teelten: <https://en.wikipedia.org/wiki/Diversity_index#Effective_number_of_species_or_Hill_numbers>).
+
 Voor berekening zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
 
 ```{r}
 telpunten_2018_2022_hfdtlt_div1 <- telpunten_2018_2022_hfdtlt_long_tot %>%
   mutate(calc = area_prop * log(area_prop)) %>%
   group_by(pointid, jaar) %>%
-  summarise(gewas_div_shannon = -sum(calc), .groups = "drop")
+  summarise(gewas_div_shannon = exp(-sum(calc)), .groups = "drop")
 ```
 
 ```{r}
@@ -476,7 +471,7 @@ telpunten_2018_2022_hfdtlt_div1 %>%
   ggplot() +
     geom_histogram(aes(x = gewas_div_shannon)) +
     labs(title = "Diversiteit aan hoofdteelten (Shannon)",
-         x = "Diversiteit aan hoofdteelten per plot (Shannon index)", 
+         x = "Effectief aantal hoofdteelten per plot", 
          y = "Frequentie") +
     facet_wrap(~jaar)
 ```
@@ -549,7 +544,7 @@ summary_df <- rbind(summary_df, c(
 
 ### Opmerkingen
 
-Deze variabele wordt gebruikt als 'gewasdiversiteit' door @klaassen2022. Het is waarschijnlijk niet nuttig om zowel de Shannon index als het aantal te gebruiken in het model.
+Deze variabele wordt gebruikt als 'gewasdiversiteit' door @klaassen2022.
 
 # Verklarende variabelen van secundair belang
 
@@ -635,13 +630,12 @@ Categorisch.
 
 ### Waar verzameld?
 
-??  
-DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie
+DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie.  
+https://www.vlaanderen.be/digitaal-vlaanderen/onze-oplossingen/earth-observation-data-science-eodas/het-digitaal-hoogtemodel/digitaal-hoogtemodel-vlaanderen-ii
 
 ### Hoe verzameld?
 
-??  
-DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie
+download van url
 
 ### Hoe berekend?
 
@@ -660,7 +654,7 @@ Werkwijze:
 
 Met de functie `add_openheid_landschap_to_frame()` kunnen we deze categoriën toevoegen aan de telpunten.
 
-> Hoe was dit weer? Grootste proportie in telcirkel? nee ...
+Per punt is openheid landschap berekend in een straal van 300 vanuit het centrum van de telcirkel.
 
 ```{r}
 openheid_landschap_file <- path_to_openheid_landschap()
@@ -675,7 +669,7 @@ summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
   variabele = "openheid landschap", 
   eenheid = "categorisch", 
-  bron = "DSM, DTM?"))
+  bron = "Digitaal Hoogtemodel Vlaanderen II"))
 ```
 
 ### Visualisatie
@@ -707,14 +701,11 @@ Categorisch.
 
 ### Waar verzameld?
 
-??  
-VLM?
 https://www.vlaanderen.be/datavindplaats/catalogus/beheergebieden-akkervogelsoorten-toestand-11-8-2017
 
 ### Hoe verzameld?
 
-??  
-VLM?
+url
 
 ### Hoe berekend?
 
@@ -847,8 +838,7 @@ Landschapselementen op of aangrenzend aan landbouwgebruikspercelen in Vlaanderen
 
 ### Welk datatype?
 
-Continue variabele.
-Percentage tussen 0 en 100.
+Continue variabele. Proportie tussen 0 en 1.
 
 ### Waar verzameld?
 
@@ -907,7 +897,7 @@ telpunten_2018_2022_kle %>%
     geom_histogram(aes(x = area_prop_kle)) +
     labs(
       title = "Oppervlakte-aandeel kleine landschapselementen",
-      x = "Oppervlakte-aandeel (%)",
+      x = "Oppervlakte-aandeel",
       y = "Aantal telpunten")
 ```
 
@@ -927,8 +917,7 @@ Het aandeel oppervlakte aan kleine landschapselementen binnen de telcirkel.
 
 ### Welk datatype?
 
-Continue variabele.
-Percentage tussen 0 en 100.
+Continue variabele. Proportie tussen 0 en 1.
 
 ### Waar verzameld?
 
@@ -955,6 +944,9 @@ summary_df <- rbind(summary_df, c(
 ### Beschrijving
 
 Mediaan en interkwartielafstand van groottes van percelen die overlappen met telcirkels. Een perceel is de combinatie van aaneenliggende landbouwgebruikspercelen met dezelfde hoofdteelt.
+
+Coefficient of variation:  
+https://en.wikipedia.org/wiki/Coefficient_of_variation
 
 ### Welk datatype?
 
@@ -1170,6 +1162,8 @@ Gewogen gemiddelde van jaar sinds implementatie beheerovereenkomsten per telcirk
    -  3: start beheerovereenkomst 2 jaar vòòr telling
    -  ...
 
+> herclassificeren
+
 ### Welk datatype?
 
 Continu.
@@ -1277,7 +1271,7 @@ Vreemde waarden: je hebt ofwel 0 ofwel continu tussen 1 en 5 ... Nuttig?
 
 ### Beschrijving
 
-Aantal predatoren (kraaiachtigen, roofvogels) per telcirkel.
+Aantal individuen predatoren (kraaiachtigen, roofvogels) per telcirkel.
 
 ### Welk datatype?
 
@@ -1293,7 +1287,7 @@ n.v.t.
 
 ### Hoe berekend?
 
-Aantal predatoren tellen per telcirkel. Berekenen bij laden van data.
+Aantal individuen van predatoren tellen per telcirkel. Berekenen bij laden van data.
 
 ```{r}
 summary_df <- rbind(summary_df, c(
@@ -1398,6 +1392,8 @@ Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
 
 ### Beschrijving
 
+test osm?  
+https://wiki.openstreetmap.org/wiki/Tag:leisure=nature%20reserve?uselang=nl
 
 ### Welk datatype?
 
