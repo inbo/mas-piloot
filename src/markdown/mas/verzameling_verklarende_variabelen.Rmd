@@ -1170,15 +1170,11 @@ Continu.
 
 ### Waar verzameld?
 
-??
-
-`BO_2022_VLM_EXTERN.shp`
+Bestand aangeleverd door VLM: `BO_2022_VLM_EXTERN.shp`
 
 ### Hoe verzameld?
 
-??
-
-`BO_2022_VLM_EXTERN.shp`
+Aangevraagd.
 
 ### Hoe berekend?
 
