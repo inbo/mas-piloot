@@ -1,0 +1,108 @@
+---
+title: "strata mas visualisatie"
+author: "Hans Van Calster"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mapview)
+library(dplyr)
+library(sf)
+library(terra)
+library(here)
+source(here("src/R/berekening_hulpvariabelen.R"))
+mbag_dir <- here()
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+```
+
+# GIS lagen inlezen
+
+```{r sbps}
+# Lees lagen in
+sbp_overig <- 
+  st_read(path_to_sbp_akkervogels("sbp_overige_soorten.shp"), 
+          quiet = TRUE) %>%
+  filter(soort %in% c("Hamster", "Bruine kiekendief", "Grauwe kiekendief", 
+                      "Zomertortel")) %>%
+  mutate(soort = ifelse(soort == "Grauwe kiekendief" & gebied == "nieuw 2023", 
+                        "Grauwe kiekendief 2023", soort)) %>%
+  dplyr::select(soort)
+
+sbp_akkergvogels <- 
+  st_read(path_to_sbp_akkervogels("akkervogelgebieden2022.shp"),
+          quiet = TRUE) %>%
+  mutate(soort = "akkervogels2022") %>%
+  dplyr::select(soort)
+
+# Voeg samen
+soort_beschermings_plan <- bind_rows(sbp_overig, sbp_akkergvogels) %>%
+  group_by(soort) %>% 
+  summarize(geometry = st_union(geometry))
+```
+
+
+```{r openheid}
+openness300m_chm_res25_c300_mean_vlaanderen <-
+  rast(
+    here("data", "dem",
+         "openness300m_chm_res25_c300_mean_vlaanderen.tif")
+  )
+
+rclasmat <- c(0, 1.25, 1,
+              1.25, 1.35, 2,
+              1.35, 1.51, 3,
+              1.51, +Inf, 4) %>%
+  matrix(ncol = 3, byrow = TRUE)
+
+# vlaanderen_openheid_landschap <- terra::classify(
+#   openness300m_chm_res25_c1000_mean_vlaanderen,
+#   rcl = rclasmat,
+#   include.lowest = TRUE,
+#   filename = here("data", "dem",
+#                   "openness300m_chm_res25_c1000_mean_vlaanderen_classified.tif"),
+#   overwrite = TRUE)
+
+vlaanderen_openheid_landschap <- terra::classify(
+  openness300m_chm_res25_c300_mean_vlaanderen,
+  rcl = rclasmat,
+  include.lowest = TRUE,
+  filename = here("data", "dem",
+                  "openness300m_chm_res25_c300_mean_vlaanderen_classified.tif"),
+  overwrite = TRUE)
+
+
+my_palette <- RColorBrewer::brewer.pal(n = 4, name = "Dark2")
+vlaanderen_openheid_landschap_raster <- raster::raster(
+  vlaanderen_openheid_landschap)
+vlaanderen_openheid_landschap_raster <- raster::ratify(
+  vlaanderen_openheid_landschap_raster)
+levels(vlaanderen_openheid_landschap_raster)[[1]]$LT <-
+  c("GL", "HGL", "HOL", "OL")
+
+
+```
+
+```{r landbouwstreken}
+landbouwstreken <- read_sf(here("data", "landbouwstreken", "Lbstrbel.shp")) %>%
+  st_transform(crs = 31370)
+
+vlaanderen <- read_sf("S:/Vlaanderen/Grenzen/Administratief/Vlaanderen.shp") %>%
+  st_transform(crs = 31370)
+
+landbouwstreken <- st_intersection(landbouwstreken, vlaanderen)
+```
+
+
+# Kaart maken
+
+```{r}
+vlaanderen_openheid_landschap_raster %>%
+  mapview::mapview(alpha = 0.3) +
+  mapview(soort_beschermings_plan, zcol = "soort") +
+  mapview(landbouwstreken, alpha.regions = 0, color = "white", lwd = 2,
+          zcol = "NAAM", legend = FALSE)
+```
+
