@@ -126,9 +126,9 @@ mapviewdata %>%
 
 # Subset data
 
-- recente data beschikbaar (>= 2015)
-- >= 10 jaar tussen eerste en laatste bemonstering
-- >= 4 bemonsteringen
+- recente data beschikbaar ($\geq$ 2015)
+- $\geq$ 10 jaar tussen eerste en laatste bemonstering
+- $\geq$ 4 bemonsteringen
 
 ```{r}
 mapviewdata %>%
