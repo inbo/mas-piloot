@@ -30,6 +30,8 @@ library(tidyverse)
 library(sf)
 library(mapview)
 library(readxl)
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
 ```
 
 # Inlezen data
@@ -94,13 +96,55 @@ vmm_meetnet %>%
 vmm_meetnet %>%
   st_drop_geometry() %>%
   count(bekken, jaar) %>%
+  arrange(jaar) %>%
   pivot_wider(id_cols = c(bekken), names_from = jaar, values_from = n,
               values_fill = 0) %>%
-  kable(caption = "aantal bemonsterde meetplaatsen")
+  kable(caption = "aantal bemonsterde meetplaatsen", format = "simple")
 ```
 
 ```{r}
-vmm_meetnet %>%
+mapviewdata <- vmm_meetnet %>%
+  group_by(bekken, meetplaats) %>%
+  summarize(jaren = paste(jaar, collapse = ", "),
+            lengte_reeks = max(jaar) - min(jaar),
+            aantal_bemonsteringen = n(),
+            recentste_jaar = max(jaar),
+            .groups = "drop")
+
+mapviewdata %>%
   mapview(zcol = "bekken")
+
+mapviewdata %>%
+  mapview(zcol = "lengte_reeks")
+
+mapviewdata %>%
+  mapview(zcol = "aantal_bemonsteringen")
+
+mapviewdata %>%
+  mapview(zcol = "recentste_jaar")
+```
+
+# Subset data
+
+- recente data beschikbaar (>= 2015)
+- >= 10 jaar tussen eerste en laatste bemonstering
+- >= 4 bemonsteringen
+
+```{r}
+mapviewdata %>%
+  filter(recentste_jaar >= 2015,
+         lengte_reeks >= 10,
+         aantal_bemonsteringen >= 4) %>%
+  mapview()
+```
+
+```{r}
+mapviewdata %>%
+  filter(recentste_jaar >= 2015,
+         lengte_reeks >= 10,
+         aantal_bemonsteringen >= 4) %>%
+  st_drop_geometry() %>%
+  select(-recentste_jaar) %>%
+  count(bekken)
 ```
 
