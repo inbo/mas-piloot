@@ -1048,6 +1048,19 @@
       ],
       "Hash": "db2719c9c2910d9d4a3a9f2ce6c8e815"
     },
+    "conflicted": {
+      "Package": "conflicted",
+      "Version": "1.2.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "cli",
+        "memoise",
+        "rlang"
+      ],
+      "Hash": "bb097fccb22d156624fd07cd2894ddb6"
+    },
     "countrycode": {
       "Package": "countrycode",
       "Version": "1.4.0",
@@ -3332,22 +3345,24 @@
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
+      "RemoteUsername": "r-spatial",
       "RemoteRepo": "qgisprocess",
-      "RemoteUsername": "paleolimbot",
-      "RemoteRef": "HEAD",
-      "RemoteSha": "96c77b7a0d5f5c90fa5160d74489e45b17946ac6",
+      "RemoteRef": "main",
+      "RemoteSha": "a971f1111936941823ad656a5beac3264cc6510d",
       "Requirements": [
+        "assertthat",
         "glue",
         "jsonlite",
         "processx",
         "rappdirs",
         "rlang",
+        "stats",
         "stringr",
         "tibble",
         "vctrs",
         "withr"
       ],
-      "Hash": "77425e7f4d866525b1896fff17465632"
+      "Hash": "daea9dc3a2505341ba45f653bdbc350d"
     },
     "qs": {
       "Package": "qs",
