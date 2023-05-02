@@ -19,7 +19,7 @@ renv::restore()
 library(knitr)
 library(here)
 opts_chunk$set(
-  echo = TRUE,
+  echo = FALSE,
   warning = FALSE,
   message = FALSE,
   out.width = "100%")
@@ -30,6 +30,8 @@ library(tidyverse)
 library(sf)
 library(mapview)
 library(readxl)
+library(terra)
+library(qgisprocess)
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
 ```
@@ -48,7 +50,7 @@ vmm_map <- lapply(vmm_map, janitor::clean_names)
 
 ```{r}
 vmm_meetnet <- vmm_map$bbi_en_mmif_deelmaatlatten %>%
-  select(meetplaats, jaar, bbi) %>%
+  select(meetplaats, jaar, bbi, mmif) %>%
   arrange(meetplaats, jaar) %>%
   left_join(
     vmm_map$meetplaatsen %>%
@@ -59,7 +61,31 @@ vmm_meetnet <- vmm_map$bbi_en_mmif_deelmaatlatten %>%
          bbi = parse_number(bbi))
 ```
 
+
+```{r vmm-geodb, eval=FALSE}
+# enkel metadata van meetlocaties, maar geen meetgegevens
+gdb_layers <- st_layers("S:/Vlaanderen/Meetpunten/VMM.gdb")
+
+vmmdata2022 <- read_sf("S:/Vlaanderen/Meetpunten/VMM.gdb",
+                   layer = gdb_layers$name[2])
+
+names(vmmdata2022)
+plot(st_geometry(vmmdata2022))
+```
+
+```{r}
+library(inbodb)
+con <- inbodb::connect_inbo_dbase("D0113_00_VMMData")
+
+
+
+```
+
+
 # Verkenning
+
+
+BBI: Biotische biodiversiteitsindex
 
 ```{r}
 vmm_meetnet %>%
@@ -67,6 +93,17 @@ vmm_meetnet %>%
   geom_line(aes(x = jaar, y = bbi, group = meetplaats)) +
   facet_wrap(~bekken)
 ```
+
+MMIF: Multimetrische Macro-invertebratenindex Vlaanderen
+
+
+```{r}
+vmm_meetnet %>%
+  ggplot() + 
+  geom_line(aes(x = jaar, y = mmif, group = meetplaats)) +
+  facet_wrap(~bekken)
+```
+
 
 ```{r}
 vmm_meetnet %>%
@@ -131,10 +168,11 @@ mapviewdata %>%
 - $\geq$ 4 bemonsteringen
 
 ```{r}
-mapviewdata %>%
+subset <- mapviewdata %>%
   filter(recentste_jaar >= 2015,
          lengte_reeks >= 10,
-         aantal_bemonsteringen >= 4) %>%
+         aantal_bemonsteringen >= 4)
+subset %>%
   mapview()
 ```
 
@@ -154,5 +192,174 @@ Relevante factoren:
 - waterzuiveringsstations (stroomopwaarts)
 - puntvervuilingen (stroomopwaarts)
 - omgevend landgebruik (stroomopwaarts)
-- invasieve exoten
-- 
+- bemestingsdruk
+- beschermingsmaatregelen
+- controleren voor grootte van de catchment area?
+
+
+Zie ook http://geoloket.vmm.be/Geoviews/
+
+
+```{r eval=FALSE}
+dtm <- rast(here("data", "dem", "DHMVIIDTMRAS5m.tif"))
+library(qgisprocess)
+
+# fill sinks (alternatief grass7:r.fill.dir)
+alg0 <- "saga:fillsinkswangliu"
+qgis_arguments(alg0)
+dtm_filled <- qgis_run_algorithm(alg0,
+                           ELEV = dtm,
+                           FILLED = file.path(tempdir(), "dtm_filled.sdat"))
+
+
+filled <- rast(dtm_filled$FILLED[1])
+crs(filled) <- "EPSG:31370"
+terra::writeRaster(filled, here("data", "dem", "dhmvii_dtm_5m_filled.tif"))
+filled <- rast(here("data", "dem", "dhmvii_dtm_5m_filled.tif"))
+
+alg <- "saga:flowwidthandspecificcatchmentarea"
+#qgis_show_help(alg)
+#qgis_arguments(alg)
+carea <- qgis_run_algorithm(alg,
+                           DEM = filled,
+                           WIDTH = file.path(tempdir(), "flowwidth.sdat"),
+                           SCA = file.path(tempdir(), "carea.sdat"),
+                           METHOD = 1)
+
+# flowwidth carea
+flowwidth <- rast(carea$WIDTH[1])
+crs(flowwidth) <- "EPSG:31370"
+plot(flowwidth)
+sca <- rast(carea$SCA[1])
+
+qgis_arguments("sagang:watershedbasins")
+
+
+```
+
+
+```{r wbt-fill-breach, eval=!file.exists(here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"))}
+# whitebox tools installation:
+# install.packages("whitebox")
+# whitebox::install_whitebox()
+# QGIS plugins install search for whitebox and install the plugin
+# Go to preferences in QGIS select processing select whitebox and fill in path
+# by searching for whitebox_tools.exe file
+
+# following: https://vt-hydroinformatics.github.io/rgeowatersheds.html
+dtm <- rast(here("data", "dem", "DHMVIIDTMRAS5m.tif"))
+
+# single cell pitts breaching
+qgis_arguments("wbt:BreachSingleCellPits")
+qgis_run_algorithm("wbt:BreachSingleCellPits",
+                   dem = dtm,
+                   output = file.path(tempdir(), "pitts_filled.sdat"))
+
+# breach depressions
+qgis_arguments("wbt:BreachDepressionsLeastCost")
+# dist is in terms of raster cells
+qgis_run_algorithm("wbt:BreachDepressionsLeastCost",
+                   dem = file.path(tempdir(), "pitts_filled.sdat"),
+                   dist = 10,
+                   fill = FALSE,
+                   output = file.path(tempdir(), "breached.sdat"))
+
+# fill depressions
+qgis_arguments("wbt:FillDepressionsWangAndLiu")
+qgis_run_algorithm("wbt:FillDepressionsWangAndLiu",
+                   dem = file.path(tempdir(), "breached.sdat"),
+                   fix_flats = FALSE,
+                   output = file.path(tempdir(), "filled_breached.sdat"))
+
+filled_breached <- rast(file.path(tempdir(), "filled_breached.sdat"))
+crs(filled_breached) <- "EPSG:31370"
+terra::writeRaster(
+  filled_breached,
+  here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"),
+  overwrite = TRUE
+)
+
+```
+
+```{r}
+filled_breached <- rast(
+  here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"))
+plot(filled_breached)
+terra::
+```
+
+
+```{r wbt-d8, eval=file.exists(here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"))}
+# flow accumulation
+qgis_arguments("wbt:D8FlowAccumulation")
+d8_flow <- qgis_run_algorithm(
+  "wbt:D8FlowAccumulation",
+  input = here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"),
+  output = file.path(tempdir(), "d8flowpath.sdat"))
+d8_flow <- rast(d8_flow$output[1])
+crs(d8_flow) <- "EPSG:31370"
+terra::writeRaster(d8_flow,
+                   here("data", "dem", "dhmvii_dtm_5m_d8_flow.tif"))
+
+
+# d8 pointer
+qgis_arguments("wbt:D8Pointer")
+d8_pointer <- qgis_run_algorithm(
+  "wbt:D8Pointer",
+  dem = here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"),
+  output = file.path(tempdir(), "d8pointer.sdat"))
+
+d8_pointer <- rast(d8_pointer$output[1])
+crs(d8_pointer) <- "EPSG:31370"
+terra::writeRaster(d8_pointer,
+                   here("data", "dem", "dhmvii_dtm_5m_d8_pointer.tif"),
+                   overwrite = TRUE)
+```
+
+
+```{r wbt-pour-points, eval=FALSE}
+# setting pour points
+# The tool only wants a file name, which must be a shape file
+st_write(subset %>%
+           select(FID = meetplaats) %>%
+           slice(1),
+         here("data", "vmm", "subset.shp"),
+         append = FALSE)
+
+
+qgis_arguments("wbt:ExtractStreams")
+streams <- qgis_run_algorithm(
+  "wbt:ExtractStreams",
+  flow_accum = here("data", "dem", "dhmvii_dtm_5m_d8_flow.tif"),
+  threshold = 2,
+  output = file.path(tempdir(), "streams.sdat"))
+
+qgis_arguments("wbt:JensonSnapPourPoints")
+
+
+
+```
+
+```{r wbt-watersheds, eval=FALSE}
+# delineate watersheds
+qgis_arguments("wbt:Watershed")
+
+# convert watersheds to polygons
+
+
+
+ws <- qgis_run_algorithm("wbt:Watershed",
+                         d8_pntr = d8_pointer, 
+                         pour_pts = here("data", "vmm", "subset.shp"),
+                         esri_pntr = FALSE,
+                         output = file.path(tempdir(), "ws.sdat"))
+
+
+ws <- rast(ws$output[1])
+plot(ws)
+summary(ws)
+```
+
+
+
+
