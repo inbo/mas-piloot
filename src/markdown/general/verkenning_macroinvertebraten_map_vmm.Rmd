@@ -285,7 +285,7 @@ terra::writeRaster(
 filled_breached <- rast(
   here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"))
 plot(filled_breached)
-terra::
+
 ```
 
 
