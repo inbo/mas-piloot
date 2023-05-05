@@ -1462,11 +1462,28 @@ https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/inv/znief
 
 ### Hoe berekend?
 
-> Qua manier van berekenen lijkt me meest relevant een oppervlakte in een buffer of nog beter een distance decay gewogen oppervlakte (cf https://www.jstor.org/stable/3071919)
+We willen een maat voor het aantal natuurgebieden waarbij we de afstand tot het natuurgebied en de grootte van het natuurgebied in rekening brengen.
+
+> Hans: Qua manier van berekenen lijkt me meest relevant een oppervlakte in een buffer of nog beter een distance decay gewogen oppervlakte (cf. https://www.jstor.org/stable/3071919)
 
 > Of zie mail Hans: gewichten met formules van https://github.com/STBrinkmann/GVI#viewshed-greenness-visibility-index-vgvi
 
-Logistic density decay function:
+Beschouw telpunt $i$ met $J$ natuurgebieden met oppervlakte $A$ ($j = 1, ..., J$) binnen een arbitraire straal (bv. 10 kilometer).
+
+We berekenen het gewicht $w_{ij}$ via een vervalfunctie $f(\cdot)$, zodat
+
+$$
+w_{ij} = f(d_{ij})
+$$
+
+met $d_ij$ de afstand tussen telpunt $i$ en het centrum van natuurgebied $j$.  
+We beschouwen twee verschillende vervalfuncties.
+
+1. Logistische vervalfunctie
+
+$$
+f(x) = \frac{1}{1 + \exp(b(x-m))}
+$$
 
 ```{r}
 par(mfrow = c(2, 2))
@@ -1480,7 +1497,11 @@ par(mfrow = c(1, 1))
 $m$ is het middelpunt van de curve  
 $b$ is de steilheid van de curve
 
-Exponential density decay function:
+2. Exponentiële vervalfunctie
+
+$$
+f(x) = \frac{1}{1 + bx^m}
+$$
 
 ```{r}
 par(mfrow = c(2, 2))
@@ -1537,18 +1558,22 @@ Visualisatie voor twee mogelijke vervalfuncties die we kunnen gebruiken:
 
 ```{r}
 tibble(dist = seq(0, 10000, 1)) %>% 
-  mutate(exponentieel = calc_weights(dist, 10000, b = 1, m = 1.3, 
-                                     mode = "exponential")) %>%
-  mutate(logistisch = calc_weights(dist, 10000, mode = "logistic")) %>%
-  pivot_longer(cols = c("exponentieel", "logistisch"), 
+  mutate("exponentieel\n(m = 1.3, b = 1)" = calc_weights(
+    dist, 10000, b = 1, m = 1.3, mode = "exponential")) %>%
+  mutate("logistisch\n(m = 0.5, b = 8)" = calc_weights(
+    dist, 10000, mode = "logistic")) %>%
+  pivot_longer(cols = c("exponentieel\n(m = 1.3, b = 1)", 
+                        "logistisch\n(m = 0.5, b = 8)"), 
                names_to = "Vervalfunctie", values_to = "w") %>%
   ggplot() +
     geom_line(aes(x = dist, y = w, colour = Vervalfunctie), linewidth = 2) +
     coord_cartesian(ylim = c(0, 1)) +
-    labs(x = "Afstand tot telpunt", y = "Gewichten")
+    labs(x = "Afstand tot telpunt", y = "Gewichten") +
+    theme(legend.spacing.y = unit(0.2, 'cm')) +
+    guides(colour = guide_legend(byrow = TRUE))
 ```
 
-
+Daarna berekenen we de variabele voor telpunt $i$ via $\sum_{j=1}^Jw_{ij}A_j$
 
 ### Visualisatie
 
