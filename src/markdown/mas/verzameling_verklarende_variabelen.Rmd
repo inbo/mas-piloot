@@ -1484,10 +1484,10 @@ Exponential density decay function:
 
 ```{r}
 par(mfrow = c(2, 2))
-visualizeWeights(10000, m = 0.7, b = 6, mode = "exponential")
 visualizeWeights(10000, m = 1, b = 6, mode = "exponential")
-visualizeWeights(10000, m = 0.7, b = 12, mode = "exponential")
-visualizeWeights(10000, m = 1, b = 12, mode = "exponential")
+visualizeWeights(10000, m = 1.3, b = 6, mode = "exponential")
+visualizeWeights(10000, m = 1, b = 3, mode = "exponential")
+visualizeWeights(10000, m = 1.3, b = 3, mode = "exponential")
 par(mfrow = c(1, 1))
 ```
 
@@ -1496,8 +1496,10 @@ calc_weights <- function(x, max_dist, m = NULL, b = NULL, mode = "logistic") {
   
   if (mode == "logistic") {
     # Parameters
-    if (is.null(m) | is.null(b)) {
+    if (is.null(m)) {
       m <- 0.5
+    } 
+    if (is.null(b)) {
       b <- 8
     }
     
@@ -1510,8 +1512,10 @@ calc_weights <- function(x, max_dist, m = NULL, b = NULL, mode = "logistic") {
     
   } else if (mode == "exponential") {
     # Parameters
-    if (is.null(m) | is.null(b)) {
+    if (is.null(m)) {
       m <- 1
+    } 
+    if (is.null(b)) {
       b <- 6
     }
     
@@ -1529,11 +1533,19 @@ calc_weights <- function(x, max_dist, m = NULL, b = NULL, mode = "logistic") {
 }
 ```
 
+Visualisatie voor twee mogelijke vervalfuncties die we kunnen gebruiken:
+
 ```{r}
-df <- tibble(dist = seq(0, 10000)) %>% 
-  mutate(w = calc_weights(dist, 10000, mode = "banaan"))
-ggplot(df) +
-  geom_point(aes(x = dist, y = w))
+tibble(dist = seq(0, 10000, 1)) %>% 
+  mutate(exponentieel = calc_weights(dist, 10000, b = 1, m = 1.3, 
+                                     mode = "exponential")) %>%
+  mutate(logistisch = calc_weights(dist, 10000, mode = "logistic")) %>%
+  pivot_longer(cols = c("exponentieel", "logistisch"), 
+               names_to = "Vervalfunctie", values_to = "w") %>%
+  ggplot() +
+    geom_line(aes(x = dist, y = w, colour = Vervalfunctie), linewidth = 2) +
+    coord_cartesian(ylim = c(0, 1)) +
+    labs(x = "Afstand tot telpunt", y = "Gewichten")
 ```
 
 
