@@ -62,28 +62,98 @@ vmm_meetnet <- vmm_map$bbi_en_mmif_deelmaatlatten %>%
 ```
 
 
-```{r vmm-geodb, eval=FALSE}
+```{r vmm-geodb}
 # enkel metadata van meetlocaties, maar geen meetgegevens
 gdb_layers <- st_layers("S:/Vlaanderen/Meetpunten/VMM.gdb")
 
 vmmdata2022 <- read_sf("S:/Vlaanderen/Meetpunten/VMM.gdb",
                    layer = gdb_layers$name[2])
 
-names(vmmdata2022)
-plot(st_geometry(vmmdata2022))
+bekkens <- vmmdata2022 %>%
+  st_drop_geometry() %>%
+  distinct(Code, Bekken) %>%
+  mutate(
+    Bekken = case_when(
+      Bekken == "Beneden-Schelde" ~ "Benedenschelde",
+      Bekken == "Boven-Schelde" ~ "Bovenschelde",
+      Bekken == "Onbekend" ~ NA_character_,
+      TRUE ~ Bekken
+    )
+  )
 ```
 
-```{r}
+
+Gegevensbron: "Vlaamse Milieumaatschappij – Fysisch-chemisch en biologisch meetnet oppervlaktewater".
+
+Selectie fysicochemische data:
+
+- "NH4+", "NO2-", "NO3-", "oPO4" allemaal gemeten
+- Zomerhalfjaar
+- Geen calamiteit of sluiklozing, uitzonderlijk hoog water, specifiek onderzoek, uitzonderlijk beïnvloed
+- Locatiegegevens bekend
+- minstens 4 metingen beschikbaar (per meetpunt, variabele, zomerjaar)
+- gemiddelde waarde wordt berekend
+
+```{r vmm-fysicochemie}
+# https://sites.google.com/a/inbo.be/intranet/home/ondersteuning/IT-en-data/datasystemen/vmm-oppervlaktewaters
 library(inbodb)
 con <- inbodb::connect_inbo_dbase("D0113_00_VMMData")
 
+fc_metingen <- tbl(con, "MetingFysicoChemieMeting")
+fc_staalname <- tbl(con, "MetingFysicoChemieStaalname")
+meetpunten <- tbl(con, "Meetpunt")
+mmif_metingen <- tbl(con, "MetingIndexMMIFPerMeetpuntJaar")
 
+fc_data_zomerjaar <- fc_metingen %>%
+  filter(ParameterCode %in% c("NH4+", "NO2-", "NO3-", "oPO4")) %>%
+  select(-DataSource, -Waarde, -WaardeTeken) %>%
+  inner_join(
+    fc_staalname %>%
+      filter(across(.cols = matches("R1|R2|R4|R7"), is.na)) %>%
+      select(Id, MeetpuntCode, Datum, ZomerJaar) %>%
+      filter(!is.na(ZomerJaar)),
+    by = c("StaalnameId" = "Id")) %>%
+  inner_join(
+    meetpunten %>%
+      select(Code, Lambert72_X, Lambert72_Y) %>%
+      filter(!is.na(Lambert72_X),
+             Lambert72_X > 0),
+    by = c("MeetpuntCode" = "Code")) %>%
+  collect() %>%
+  pivot_wider(
+    id_cols = c(ZomerJaar, MeetpuntCode, Lambert72_X, Lambert72_Y,
+                StaalnameId),
+    names_from = ParameterCode, 
+    values_from = WaardeDetectieGecorrigeerd
+  ) %>%
+  mutate(Nsom = `NH4+` + `NO2-` + `NO3-`,
+         NPratio = Nsom / oPO4) %>%
+  pivot_longer(cols = c(`NH4+`, `NO2-`, `NO3-`, oPO4, Nsom, NPratio),
+               names_to = "variabele",
+               values_to = "waarde",
+               values_drop_na = TRUE) %>%
+  group_by(ZomerJaar, MeetpuntCode, Lambert72_X, Lambert72_Y,
+           variabele) %>%
+  filter(n() >= 4) %>%
+  summarise(gemiddelde = mean(waarde),
+            .groups = "drop") %>%
+  pivot_wider(
+    id_cols = c(ZomerJaar, MeetpuntCode, Lambert72_X, Lambert72_Y),
+    names_from = variabele,
+    values_from = gemiddelde
+  ) %>%
+  filter(if_all(.fns = ~!is.na(.x))) %>%
+  st_as_sf(coords = c("Lambert72_X", "Lambert72_Y"), crs = 31370) %>%
+  left_join(bekkens,
+            by = c("MeetpuntCode" = "Code"))
 
+inbodb::dbDisconnect(con)
 ```
 
 
 # Verkenning
 
+## Macro-invertebraten
 
 BBI: Biotische biodiversiteitsindex
 
@@ -161,43 +231,81 @@ mapviewdata %>%
   mapview(zcol = "recentste_jaar")
 ```
 
-# Subset data
+## Fysico-chemische data
 
-- recente data beschikbaar ($\geq$ 2015)
-- $\geq$ 10 jaar tussen eerste en laatste bemonstering
-- $\geq$ 4 bemonsteringen
-
-```{r}
-subset <- mapviewdata %>%
-  filter(recentste_jaar >= 2015,
-         lengte_reeks >= 10,
-         aantal_bemonsteringen >= 4)
-subset %>%
-  mapview()
+```{r fig.height = 200/25.4}
+fc_data_zomerjaar %>%
+  pivot_longer(cols = c(`NH4+`, `NO2-`, `NO3-`, NPratio, Nsom, oPO4)) %>%
+  ggplot() +
+  geom_line(aes(x = ZomerJaar, y = value, group = MeetpuntCode),
+            alpha = 0.3) +
+  scale_y_log10() +
+  facet_grid(Bekken ~ name)
 ```
 
 ```{r}
-mapviewdata %>%
-  filter(recentste_jaar >= 2015,
-         lengte_reeks >= 10,
-         aantal_bemonsteringen >= 4) %>%
+fc_data_zomerjaar %>%
+  select(ZomerJaar, MeetpuntCode, Bekken) %>%
+  group_by(Bekken) %>%
+  mutate(MeetpuntCode = reorder(MeetpuntCode, ZomerJaar, length)) %>%
+  ggplot() +
+  geom_point(aes(x = ZomerJaar, y = MeetpuntCode, colour = Bekken))
+```
+
+
+```{r}
+fc_mapviewdata <- fc_data_zomerjaar %>%
+  group_by(MeetpuntCode) %>%
+  summarize(jaren = paste(ZomerJaar, collapse = ", "),
+            lengte_reeks = max(ZomerJaar) - min(ZomerJaar),
+            aantal_bemonsteringen = n(),
+            recentste_jaar = max(ZomerJaar),
+            .groups = "drop")
+
+
+fc_mapviewdata %>%
+  mapview(zcol = "lengte_reeks")
+
+fc_mapviewdata %>%
+  mapview(zcol = "aantal_bemonsteringen")
+
+fc_mapviewdata %>%
+  mapview(zcol = "recentste_jaar")
+```
+
+## Samengestelde dataset
+
+```{r}
+mi_fc <- vmm_meetnet %>%
+  left_join(fc_data_zomerjaar %>%
+              st_drop_geometry(),
+            by = c("meetplaats" = "MeetpuntCode",
+                   "jaar" = "ZomerJaar"))
+
+```
+
+```{r}
+mi_fc %>%
   st_drop_geometry() %>%
-  select(-recentste_jaar) %>%
-  count(bekken) %>%
+  count(heeft_alle_N_P_data = !is.na(Nsom)) %>%
   kable()
 ```
 
-Relevante factoren:
 
-- waterzuiveringsstations (stroomopwaarts)
-- puntvervuilingen (stroomopwaarts)
-- omgevend landgebruik (stroomopwaarts)
-- bemestingsdruk
-- beschermingsmaatregelen
-- controleren voor grootte van de catchment area?
+```{r}
+mi_fc %>%
+  mutate(mmif = as.numeric(mmif)) %>%
+  ggplot(aes(x = Nsom + oPO4, y = mmif)) +
+  geom_point(aes(colour = jaar)) +
+  geom_smooth(method = "lm") +
+  scale_x_log10() +
+  facet_wrap(~Bekken)
+```
 
 
-Zie ook http://geoloket.vmm.be/Geoviews/
+
+
+## Berekening afstroomgebieden
 
 
 ```{r eval=FALSE}
@@ -359,6 +467,46 @@ ws <- rast(ws$output[1])
 plot(ws)
 summary(ws)
 ```
+
+
+
+# Selectie meetplaatsen
+
+- recente data beschikbaar ($\geq$ 2015)
+- $\geq$ 10 jaar tussen eerste en laatste bemonstering
+- $\geq$ 4 bemonsteringen
+
+```{r}
+subset <- mapviewdata %>%
+  filter(recentste_jaar >= 2015,
+         lengte_reeks >= 10,
+         aantal_bemonsteringen >= 4)
+subset %>%
+  mapview()
+```
+
+```{r}
+mapviewdata %>%
+  filter(recentste_jaar >= 2015,
+         lengte_reeks >= 10,
+         aantal_bemonsteringen >= 4) %>%
+  st_drop_geometry() %>%
+  select(-recentste_jaar) %>%
+  count(bekken) %>%
+  kable()
+```
+
+Relevante factoren:
+
+- waterzuiveringsstations (stroomopwaarts)
+- puntvervuilingen (stroomopwaarts)
+- omgevend landgebruik (stroomopwaarts)
+- bemestingsdruk
+- beschermingsmaatregelen
+- controleren voor grootte van de catchment area?
+
+
+Zie ook http://geoloket.vmm.be/Geoviews/
 
 
 
