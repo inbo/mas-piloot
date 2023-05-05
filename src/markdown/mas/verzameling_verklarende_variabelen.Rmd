@@ -953,7 +953,7 @@ Continue variabele. Proportie tussen 0 en 1.
 summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
   variabele = "oppervlakte-aandeel biolandbouw", 
-  eenheid = "percentage", 
+  eenheid = "proportie", 
   bron = "??"))
 ```
 
