@@ -1418,6 +1418,7 @@ https://wiki.openstreetmap.org/wiki/Tag:leisure=nature%20reserve?uselang=nl
 
 ### Waar verzameld?
 
+https://www.vlaanderen.be/datavindplaats/catalogus/natuurbeheerplannen
 
 ### Hoe verzameld?
 
