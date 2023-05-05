@@ -1427,15 +1427,29 @@ Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
 
 ### Beschrijving
 
-test osm?  
-https://wiki.openstreetmap.org/wiki/Tag:leisure=nature%20reserve?uselang=nl
 
 ### Welk datatype?
 
 
 ### Waar verzameld?
 
+Vlaanderen:  
+Natuurbeheerplannen (excl. natuurbeheeerplannen type I en beperkte bosbeheerplannen)  
 https://www.vlaanderen.be/datavindplaats/catalogus/natuurbeheerplannen
+
+Nederland:  
+Natuurnetwerk Nederland (NNN)  
+https://www.pdok.nl/introductie/-/article/natuurnetwerk-nederland-nnn-
+
+Wallonië:  
+Réseau Natura 2000 en vigueur  
+https://geoportail.wallonie.be/catalogue/80a837d8-2c0b-4f77-b5d5-824e9780a4ae.html  
+Conservation de la nature  
+https://geoportail.wallonie.be/catalogue/435c454c-0d4b-41cf-a136-a1aba134d9ac.html
+
+Frankrijk:  
+Zones Naturelles d’Intérêt Ecologique Faunistique et Floristique de type 1   
+https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/inv/znieff1
 
 ### Hoe verzameld?
 
