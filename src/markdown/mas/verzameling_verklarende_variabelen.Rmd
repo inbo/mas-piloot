@@ -850,6 +850,8 @@ Download shapefiles van link.
 
 ### Hoe berekend?
 
+We berekenen de oppervlakte per subklasse binnen de telcirkel.
+
 ```{r}
 kle_path <- file.path("data", 
   "Landschapselementen_rond_binnen_landbouwgebruikspercelen_2017",
@@ -863,46 +865,66 @@ kle_layer %>% st_drop_geometry() %>%
 ```
 
 ```{r}
-test <- st_intersection(kle_layer, perimeters)
-
-# Bereken proportie kle's
+# Bereken proportie kle's per subklasse
 prop_kle <- landusemetrics_grid_cell(
   grid_cell = telpunten_2018_2022 %>% st_buffer(dist = 300),
-  layer = kle_layer %>% rename(geometry = geom) %>% mutate(kle = "kle"),
+  layer = kle_layer %>% rename(geometry = geom),
   grid_group_by_col = "pointid",
-  layer_group_by_col = "kle") %>%
+  layer_group_by_col = "subklasse") %>%
   ungroup()
 
 # Voeg afwezige kle's toe aan dataframes
-telpunten_2018_2022_kle <- telpunten_2018_2022 %>% 
-  full_join(prop_kle, by = c("pointid")) %>%
-  mutate(area_prop_kle = area_prop * 100) %>%
-  select(-c(kle, cell_area, area_m2, area_prop)) %>%
+design_kle <- expand.grid(pointid = unique(telpunten_2018_2022$pointid), 
+                          subklasse = unique(kle_layer$subklasse))
+
+telpunten_2018_2022_kle_long <- telpunten_2018_2022 %>%
+  full_join(design_kle, by = c("pointid")) %>%
+  full_join(prop_kle, by = c("pointid", "subklasse")) %>%
+  mutate(area_prop_kle = area_prop) %>%
+  select(-c(cell_area, area_m2, area_prop)) %>%
   replace(is.na(.), 0)
+
+telpunten_2018_2022_kle <- telpunten_2018_2022_kle_long %>%
+  st_drop_geometry() %>%
+  pivot_wider(id_cols = c("pointid", "regio"), 
+              names_from = "subklasse", 
+              values_from = "area_prop_kle")
 ```
 
 ```{r}
-summary_df <- rbind(summary_df, c(
+summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
-  variabele = "oppervlakte-aandeel kleine landschapselementen", 
-  eenheid = "percentage", 
+  variabele = tolower(unique(telpunten_2018_2022_kle_long$subklasse)), 
+  eenheid = "proportie", 
   bron = "kaart landschapselementen (LV)"))
 ```
 
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_kle %>%
+telpunten_2018_2022_kle_long %>%
   ggplot() +
     geom_histogram(aes(x = area_prop_kle)) +
     labs(
       title = "Oppervlakte-aandeel kleine landschapselementen",
       x = "Oppervlakte-aandeel",
-      y = "Aantal telpunten")
+      y = "Aantal telpunten") +
+    facet_wrap(~subklasse)
 ```
 
 ```{r}
-summary(telpunten_2018_2022_kle$area_prop_kle)
+telpunten_2018_2022_kle_long %>%
+  st_drop_geometry() %>%
+  group_by(subklasse) %>%
+  summarise(mediaan = median(area_prop_kle), 
+            gemiddelde = mean(area_prop_kle),
+            min = min(area_prop_kle),
+            max =  max(area_prop_kle), 
+            .groups = "drop") %>%
+  mutate(subklasse = reorder(factor(subklasse), mediaan, sum,
+                              decreasing = TRUE)) %>%
+  arrange(subklasse) %>%
+  kable()
 ```
 
 ### Opmerkingen
