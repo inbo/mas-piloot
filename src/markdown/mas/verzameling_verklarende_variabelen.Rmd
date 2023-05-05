@@ -745,7 +745,7 @@ summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
   variabele = "soortbeschermingsplan", 
   eenheid = "categorisch", 
-  bron = "VLM?"))
+  bron = "VLM"))
 ```
 
 ### Visualisatie
@@ -1184,7 +1184,7 @@ Gewogen gemiddelde van jaar sinds implementatie beheerovereenkomsten per telcirk
    -  3: start beheerovereenkomst 2 jaar vòòr telling
    -  ...
 
-> herclassificeren
+We categoriseren de gemiddeldes door af te ronden naar een geheel getal.
 
 ### Welk datatype?
 
@@ -1226,7 +1226,7 @@ add_bo_inertia <- function(punten_df, path_bo) {
       filter(BH_DOELST == "soortenbescherming (SB)") %>%
       mutate(inertia_row = jaar - startjaar + 1) %>%
       group_by(pointid) %>%
-      summarise(inertia_sb = mean(inertia_row), .groups = "drop")
+      summarise(inertia_sb = round(mean(inertia_row)), .groups = "drop")
     
     out_list[[i]] <- out_df_year %>% 
       full_join(punten_df_year, by = c("pointid")) %>%
@@ -1251,8 +1251,8 @@ telpunten_2018_2022_inertia <- add_bo_inertia(telpunten_2018_2022_df,
 summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
   variabele = "inertie beheerovereenkomsten", 
-  eenheid = "??", 
-  bron = "VLM?"))
+  eenheid = "aantal", 
+  bron = "VLM"))
 ```
 
 ### Visualisatie
@@ -1260,10 +1260,12 @@ summary_df <- rbind(summary_df, c(
 ```{r}
 telpunten_2018_2022_inertia %>%
   ggplot() +
-    geom_histogram(aes(x = inertia_sb), binwidth = 0.25) +
+    geom_bar(aes(x = inertia_sb)) +
+    scale_x_continuous(breaks = 
+                         unique(telpunten_2018_2022_inertia$inertia_sb)) +
     labs(
-      title = "Oppervlakte-aandeel soortbeschermingsmaatregelen",
-      x = "Oppervlakte-aandeel (%)",
+      title = "Implementatie beheerovereenkomsten",
+      x = "Gemiddeld jaar sinds beheerovereenkomst (gecategoriseerd)",
       y = "Aantal telpunten") +
     facet_wrap(~jaar)
 ```
