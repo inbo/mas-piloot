@@ -967,8 +967,7 @@ summary_df <- rbind(summary_df, c(
 
 Mediaan en interkwartielafstand van groottes van percelen die overlappen met telcirkels. Een perceel is de combinatie van aaneenliggende landbouwgebruikspercelen met dezelfde hoofdteelt.
 
-Coefficient of variation:  
-https://en.wikipedia.org/wiki/Coefficient_of_variation
+We berekenen ook de variatiecoëfficiënt (<https://en.wikipedia.org/wiki/Coefficient_of_variation>)
 
 ### Welk datatype?
 
@@ -1036,6 +1035,7 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
       group_by(pointid) %>%
       summarise(perceel_median_area = units::drop_units(median(area)),
                 perceel_iqr_area = IQR(area),
+                perceel_cv_area = perceel_iqr_area / perceel_median_area,
                 .groups = "drop")
     
     out_list[[i]] <- out_df_year %>% full_join(punten_df_year)
@@ -1048,8 +1048,8 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
 > Voorlopig niet berekenen voor 2022. Code loopt vast, maar hopelijk snel finale kaartlaag.
 
 ```{r}
-telpunten_2018_2022_prcl <- calc_perceelsgrootte_by_year(telpunten_2018_2022_df %>%
-                                                           filter(jaar != 2022))
+telpunten_2018_2022_prcl <- calc_perceelsgrootte_by_year(
+  telpunten_2018_2022_df %>% filter(jaar != 2022))
 ```
 
 Een voorbeeld:
@@ -1092,8 +1092,9 @@ ggplot() +
 summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
   variabele = c("centrale waarde perceelsgroottes", 
-                "variabiliteit perceelsgroottes"), 
-  eenheid = "m²", 
+                "variabiliteit perceelsgroottes",
+                "variatiecoëfficiënt"), 
+  eenheid = c("m²", "m²", "coëfficiënt"), 
   bron = "landbouwgebruikspercelen kaart (LV)"))
 ```
 
@@ -1127,9 +1128,23 @@ aggregate(telpunten_2018_2022_prcl$perceel_iqr_area,
           by = list(telpunten_2018_2022_prcl$jaar), FUN = summary)
 ```
 
+```{r}
+telpunten_2018_2022_prcl %>%
+  ggplot() +
+    geom_histogram(aes(x = perceel_cv_area)) +
+    labs(title = "Perceelsgroottes (CV)",
+         x = "Variatiecoëfficiënt",
+         y = "Aantal telpunten")
+```
+
+```{r}
+aggregate(telpunten_2018_2022_prcl$perceel_cv_area, 
+          by = list(telpunten_2018_2022_prcl$jaar), FUN = summary)
+```
+
 ### Opmerkingen
 
--  Collineariteit mediaan en IQR onderzoeken
+-  Collineariteit mediaan en IQR onderzoeken. Enkel CV gebruiken?
 -  Log-transformatie?
 
 ## X- en Y-coördinaten
