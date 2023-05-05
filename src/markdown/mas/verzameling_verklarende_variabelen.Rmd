@@ -1434,7 +1434,10 @@ Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
 ### Waar verzameld?
 
 Vlaanderen:  
-Natuurbeheerplannen (excl. natuurbeheeerplannen type I en beperkte bosbeheerplannen)  
+Natuurbeheerplannen
+
+-  excl. natuurbeheeerplannen type I en beperkte bosbeheerplannen
+
 https://www.vlaanderen.be/datavindplaats/catalogus/natuurbeheerplannen
 
 Nederland:  
@@ -1445,6 +1448,9 @@ Wallonië:
 Réseau Natura 2000 en vigueur  
 https://geoportail.wallonie.be/catalogue/80a837d8-2c0b-4f77-b5d5-824e9780a4ae.html  
 Conservation de la nature  
+
+-  excl. 'parcs naturels' en RAMSAR perimeters
+
 https://geoportail.wallonie.be/catalogue/435c454c-0d4b-41cf-a136-a1aba134d9ac.html
 
 Frankrijk:  
@@ -1459,6 +1465,78 @@ https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/inv/znief
 > Qua manier van berekenen lijkt me meest relevant een oppervlakte in een buffer of nog beter een distance decay gewogen oppervlakte (cf https://www.jstor.org/stable/3071919)
 
 > Of zie mail Hans: gewichten met formules van https://github.com/STBrinkmann/GVI#viewshed-greenness-visibility-index-vgvi
+
+Logistic density decay function:
+
+```{r}
+par(mfrow = c(2, 2))
+visualizeWeights(10000, m = 0.4, b = 8, mode = "logit")
+visualizeWeights(10000, m = 0.5, b = 8, mode = "logit")
+visualizeWeights(10000, m = 0.4, b = 10, mode = "logit")
+visualizeWeights(10000, m = 0.5, b = 10, mode = "logit")
+par(mfrow = c(1, 1))
+```
+
+$m$ is het middelpunt van de curve  
+$b$ is de steilheid van de curve
+
+Exponential density decay function:
+
+```{r}
+par(mfrow = c(2, 2))
+visualizeWeights(10000, m = 0.7, b = 6, mode = "exponential")
+visualizeWeights(10000, m = 1, b = 6, mode = "exponential")
+visualizeWeights(10000, m = 0.7, b = 12, mode = "exponential")
+visualizeWeights(10000, m = 1, b = 12, mode = "exponential")
+par(mfrow = c(1, 1))
+```
+
+```{r}
+calc_weights <- function(x, max_dist, m = NULL, b = NULL, mode = "logistic") {
+  
+  if (mode == "logistic") {
+    # Parameters
+    if (is.null(m) | is.null(b)) {
+      m <- 0.5
+      b <- 8
+    }
+    
+    # Rescale
+    m <- m * max_dist
+    b <- b / max_dist
+    
+    # Function
+    out <- 1 / (1 + exp((b) * (x - m)))
+    
+  } else if (mode == "exponential") {
+    # Parameters
+    if (is.null(m) | is.null(b)) {
+      m <- 1
+      b <- 6
+    }
+    
+    # Rescale
+    b <- b / max_dist
+    
+    # Function
+    out <- 1 / (1 + ((b) * x^(m)))
+    
+  } else {
+    stop("Currently only logistic and exponential are supported", call. = FALSE)
+  }
+  
+  return(out)
+}
+```
+
+```{r}
+df <- tibble(dist = seq(0, 10000)) %>% 
+  mutate(w = calc_weights(dist, 10000, mode = "banaan"))
+ggplot(df) +
+  geom_point(aes(x = dist, y = w))
+```
+
+
 
 ### Visualisatie
 
