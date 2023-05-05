@@ -1459,6 +1459,75 @@ https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/inv/znief
 
 ### Hoe verzameld?
 
+We selecteren alle natuurgebieden in Vlaanderen en Nederland, Wallonië en Frankrijk binnen een buffer van 20 km rond Vlaanderen.
+
+> toon code voor selectie
+> merge by naamdossie? nee zie id 46534 --> merge aanliggende polygonen?
+
+```{r}
+# Inlezen kaarten
+nb_vlaanderen <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Vlaanderen/ps_nbhp.shp"))
+nb_nederland  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Nederland/inspire-pv-ps.nlps-nnn.gml")) %>%
+  st_transform(31370)
+nb_frankrijk  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Frankrijk/znieff1/znieff1.shp")) %>%
+  st_transform(31370)
+nb_wallonie1  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__ZHIB.shp"))
+nb_wallonie2  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RN_DOM.shp"))
+nb_wallonie3  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RN_AGR.shp"))
+nb_wallonie4  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RES_FOR.shp"))
+nb_wallonie5  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__CSIS.shp"))
+nb_wallonie6  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/NATURA_2000_SHAPE_31370/NATURA2000__PERIMETRES.shp"))
+
+# Opsplitsen in polygonen (ev. mergen per gebied eerst)
+splits_polys <- function(layer, group_var = NULL) {
+  if (is.null(group_var)) {
+    out <- layer %>%
+      st_cast("POLYGON") %>%
+      rownames_to_column("id") %>%
+      select(id)
+  } else {
+    out <- layer %>%
+      group_by(naamdossie) %>%
+      summarise() %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON") %>%
+      rownames_to_column("id") %>%
+      select(id)
+  }
+ return(out) 
+}
+
+# nog iets raars hier
+nb_vlaanderen2 <- splits_polys(nb_vlaanderen, "naamdossie")
+
+nb_nederland2 <- nb_nederland %>%
+  st_cast("POLYGON") %>%
+  rownames_to_column("id") %>%
+  dplyr::select(id)
+
+nb_frankrijk2 <- nb_frankrijk %>%
+  group_by(NOM) %>%
+  summarise() %>%
+  st_cast("MULTIPOLYGON") %>%
+  st_cast("POLYGON") %>%
+  rownames_to_column("id") %>%
+  dplyr::select(id)
+
+
+# Selecteer polygonen binnen 20 km Vlaanderen
+```
+
+
+> toon kaart
 
 ### Hoe berekend?
 
@@ -1573,7 +1642,7 @@ tibble(dist = seq(0, 10000, 1)) %>%
     guides(colour = guide_legend(byrow = TRUE))
 ```
 
-Daarna berekenen we de variabele voor telpunt $i$ via $\sum_{j=1}^Jw_{ij}A_j$
+Daarna berekenen we de variabele voor telpunt $i$ via de gewogen som van de oppervlaktes natuurgebieden $\sum_{j=1}^Jw_{ij}A_j$
 
 ### Visualisatie
 
