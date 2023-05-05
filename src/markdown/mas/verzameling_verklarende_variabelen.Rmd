@@ -1458,6 +1458,8 @@ https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/inv/znief
 
 > Qua manier van berekenen lijkt me meest relevant een oppervlakte in een buffer of nog beter een distance decay gewogen oppervlakte (cf https://www.jstor.org/stable/3071919)
 
+> Of zie mail Hans: gewichten met formules van https://github.com/STBrinkmann/GVI#viewshed-greenness-visibility-index-vgvi
+
 ### Visualisatie
 
 
