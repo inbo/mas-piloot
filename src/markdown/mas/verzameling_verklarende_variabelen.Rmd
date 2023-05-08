@@ -1487,9 +1487,13 @@ nb_wallonie_5  <- read_sf(paste0(mbag_dir,
 nb_wallonie_6  <- read_sf(paste0(mbag_dir, 
   "/data/natuurbeheerplannen/Wallonie/NATURA_2000_SHAPE_31370/NATURA2000__PERIMETRES.shp"))
 
-nb_wallonie
-
-
+nb_wallonie <- bind_rows(nb_wallonie_1,
+                         nb_wallonie_2,
+                         nb_wallonie_3,
+                         nb_wallonie_4,
+                         nb_wallonie_5, 
+                         nb_wallonie_6) %>%
+  st_transform(31370)
 ```
 
 ```{r}
@@ -1524,7 +1528,7 @@ buffer_layers_to_perimeter <- function(layer, buffer_km, group_var = NULL) {
 nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, 20, "naamdossie")
 nb_nederland1 <- buffer_layers_to_perimeter(nb_nederland, 20)
 nb_frankrijk1 <- buffer_layers_to_perimeter(nb_frankrijk, 20, "NOM")
-
+nb_wallonie1 <- buffer_layers_to_perimeter(nb_wallonie, 20)
 
 # Visualise
 mapview::mapview(st_buffer(perimeters, 20000), color = "red", 
@@ -1533,11 +1537,13 @@ mapview::mapview(st_buffer(perimeters, 20000), color = "red",
                    col.regions = "yellow") + 
   mapview::mapview(select(nb_nederland1, geometry), layer = "Nederland", 
                    col.regions = "orange") +
-  mapview::mapview(nb_frankrijk1, layer = "Frankrijk")
+  mapview::mapview(nb_frankrijk1, layer = "Frankrijk") + 
+  mapview::mapview(nb_wallonie1, layer = "Wallonië",
+                   col.regions = "red")
 ```
 
 ```{r}
-# Opsplitsen in polygonen (ev. mergen per gebied eerst)
+# Opsplitsen in aparte polygonen (ev. mergen per gebied eerst)
 splits_polys <- function(layer, group_var = NULL) {
   if (is.null(group_var)) {
     out <- layer %>%
@@ -1559,11 +1565,9 @@ splits_polys <- function(layer, group_var = NULL) {
 nb_vlaanderen2 <- splits_polys(nb_vlaanderen1, "naamdossie")
 nb_nederland2 <- splits_polys(nb_nederland1)
 nb_frankrijk2 <- splits_polys(nb_frankrijk1, "NOM")
-nb_wallonie2 <- 
-
-
-
-
+nb_wallonie2 <- nb_wallonie1 %>%
+  summarise(st_union(geometry)) %>%
+  splits_polys()
 ```
 
 
