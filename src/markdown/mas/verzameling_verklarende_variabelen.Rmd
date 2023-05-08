@@ -1195,8 +1195,8 @@ Gewogen gemiddelde van jaar sinds implementatie beheerovereenkomsten per telcirk
 -  Geen beheerovereenkomst: 0
 -  Wel beheerovereekomst: Gewogen (oppervlakte beheerovereenkomst) gemiddelde van ...
    -  1: start beheerovereenkomst in zelfde jaar als telling
-   -  2: start beheerovereenkomst 1 jaar vòòr telling
-   -  3: start beheerovereenkomst 2 jaar vòòr telling
+   -  2: start beheerovereenkomst 1 jaar vóór telling
+   -  3: start beheerovereenkomst 2 jaar vóór telling
    -  ...
 
 We categoriseren de gemiddeldes door af te ronden naar een geheel getal.
@@ -1290,7 +1290,8 @@ telpunten_2018_2022_inertia %>%
   st_drop_geometry() %>% 
   mutate(cat = ifelse(inertia_sb == 0, "0", ">0")) %>% 
   count(jaar, cat) %>%
-  pivot_wider(names_from = cat, values_from = n)
+  pivot_wider(names_from = cat, values_from = n) %>%
+  kable()
 ```
 
 ```{r}
@@ -1300,7 +1301,7 @@ aggregate(telpunten_2018_2022_inertia$inertia_sb,
 
 ### Opmerkingen
 
-Vreemde waarden: je hebt ofwel 0 ofwel continu tussen 1 en 5 ... Nuttig?
+/
 
 ## Aantal predatoren
 
@@ -1427,7 +1428,7 @@ Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
 
 ### Beschrijving
 
-Een maat voor de oppervlatke aan natuurgebieden in de buurt. Hierbij willen we gebieden dichtbij meer gewicht geven dan gebieden veraf.
+Een maat voor de nabijheid van natuurgebieden. Hierbij willen we gebieden dichtbij meer gewicht geven dan gebieden veraf, en grotere gebieden meer gewicht geven dan kleine.
 
 ### Welk datatype?
 
@@ -1435,22 +1436,22 @@ Continu.
 
 ### Waar verzameld?
 
-Vlaanderen:  
+**Vlaanderen**:  
 Natuurbeheerplannen
 
 -  excl. natuurbeheerplannen type I en beperkte bosbeheerplannen
 
 https://www.vlaanderen.be/datavindplaats/catalogus/natuurbeheerplannen
 
-Nederland:  
+**Nederland**:  
 Natuurnetwerk Nederland (NNN)  
 https://www.pdok.nl/introductie/-/article/natuurnetwerk-nederland-nnn-
 
-Frankrijk:  
+**Frankrijk**:  
 Zones Naturelles d’Intérêt Ecologique Faunistique et Floristique de type 1   
 https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/inv/znieff1
 
-Wallonië:  
+**Wallonië**:  
 Réseau Natura 2000 en vigueur  
 https://geoportail.wallonie.be/catalogue/80a837d8-2c0b-4f77-b5d5-824e9780a4ae.html  
 Conservation de la nature  
@@ -1603,7 +1604,7 @@ We willen een maat voor het aantal natuurgebieden waarbij we de afstand tot het 
 max_distance <- 10000
 ```
 
-Beschouw telpunt $i$ met $J$ natuurgebieden met oppervlakte $A$ ($j = 1, ..., J$) binnen een arbitraire straal. We kiezen hier voor `r max_distance / 1000` km. Dat wil zeggen we geen rekening houden met eventuele invloeden van natuurgebieden op grotere afstanden.
+Beschouw telpunt $i$ met $J$ natuurgebieden met oppervlakte $A_j$ ($j = 1, ..., J$) binnen een arbitraire straal. We kiezen hier voor `r max_distance / 1000` km. Dat wil zeggen we geen rekening houden met eventuele invloeden van natuurgebieden op grotere afstanden.
 
 We berekenen het gewicht $w_{ij}$ via een vervalfunctie $f(\cdot)$, zodat
 
@@ -1611,7 +1612,7 @@ $$
 w_{ij} = f(d_{ij})
 $$
 
-met $d_ij$ de afstand tussen telpunt $i$ en het centrum van natuurgebied $j$.  
+met $d_{ij}$ de afstand tussen telpunt $i$ en het centrum van natuurgebied $j$.  
 We beschouwen twee verschillende vervalfuncties.
 
 1. Logistische vervalfunctie
