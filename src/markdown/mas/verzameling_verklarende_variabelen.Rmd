@@ -1525,30 +1525,23 @@ buffer_layers_to_perimeter <- function(layer, buffer_km, group_var = NULL) {
  return(out) 
 }
 
-nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, 20, "naamdossie")
-nb_nederland1 <- buffer_layers_to_perimeter(nb_nederland, 20)
-nb_frankrijk1 <- buffer_layers_to_perimeter(nb_frankrijk, 20, "NOM")
-nb_wallonie1 <- buffer_layers_to_perimeter(nb_wallonie, 20)
+buffer_km <- 20
 
-# Visualise
-mapview::mapview(st_buffer(perimeters, 20000), color = "red", 
-                 alpha.regions = 0, legend = FALSE) + 
-  mapview::mapview(nb_vlaanderen1, layer = "Vlaanderen",
-                   col.regions = "yellow") + 
-  mapview::mapview(select(nb_nederland1, geometry), layer = "Nederland", 
-                   col.regions = "orange") +
-  mapview::mapview(nb_frankrijk1, layer = "Frankrijk") + 
-  mapview::mapview(nb_wallonie1, layer = "Wallonië",
-                   col.regions = "red")
+nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, buffer_km, 
+                                             "naamdossie")
+nb_nederland1 <- buffer_layers_to_perimeter(nb_nederland, buffer_km)
+nb_frankrijk1 <- buffer_layers_to_perimeter(nb_frankrijk, buffer_km, "NOM")
+nb_wallonie1 <- buffer_layers_to_perimeter(nb_wallonie, buffer_km)
 ```
 
 ```{r}
 # Opsplitsen in aparte polygonen (ev. mergen per gebied eerst)
-splits_polys <- function(layer, group_var = NULL) {
+splits_polys <- function(layer, id_name, group_var = NULL) {
   if (is.null(group_var)) {
     out <- layer %>%
       st_cast("POLYGON") %>%
       rownames_to_column("id") %>%
+      mutate(id = paste(id_name, id, sep = "_")) %>%
       select(id)
   } else {
     out <- layer %>%
@@ -1557,21 +1550,33 @@ splits_polys <- function(layer, group_var = NULL) {
       st_cast("MULTIPOLYGON") %>%
       st_cast("POLYGON") %>%
       rownames_to_column("id") %>%
+      mutate(id = paste(id_name, id, sep = "_")) %>%
       select(id)
   }
  return(out) 
 }
 
-nb_vlaanderen2 <- splits_polys(nb_vlaanderen1, "naamdossie")
-nb_nederland2 <- splits_polys(nb_nederland1)
-nb_frankrijk2 <- splits_polys(nb_frankrijk1, "NOM")
+nb_vlaanderen2 <- splits_polys(nb_vlaanderen1, "VL", group_var = "naamdossie")
+nb_nederland2 <- splits_polys(nb_nederland1, "NL")
+nb_frankrijk2 <- splits_polys(nb_frankrijk1, "FR", group_var = "NOM")
 nb_wallonie2 <- nb_wallonie1 %>%
-  summarise(st_union(geometry)) %>%
-  splits_polys()
+  summarise(geometry = st_union(geometry)) %>%
+  splits_polys("WAL")
 ```
 
+```{r}
+# Visualise
+mapview::mapview(st_buffer(perimeters, buffer_km * 1000), color = "red", 
+                 alpha.regions = 0, legend = FALSE) + 
+  mapview::mapview(select(nb_vlaanderen2, geometry), layer = "Vlaanderen",
+                   col.regions = "yellow") + 
+  mapview::mapview(select(nb_nederland2, geometry), layer = "Nederland", 
+                   col.regions = "orange") +
+  mapview::mapview(select(nb_frankrijk2, geometry), layer = "Frankrijk") + 
+  mapview::mapview(select(nb_wallonie2, geometry), layer = "Wallonië",
+                   col.regions = "red")
+```
 
-> toon kaart
 
 ### Hoe berekend?
 
