@@ -1444,6 +1444,10 @@ Nederland:
 Natuurnetwerk Nederland (NNN)  
 https://www.pdok.nl/introductie/-/article/natuurnetwerk-nederland-nnn-
 
+Frankrijk:  
+Zones Naturelles d’Intérêt Ecologique Faunistique et Floristique de type 1   
+https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/inv/znieff1
+
 Wallonië:  
 Réseau Natura 2000 en vigueur  
 https://geoportail.wallonie.be/catalogue/80a837d8-2c0b-4f77-b5d5-824e9780a4ae.html  
@@ -1453,16 +1457,13 @@ Conservation de la nature
 
 https://geoportail.wallonie.be/catalogue/435c454c-0d4b-41cf-a136-a1aba134d9ac.html
 
-Frankrijk:  
-Zones Naturelles d’Intérêt Ecologique Faunistique et Floristique de type 1   
-https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/inv/znieff1
-
 ### Hoe verzameld?
 
-We selecteren alle natuurgebieden in Vlaanderen en Nederland, Wallonië en Frankrijk binnen een buffer van 20 km rond Vlaanderen.
+```{r}
+buffer_km <- 20
+```
 
-> toon code voor selectie
-> merge by naamdossie? nee zie id 46534 --> merge aanliggende polygonen?
+We selecteren alle natuurgebieden in Vlaanderen en Nederland, Wallonië en Frankrijk binnen een buffer van `r buffer_km` km rond de perimeters van het pilootproject. We splitsen alles op in aparte polygonen.
 
 ```{r}
 # Inlezen kaarten
@@ -1525,13 +1526,12 @@ buffer_layers_to_perimeter <- function(layer, buffer_km, group_var = NULL) {
  return(out) 
 }
 
-buffer_km <- 20
-
 nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, buffer_km, 
-                                             "naamdossie")
-nb_nederland1 <- buffer_layers_to_perimeter(nb_nederland, buffer_km)
-nb_frankrijk1 <- buffer_layers_to_perimeter(nb_frankrijk, buffer_km, "NOM")
-nb_wallonie1 <- buffer_layers_to_perimeter(nb_wallonie, buffer_km)
+                                             group_var = "naamdossie")
+nb_nederland1  <- buffer_layers_to_perimeter(nb_nederland, buffer_km)
+nb_frankrijk1  <- buffer_layers_to_perimeter(nb_frankrijk, buffer_km, 
+                                             group_var = "NOM")
+nb_wallonie1   <- buffer_layers_to_perimeter(nb_wallonie, buffer_km)
 ```
 
 ```{r}
@@ -1557,9 +1557,9 @@ splits_polys <- function(layer, id_name, group_var = NULL) {
 }
 
 nb_vlaanderen2 <- splits_polys(nb_vlaanderen1, "VL", group_var = "naamdossie")
-nb_nederland2 <- splits_polys(nb_nederland1, "NL")
-nb_frankrijk2 <- splits_polys(nb_frankrijk1, "FR", group_var = "NOM")
-nb_wallonie2 <- nb_wallonie1 %>%
+nb_nederland2  <- splits_polys(nb_nederland1, "NL")
+nb_frankrijk2  <- splits_polys(nb_frankrijk1, "FR", group_var = "NOM")
+nb_wallonie2   <- nb_wallonie1 %>%
   summarise(geometry = st_union(geometry)) %>%
   splits_polys("WAL")
 ```
@@ -1575,6 +1575,18 @@ mapview::mapview(st_buffer(perimeters, buffer_km * 1000), color = "red",
   mapview::mapview(select(nb_frankrijk2, geometry), layer = "Frankrijk") + 
   mapview::mapview(select(nb_wallonie2, geometry), layer = "Wallonië",
                    col.regions = "red")
+```
+
+Ten slotte berekenen we de oppervlakte van elke polygoon en het middelpunt.
+
+```{r}
+natuurgebieden_full <- bind_rows(nb_vlaanderen2, nb_nederland2,
+                                nb_frankrijk2, nb_wallonie2)
+
+natuurgebieden_punt <- natuurgebieden_full %>%
+  mutate(oppervlakte = st_area(geometry),
+         geometry = st_centroid(geometry)) %>%
+  select(id, oppervlakte, geometry)
 ```
 
 
@@ -1692,6 +1704,8 @@ tibble(dist = seq(0, 10000, 1)) %>%
 ```
 
 Daarna berekenen we de variabele voor telpunt $i$ via de gewogen som van de oppervlaktes natuurgebieden $\sum_{j=1}^Jw_{ij}A_j$
+
+
 
 ### Visualisatie
 
