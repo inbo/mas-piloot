@@ -1584,9 +1584,9 @@ natuurgebieden_full <- bind_rows(nb_vlaanderen2, nb_nederland2,
                                 nb_frankrijk2, nb_wallonie2)
 
 natuurgebieden_punt <- natuurgebieden_full %>%
-  mutate(oppervlakte = st_area(geometry),
+  mutate(oppervlakte_km2 = units::drop_units(st_area(geometry)) / 10^6,
          geometry = st_centroid(geometry)) %>%
-  select(id, oppervlakte, geometry)
+  select(natuurgebied_id = id, oppervlakte_km2, geometry)
 ```
 
 
@@ -1598,7 +1598,11 @@ We willen een maat voor het aantal natuurgebieden waarbij we de afstand tot het 
 
 > Of zie mail Hans: gewichten met formules van https://github.com/STBrinkmann/GVI#viewshed-greenness-visibility-index-vgvi
 
-Beschouw telpunt $i$ met $J$ natuurgebieden met oppervlakte $A$ ($j = 1, ..., J$) binnen een arbitraire straal (bv. 10 kilometer).
+Beschouw telpunt $i$ met $J$ natuurgebieden met oppervlakte $A$ ($j = 1, ..., J$) binnen een arbitraire straal (hier 10 kilometer).
+
+```{r}
+max_distance <- 10000
+```
 
 We berekenen het gewicht $w_{ij}$ via een vervalfunctie $f(\cdot)$, zodat
 
@@ -1617,10 +1621,10 @@ $$
 
 ```{r}
 par(mfrow = c(2, 2))
-visualizeWeights(10000, m = 0.4, b = 8, mode = "logit")
-visualizeWeights(10000, m = 0.5, b = 8, mode = "logit")
-visualizeWeights(10000, m = 0.4, b = 10, mode = "logit")
-visualizeWeights(10000, m = 0.5, b = 10, mode = "logit")
+visualizeWeights(max_distance, m = 0.4, b = 8, mode = "logit")
+visualizeWeights(max_distance, m = 0.5, b = 8, mode = "logit")
+visualizeWeights(max_distance, m = 0.4, b = 10, mode = "logit")
+visualizeWeights(max_distance, m = 0.5, b = 10, mode = "logit")
 par(mfrow = c(1, 1))
 ```
 
@@ -1635,10 +1639,10 @@ $$
 
 ```{r}
 par(mfrow = c(2, 2))
-visualizeWeights(10000, m = 1, b = 6, mode = "exponential")
-visualizeWeights(10000, m = 1.3, b = 6, mode = "exponential")
-visualizeWeights(10000, m = 1, b = 3, mode = "exponential")
-visualizeWeights(10000, m = 1.3, b = 3, mode = "exponential")
+visualizeWeights(max_distance, m = 1, b = 6, mode = "exponential")
+visualizeWeights(max_distance, m = 1.3, b = 6, mode = "exponential")
+visualizeWeights(max_distance, m = 1, b = 3, mode = "exponential")
+visualizeWeights(max_distance, m = 1.3, b = 3, mode = "exponential")
 par(mfrow = c(1, 1))
 ```
 
@@ -1687,11 +1691,11 @@ calc_weights <- function(x, max_dist, m = NULL, b = NULL, mode = "logistic") {
 Visualisatie voor twee mogelijke vervalfuncties die we kunnen gebruiken:
 
 ```{r}
-tibble(dist = seq(0, 10000, 1)) %>% 
+tibble(dist = seq(0, max_distance, 1)) %>% 
   mutate("exponentieel\n(m = 1.3, b = 1)" = calc_weights(
-    dist, 10000, b = 1, m = 1.3, mode = "exponential")) %>%
+    dist, max_distance, b = 1, m = 1.3, mode = "exponential")) %>%
   mutate("logistisch\n(m = 0.5, b = 8)" = calc_weights(
-    dist, 10000, mode = "logistic")) %>%
+    dist, max_distance, mode = "logistic")) %>%
   pivot_longer(cols = c("exponentieel\n(m = 1.3, b = 1)", 
                         "logistisch\n(m = 0.5, b = 8)"), 
                names_to = "Vervalfunctie", values_to = "w") %>%
@@ -1705,13 +1709,55 @@ tibble(dist = seq(0, 10000, 1)) %>%
 
 Daarna berekenen we de variabele voor telpunt $i$ via de gewogen som van de oppervlaktes natuurgebieden $\sum_{j=1}^Jw_{ij}A_j$
 
+```{r}
+dist_mat <- st_distance(telpunten_2018_2022, natuurgebieden_punt)
+colnames(dist_mat) <- natuurgebieden_punt$natuurgebied_id
 
+distance_long <- dist_mat %>%
+  as_tibble() %>%
+  mutate(pointid = telpunten_2018_2022$pointid) %>%
+  pivot_longer(cols = -pointid, names_to = "natuurgebied_id", 
+               values_to = "dist_m") %>%
+  mutate(dist_m = units::drop_units(dist_m)) %>%
+  filter(dist_m <= max_distance) %>%
+  left_join(st_drop_geometry(natuurgebieden_punt), by = "natuurgebied_id")
+
+distance_weights <- distance_long %>%
+  mutate(w_log  = calc_weights(dist_m, max_distance, 
+                               mode = "logistic"),
+         wA_log = w_log * oppervlakte_km2,
+         w_exp  = calc_weights(dist_m, max_distance, b = 1, m = 1.3, 
+                               mode = "exponential"),
+         wA_exp = w_exp * oppervlakte_km2)
+
+telpunten_2018_2022_natuurgebieden <- distance_weights %>%
+  group_by(pointid) %>%
+  summarise(natuur_log = sum(wA_log),
+            natuur_exp = sum(wA_exp), .groups = "drop") %>%
+  full_join(telpunten_2018_2022, by = "pointid") %>%
+  select(pointid, regio, natuur_log, natuur_exp)
+```
 
 ### Visualisatie
 
+```{r}
+telpunten_2018_2022_natuurgebieden %>%
+  pivot_longer(cols = c(natuur_log, natuur_exp), names_to = "vervalfunctie", 
+               values_to = "natuur") %>%
+  mutate(vervalfunctie = ifelse(vervalfunctie == "natuur_log", 
+                                "logistische vervalfunctie",
+                                "exponentiële vervalfunctie")) %>%
+  ggplot(aes(x = natuur, fill = regio)) +
+    geom_histogram(bins = 40) +
+    facet_grid(regio~vervalfunctie, scales = "free_y") +
+    theme(legend.position = "") +
+    labs(title = "Nabijheid natuurgebieden", y = "Aantal telcirkels", 
+         x = "Gewogen som van oppervlaktes natuurgebieden (km²)")
+```
 
 ### Opmerkingen
 
+-  log-tranformatie?
 
 # Random effects
 
