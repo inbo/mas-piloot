@@ -1865,4 +1865,9 @@ final_variables_df <- variables_df_per_year %>%
          y_lambert72 = y)
 ```
 
+```{r}
+write_csv(final_variables_df, file.path("data", "processed", 
+                                        "verklarende_variabelen_2018_2022.csv"))
+```
+
 # Referenties
