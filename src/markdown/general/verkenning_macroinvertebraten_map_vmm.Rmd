@@ -307,46 +307,158 @@ mi_fc %>%
 
 ## Berekening afstroomgebieden
 
+```{r hydrodtm}
+dtm_hydro <- rast(here("data", "dem", "DHMVIIDTMRAS025mto100m_breachedDTM.tif"))
+```
 
-```{r eval=FALSE}
-dtm <- rast(here("data", "dem", "DHMVIIDTMRAS5m.tif"))
-library(qgisprocess)
+```{r wbt-d8, eval=file.exists(here("data", "dem", "DHMVIIDTMRAS025mto100m_breachedDTM.tif"))}
+# flow accumulation
+#qgis_arguments("wbt:D8FlowAccumulation")
+d8_flow <- qgis_run_algorithm(
+  "wbt:D8FlowAccumulation",
+  input = here("data", "dem", "DHMVIIDTMRAS025mto100m_breachedDTM.tif"),
+  output = here("data", "dem", "dhmvii_dtm_100m_d8_flow.tif"))
 
-# fill sinks (alternatief grass7:r.fill.dir)
-alg0 <- "saga:fillsinkswangliu"
-qgis_arguments(alg0)
-dtm_filled <- qgis_run_algorithm(alg0,
-                           ELEV = dtm,
-                           FILLED = file.path(tempdir(), "dtm_filled.sdat"))
+# d8 pointer
+#qgis_arguments("wbt:D8Pointer")
+d8_pointer <- qgis_run_algorithm(
+  "wbt:D8Pointer",
+  dem = here("data", "dem", "DHMVIIDTMRAS025mto100m_breachedDTM.tif"),
+  output = here("data", "dem", "dhmvii_dtm_100m_d8_pointer.tif"))
+```
 
+```{r wbt-pour-points}
+# extract streams
+#qgis_arguments("wbt:ExtractStreams")
+threshold <- 10
+streams <- qgis_run_algorithm(
+  "wbt:ExtractStreams",
+  flow_accum = here("data", "dem", "dhmvii_dtm_100m_d8_flow.tif"),
+  threshold = threshold,
+  output = here("data", "dem", paste0("dhmvii_dtm_100m_streams_t",
+                                              threshold,".tif")))
 
-filled <- rast(dtm_filled$FILLED[1])
-crs(filled) <- "EPSG:31370"
-terra::writeRaster(filled, here("data", "dem", "dhmvii_dtm_5m_filled.tif"))
-filled <- rast(here("data", "dem", "dhmvii_dtm_5m_filled.tif"))
+#plot(streams, maxcell = 2500000, col = "black")
+# setting pour points
+# The tool only wants a file name, which must be a shape file
+st_write(vmm_meetnet %>%
+           group_by(meetplaats) %>%
+           summarise(),
+         here("data", "vmm", "vmm_macroinvertebraten_meetplaatsen.shp"),
+         append = FALSE)
 
-alg <- "saga:flowwidthandspecificcatchmentarea"
-#qgis_show_help(alg)
-#qgis_arguments(alg)
-carea <- qgis_run_algorithm(alg,
-                           DEM = filled,
-                           WIDTH = file.path(tempdir(), "flowwidth.sdat"),
-                           SCA = file.path(tempdir(), "carea.sdat"),
-                           METHOD = 1)
-
-# flowwidth carea
-flowwidth <- rast(carea$WIDTH[1])
-crs(flowwidth) <- "EPSG:31370"
-plot(flowwidth)
-sca <- rast(carea$SCA[1])
-
-qgis_arguments("sagang:watershedbasins")
-
+#qgis_arguments("wbt:JensonSnapPourPoints")
+snapped <- qgis_run_algorithm(
+  "wbt:JensonSnapPourPoints",
+  pour_pts = here("data", "vmm", "vmm_macroinvertebraten_meetplaatsen.shp"),
+  streams = here("data", "dem", paste0("dhmvii_dtm_100m_streams_t",
+                                              threshold,".tif")),
+  snap_dist = 300,
+  output = here("data", "vmm", "vmm_macroinvertebraten_snapped_to_streams.shp")
+)
 
 ```
 
+```{r wbt-watersheds}
+# delineate watersheds
+# note, using wbt:WaterSheds can give rise to nested watersheds
+#qgis_arguments("wbt:UnnestBasins")
+watersheds <- qgis_run_algorithm(
+  "wbt:UnnestBasins",
+  d8_pntr = here("data", "dem", "dhmvii_dtm_100m_d8_pointer.tif"),
+  pour_pts =
+    here("data", "vmm", "vmm_macroinvertebraten_snapped_to_streams.shp"),
+  output = here("data", "vmm", "vmm_macroinvertebraten_watersheds.tif")
+)
 
-```{r wbt-fill-breach, eval=!file.exists(here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"))}
+watersheds_1 <- rast(
+  here("data", "vmm", "vmm_macroinvertebraten_watersheds_1.tif")) %>%
+  as.polygons() %>%
+  st_as_sf() %>%
+  rename(rowname = vmm_macroinvertebraten_watersheds_1)
+watersheds_2 <- rast(
+  here("data", "vmm", "vmm_macroinvertebraten_watersheds_2.tif")) %>%
+  as.polygons() %>%
+  st_as_sf() %>%
+  rename(rowname = vmm_macroinvertebraten_watersheds_2)
+watersheds_3 <- rast(
+  here("data", "vmm", "vmm_macroinvertebraten_watersheds_3.tif")) %>%
+  as.polygons() %>%
+  st_as_sf() %>%
+  rename(rowname = vmm_macroinvertebraten_watersheds_3)
+watersheds_4 <- rast(
+  here("data", "vmm", "vmm_macroinvertebraten_watersheds_4.tif")) %>%
+  as.polygons() %>%
+  st_as_sf() %>%
+  rename(rowname = vmm_macroinvertebraten_watersheds_4)
+
+locations <- read_sf(here(
+  "data", "vmm", "vmm_macroinvertebraten_snapped_to_streams.shp"))
+
+
+watersheds <- bind_rows(
+  watersheds_1,
+  watersheds_2,
+  watersheds_3,
+  watersheds_4) %>%
+  inner_join(locations %>%
+               rownames_to_column() %>%
+               st_drop_geometry() %>%
+               mutate(rowname = as.integer(rowname)))
+```
+
+```{r mapiew-watershed-example, warning=FALSE}
+rownr <- 5
+ws <- watersheds %>%
+  slice(rownr)
+tt <- rast(here("data", "dem", "dhmvii_dtm_100m_d8_pointer.tif")) %>%
+  crop(vect(ws %>% st_buffer(dist = 200))) %>%
+  raster::raster() %>%
+  raster::ratify()
+
+my_palette <- cm.colors(9)
+
+mapview(locations %>% slice(rownr), zcol = "meetplaats") +
+  mapview(ws, zcol = "meetplaats") +
+  mapview(tt, col.regions = my_palette)
+
+dtm <- rast(here("data", "dem", "DHMVIIDTMRAS5m.tif"))
+dt <- dtm %>%
+  crop(vect(ws %>% st_buffer(dist = 200))) %>%
+  raster::raster()
+
+mapview(locations %>% slice(rownr), zcol = "meetplaats") +
+  mapview(ws, zcol = "meetplaats") +
+  mapview(dt)
+```
+
+```{r mapview-all-watersheds}
+#qgis_arguments("wbt:RasterStreamsToVector")
+qgis_run_algorithm(
+  "wbt:RasterStreamsToVector",
+  streams = here("data", "dem", paste0("dhmvii_dtm_100m_streams_t",
+                                              threshold,".tif")),
+  d8_pntr = here("data", "dem", "dhmvii_dtm_100m_d8_pointer.tif"),
+  output = here("data", "vmm", "hydro_dtm_stream_network.shp"))
+streams_sf <- read_sf(here("data", "vmm", "hydro_dtm_stream_network.shp"))
+st_crs(streams_sf) <- "EPSG:31370"
+
+locs_orig <- read_sf(
+  here("data", "vmm", "vmm_macroinvertebraten_meetplaatsen.shp"))
+
+mapview(locations, zcol = "meetplaats") +
+  mapview(locs_orig, zcol = "meetplaats") +
+  mapview(watersheds, zcol = "meetplaats")
+#+  mapview(streams_sf)
+```
+
+
+
+```{r wbt-fill-breach, eval=FALSE}
+# code enkel ter illustratie van uitgeteste werkwijze
+# gaf echter geen goed resultaat
+# daarom beter hydrologisch gecorrigeerd DTM van VMM gebruiken
+
 # whitebox tools installation:
 # install.packages("whitebox")
 # whitebox::install_whitebox()
@@ -389,88 +501,41 @@ terra::writeRaster(
 
 ```
 
-```{r}
-filled_breached <- rast(
-  here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"))
-plot(filled_breached)
+# Berekening landbouwkenmerken per afstroomgebied
 
-```
-
-
-```{r wbt-d8, eval=file.exists(here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"))}
-# flow accumulation
-qgis_arguments("wbt:D8FlowAccumulation")
-d8_flow <- qgis_run_algorithm(
-  "wbt:D8FlowAccumulation",
-  input = here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"),
-  output = file.path(tempdir(), "d8flowpath.sdat"))
-d8_flow <- rast(d8_flow$output[1])
-crs(d8_flow) <- "EPSG:31370"
-terra::writeRaster(d8_flow,
-                   here("data", "dem", "dhmvii_dtm_5m_d8_flow.tif"))
-
-
-# d8 pointer
-qgis_arguments("wbt:D8Pointer")
-d8_pointer <- qgis_run_algorithm(
-  "wbt:D8Pointer",
-  dem = here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"),
-  output = file.path(tempdir(), "d8pointer.sdat"))
-
-d8_pointer <- rast(d8_pointer$output[1])
-crs(d8_pointer) <- "EPSG:31370"
-terra::writeRaster(d8_pointer,
-                   here("data", "dem", "dhmvii_dtm_5m_d8_pointer.tif"),
-                   overwrite = TRUE)
-```
-
-
-```{r wbt-pour-points, eval=FALSE}
-# setting pour points
-# The tool only wants a file name, which must be a shape file
-st_write(subset %>%
-           select(FID = meetplaats) %>%
-           slice(1),
-         here("data", "vmm", "subset.shp"),
-         append = FALSE)
-
-
-qgis_arguments("wbt:ExtractStreams")
-streams <- qgis_run_algorithm(
-  "wbt:ExtractStreams",
-  flow_accum = here("data", "dem", "dhmvii_dtm_5m_d8_flow.tif"),
-  threshold = 2,
-  output = file.path(tempdir(), "streams.sdat"))
-
-qgis_arguments("wbt:JensonSnapPourPoints")
-
-
-
-```
-
-```{r wbt-watersheds, eval=FALSE}
-# delineate watersheds
-qgis_arguments("wbt:Watershed")
-
-# convert watersheds to polygons
-
-
-
-ws <- qgis_run_algorithm("wbt:Watershed",
-                         d8_pntr = d8_pointer, 
-                         pour_pts = here("data", "vmm", "subset.shp"),
-                         esri_pntr = FALSE,
-                         output = file.path(tempdir(), "ws.sdat"))
-
-
-ws <- rast(ws$output[1])
-plot(ws)
-summary(ws)
-```
-
+- oppervlakte hoofdteelt
+- oppervlakte nateelt
 
 
 # Selectie meetplaatsen
+
+```{r}
+library(units)
+watersheds <- watersheds %>%
+  as_tibble() %>%
+  st_as_sf() %>%
+  mutate(opp_ha = as.numeric(st_area(.)) / 1e4)
+
+watersheds %>%
+  ggplot(aes(x = "", y = opp_ha)) +
+  geom_violin() +
+  stat_summary(fun.data = mean_sdl, mult = 1) +
+  scale_y_log10(breaks = c(1, 10, 100, 1000, 10000)) +
+  labs(y = "Oppervlakte afstroomgebied in hectare")
+```
+
+```{r}
+mm <- mean(log(watersheds$opp_ha))
+sd <- sd(log(watersheds$opp_ha))
+round(exp(c(mm - 0.5 * sd, mm + 0.5 * sd)), -1)
+exp(mm)
+```
+
+Focus op kleinere afstroomgebieden? Tussen 150 en 600 ha (300 is geometrisch gemiddelde)?
+
+
+
+
 
 - recente data beschikbaar ($\geq$ 2015)
 - $\geq$ 10 jaar tussen eerste en laatste bemonstering
