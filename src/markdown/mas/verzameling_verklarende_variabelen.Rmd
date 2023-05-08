@@ -1743,6 +1743,15 @@ telpunten_2018_2022_natuurgebieden <- distance_weights %>%
   select(pointid, regio, natuur_log, natuur_exp)
 ```
 
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "secundair", 
+  variabele = c("gewogen oppervlakte natuurgebieden (exponentieel verval)", 
+                "gewogen oppervlakte natuurgebieden (logistisch verval)"), 
+  eenheid = "km²", 
+  bron = "kaarten natuurgebieden Vlaanderen, Nederland, Frankrijk, Wallonië (zie tekst)"))
+```
+
 ### Visualisatie
 
 ```{r}
@@ -1773,7 +1782,6 @@ telpunten_2018_2022_natuurgebieden %>%
             min = min(natuur),
             max =  max(natuur), 
             .groups = "drop") %>%
-  arrange(subklasse) %>%
   kable()
 ```
 
@@ -1831,6 +1839,8 @@ variables_df <- cbind(telpunten_2018_2022_openheid,
   full_join(st_drop_geometry(telpunten_2018_2022_sbp), 
             by = c("pointid", "regio")) %>%
   full_join(st_drop_geometry(telpunten_2018_2022_kle), 
+            by = c("pointid", "regio")) %>%
+  full_join(st_drop_geometry(telpunten_2018_2022_natuurgebieden), 
             by = c("pointid", "regio")) %>%
   expand_grid(jaar = unique(telpunten_2018_2022_df$jaar))
 
