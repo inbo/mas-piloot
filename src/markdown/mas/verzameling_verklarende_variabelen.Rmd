@@ -1436,7 +1436,7 @@ Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
 Vlaanderen:  
 Natuurbeheerplannen
 
--  excl. natuurbeheeerplannen type I en beperkte bosbeheerplannen
+-  excl. natuurbeheerplannen type I en beperkte bosbeheerplannen
 
 https://www.vlaanderen.be/datavindplaats/catalogus/natuurbeheerplannen
 
@@ -1474,19 +1474,69 @@ nb_nederland  <- read_sf(paste0(mbag_dir,
 nb_frankrijk  <- read_sf(paste0(mbag_dir, 
   "/data/natuurbeheerplannen/Frankrijk/znieff1/znieff1.shp")) %>%
   st_transform(31370)
-nb_wallonie1  <- read_sf(paste0(mbag_dir, 
+nb_wallonie_1  <- read_sf(paste0(mbag_dir, 
   "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__ZHIB.shp"))
-nb_wallonie2  <- read_sf(paste0(mbag_dir, 
+nb_wallonie_2  <- read_sf(paste0(mbag_dir, 
   "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RN_DOM.shp"))
-nb_wallonie3  <- read_sf(paste0(mbag_dir, 
+nb_wallonie_3  <- read_sf(paste0(mbag_dir, 
   "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RN_AGR.shp"))
-nb_wallonie4  <- read_sf(paste0(mbag_dir, 
+nb_wallonie_4  <- read_sf(paste0(mbag_dir, 
   "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RES_FOR.shp"))
-nb_wallonie5  <- read_sf(paste0(mbag_dir, 
+nb_wallonie_5  <- read_sf(paste0(mbag_dir, 
   "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__CSIS.shp"))
-nb_wallonie6  <- read_sf(paste0(mbag_dir, 
+nb_wallonie_6  <- read_sf(paste0(mbag_dir, 
   "/data/natuurbeheerplannen/Wallonie/NATURA_2000_SHAPE_31370/NATURA2000__PERIMETRES.shp"))
 
+nb_wallonie
+
+
+```
+
+```{r}
+# Selecteer (multi)polygonen binnen buffered perimeter (ev. per gebied)
+buffer_layers_to_perimeter <- function(layer, buffer_km, group_var = NULL) {
+  buffer_to_meters <- buffer_km * 1000
+  
+  if (is.null(group_var)) {
+    layer <- layer %>%
+      rownames_to_column("id")
+    
+    polygons <- perimeters %>%
+      st_buffer(buffer_to_meters) %>%
+      st_intersection(layer) %>%
+      pull(id)
+  
+    out <- layer %>%
+      filter(id %in% polygons) %>%
+      select(-id)
+  } else {
+    polygons <- perimeters %>%
+      st_buffer(buffer_to_meters) %>%
+      st_intersection(layer) %>%
+      pull(group_var)
+  
+    out <- layer %>%
+      filter(!!sym(group_var) %in% polygons)
+  }
+ return(out) 
+}
+
+nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, 20, "naamdossie")
+nb_nederland1 <- buffer_layers_to_perimeter(nb_nederland, 20)
+nb_frankrijk1 <- buffer_layers_to_perimeter(nb_frankrijk, 20, "NOM")
+
+
+# Visualise
+mapview::mapview(st_buffer(perimeters, 20000), color = "red", 
+                 alpha.regions = 0, legend = FALSE) + 
+  mapview::mapview(nb_vlaanderen1, layer = "Vlaanderen",
+                   col.regions = "yellow") + 
+  mapview::mapview(select(nb_nederland1, geometry), layer = "Nederland", 
+                   col.regions = "orange") +
+  mapview::mapview(nb_frankrijk1, layer = "Frankrijk")
+```
+
+```{r}
 # Opsplitsen in polygonen (ev. mergen per gebied eerst)
 splits_polys <- function(layer, group_var = NULL) {
   if (is.null(group_var)) {
@@ -1496,7 +1546,7 @@ splits_polys <- function(layer, group_var = NULL) {
       select(id)
   } else {
     out <- layer %>%
-      group_by(naamdossie) %>%
+      group_by_at(group_var) %>%
       summarise() %>%
       st_cast("MULTIPOLYGON") %>%
       st_cast("POLYGON") %>%
@@ -1506,24 +1556,14 @@ splits_polys <- function(layer, group_var = NULL) {
  return(out) 
 }
 
-# nog iets raars hier
-nb_vlaanderen2 <- splits_polys(nb_vlaanderen, "naamdossie")
-
-nb_nederland2 <- nb_nederland %>%
-  st_cast("POLYGON") %>%
-  rownames_to_column("id") %>%
-  dplyr::select(id)
-
-nb_frankrijk2 <- nb_frankrijk %>%
-  group_by(NOM) %>%
-  summarise() %>%
-  st_cast("MULTIPOLYGON") %>%
-  st_cast("POLYGON") %>%
-  rownames_to_column("id") %>%
-  dplyr::select(id)
+nb_vlaanderen2 <- splits_polys(nb_vlaanderen1, "naamdossie")
+nb_nederland2 <- splits_polys(nb_nederland1)
+nb_frankrijk2 <- splits_polys(nb_frankrijk1, "NOM")
+nb_wallonie2 <- 
 
 
-# Selecteer polygonen binnen 20 km Vlaanderen
+
+
 ```
 
 
