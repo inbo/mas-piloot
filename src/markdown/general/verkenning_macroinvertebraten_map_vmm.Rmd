@@ -308,37 +308,37 @@ mi_fc %>%
 ## Berekening afstroomgebieden
 
 ```{r hydrodtm}
-dtm_hydro <- rast(here("data", "dem", "DHMVIIDTMRAS025mto100m_breachedDTM.tif"))
+dtm_hydro <- rast(here("data", "dem", "DHMVIIDTMRAS025mto50m_breachedDTM.tif"))
 ```
 
-```{r wbt-d8, eval=file.exists(here("data", "dem", "DHMVIIDTMRAS025mto100m_breachedDTM.tif"))}
+```{r wbt-d8, eval=file.exists(here("data", "dem", "DHMVIIDTMRAS025mto50m_breachedDTM.tif"))}
 # flow accumulation
 #qgis_arguments("wbt:D8FlowAccumulation")
 d8_flow <- qgis_run_algorithm(
   "wbt:D8FlowAccumulation",
-  input = here("data", "dem", "DHMVIIDTMRAS025mto100m_breachedDTM.tif"),
-  output = here("data", "dem", "dhmvii_dtm_100m_d8_flow.tif"))
+  input = here("data", "dem", "DHMVIIDTMRAS025mto50m_breachedDTM.tif"),
+  output = here("data", "dem", "dhmvii_dtm_50m_d8_flow.tif"))
 
 # d8 pointer
 #qgis_arguments("wbt:D8Pointer")
 d8_pointer <- qgis_run_algorithm(
   "wbt:D8Pointer",
-  dem = here("data", "dem", "DHMVIIDTMRAS025mto100m_breachedDTM.tif"),
-  output = here("data", "dem", "dhmvii_dtm_100m_d8_pointer.tif"))
+  dem = here("data", "dem", "DHMVIIDTMRAS025mto50m_breachedDTM.tif"),
+  output = here("data", "dem", "dhmvii_dtm_50m_d8_pointer.tif"))
 ```
 
 ```{r wbt-pour-points}
 # extract streams
 #qgis_arguments("wbt:ExtractStreams")
-threshold <- 10
+threshold <- 100
 streams <- qgis_run_algorithm(
   "wbt:ExtractStreams",
-  flow_accum = here("data", "dem", "dhmvii_dtm_100m_d8_flow.tif"),
+  flow_accum = here("data", "dem", "dhmvii_dtm_50m_d8_flow.tif"),
   threshold = threshold,
-  output = here("data", "dem", paste0("dhmvii_dtm_100m_streams_t",
+  output = here("data", "dem", paste0("dhmvii_dtm_50m_streams_t",
                                               threshold,".tif")))
 
-#plot(streams, maxcell = 2500000, col = "black")
+#plot(rast(here("data", "dem", paste0("dhmvii_dtm_50m_streams_t", threshold,".tif"))), maxcell = 2500000, col = "black")
 # setting pour points
 # The tool only wants a file name, which must be a shape file
 st_write(vmm_meetnet %>%
@@ -351,7 +351,7 @@ st_write(vmm_meetnet %>%
 snapped <- qgis_run_algorithm(
   "wbt:JensonSnapPourPoints",
   pour_pts = here("data", "vmm", "vmm_macroinvertebraten_meetplaatsen.shp"),
-  streams = here("data", "dem", paste0("dhmvii_dtm_100m_streams_t",
+  streams = here("data", "dem", paste0("dhmvii_dtm_50m_streams_t",
                                               threshold,".tif")),
   snap_dist = 300,
   output = here("data", "vmm", "vmm_macroinvertebraten_snapped_to_streams.shp")
@@ -365,7 +365,7 @@ snapped <- qgis_run_algorithm(
 #qgis_arguments("wbt:UnnestBasins")
 watersheds <- qgis_run_algorithm(
   "wbt:UnnestBasins",
-  d8_pntr = here("data", "dem", "dhmvii_dtm_100m_d8_pointer.tif"),
+  d8_pntr = here("data", "dem", "dhmvii_dtm_50m_d8_pointer.tif"),
   pour_pts =
     here("data", "vmm", "vmm_macroinvertebraten_snapped_to_streams.shp"),
   output = here("data", "vmm", "vmm_macroinvertebraten_watersheds.tif")
@@ -411,7 +411,7 @@ watersheds <- bind_rows(
 rownr <- 5
 ws <- watersheds %>%
   slice(rownr)
-tt <- rast(here("data", "dem", "dhmvii_dtm_100m_d8_pointer.tif")) %>%
+tt <- rast(here("data", "dem", "dhmvii_dtm_50m_d8_pointer.tif")) %>%
   crop(vect(ws %>% st_buffer(dist = 200))) %>%
   raster::raster() %>%
   raster::ratify()
@@ -436,9 +436,9 @@ mapview(locations %>% slice(rownr), zcol = "meetplaats") +
 #qgis_arguments("wbt:RasterStreamsToVector")
 qgis_run_algorithm(
   "wbt:RasterStreamsToVector",
-  streams = here("data", "dem", paste0("dhmvii_dtm_100m_streams_t",
+  streams = here("data", "dem", paste0("dhmvii_dtm_50m_streams_t",
                                               threshold,".tif")),
-  d8_pntr = here("data", "dem", "dhmvii_dtm_100m_d8_pointer.tif"),
+  d8_pntr = here("data", "dem", "dhmvii_dtm_50m_d8_pointer.tif"),
   output = here("data", "vmm", "hydro_dtm_stream_network.shp"))
 streams_sf <- read_sf(here("data", "vmm", "hydro_dtm_stream_network.shp"))
 st_crs(streams_sf) <- "EPSG:31370"
@@ -448,8 +448,8 @@ locs_orig <- read_sf(
 
 mapview(locations, zcol = "meetplaats") +
   mapview(locs_orig, zcol = "meetplaats") +
-  mapview(watersheds, zcol = "meetplaats")
-#+  mapview(streams_sf)
+  mapview(watersheds, zcol = "meetplaats") +
+  mapview(streams_sf, alpha = 0.3)
 ```
 
 
@@ -519,7 +519,7 @@ watersheds <- watersheds %>%
 watersheds %>%
   ggplot(aes(x = "", y = opp_ha)) +
   geom_violin() +
-  stat_summary(fun.data = mean_sdl, mult = 1) +
+  stat_summary(fun.data = mean_sdl) +
   scale_y_log10(breaks = c(1, 10, 100, 1000, 10000)) +
   labs(y = "Oppervlakte afstroomgebied in hectare")
 ```
