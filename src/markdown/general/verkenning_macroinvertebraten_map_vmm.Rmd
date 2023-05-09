@@ -386,11 +386,6 @@ watersheds_3 <- rast(
   as.polygons() %>%
   st_as_sf() %>%
   rename(rowname = vmm_macroinvertebraten_watersheds_3)
-watersheds_4 <- rast(
-  here("data", "vmm", "vmm_macroinvertebraten_watersheds_4.tif")) %>%
-  as.polygons() %>%
-  st_as_sf() %>%
-  rename(rowname = vmm_macroinvertebraten_watersheds_4)
 
 locations <- read_sf(here(
   "data", "vmm", "vmm_macroinvertebraten_snapped_to_streams.shp"))
@@ -399,8 +394,7 @@ locations <- read_sf(here(
 watersheds <- bind_rows(
   watersheds_1,
   watersheds_2,
-  watersheds_3,
-  watersheds_4) %>%
+  watersheds_3) %>%
   inner_join(locations %>%
                rownames_to_column() %>%
                st_drop_geometry() %>%
