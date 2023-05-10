@@ -34,6 +34,7 @@ library(terra)
 library(qgisprocess)
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
+source(here("src", "R", "geocomputations.R"))
 ```
 
 # Inlezen data
@@ -497,14 +498,30 @@ terra::writeRaster(
 
 # Berekening landbouwkenmerken per afstroomgebied
 
-- oppervlakte hoofdteelt
-- oppervlakte nateelt
+- oppervlakte gewasgroep
+
+```{r}
+lbg2022 <- arrow::open_dataset(
+  here(
+    "data", "landbouwgebruikspercelen", "parquet", "lbgbrprc2022.parquet")
+  )
+
+watersheds_gewasgroep_2022 <- landusemetrics_grid_cell(
+    grid_cell = watersheds %>% st_transform(31370),
+    layer = lbg2022 %>%
+      select(GEWASGROEP, geometry) %>%
+      sfarrow::read_sf_dataset() %>%
+      st_transform(31370),
+    grid_group_by_col = "meetplaats",
+    layer_group_by_col = "GEWASGROEP")
+
+  
+```
 
 
 # Selectie meetplaatsen
 
 ```{r}
-library(units)
 watersheds <- watersheds %>%
   as_tibble() %>%
   st_as_sf() %>%
@@ -521,39 +538,121 @@ watersheds %>%
 ```{r}
 mm <- mean(log(watersheds$opp_ha))
 sd <- sd(log(watersheds$opp_ha))
-round(exp(c(mm - 0.5 * sd, mm + 0.5 * sd)), -1)
+between <- round(exp(c(mm - 0.5 * sd, mm + 0.5 * sd)), -1)
 exp(mm)
 ```
 
-Focus op kleinere afstroomgebieden? Tussen 150 en 600 ha (300 is geometrisch gemiddelde)?
+Selectie
 
-
-
-
-
-- recente data beschikbaar ($\geq$ 2015)
-- $\geq$ 10 jaar tussen eerste en laatste bemonstering
-- $\geq$ 4 bemonsteringen
+-   kleinere afstroomgebieden Tussen 150 en 600 ha (300 is geometrisch gemiddelde)
+-   met voldoende oppervlakte-aandeel landbouw (> 0.5)
 
 ```{r}
-subset <- mapviewdata %>%
-  filter(recentste_jaar >= 2015,
-         lengte_reeks >= 10,
-         aantal_bemonsteringen >= 4)
-subset %>%
-  mapview()
+watersheds_aandeel_landbouw <- watersheds_gewasgroep_2022 %>%
+  group_by(meetplaats) %>%
+  summarise(area_prop = sum(area_prop))
+
+watersheds_aandeel_landbouw %>%
+  ggplot() +
+  geom_histogram(aes(x = area_prop))
+```
+
+
+```{r}
+watersheds_selectie <- watersheds %>%
+  filter(between(opp_ha, between[1], between[2])) %>%
+  semi_join(watersheds_aandeel_landbouw %>%
+              filter(area_prop > 0.5))
 ```
 
 ```{r}
-mapviewdata %>%
-  filter(recentste_jaar >= 2015,
-         lengte_reeks >= 10,
-         aantal_bemonsteringen >= 4) %>%
+mapview(watersheds_selectie)
+```
+
+```{r}
+selectie_gewasgroep <- watersheds_gewasgroep_2022 %>%
+  semi_join(watersheds_selectie) %>%
+  ungroup() %>%
+  filter(!is.na(area_prop), !is.na(GEWASGROEP)) %>%
+  pivot_wider(id_cols = meetplaats,
+              names_from = GEWASGROEP,
+              values_from = area_prop,
+              values_fill = 0)
+
+pc1 <- selectie_gewasgroep %>%
+  select(-1) %>%
+  as.matrix() %>%
+  kohonen::som(grid = kohonen::somgrid(2, 3))
+
+codes <- as_tibble(pc1$codes[[1]]) %>%
+  mutate(classcode = 1:n()) %>%
+  pivot_longer(cols = !classcode) %>%
+  group_by(classcode) %>%
+  slice_max(n = 3, order_by = value) %>%
+  mutate(
+    name = ifelse(name == "Granen, zaden en peulvruchten", "Granen", name),
+    name = ifelse(str_detect(name, "Groenten"), "Groenten", name)) %>%
+  summarise(label = paste(name, collapse = " + "))
+```
+
+
+
+```{r}
+mi_fc_selectie <- mi_fc %>%
+  semi_join(watersheds_selectie %>%
+              st_drop_geometry() %>%
+              select(meetplaats))
+
+mi_fc_selectie_meetplaatsen <- mi_fc_selectie %>%
+  group_by(meetplaats, bekken) %>%
+  summarize(
+    recentste_macroinvert = max(jaar[!is.na(bbi)]),
+    recentste_np = max(jaar[!is.na(Nsom)], na.rm = FALSE),
+    .groups = "drop") %>%
+  mutate(recentste_np = ifelse(recentste_np < 0, NA, recentste_np))
+
+fc_data_binnen_watersheds <- fc_data_zomerjaar %>%
+  st_join(watersheds_selectie %>%
+            select(meetplaats_watershed = meetplaats),
+          left = FALSE)
+```
+
+
+```{r}
+watersheds_selectie$somclass <- factor(
+  pc1$unit.classif, levels = codes$classcode, labels = codes$label)
+
+mapview(watersheds_selectie, zcol = "somclass") +
+  mapview(mi_fc_selectie_meetplaatsen, zcol = "recentste_np") +
+  mapview(mi_fc_selectie_meetplaatsen, zcol = "recentste_macroinvert") +
+  mapview(fc_data_binnen_watersheds)
+```
+
+- N / P data ontreken vaak, zeker in centraal en oosten
+- N / P data in Oost en West Vlaanderen, maar ook daar bijna altijd 10 - 20 jaar geleden
+
+```{r}
+mi_fc_selectie_meetplaatsen %>%
   st_drop_geometry() %>%
-  select(-recentste_jaar) %>%
-  count(bekken) %>%
-  kable()
+  pivot_longer(cols = starts_with("recen")) %>%
+  ggplot() +
+  geom_histogram(aes(x = value, fill = name), alpha = 0.3) +
+  labs(x = "Laatste jaar met data", y = "Aantal meetplaatsen")
+  
 ```
+
+Verder selecteren op plaatsen waarvan we macro-invertebraten + N / P hebben.
+
+```{r}
+mps <- mi_fc_selectie_meetplaatsen %>%
+  filter(!is.na(recentste_np)) %>%
+  pull(meetplaats)
+
+watersheds_selectie %>%
+  filter(meetplaats %in% mps) %>%
+  mapview(zcol = "somclass")
+```
+
 
 Relevante factoren:
 
@@ -562,7 +661,7 @@ Relevante factoren:
 - omgevend landgebruik (stroomopwaarts)
 - bemestingsdruk
 - beschermingsmaatregelen
-- controleren voor grootte van de catchment area?
+- controleren voor grootte van de catchment area
 
 
 Zie ook http://geoloket.vmm.be/Geoviews/
