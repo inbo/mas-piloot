@@ -210,3 +210,26 @@ mas <- mas_geojson_new %>%
     ))
 ```
 
+De CRS moet aangepast worden naar van Amersfoort naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
+
+```{r mas-waarnemingen-conversie-31370}
+Sys.setenv("PROJ_NETWORK" = "ON")
+sf_proj_network(TRUE)
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+glimpse(pipelines)
+
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# If the grids are installed, this should match the first line of the pipelines object.
+
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% 
+  pull(definition)
+
+mas_31370_pipeline1 <- 
+  st_transform(st_geometry(mas), "EPSG:31370",
+               pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(mas), geometry = .) %>% 
+  as_tibble() %>% 
+  st_as_sf()
+```
+
