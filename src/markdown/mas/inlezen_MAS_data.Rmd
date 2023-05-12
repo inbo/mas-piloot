@@ -13,7 +13,7 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-renv::restore()
+#renv::restore()
 
 # Set up
 library(knitr)
@@ -29,4 +29,26 @@ library(tidyverse)
 
 # Source
 mbag_dir <- here()
+data_path <- file.path("data", "mas")
 ```
+
+# Controles
+
+Eerst controleren we of `20220906_qgis_export_sovon_wfs.gpkg` en `20220906_qgis_export_sovon_wfs.geojson` dezelfde informatie bevatten.
+
+File size `20220906_qgis_export_sovon_wfs.gpkg`:
+
+```{r}
+info <- file.info(file.path(data_path, "20220906_qgis_export_sovon_wfs.gpkg"))
+info$size
+```
+
+File size `20220906_qgis_export_sovon_wfs.geojson`:
+
+```{r}
+info <- file.info(file.path(data_path, 
+                            "20220906_qgis_export_sovon_wfs.geojson"))
+info$size
+```
+
+
