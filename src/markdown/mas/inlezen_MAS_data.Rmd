@@ -117,7 +117,7 @@ test2 <- mas_geojson_new %>%
   filter(oid %in% old_oids) %>%
   arrange(oid)
 
-all.equal(length(old_oids), nrow(test1), nrow(test2))
+all(c(nrow(test1), nrow(test2)) == length(old_oids))
 ```
 
 Waar zit dan wel het verschil?
@@ -129,3 +129,53 @@ waldo::compare(test1, test2, max_diffs = Inf)
 Het verschil zit in de plotnamen, de soortnaam voor het groene kikker-complex en `distance2plot`.
 
 *Welke waarnemingen zijn nieuw in de nieuwe export?*
+
+Het gaat dus om `r nrow(diff_df2)` - `r nrow(diff_df1)`  = `r nrow(diff_df2) - nrow(diff_df1)` waarnemingen.
+
+```{r}
+new_oids <- diff_df2$oid
+diff_new_oids <- setdiff(new_oids, old_oids)
+
+new_obs_df <- mas_geojson_new %>%
+  filter(oid %in% diff_new_oids)
+```
+
+Het gaat om waarnemingen van `r sort(unique(new_obs_df$jaar))` door `r sort(unique(new_obs_df$waarneme))`.  
+Niet alle waarnemingen vallen binnen het MAS pilootmeetnet, maar toch een aantal:
+
+```{r}
+mapview::mapview(new_obs_df)
+```
+
+```{r}
+test_plots <- c("Ol_2279.16", "VL0203", "Ol_11033.1", "VL0584")
+```
+
+We nemen enkele voorbeelden: `r test_plots`.
+
+```{r}
+out <- vector(mode = "list", length = length(test_plots))
+for (i in seq_along(test_plots)) {
+  oid_old <- mas_geojson %>% 
+    filter(plotnaam == test_plots[i]) %>%
+    pull(oid)
+  oid_extra <- new_obs_df %>% 
+    filter(plotnaam == test_plots[i]) %>%
+    pull(oid)
+  
+  df <- data.frame(plotnaam = test_plots[i],
+                   old_oid = paste(oid_old, collapse = ", "),
+                   extra_oid = paste(oid_extra, collapse = ", "))
+  out[[i]] <- df
+}
+
+do.call(rbind.data.frame, out) %>%
+  kable()
+```
+
+We zien vaak al waarnemingen voor de punten in de oude export. In de nieuwe export zitten deze ook, maar toch zitten er veel meer extra waarnemingen in de nieuwe export.
+
+Zouden er nieuwe waarnemingen ingevoerd zijn na de laatste export?
+
+
+
