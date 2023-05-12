@@ -70,5 +70,16 @@ waldo::compare(mas_gpkg, mas_geojson)
 
 ## Nieuwe export
 
+File size `20230509_qgis_export_sovon_wfs.geojson`:
 
+```{r}
+file_geojson_new <- file.path(data_path, 
+                              "20230509_qgis_export_sovon_wfs.geojson")
+info_geojson_new <- file.info(file_geojson_new)
+info_geojson_new$size
+```
+
+```{r}
+mas_geojson_new <- read_sf(file_geojson_new)
+```
 
