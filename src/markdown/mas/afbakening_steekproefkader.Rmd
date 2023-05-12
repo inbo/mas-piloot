@@ -77,9 +77,16 @@ legend <- read_csv2(
         kleur = col_character()
       ))
 
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+
 try(assignInNamespace(
   "value_produce_aggregate.tar_vector",
-  targets:::value_produce_aggregate.tar_group,
+  new_tar_vector,
   ns = "targets"))
 
 sbp_akkervogels <- tar_read(sbp_akkervogels,
