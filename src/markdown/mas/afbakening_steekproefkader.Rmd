@@ -77,6 +77,10 @@ legend <- read_csv2(
         kleur = col_character()
       ))
 
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  targets:::value_produce_aggregate.tar_group,
+  ns = "targets"))
 
 sbp_akkervogels <- tar_read(sbp_akkervogels,
                             store = targets_store)
