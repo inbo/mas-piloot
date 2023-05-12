@@ -83,3 +83,49 @@ info_geojson_new$size
 mas_geojson_new <- read_sf(file_geojson_new)
 ```
 
+We selecteren eerst de MAS-data binnen 2018 en 2022.
+
+```{r}
+mas_geojson_new <- mas_geojson_new %>%
+  filter(jaar %in% 2018:2022)
+```
+
+Zelfde bounding box:
+
+```{r}
+st_bbox(mas_geojson)
+st_bbox(mas_geojson_new)
+```
+
+```{r}
+diff_df1 <- setdiff(x = mas_geojson, y = mas_geojson_new)
+diff_df2 <- setdiff(x = mas_geojson_new, y = mas_geojson)
+```
+
+Er zitten `r nrow(diff_df1)` in de oude export die niet in de nieuwe zitten en `r nrow(diff_df2)` in de nieuwe die niet in de oude zitten.
+
+*Welke waarnemingen zitten niet meer in de nieuwe export?*
+
+De waarnemingen zitten wel nog in de nieuwe export:
+
+```{r}
+old_oids <- diff_df1$oid
+test1 <- mas_geojson %>% 
+  filter(oid %in% old_oids) %>%
+  arrange(oid)
+test2 <- mas_geojson_new %>%
+  filter(oid %in% old_oids) %>%
+  arrange(oid)
+
+all.equal(length(old_oids), nrow(test1), nrow(test2))
+```
+
+Waar zit dan wel het verschil?
+
+```{r}
+waldo::compare(test1, test2, max_diffs = Inf)
+```
+
+Het verschil zit in de plotnamen, de soortnaam voor het groene kikker-complex en `distance2plot`.
+
+*Welke waarnemingen zijn nieuw in de nieuwe export?*
