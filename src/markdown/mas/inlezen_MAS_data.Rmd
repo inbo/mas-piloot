@@ -42,29 +42,33 @@ Eerst controleren we of `20220906_qgis_export_sovon_wfs.gpkg` en `20220906_qgis_
 File size `20220906_qgis_export_sovon_wfs.gpkg`:
 
 ```{r}
-info1 <- file.info(file.path(data_path, "20220906_qgis_export_sovon_wfs.gpkg"))
-info1$size
+file_gpkg <- file.path(data_path, "20220906_qgis_export_sovon_wfs.gpkg")
+info_gpkg <- file.info(file_gpkg)
+info_gpkg$size
 ```
 
 File size `20220906_qgis_export_sovon_wfs.geojson`:
 
 ```{r}
-info2 <- file.info(file.path(data_path, 
-                            "20220906_qgis_export_sovon_wfs.geojson"))
-info2$size
+file_geojson <- file.path(data_path, "20220906_qgis_export_sovon_wfs.geojson")
+info_geojson <- file.info(file_geojson)
+info_geojson$size
 ```
 
 We vergelijken beide bestanden.
 
 ```{r}
-mas1 <- read_sf(file.path(data_path, "20220906_qgis_export_sovon_wfs.gpkg"))
-mas2 <- read_sf(file.path(data_path, "20220906_qgis_export_sovon_wfs.geojson"))
+mas_gpkg <- read_sf(file_gpkg)
+mas_geojson <- read_sf(file_geojson)
 ```
 
 Het enige verschil tussen beide bestanden is de benaming van de geometry kolom en het type van 3 kolommen die enkel maar `NA`'s bevatten.
 
 ```{r}
-waldo::compare(mas1, mas2)
+waldo::compare(mas_gpkg, mas_geojson)
 ```
 
 ## Nieuwe export
+
+
+
