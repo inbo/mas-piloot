@@ -26,6 +26,8 @@ opts_knit$set(root.dir = here::here())
 
 # Packages
 library(tidyverse)
+library(lubridate)
+library(sf)
 
 # Source
 mbag_dir <- here()
@@ -33,22 +35,36 @@ data_path <- file.path("data", "mas")
 ```
 
 # Controles
+## Oude exports
 
 Eerst controleren we of `20220906_qgis_export_sovon_wfs.gpkg` en `20220906_qgis_export_sovon_wfs.geojson` dezelfde informatie bevatten.
 
 File size `20220906_qgis_export_sovon_wfs.gpkg`:
 
 ```{r}
-info <- file.info(file.path(data_path, "20220906_qgis_export_sovon_wfs.gpkg"))
-info$size
+info1 <- file.info(file.path(data_path, "20220906_qgis_export_sovon_wfs.gpkg"))
+info1$size
 ```
 
 File size `20220906_qgis_export_sovon_wfs.geojson`:
 
 ```{r}
-info <- file.info(file.path(data_path, 
+info2 <- file.info(file.path(data_path, 
                             "20220906_qgis_export_sovon_wfs.geojson"))
-info$size
+info2$size
 ```
 
+We vergelijken beide bestanden.
 
+```{r}
+mas1 <- read_sf(file.path(data_path, "20220906_qgis_export_sovon_wfs.gpkg"))
+mas2 <- read_sf(file.path(data_path, "20220906_qgis_export_sovon_wfs.geojson"))
+```
+
+Het enige verschil tussen beide bestanden is de benaming van de geometry kolom en het type van 3 kolommen die enkel maar `NA`'s bevatten.
+
+```{r}
+waldo::compare(mas1, mas2)
+```
+
+## Nieuwe export
