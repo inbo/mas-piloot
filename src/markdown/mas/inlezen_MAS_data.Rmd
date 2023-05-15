@@ -24,6 +24,8 @@ opts_chunk$set(
   warning = FALSE)
 opts_knit$set(root.dir = here::here())
 
+Sys.setenv("PROJ_NETWORK" = "ON")
+
 # Packages
 library(tidyverse)
 library(lubridate)
@@ -212,9 +214,7 @@ mas <- mas_geojson_new %>%
 
 De CRS moet aangepast worden naar van Amersfoort naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
 
-```{r mas-waarnemingen-conversie-31370}
-Sys.setenv("PROJ_NETWORK" = "ON")
-sf_proj_network(TRUE)
+```{r}
 pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
 glimpse(pipelines)
 
