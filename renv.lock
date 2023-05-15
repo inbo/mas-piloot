@@ -21,6 +21,10 @@
       {
         "Name": "thierryo",
         "URL": "https://thierryo.r-universe.dev"
+      },
+      {
+        "Name": "stan",
+        "URL": "https://mc-stan.org/r-packages"
       }
     ]
   },
@@ -437,15 +441,15 @@
     },
     "StanHeaders": {
       "Package": "StanHeaders",
-      "Version": "2.21.0-7",
+      "Version": "2.26.22",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "stan",
       "Requirements": [
         "R",
         "RcppEigen",
         "RcppParallel"
       ],
-      "Hash": "0459d4dd7a8c239be18469a30c23dd4b"
+      "Hash": "a9fdfdaf733b949c7605db492ff122c5"
     },
     "TMB": {
       "Package": "TMB",
@@ -3705,9 +3709,9 @@
     },
     "rstan": {
       "Package": "rstan",
-      "Version": "2.21.8",
+      "Version": "2.26.22",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "stan",
       "Requirements": [
         "BH",
         "R",
@@ -3715,6 +3719,7 @@
         "RcppEigen",
         "RcppParallel",
         "StanHeaders",
+        "V8",
         "ggplot2",
         "gridExtra",
         "inline",
@@ -3723,7 +3728,7 @@
         "pkgbuild",
         "stats4"
       ],
-      "Hash": "f8db1aa2a405b61dda9ebc5a732a59d3"
+      "Hash": "ae13db15c70922c5a33d1c85a43c61c1"
     },
     "rstantools": {
       "Package": "rstantools",
