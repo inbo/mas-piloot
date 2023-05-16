@@ -371,7 +371,7 @@ dubbels %>%
 ```
 
 ```{r}
-mas_clean <- mas_soortgrp %>%
+mas_no_dubbel <- mas_soortgrp %>%
   semi_join(dubbels, by = c("plotnaam", "jaar", "periode_in_jaar")) %>%
   group_by(plotid, jaar, periode_in_jaar) %>%
   filter(doy == max(doy)) %>%
@@ -380,16 +380,50 @@ mas_clean <- mas_soortgrp %>%
               anti_join(dubbels, by = c("plotnaam", "jaar", "periode_in_jaar")))
 ```
 
+## Soortnamen
+
+```{r}
+mas_clean <- mas_no_dubbel %>%
+  
+```
+
 
 # Berekening specifieke variabelen
 ## Status teller
 
+```{r}
+profs <- c("WVNT00", "JJNN16", "NOVN00")
+```
 
+Voeg status teller toe als variabele (vrijwilligers vs. professionele teller).
+Professionele tellers zijn `r profs`.
+
+```{r}
+mas_profs <- mas_clean %>%
+  mutate(status_teller = ifelse(waarneme %in% profs, 
+                                "professioneel", 
+                                "vrijwilliger"))
+```
 
 ## Predator
 
-voeg predator toe als variabele (ja vs. nee)
+```{r}
+roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bosuil", "Bruine Kiekendief",
+                "Buizerd", "Grauwe Kiekendief", "Havik", "Ransuil", "Rode Wouw",
+                "Slechtvalk", "Smelleken", "Sperwer", "Steenuil", 
+                "Steppekiekendief", "Torenvalk", "Velduil", "Wespendief",
+                "Zwarte Wouw")
+kraaiachtigen <- c("Ekster", "Gaai", "Kauw", "Raaf", "Roek", "Zwarte Kraai")
+predatoren <- c(roofvogels, kraaiachtigen)
+```
 
+Voeg predator toe als variabele (ja vs. nee).
+Als predatoren beschouwen we roofvogels (`r roofvogels`) en kraaiachtigen (`r kraaiachtigen`).
+
+```{r}
+mas_profs <- mas_clean %>%
+  mutate(predator = ifelse(naam %in% predatoren, "ja", "nee"))
+```
 
 # Finale controles
 ## Controle afstanden
