@@ -344,4 +344,10 @@ mapview::mapview(st_crop(perimeters, detail_sf), color = "red", alpha.regions = 
                    alpha.regions = 0, legend = FALSE)
 ```
 
+We selecteren vervolgens alle waarnemingen **van vogels en zoogdieren**.
+
+```{r}
+mas_soortgrp <- mas_distance %>%
+  filter(soortgrp %in% 1:2)
+```
 
