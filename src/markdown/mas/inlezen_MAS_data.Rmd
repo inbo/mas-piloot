@@ -493,14 +493,29 @@ mapview::mapview(probleempunten$geometry.stip) +
                    color = "red", alpha.regions = 0)
 ```
 
-We zitten met een probleempunt `r unique(test$plotnaam)`.
+We zitten met een probleempunt `r unique(probleempunten$plotnaam)`.
 Het punt Ol_4273.8 is vervangen door VL0273 met als opmerking: "schuiven naar oud punt, te checken met marleen (midden in veld)".
 Dit punt is elk jaar geteld 2019-2022 vanop de straat. We opvallend weinig data. Dit komt doordat helft is verloren gegaan bij filteren op 300 m binnen telpunt.
 
 ```{r}
-test <- mas_controle_afstand %>%
-  filter(plotnaam == unique(test$plotnaam))
+test <- mas_perimeters %>%
+  filter(plotnaam == unique(probleempunten$plotnaam))
+
+mapview::mapview(probleempunten$geometry.stip) +
+  mapview::mapview(st_buffer(probleempunten$geometry.stip, 
+                             probleempunten$distance2plot),
+                   color = "black", alpha.regions = 0) +
+  mapview::mapview(probleempunten$geometry.telpunt, 
+                   col.regions = "red") +
+  mapview::mapview(st_buffer(probleempunten$geometry.telpunt, 300), 
+                   color = "red", alpha.regions = 0) +
+  mapview::mapview(test, col.regions = "green")
 ```
+
+Dus alles is wel in orde, de nieuwe afstanden moeten gebruikt worden voor dit punt. Coördinaten Ol_4273.8 doorgegeven aan SOVON i.p.v. VL0273?
+
+> Waarom kwam dit punt niet eerder op? checken
+
 
 ```{r}
 stopifnot(all(mas_controle_afstand$abs_verschil <= 1.5))
