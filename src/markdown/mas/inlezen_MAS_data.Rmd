@@ -466,22 +466,44 @@ mas_profs <- mas_clean %>%
 # Finale controles
 ## Controle afstanden
 
-> code nog aanpassen
-
-```{r sanity-check-on-distances}
-mas_controle_afstand <- mas_clean %>%
+```{r}
+mas_controle_afstand <- mas_profs %>%
   select(plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
-  inner_join(design_2018_2022_sf %>% as_tibble(),
+  inner_join(mas_design %>% as_tibble() %>% distinct(plotnaam, regio, geometry),
              by = "plotnaam", suffix = c(".stip", ".telpunt")) %>%
   mutate(calc_distance = st_distance(.$geometry.stip, .$geometry.telpunt,
             by_element = TRUE),
          calc_distance = units::drop_units(calc_distance)) %>%
   mutate(
     abs_verschil = abs(calc_distance - distance2plot),
-    verschil = ifelse(abs_verschil < 1, 
-                           "minder dan 1 m", "meer dan 1 m"))
+    verschil = ifelse(abs_verschil <= 1, 
+                      "minder dan 1 m",
+                      "meer dan 1 m"))
 
-stopifnot(all(mas_controle_afstand$abs_verschil < 1.5))
+probleempunten <- mas_controle_afstand %>% 
+  filter(abs_verschil > 1.5)
+
+mapview::mapview(probleempunten$geometry.stip) +
+  mapview::mapview(st_buffer(probleempunten$geometry.stip, 
+                             probleempunten$distance2plot),
+                   color = "black", alpha.regions = 0) +
+  mapview::mapview(probleempunten$geometry.telpunt, 
+                   col.regions = "red") +
+  mapview::mapview(st_buffer(probleempunten$geometry.telpunt, 300), 
+                   color = "red", alpha.regions = 0)
+```
+
+We zitten met een probleempunt `r unique(test$plotnaam)`.
+Het punt Ol_4273.8 is vervangen door VL0273 met als opmerking: "schuiven naar oud punt, te checken met marleen (midden in veld)".
+Dit punt is elk jaar geteld 2019-2022 vanop de straat. We opvallend weinig data.
+
+```{r}
+test <- mas_controle_afstand %>%
+  filter(plotnaam == unique(test$plotnaam))
+```
+
+```{r}
+stopifnot(all(mas_controle_afstand$abs_verschil <= 1.5))
 ```
 
 
@@ -490,7 +512,7 @@ stopifnot(all(mas_controle_afstand$abs_verschil < 1.5))
 > code nog aanpassen
 
 ```{r}
-stopifnot(all(complete.cases(design_2018_2022)))
+stopifnot(all(complete.cases(mas_design)))
 ```
 
 ## Overzicht
