@@ -205,7 +205,7 @@ mas_31370_pipeline <-
 
 ## Data selectie
 
-We selecteren eerst de MAS-data binnen de telrondes.
+We selecteren eerst de MAS-data **binnen de telrondes**.
 
 ```{r}
 r1_start <- "04-01"
@@ -236,7 +236,7 @@ mas_telperiodes <- mas_31370_pipeline %>%
     ))
 ```
 
-We selecteren de telpunten binnen de perimeter van het piloomeetnet. We hebben dus een lijst nodig met alle plots die geteld zijn met coördinaten.
+We selecteren de telpunten **binnen de perimeter van het piloomeetnet**. We hebben dus een lijst nodig met alle plots die geteld zijn met coördinaten.
 
 De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON. Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn. Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest). Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden. Wel zijn de locaties in 2022 verkeerd voor VL plots. Dit zijn reeds bestaande plots en zitten dus al in de lijst van 2018-2021. We selecteren voor 2022 dus enkel de nieuwe plots.
 
@@ -319,10 +319,29 @@ mas_design <- mas_perimeters %>%
   st_as_sf()
 ```
 
+We selecteren vervolgens alle waarnemingen **binnen een afstand van 300 m**.
+
 ```{r}
-mapview::mapview(perimeters, color = "red", alpha.regions = 0) + 
-  mapview::mapview(distinct(mas_design, geometry), legend = FALSE) +
-  mapview::mapview(mas_perimeters, col.regions = "gold", alpha.regions = 0.5)
+mas_distance <- mas_perimeters %>%
+  filter(distance2plot <= 300)
+```
+
+De afstanden van de waarnemingen tot het middelpunt zijn correct:
+
+```{r}
+detail <- c("xmin" = 200000,
+            "ymin" = 155000,
+            "xmax" = 210000,
+            "ymax" = 160000)
+
+detail_sf <- tibble(geometry = st_as_sfc(st_bbox(detail))) %>% 
+  st_as_sf() %>%
+  st_set_crs(31370)
+
+mapview::mapview(st_crop(perimeters, detail_sf), color = "red", alpha.regions = 0, legend = FALSE) + 
+  mapview::mapview(st_crop(distinct(mas_design, geometry), detail_sf), legend = FALSE) +
+  mapview::mapview(st_crop(st_buffer(mas_distance, mas_distance$distance2plot), detail_sf), 
+                   alpha.regions = 0, legend = FALSE)
 ```
 
 
