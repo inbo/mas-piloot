@@ -495,7 +495,7 @@ mapview::mapview(probleempunten$geometry.stip) +
 
 We zitten met een probleempunt `r unique(test$plotnaam)`.
 Het punt Ol_4273.8 is vervangen door VL0273 met als opmerking: "schuiven naar oud punt, te checken met marleen (midden in veld)".
-Dit punt is elk jaar geteld 2019-2022 vanop de straat. We opvallend weinig data.
+Dit punt is elk jaar geteld 2019-2022 vanop de straat. We opvallend weinig data. Dit komt doordat helft is verloren gegaan bij filteren op 300 m binnen telpunt.
 
 ```{r}
 test <- mas_controle_afstand %>%
@@ -509,11 +509,7 @@ stopifnot(all(mas_controle_afstand$abs_verschil <= 1.5))
 
 ## Controle ontbrekende gegevens
 
-> code nog aanpassen
-
-```{r}
-stopifnot(all(complete.cases(mas_design)))
-```
+check NAs in data
 
 ## Overzicht
 
