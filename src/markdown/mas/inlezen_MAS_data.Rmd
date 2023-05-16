@@ -382,9 +382,47 @@ mas_no_dubbel <- mas_soortgrp %>%
 
 ## Soortnamen
 
+We controleren de soortnamen.
+Voor de vogels hebben we:
+
+```{r}
+vogels <- mas_no_dubbel %>%
+  filter(soortgrp == 2) %>%
+  distinct(naam) %>%
+  arrange(naam) %>%
+  pull(naam)
+vogels
+```
+
+We vervangen `Gele kwikstaart (spec)` door `Gele Kwikstaart` en `Witte Kwikstaart (spec)` door `Witte Kwikstaart`.
+
+> wat met 1 waarneming van canadese gans spec.?
+
+Voor de zoogdieren hebben we:
+
+```{r}
+zoogdieren <- mas_no_dubbel %>%
+  filter(soortgrp == 1) %>%
+  distinct(naam) %>%
+  arrange(naam) %>%
+  pull(naam)
+zoogdieren
+```
+
 ```{r}
 mas_clean <- mas_no_dubbel %>%
-  
+  mutate(
+    naam = case_when(
+      tolower(naam) == "gele kwikstaart (spec)" ~ "Gele Kwikstaart",
+      tolower(naam) == "witte kwikstaart (spec)" ~ "Witte Kwikstaart",
+      TRUE ~ naam
+      ),
+    soortnr = case_when(
+      soortnr == 10170 ~ 10171,
+      soortnr == 10200 ~ 10201,
+      TRUE ~ soortnr
+      )
+    )
 ```
 
 
