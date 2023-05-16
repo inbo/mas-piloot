@@ -180,6 +180,30 @@ We zien vaak al waarnemingen voor de punten in de oude export. In de nieuwe expo
 Zouden er nieuwe waarnemingen ingevoerd zijn na de laatste export?
 
 # Data preparatie
+## CRS
+
+De CRS moet aangepast worden naar van Amersfoort naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
+
+```{r}
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+glimpse(pipelines)
+
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# If the grids are installed, this should match the first line of the pipelines object.
+
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% 
+  pull(definition)
+
+mas_31370_pipeline <- 
+  st_transform(st_geometry(mas_geojson_new), "EPSG:31370",
+               pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(mas_geojson_new), geometry = .) %>% 
+  as_tibble() %>% 
+  st_as_sf()
+```
+
+## Data selectie
 
 We selecteren eerst de MAS-data binnen de telrondes.
 
@@ -193,7 +217,7 @@ r3_stop  <- "06-10"
 r4_start <- "06-21"
 r4_stop  <- "07-15"
 
-mas <- mas_geojson_new %>%
+mas_telperiodes <- mas_31370_pipeline %>%
   mutate(
     datum = ymd(paste(jaar, maand, dag, sep = "-")),
     periode_in_jaar = case_when(
@@ -212,24 +236,93 @@ mas <- mas_geojson_new %>%
     ))
 ```
 
-De CRS moet aangepast worden naar van Amersfoort naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
+We selecteren de telpunten binnen de perimeter van het piloomeetnet. We hebben dus een lijst nodig met alle plots die geteld zijn met coördinaten.
+
+De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON. Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn. Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest). Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden. Wel zijn de locaties in 2022 verkeerd voor VL plots. Dit zijn reeds bestaande plots en zitten dus al in de lijst van 2018-2021. We selecteren voor 2022 dus enkel de nieuwe plots.
 
 ```{r}
-pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
-glimpse(pipelines)
+# 2018-2021
+telpunten_2018_2021_raw <- read_sf(
+  file.path("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger"))
 
-# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
-# If the grids are installed, this should match the first line of the pipelines object.
+telpunten_2018_2021_amersfoort <- telpunten_2018_2021_raw %>%
+  st_drop_geometry() %>%
+  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
 
-chosen_pipeline_definition <- pipelines %>%
-  filter(accuracy < 0.02) %>% 
-  pull(definition)
+telpunten_2018_2021 <- st_transform(
+  st_geometry(telpunten_2018_2021_amersfoort), "EPSG:31370",
+  pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(telpunten_2018_2021_raw), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf %>%
+  mutate(regio = gsub("Vlaanderen - ", "", regio),
+         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio),
+         regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio))
 
-mas_31370_pipeline1 <- 
-  st_transform(st_geometry(mas), "EPSG:31370",
-               pipeline = chosen_pipeline_definition) %>% 
-  st_sf(st_drop_geometry(mas), geometry = .) %>% 
-  as_tibble() %>% 
+design_2018_2021 <- telpunten_2018_2021 %>%
+  select(plotnaam = naam)
+
+# 2022
+design_2022_raw <- read_csv(file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370)
+
+design_2022 <- design_2022_raw %>%
+  filter(!grepl("^VL", plotnaam)) %>%
+  select(plotnaam)
+```
+
+Finaal voegen we alles samen. We behouden enkel plots binnen de perimeters van de pilootstudie: De Moeren en Oostelijke leemstreek.
+
+```{r}
+perimeters <- read_sf(
+  file.path("data", "processed", "piloot_perimeters.gpkg"))
+
+telpunten_2018_2022 <- bind_rows(design_2018_2021, design_2022) %>%
+  st_intersection(perimeters) %>%
+  select(plotnaam, regio = Naam)
+```
+
+We filteren bijgevolg de data op basis van deze lijst.
+
+```{r}
+mas_perimeters <- mas_telperiodes %>%
+  filter(plotnaam %in% telpunten_2018_2022$plotnaam)
+```
+
+Omgekeerd maken we ook een lijst met alle plotjaar combinaties en de coördinaten van de telpunten door te inner-joinen met het design.
+
+```{r}
+mas_design <- mas_perimeters %>%
+  distinct(plotnaam, jaar) %>%
+  inner_join(telpunten_2018_2022, by = "plotnaam") %>%
   st_as_sf()
 ```
+
+```{r}
+mapview::mapview(perimeters, color = "red", alpha.regions = 0) + 
+  mapview::mapview(distinct(mas_design, geometry), legend = FALSE) +
+  mapview::mapview(mas_perimeters, col.regions = "gold", alpha.regions = 0.5)
+```
+
 
