@@ -36,7 +36,7 @@ mbag_dir <- here()
 data_path <- file.path("data", "mas")
 ```
 
-# Controles
+# Initiële controles
 ## Oude exports
 
 Eerst controleren we of `20220906_qgis_export_sovon_wfs.gpkg` en `20220906_qgis_export_sovon_wfs.geojson` dezelfde informatie bevatten.
@@ -368,6 +368,37 @@ voeg status teller toe als variabele (vrijwilligers vs. professionele teller)
 ## Predator
 
 voeg predator toe als variabele (ja vs. nee)
+
+
+# Finale controles
+## Controle afstanden
+
+> code nog aanpassen
+
+```{r sanity-check-on-distances}
+mas_controle_afstand <- mas_clean %>%
+  select(plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
+  inner_join(design_2018_2022_sf %>% as_tibble(),
+             by = "plotnaam", suffix = c(".stip", ".telpunt")) %>%
+  mutate(calc_distance = st_distance(.$geometry.stip, .$geometry.telpunt,
+            by_element = TRUE),
+         calc_distance = units::drop_units(calc_distance)) %>%
+  mutate(
+    abs_verschil = abs(calc_distance - distance2plot),
+    verschil = ifelse(abs_verschil < 1, 
+                           "minder dan 1 m", "meer dan 1 m"))
+
+stopifnot(all(mas_controle_afstand$abs_verschil < 1.5))
+```
+
+
+## Controle ontbrekende gegevens
+
+> code nog aanpassen
+
+```{r}
+stopifnot(all(complete.cases(design_2018_2022)))
+```
 
 # Uitschrijven data
 
