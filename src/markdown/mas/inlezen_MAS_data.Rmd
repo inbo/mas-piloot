@@ -204,6 +204,7 @@ mas_31370_pipeline <-
 ```
 
 ## Data selectie
+### Telrondes
 
 We selecteren eerst de MAS-data **binnen de telrondes**.
 
@@ -236,6 +237,9 @@ mas_telperiodes <- mas_31370_pipeline %>%
     )) %>%
   filter(!is.na(periode_in_jaar))
 ```
+
+
+### Perimeter
 
 We selecteren de telpunten **binnen de perimeter van het piloomeetnet**. We hebben dus een lijst nodig met alle plots die geteld zijn met coördinaten.
 
@@ -319,6 +323,10 @@ mas_design <- mas_perimeters %>%
   inner_join(telpunten_2018_2022, by = "plotnaam") %>%
   st_as_sf()
 ```
+
+### Telcirkel
+
+> steek controle afstanden hier
 
 We selecteren vervolgens alle waarnemingen **binnen een afstand van 300 m**.
 
@@ -501,6 +509,10 @@ Dit punt is elk jaar geteld 2019-2022 vanop de straat. We opvallend weinig data.
 test <- mas_perimeters %>%
   filter(plotnaam == unique(probleempunten$plotnaam))
 
+test2 <- filter(mas_controle_afstand2, plotnaam == unique(probleempunten$plotnaam)) %>% 
+  select(-jaar.telpunt) %>% 
+  distinct()
+
 mapview::mapview(probleempunten$geometry.stip) +
   mapview::mapview(st_buffer(probleempunten$geometry.stip, 
                              probleempunten$distance2plot),
@@ -510,11 +522,21 @@ mapview::mapview(probleempunten$geometry.stip) +
   mapview::mapview(st_buffer(probleempunten$geometry.telpunt, 300), 
                    color = "red", alpha.regions = 0) +
   mapview::mapview(test, col.regions = "green")
+
+mapview::mapview(probleempunten$geometry.stip) +
+  mapview::mapview(st_buffer(test2, 
+                             test2$distance2plot),
+                   color = "black", alpha.regions = 0) +
+  mapview::mapview(probleempunten$geometry.telpunt, 
+                   col.regions = "red") +
+  mapview::mapview(st_buffer(probleempunten$geometry.telpunt, 300), 
+                   color = "red", alpha.regions = 0) +
+  mapview::mapview(test2, col.regions = "green")
 ```
 
 Dus alles is wel in orde, de nieuwe afstanden moeten gebruikt worden voor dit punt. Coördinaten Ol_4273.8 doorgegeven aan SOVON i.p.v. VL0273?
 
-> Waarom kwam dit punt niet eerder op? checken
+> Waarom kwam dit punt niet eerder op? In de eerdere export waren de afstande wel t.o.v. correct punt gemeten.
 
 
 ```{r}
@@ -523,6 +545,8 @@ stopifnot(all(mas_controle_afstand$abs_verschil <= 1.5))
 
 
 ## Controle ontbrekende gegevens
+
+> apart hoofdstuk
 
 check NAs in data
 
