@@ -168,7 +168,7 @@ telpunten_2018_2022_df <- merge(telpunten_2018_2022, as.data.frame(jaar))
 
 # Verklarende variabelen van prioritair belang
 
-## Oppervlakte-aandeel beheerovereenkomsten
+## Oppervlakte-aandeel beheerovereenkomsten soortbeschermingsmaatregelen
 
 ### Beschrijving
 
@@ -182,7 +182,7 @@ Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
 -   erosiemaatregelen
 -   bufferstroken
 
-Voor ons zijn de soortbeschermingsmaatregelen van belang.
+We maken zowel een variabele aan voor soortbeschermingsmaatregelen als voor erosiemaatregelen en bufferstroken.
 
 ### Welk datatype?
 
@@ -204,7 +204,7 @@ We filteren dus telkens de punten per jaar en we filteren de beheerovereenkomste
 Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirkel te berekenen.
 
 ```{r}
-add_bo_by_year <- function(punten_df, path_bo) {
+add_bo_by_year <- function(punten_df, path_bo, ...) {
   # Read in bo layer and calculate start and stop year
   bo_layer <- read_bo(path = path_bo)
   bo_layer2 <- bo_layer %>% 
@@ -224,7 +224,8 @@ add_bo_by_year <- function(punten_df, path_bo) {
       filter(startjaar <= year & stopjaar >= year)
     
     out_df_year <- add_bo_to_frame(punten_df = punten_df_year, 
-                                   bo_layer = bo_layer_year)
+                                   bo_layer = bo_layer_year, 
+                                   ...)
     
     out_list[[i]] <- out_df_year
   }

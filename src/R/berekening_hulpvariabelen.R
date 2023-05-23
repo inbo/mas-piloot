@@ -49,7 +49,8 @@ add_bo2021_to_frame <- function(
 add_bo_to_frame <- function(
     punten_df,
     path_bo,
-    bo_layer = NULL
+    bo_layer = NULL,
+    bh_doel = "soortenbescherming (SB)"
     ) {
 
   if (is.null(bo_layer)) {
@@ -70,7 +71,7 @@ add_bo_to_frame <- function(
   aandeel_sb <- points_bo %>%
     select(pointid, SRT_OBJECT, area_prop) %>%
     left_join(bo_maatregelen, by = "SRT_OBJECT") %>%
-    filter(BH_DOELST == "soortenbescherming (SB)") %>%
+    filter(BH_DOELST %in% bh_doel) %>%
     group_by(pointid) %>%
     summarise(area_prop_sb = sum(area_prop))
 
