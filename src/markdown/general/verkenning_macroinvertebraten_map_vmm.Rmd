@@ -1,0 +1,730 @@
+---
+title: "Verkenning macro-invertebraten meetplaatsen meetnet VMM in kader van MAP"
+author: "Hans Van Calster"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+
+# set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  out.width = "100%")
+opts_knit$set(root.dir = here::here())
+
+# packages
+library(tidyverse)
+library(sf)
+library(mapview)
+library(readxl)
+library(terra)
+library(qgisprocess)
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+source(here("src", "R", "geocomputations.R"))
+```
+
+# Inlezen data
+
+```{r mapdata}
+sheetnames <- excel_sheets(here("data", "vmm", "macroinvertebratenMAP.xlsx"))
+
+vmm_map <- lapply(sheetnames[1:5], read_excel,
+       path = here("data", "vmm", "macroinvertebratenMAP.xlsx"))
+
+vmm_map <- setNames(vmm_map, sheetnames[1:5] %>% janitor::make_clean_names())
+vmm_map <- lapply(vmm_map, janitor::clean_names)
+```
+
+```{r}
+vmm_meetnet <- vmm_map$bbi_en_mmif_deelmaatlatten %>%
+  select(meetplaats, jaar, bbi, mmif) %>%
+  arrange(meetplaats, jaar) %>%
+  left_join(
+    vmm_map$meetplaatsen %>%
+      select(meetplaats, x, y, waterlichaam, bekken, waterloop, categorie),
+    by = "meetplaats") %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) %>%
+  mutate(jaar = parse_number(jaar),
+         bbi = parse_number(bbi))
+```
+
+
+```{r vmm-geodb}
+# enkel metadata van meetlocaties, maar geen meetgegevens
+gdb_layers <- st_layers("S:/Vlaanderen/Meetpunten/VMM.gdb")
+
+vmmdata2022 <- read_sf("S:/Vlaanderen/Meetpunten/VMM.gdb",
+                   layer = gdb_layers$name[2])
+
+bekkens <- vmmdata2022 %>%
+  st_drop_geometry() %>%
+  distinct(Code, Bekken) %>%
+  mutate(
+    Bekken = case_when(
+      Bekken == "Beneden-Schelde" ~ "Benedenschelde",
+      Bekken == "Boven-Schelde" ~ "Bovenschelde",
+      Bekken == "Onbekend" ~ NA_character_,
+      TRUE ~ Bekken
+    )
+  )
+```
+
+
+Gegevensbron: "Vlaamse Milieumaatschappij – Fysisch-chemisch en biologisch meetnet oppervlaktewater".
+
+Selectie fysicochemische data:
+
+- "NH4+", "NO2-", "NO3-", "oPO4" allemaal gemeten
+- Zomerhalfjaar
+- Geen calamiteit of sluiklozing, uitzonderlijk hoog water, specifiek onderzoek, uitzonderlijk beïnvloed
+- Locatiegegevens bekend
+- minstens 4 metingen beschikbaar (per meetpunt, variabele, zomerjaar)
+- gemiddelde waarde wordt berekend
+
+```{r vmm-fysicochemie}
+# https://sites.google.com/a/inbo.be/intranet/home/ondersteuning/IT-en-data/datasystemen/vmm-oppervlaktewaters
+library(inbodb)
+con <- inbodb::connect_inbo_dbase("D0113_00_VMMData")
+
+fc_metingen <- tbl(con, "MetingFysicoChemieMeting")
+fc_staalname <- tbl(con, "MetingFysicoChemieStaalname")
+meetpunten <- tbl(con, "Meetpunt")
+mmif_metingen <- tbl(con, "MetingIndexMMIFPerMeetpuntJaar")
+
+fc_data_zomerjaar <- fc_metingen %>%
+  filter(ParameterCode %in% c("NH4+", "NO2-", "NO3-", "oPO4")) %>%
+  select(-DataSource, -Waarde, -WaardeTeken) %>%
+  inner_join(
+    fc_staalname %>%
+      filter(across(.cols = matches("R1|R2|R4|R7"), is.na)) %>%
+      select(Id, MeetpuntCode, Datum, ZomerJaar) %>%
+      filter(!is.na(ZomerJaar)),
+    by = c("StaalnameId" = "Id")) %>%
+  inner_join(
+    meetpunten %>%
+      select(Code, Lambert72_X, Lambert72_Y) %>%
+      filter(!is.na(Lambert72_X),
+             Lambert72_X > 0),
+    by = c("MeetpuntCode" = "Code")) %>%
+  collect() %>%
+  pivot_wider(
+    id_cols = c(ZomerJaar, MeetpuntCode, Lambert72_X, Lambert72_Y,
+                StaalnameId),
+    names_from = ParameterCode, 
+    values_from = WaardeDetectieGecorrigeerd
+  ) %>%
+  mutate(Nsom = `NH4+` + `NO2-` + `NO3-`,
+         NPratio = Nsom / oPO4) %>%
+  pivot_longer(cols = c(`NH4+`, `NO2-`, `NO3-`, oPO4, Nsom, NPratio),
+               names_to = "variabele",
+               values_to = "waarde",
+               values_drop_na = TRUE) %>%
+  group_by(ZomerJaar, MeetpuntCode, Lambert72_X, Lambert72_Y,
+           variabele) %>%
+  filter(n() >= 4) %>%
+  summarise(gemiddelde = mean(waarde),
+            .groups = "drop") %>%
+  pivot_wider(
+    id_cols = c(ZomerJaar, MeetpuntCode, Lambert72_X, Lambert72_Y),
+    names_from = variabele,
+    values_from = gemiddelde
+  ) %>%
+  filter(if_all(.fns = ~!is.na(.x))) %>%
+  st_as_sf(coords = c("Lambert72_X", "Lambert72_Y"), crs = 31370) %>%
+  left_join(bekkens,
+            by = c("MeetpuntCode" = "Code"))
+
+inbodb::dbDisconnect(con)
+```
+
+
+# Verkenning
+
+## Macro-invertebraten
+
+BBI: Biotische biodiversiteitsindex
+
+```{r}
+vmm_meetnet %>%
+  ggplot() + 
+  geom_line(aes(x = jaar, y = bbi, group = meetplaats)) +
+  facet_wrap(~bekken)
+```
+
+MMIF: Multimetrische Macro-invertebratenindex Vlaanderen
+
+
+```{r}
+vmm_meetnet %>%
+  ggplot() + 
+  geom_line(aes(x = jaar, y = mmif, group = meetplaats)) +
+  facet_wrap(~bekken)
+```
+
+
+```{r}
+vmm_meetnet %>%
+  select(jaar, meetplaats, bekken) %>%
+  group_by(bekken) %>%
+  mutate(meetplaats = reorder(meetplaats, jaar, length)) %>%
+  ggplot() +
+  geom_point(aes(x = jaar, y = meetplaats, colour = bekken))
+```
+
+
+```{r}
+vmm_meetnet %>%
+  st_drop_geometry() %>%
+  group_by(bekken, meetplaats) %>%
+  summarise(aantal_bemonsteringen = n(),
+            start_jaar = min(jaar),
+            eind_jaar = max(jaar),
+            .groups = "drop_last") %>%
+  summarise(aantal_meetplaatsen = n_distinct(meetplaats),
+            gemiddeld_aantal_bemonsteringen = mean(aantal_bemonsteringen),
+            gemiddelde_periode = mean(eind_jaar - start_jaar)) %>%
+  kable(digits = 1)
+```
+
+```{r}
+vmm_meetnet %>%
+  st_drop_geometry() %>%
+  count(bekken, jaar) %>%
+  arrange(jaar) %>%
+  pivot_wider(id_cols = c(bekken), names_from = jaar, values_from = n,
+              values_fill = 0) %>%
+  kable(caption = "aantal bemonsterde meetplaatsen", format = "simple")
+```
+
+```{r}
+mapviewdata <- vmm_meetnet %>%
+  group_by(bekken, meetplaats) %>%
+  summarize(jaren = paste(jaar, collapse = ", "),
+            lengte_reeks = max(jaar) - min(jaar),
+            aantal_bemonsteringen = n(),
+            recentste_jaar = max(jaar),
+            .groups = "drop")
+
+mapviewdata %>%
+  mapview(zcol = "bekken")
+
+mapviewdata %>%
+  mapview(zcol = "lengte_reeks")
+
+mapviewdata %>%
+  mapview(zcol = "aantal_bemonsteringen")
+
+mapviewdata %>%
+  mapview(zcol = "recentste_jaar")
+```
+
+## Fysico-chemische data
+
+```{r fig.height = 200/25.4}
+fc_data_zomerjaar %>%
+  pivot_longer(cols = c(`NH4+`, `NO2-`, `NO3-`, NPratio, Nsom, oPO4)) %>%
+  ggplot() +
+  geom_line(aes(x = ZomerJaar, y = value, group = MeetpuntCode),
+            alpha = 0.3) +
+  scale_y_log10() +
+  facet_grid(Bekken ~ name)
+```
+
+```{r}
+fc_data_zomerjaar %>%
+  select(ZomerJaar, MeetpuntCode, Bekken) %>%
+  group_by(Bekken) %>%
+  mutate(MeetpuntCode = reorder(MeetpuntCode, ZomerJaar, length)) %>%
+  ggplot() +
+  geom_point(aes(x = ZomerJaar, y = MeetpuntCode, colour = Bekken))
+```
+
+
+```{r}
+fc_mapviewdata <- fc_data_zomerjaar %>%
+  group_by(MeetpuntCode) %>%
+  summarize(jaren = paste(ZomerJaar, collapse = ", "),
+            lengte_reeks = max(ZomerJaar) - min(ZomerJaar),
+            aantal_bemonsteringen = n(),
+            recentste_jaar = max(ZomerJaar),
+            .groups = "drop")
+
+
+fc_mapviewdata %>%
+  mapview(zcol = "lengte_reeks")
+
+fc_mapviewdata %>%
+  mapview(zcol = "aantal_bemonsteringen")
+
+fc_mapviewdata %>%
+  mapview(zcol = "recentste_jaar")
+```
+
+## Samengestelde dataset
+
+```{r}
+mi_fc <- vmm_meetnet %>%
+  left_join(fc_data_zomerjaar %>%
+              st_drop_geometry(),
+            by = c("meetplaats" = "MeetpuntCode",
+                   "jaar" = "ZomerJaar"))
+
+```
+
+```{r}
+mi_fc %>%
+  st_drop_geometry() %>%
+  count(heeft_alle_N_P_data = !is.na(Nsom)) %>%
+  kable()
+```
+
+
+```{r}
+mi_fc %>%
+  mutate(mmif = as.numeric(mmif)) %>%
+  ggplot(aes(x = Nsom + oPO4, y = mmif)) +
+  geom_point(aes(colour = jaar)) +
+  geom_smooth(method = "lm") +
+  scale_x_log10() +
+  facet_wrap(~Bekken)
+```
+
+
+
+
+## Berekening afstroomgebieden
+
+```{r hydrodtm}
+dtm_hydro <- rast(here("data", "dem", "DHMVIIDTMRAS025mto50m_breachedDTM.tif"))
+```
+
+```{r wbt-d8, eval=file.exists(here("data", "dem", "DHMVIIDTMRAS025mto50m_breachedDTM.tif"))}
+# flow accumulation
+#qgis_arguments("wbt:D8FlowAccumulation")
+d8_flow <- qgis_run_algorithm(
+  "wbt:D8FlowAccumulation",
+  input = here("data", "dem", "DHMVIIDTMRAS025mto50m_breachedDTM.tif"),
+  output = here("data", "dem", "dhmvii_dtm_50m_d8_flow.tif"))
+
+# d8 pointer
+#qgis_arguments("wbt:D8Pointer")
+d8_pointer <- qgis_run_algorithm(
+  "wbt:D8Pointer",
+  dem = here("data", "dem", "DHMVIIDTMRAS025mto50m_breachedDTM.tif"),
+  output = here("data", "dem", "dhmvii_dtm_50m_d8_pointer.tif"))
+```
+
+```{r wbt-pour-points}
+# extract streams
+#qgis_arguments("wbt:ExtractStreams")
+threshold <- 100
+streams <- qgis_run_algorithm(
+  "wbt:ExtractStreams",
+  flow_accum = here("data", "dem", "dhmvii_dtm_50m_d8_flow.tif"),
+  threshold = threshold,
+  output = here("data", "dem", paste0("dhmvii_dtm_50m_streams_t",
+                                              threshold,".tif")))
+
+#plot(rast(here("data", "dem", paste0("dhmvii_dtm_50m_streams_t", threshold,".tif"))), maxcell = 2500000, col = "black")
+# setting pour points
+# The tool only wants a file name, which must be a shape file
+st_write(vmm_meetnet %>%
+           group_by(meetplaats) %>%
+           summarise(),
+         here("data", "vmm", "vmm_macroinvertebraten_meetplaatsen.shp"),
+         append = FALSE)
+
+#qgis_arguments("wbt:JensonSnapPourPoints")
+snapped <- qgis_run_algorithm(
+  "wbt:JensonSnapPourPoints",
+  pour_pts = here("data", "vmm", "vmm_macroinvertebraten_meetplaatsen.shp"),
+  streams = here("data", "dem", paste0("dhmvii_dtm_50m_streams_t",
+                                              threshold,".tif")),
+  snap_dist = 300,
+  output = here("data", "vmm", "vmm_macroinvertebraten_snapped_to_streams.shp")
+)
+
+```
+
+```{r wbt-watersheds}
+# delineate watersheds
+# note, using wbt:WaterSheds can give rise to nested watersheds
+#qgis_arguments("wbt:UnnestBasins")
+watersheds <- qgis_run_algorithm(
+  "wbt:UnnestBasins",
+  d8_pntr = here("data", "dem", "dhmvii_dtm_50m_d8_pointer.tif"),
+  pour_pts =
+    here("data", "vmm", "vmm_macroinvertebraten_snapped_to_streams.shp"),
+  output = here("data", "vmm", "vmm_macroinvertebraten_watersheds.tif")
+)
+
+watersheds_1 <- rast(
+  here("data", "vmm", "vmm_macroinvertebraten_watersheds_1.tif")) %>%
+  as.polygons() %>%
+  st_as_sf() %>%
+  rename(rowname = vmm_macroinvertebraten_watersheds_1)
+watersheds_2 <- rast(
+  here("data", "vmm", "vmm_macroinvertebraten_watersheds_2.tif")) %>%
+  as.polygons() %>%
+  st_as_sf() %>%
+  rename(rowname = vmm_macroinvertebraten_watersheds_2)
+watersheds_3 <- rast(
+  here("data", "vmm", "vmm_macroinvertebraten_watersheds_3.tif")) %>%
+  as.polygons() %>%
+  st_as_sf() %>%
+  rename(rowname = vmm_macroinvertebraten_watersheds_3)
+
+locations <- read_sf(here(
+  "data", "vmm", "vmm_macroinvertebraten_snapped_to_streams.shp"))
+
+
+watersheds <- bind_rows(
+  watersheds_1,
+  watersheds_2,
+  watersheds_3) %>%
+  inner_join(locations %>%
+               rownames_to_column() %>%
+               st_drop_geometry() %>%
+               mutate(rowname = as.integer(rowname)))
+```
+
+```{r mapiew-watershed-example, warning=FALSE}
+rownr <- 5
+ws <- watersheds %>%
+  slice(rownr)
+tt <- rast(here("data", "dem", "dhmvii_dtm_50m_d8_pointer.tif")) %>%
+  crop(vect(ws %>% st_buffer(dist = 200))) %>%
+  raster::raster() %>%
+  raster::ratify()
+
+my_palette <- cm.colors(9)
+
+locs <- locations %>% slice(rownr)
+
+mapview(locs, zcol = "meetplaats") +
+  mapview(ws, zcol = "meetplaats") +
+  mapview(tt, col.regions = my_palette)
+
+dtm <- rast(here("data", "dem", "DHMVIIDTMRAS5m.tif"))
+dt <- dtm %>%
+  crop(vect(ws %>% st_buffer(dist = 200))) %>%
+  raster::raster()
+
+mapview(locs, zcol = "meetplaats") +
+  mapview(ws, zcol = "meetplaats") +
+  mapview(dt)
+```
+
+```{r mapview-all-watersheds}
+#qgis_arguments("wbt:RasterStreamsToVector")
+qgis_run_algorithm(
+  "wbt:RasterStreamsToVector",
+  streams = here("data", "dem", paste0("dhmvii_dtm_50m_streams_t",
+                                              threshold,".tif")),
+  d8_pntr = here("data", "dem", "dhmvii_dtm_50m_d8_pointer.tif"),
+  output = here("data", "vmm", "hydro_dtm_stream_network.shp"))
+streams_sf <- read_sf(here("data", "vmm", "hydro_dtm_stream_network.shp"))
+st_crs(streams_sf) <- "EPSG:31370"
+
+locs_orig <- read_sf(
+  here("data", "vmm", "vmm_macroinvertebraten_meetplaatsen.shp"))
+
+mapview(locations, zcol = "meetplaats") +
+  mapview(locs_orig, zcol = "meetplaats") +
+  mapview(watersheds, zcol = "meetplaats") +
+  mapview(streams_sf, alpha = 0.3)
+```
+
+
+
+```{r wbt-fill-breach, eval=FALSE}
+# code enkel ter illustratie van uitgeteste werkwijze
+# gaf echter geen goed resultaat
+# daarom beter hydrologisch gecorrigeerd DTM van VMM gebruiken
+
+# whitebox tools installation:
+# install.packages("whitebox")
+# whitebox::install_whitebox()
+# QGIS plugins install search for whitebox and install the plugin
+# Go to preferences in QGIS select processing select whitebox and fill in path
+# by searching for whitebox_tools.exe file
+
+# following: https://vt-hydroinformatics.github.io/rgeowatersheds.html
+dtm <- rast(here("data", "dem", "DHMVIIDTMRAS5m.tif"))
+
+# single cell pitts breaching
+qgis_arguments("wbt:BreachSingleCellPits")
+qgis_run_algorithm("wbt:BreachSingleCellPits",
+                   dem = dtm,
+                   output = file.path(tempdir(), "pitts_filled.sdat"))
+
+# breach depressions
+qgis_arguments("wbt:BreachDepressionsLeastCost")
+# dist is in terms of raster cells
+qgis_run_algorithm("wbt:BreachDepressionsLeastCost",
+                   dem = file.path(tempdir(), "pitts_filled.sdat"),
+                   dist = 10,
+                   fill = FALSE,
+                   output = file.path(tempdir(), "breached.sdat"))
+
+# fill depressions
+qgis_arguments("wbt:FillDepressionsWangAndLiu")
+qgis_run_algorithm("wbt:FillDepressionsWangAndLiu",
+                   dem = file.path(tempdir(), "breached.sdat"),
+                   fix_flats = FALSE,
+                   output = file.path(tempdir(), "filled_breached.sdat"))
+
+filled_breached <- rast(file.path(tempdir(), "filled_breached.sdat"))
+crs(filled_breached) <- "EPSG:31370"
+terra::writeRaster(
+  filled_breached,
+  here("data", "dem", "dhmvii_dtm_5m_filled_breached.tif"),
+  overwrite = TRUE
+)
+
+```
+
+# Berekening landbouwkenmerken per afstroomgebied
+
+- oppervlakte gewasgroep
+
+```{r}
+lbg2022 <- arrow::open_dataset(
+  here(
+    "data", "landbouwgebruikspercelen", "parquet", "lbgbrprc2022.parquet")
+  )
+
+watersheds_gewasgroep_2022 <- landusemetrics_grid_cell(
+    grid_cell = watersheds %>% st_transform(31370),
+    layer = lbg2022 %>%
+      select(GEWASGROEP, geometry) %>%
+      sfarrow::read_sf_dataset() %>%
+      st_transform(31370),
+    grid_group_by_col = "meetplaats",
+    layer_group_by_col = "GEWASGROEP")
+
+watersheds_aandeel_landbouw <- watersheds_gewasgroep_2022 %>%
+  group_by(meetplaats) %>%
+  summarise(area_prop = sum(area_prop),
+            area_ha = sum(area_m2) / 1e4)
+
+watersheds_aandeel_landbouw_zonder_grasland <- watersheds_gewasgroep_2022 %>%
+  filter(GEWASGROEP != "Grasland") %>%
+  group_by(meetplaats) %>%
+  summarise(area_prop = sum(area_prop),
+            area_ha = sum(area_m2) / 1e4)
+
+```
+
+
+```{r}
+mi_fc %>%
+  inner_join(watersheds_aandeel_landbouw,
+             by = join_by(meetplaats)) %>%
+  mutate(mmif = as.numeric(mmif)) %>%
+  ggplot() +
+  geom_point(aes(x = area_prop, y = mmif)) +
+  geom_smooth(aes(x = area_prop, y = mmif)) +
+  facet_wrap(~bekken) +
+  labs(x = "Oppervlakte-aandeel landbouw in afstroomgebied")
+```
+
+```{r}
+mi_fc %>%
+  inner_join(watersheds_aandeel_landbouw,
+             by = join_by(meetplaats)) %>%
+  mutate(mmif = as.numeric(mmif)) %>%
+  ggplot() +
+  geom_point(aes(x = area_prop, y = Nsom + oPO4)) +
+  scale_y_log10() +
+  facet_wrap(~bekken) +
+  labs(x = "Oppervlakte-aandeel landbouw in afstroomgebied")
+```
+
+
+# Selectie meetplaatsen
+
+```{r}
+watersheds <- watersheds %>%
+  as_tibble() %>%
+  st_as_sf() %>%
+  mutate(opp_ha = as.numeric(st_area(.)) / 1e4)
+
+```
+
+```{r}
+mm <- mean(log(watersheds$opp_ha))
+sd <- sd(log(watersheds$opp_ha))
+between <- round(exp(c(mm + 0.5 * sd, mm + 1.2 * sd)), -1)
+exp(mm)
+```
+
+```{r}
+watersheds %>%
+  ggplot(aes(x = opp_ha)) +
+  geom_histogram() +
+  geom_vline(xintercept = between) +
+  scale_x_log10(breaks = c(1, 10, 100, 1000, 10000)) +
+  labs(y = "Oppervlakte afstroomgebied in hectare")
+```
+
+
+Selectie
+
+-   middelgrote afstroomgebieden tussen `r between[1]` en `r between[2]` ha (`r round(exp(mm))` ha is geometrisch gemiddelde)
+-   met voldoende oppervlakte-aandeel landbouw (> 0.5)
+
+Door te kiezen voor middelgrote afstroomgebieden, verkleinen we de kans dat factoren zoals overstorten / waterzuiveringsstations en verdunningseffecten, die een grote invloed gaan hebben in grote afstroomgebieden, de effecten van bemestingsdruk en MAP7 maatregelen gaan overheersen.
+Aan de andere kant willen we dat de afstroomgebieden voldoende groot zijn zodat de meetplaatsen de effecten van bemestingsdruk / MAP7 maatregelen voldoende integreren.
+
+
+```{r}
+watersheds_aandeel_landbouw %>%
+  ggplot() +
+  geom_histogram(aes(x = area_prop))
+```
+
+
+```{r}
+watersheds_selectie <- watersheds %>%
+  filter(between(opp_ha, between[1], between[2])) %>%
+  semi_join(watersheds_aandeel_landbouw %>%
+              filter(area_prop > 0.5))
+```
+
+```{r}
+mapview(watersheds_selectie)
+```
+
+```{r}
+selectie_gewasgroep <- watersheds_gewasgroep_2022 %>%
+  semi_join(watersheds_selectie) %>%
+  ungroup() %>%
+  filter(!is.na(area_prop), !is.na(GEWASGROEP)) %>%
+  pivot_wider(id_cols = meetplaats,
+              names_from = GEWASGROEP,
+              values_from = area_prop,
+              values_fill = 0)
+
+pc1 <- selectie_gewasgroep %>%
+  select(-1) %>%
+  as.matrix() %>%
+  kohonen::som(grid = kohonen::somgrid(2, 3))
+
+codes <- as_tibble(pc1$codes[[1]]) %>%
+  mutate(classcode = 1:n()) %>%
+  pivot_longer(cols = !classcode) %>%
+  group_by(classcode) %>%
+  slice_max(n = 3, order_by = value) %>%
+  mutate(
+    name = ifelse(name == "Granen, zaden en peulvruchten", "Granen", name),
+    name = ifelse(str_detect(name, "Groenten"), "Groenten", name)) %>%
+  summarise(label = paste(name, collapse = " + "))
+```
+
+
+
+```{r}
+mi_fc_selectie <- mi_fc %>%
+  semi_join(watersheds_selectie %>%
+              st_drop_geometry() %>%
+              select(meetplaats))
+
+mi_fc_selectie_meetplaatsen <- mi_fc_selectie %>%
+  group_by(meetplaats, bekken) %>%
+  summarize(
+    recentste_macroinvert = max(jaar[!is.na(bbi)]),
+    recentste_np = max(jaar[!is.na(Nsom)], na.rm = FALSE),
+    .groups = "drop") %>%
+  mutate(recentste_np = ifelse(recentste_np < 0, NA, recentste_np))
+
+fc_data_binnen_watersheds <- fc_data_zomerjaar %>%
+  st_join(watersheds_selectie %>%
+            select(meetplaats_watershed = meetplaats),
+          left = FALSE)
+```
+
+
+```{r}
+watersheds_selectie$somclass <- factor(
+  pc1$unit.classif, levels = codes$classcode, labels = codes$label)
+
+mapview(watersheds_selectie, zcol = "somclass") +
+  mapview(mi_fc_selectie_meetplaatsen, zcol = "recentste_np") +
+  mapview(mi_fc_selectie_meetplaatsen, zcol = "recentste_macroinvert") +
+  mapview(fc_data_binnen_watersheds)
+```
+
+- N / P data ontbreken vaak, zeker in centraal en oosten
+- N / P data in Oost en West Vlaanderen, maar ook daar bijna altijd 10 - 20 jaar geleden
+
+```{r}
+mi_fc_selectie_meetplaatsen %>%
+  st_drop_geometry() %>%
+  pivot_longer(cols = starts_with("recen")) %>%
+  ggplot() +
+  geom_histogram(aes(x = value, fill = name), alpha = 0.3) +
+  labs(x = "Laatste jaar met data", y = "Aantal meetplaatsen")
+  
+```
+
+Verder selecteren op plaatsen waarvan we macro-invertebraten + N / P hebben.
+
+```{r}
+mps <- mi_fc_selectie_meetplaatsen %>%
+  filter(!is.na(recentste_np)) %>%
+  pull(meetplaats)
+
+watersheds_selectie %>%
+  filter(meetplaats %in% mps) %>%
+  mapview(zcol = "somclass")
+```
+
+```{r}
+mi_fc %>%
+  filter(meetplaats %in% mps) %>%
+  inner_join(watersheds_selectie %>% st_drop_geometry()) %>%
+  ggplot() +
+  geom_line(aes(x = jaar, y = mmif, group = meetplaats)) +
+  facet_wrap(~ somclass)
+
+mi_fc %>%
+  filter(meetplaats %in% mps) %>%
+  inner_join(watersheds_selectie %>% st_drop_geometry()) %>%
+  ggplot() +
+  geom_line(aes(x = jaar, y = Nsom + oPO4, group = meetplaats)) +
+  scale_y_log10() +
+  facet_wrap(~ somclass)
+
+```
+
+
+Relevante factoren:
+
+- waterzuiveringsstations (stroomopwaarts)
+- puntvervuilingen (stroomopwaarts)
+- omgevend landgebruik (stroomopwaarts)
+- bemestingsdruk
+- beschermingsmaatregelen
+- controleren voor grootte van de catchment area
+
+
+Zie ook http://geoloket.vmm.be/Geoviews/
+
+
+
+
