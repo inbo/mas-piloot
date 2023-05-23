@@ -402,9 +402,7 @@ vogels <- mas_no_dubbel %>%
 vogels
 ```
 
-We vervangen `Gele kwikstaart (spec)` door `Gele Kwikstaart` en `Witte Kwikstaart (spec)` door `Witte Kwikstaart`.
-
-> wat met 1 waarneming van canadese gans spec.?
+We vervangen `Gele kwikstaart (spec)` en `Engelse Kwikstaart` door `Gele Kwikstaart`, `Witte Kwikstaart (spec)` en `Rouwkwikstaart` door `Witte Kwikstaart`, `canadese gans spec.` door `Grote Canadese Gans` en `Witsterblauwborst` door `Blauwborst`. *We vervangen enkel de soortnaam. Het soortnummer blijft behouden.*
 
 Voor de zoogdieren hebben we:
 
@@ -421,14 +419,17 @@ zoogdieren
 mas_clean <- mas_no_dubbel %>%
   mutate(
     naam = case_when(
-      tolower(naam) == "gele kwikstaart (spec)" ~ "Gele Kwikstaart",
-      tolower(naam) == "witte kwikstaart (spec)" ~ "Witte Kwikstaart",
+      tolower(naam) %in% tolower(c("gele kwikstaart (spec)", 
+                                   "engelse kwikstaart"))
+        ~ "Gele Kwikstaart",
+      tolower(naam) %in% tolower(c("witte kwikstaart (spec)", 
+                                   "Rouwkwikstaart"))
+        ~ "Witte Kwikstaart",
+      tolower(naam) == tolower("canadese gans spec.") 
+        ~ "Grote Canadese Gans",
+      tolower(naam) == tolower("Witsterblauwborst") 
+        ~ "Blauwborst",
       TRUE ~ naam
-      ),
-    soortnr = case_when(
-      soortnr == 10170 ~ 10171,
-      soortnr == 10200 ~ 10201,
-      TRUE ~ soortnr
       )
     )
 ```
@@ -438,17 +439,19 @@ mas_clean <- mas_no_dubbel %>%
 ## Status teller
 
 ```{r}
-profs <- c("WVNT00", "JJNN16", "NOVN00", "ETBX00", "RPLT02")
+profs <- c("WVNT00", "JJNN16", "NOVN00", "ETBX00")
+profs_2022 <- "RPLT02"
 ```
 
 Voeg status teller toe als variabele (vrijwilligers vs. professionele teller).
-Professionele tellers zijn `r profs`.
+Professionele tellers zijn `r profs`. `r profs_2022` is professionele teller vanaf 2022.
 
 ```{r}
 mas_profs <- mas_clean %>%
-  mutate(status_teller = ifelse(waarneme %in% profs, 
-                                "professioneel", 
-                                "vrijwilliger"))
+  mutate(status_teller = ifelse((waarneme %in% profs) | 
+                                (waarneme %in% profs_2022 & jaar == 2022), 
+                                  "professioneel", 
+                                  "vrijwilliger"))
 ```
 
 ## Predator
