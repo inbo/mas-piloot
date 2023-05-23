@@ -559,8 +559,11 @@ Aantal waarnemingen:
 ```{r}
 mas_soortgrp %>%
   st_drop_geometry() %>%
-  count(plotnaam, jaar, periode_in_jaar) %>%
-  arrange(plotnaam, jaar, periode_in_jaar)
+  group_by(jaar, periode_in_jaar) %>%
+  summarise(n = n_distinct(plotnaam)) %>%
+  ungroup() %>%
+  arrange(jaar, periode_in_jaar) %>%
+  kable()
 ```
 
 
