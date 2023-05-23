@@ -413,7 +413,9 @@ tt <- rast(here("data", "dem", "dhmvii_dtm_50m_d8_pointer.tif")) %>%
 
 my_palette <- cm.colors(9)
 
-mapview(locations %>% slice(rownr), zcol = "meetplaats") +
+locs <- locations %>% slice(rownr)
+
+mapview(locs, zcol = "meetplaats") +
   mapview(ws, zcol = "meetplaats") +
   mapview(tt, col.regions = my_palette)
 
@@ -422,7 +424,7 @@ dt <- dtm %>%
   crop(vect(ws %>% st_buffer(dist = 200))) %>%
   raster::raster()
 
-mapview(locations %>% slice(rownr), zcol = "meetplaats") +
+mapview(locs, zcol = "meetplaats") +
   mapview(ws, zcol = "meetplaats") +
   mapview(dt)
 ```
@@ -515,7 +517,42 @@ watersheds_gewasgroep_2022 <- landusemetrics_grid_cell(
     grid_group_by_col = "meetplaats",
     layer_group_by_col = "GEWASGROEP")
 
-  
+watersheds_aandeel_landbouw <- watersheds_gewasgroep_2022 %>%
+  group_by(meetplaats) %>%
+  summarise(area_prop = sum(area_prop),
+            area_ha = sum(area_m2) / 1e4)
+
+watersheds_aandeel_landbouw_zonder_grasland <- watersheds_gewasgroep_2022 %>%
+  filter(GEWASGROEP != "Grasland") %>%
+  group_by(meetplaats) %>%
+  summarise(area_prop = sum(area_prop),
+            area_ha = sum(area_m2) / 1e4)
+
+```
+
+
+```{r}
+mi_fc %>%
+  inner_join(watersheds_aandeel_landbouw,
+             by = join_by(meetplaats)) %>%
+  mutate(mmif = as.numeric(mmif)) %>%
+  ggplot() +
+  geom_point(aes(x = area_prop, y = mmif)) +
+  geom_smooth(aes(x = area_prop, y = mmif)) +
+  facet_wrap(~bekken) +
+  labs(x = "Oppervlakte-aandeel landbouw in afstroomgebied")
+```
+
+```{r}
+mi_fc %>%
+  inner_join(watersheds_aandeel_landbouw,
+             by = join_by(meetplaats)) %>%
+  mutate(mmif = as.numeric(mmif)) %>%
+  ggplot() +
+  geom_point(aes(x = area_prop, y = Nsom + oPO4)) +
+  scale_y_log10() +
+  facet_wrap(~bekken) +
+  labs(x = "Oppervlakte-aandeel landbouw in afstroomgebied")
 ```
 
 
@@ -527,31 +564,35 @@ watersheds <- watersheds %>%
   st_as_sf() %>%
   mutate(opp_ha = as.numeric(st_area(.)) / 1e4)
 
-watersheds %>%
-  ggplot(aes(x = "", y = opp_ha)) +
-  geom_violin() +
-  stat_summary(fun.data = mean_sdl) +
-  scale_y_log10(breaks = c(1, 10, 100, 1000, 10000)) +
-  labs(y = "Oppervlakte afstroomgebied in hectare")
 ```
 
 ```{r}
 mm <- mean(log(watersheds$opp_ha))
 sd <- sd(log(watersheds$opp_ha))
-between <- round(exp(c(mm - 0.5 * sd, mm + 0.5 * sd)), -1)
+between <- round(exp(c(mm + 0.5 * sd, mm + 1.2 * sd)), -1)
 exp(mm)
 ```
 
+```{r}
+watersheds %>%
+  ggplot(aes(x = opp_ha)) +
+  geom_histogram() +
+  geom_vline(xintercept = between) +
+  scale_x_log10(breaks = c(1, 10, 100, 1000, 10000)) +
+  labs(y = "Oppervlakte afstroomgebied in hectare")
+```
+
+
 Selectie
 
--   kleinere afstroomgebieden Tussen 150 en 600 ha (300 is geometrisch gemiddelde)
+-   middelgrote afstroomgebieden tussen `r between[1]` en `r between[2]` ha (`r round(exp(mm))` ha is geometrisch gemiddelde)
 -   met voldoende oppervlakte-aandeel landbouw (> 0.5)
 
-```{r}
-watersheds_aandeel_landbouw <- watersheds_gewasgroep_2022 %>%
-  group_by(meetplaats) %>%
-  summarise(area_prop = sum(area_prop))
+Door te kiezen voor middelgrote afstroomgebieden, verkleinen we de kans dat factoren zoals overstorten / waterzuiveringsstations en verdunningseffecten, die een grote invloed gaan hebben in grote afstroomgebieden, de effecten van bemestingsdruk en MAP7 maatregelen gaan overheersen.
+Aan de andere kant willen we dat de afstroomgebieden voldoende groot zijn zodat de meetplaatsen de effecten van bemestingsdruk / MAP7 maatregelen voldoende integreren.
 
+
+```{r}
 watersheds_aandeel_landbouw %>%
   ggplot() +
   geom_histogram(aes(x = area_prop))
@@ -628,7 +669,7 @@ mapview(watersheds_selectie, zcol = "somclass") +
   mapview(fc_data_binnen_watersheds)
 ```
 
-- N / P data ontreken vaak, zeker in centraal en oosten
+- N / P data ontbreken vaak, zeker in centraal en oosten
 - N / P data in Oost en West Vlaanderen, maar ook daar bijna altijd 10 - 20 jaar geleden
 
 ```{r}
@@ -651,6 +692,24 @@ mps <- mi_fc_selectie_meetplaatsen %>%
 watersheds_selectie %>%
   filter(meetplaats %in% mps) %>%
   mapview(zcol = "somclass")
+```
+
+```{r}
+mi_fc %>%
+  filter(meetplaats %in% mps) %>%
+  inner_join(watersheds_selectie %>% st_drop_geometry()) %>%
+  ggplot() +
+  geom_line(aes(x = jaar, y = mmif, group = meetplaats)) +
+  facet_wrap(~ somclass)
+
+mi_fc %>%
+  filter(meetplaats %in% mps) %>%
+  inner_join(watersheds_selectie %>% st_drop_geometry()) %>%
+  ggplot() +
+  geom_line(aes(x = jaar, y = Nsom + oPO4, group = meetplaats)) +
+  scale_y_log10() +
+  facet_wrap(~ somclass)
+
 ```
 
 
