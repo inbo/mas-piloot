@@ -167,7 +167,6 @@
     "INBOtheme": {
       "Package": "INBOtheme",
       "Version": "0.6.0",
-<<<<<<< HEAD
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
@@ -176,13 +175,6 @@
       "RemoteRef": "HEAD",
       "RemoteSha": "efd415e626b2f873b1c1fe872aa55fe7257d250e",
       "Hash": "c080c2075108eb8fe9c4057ce60dfa63",
-=======
-      "Source": "Repository",
-      "Repository": "https://inbo.r-universe.dev",
-      "RemoteUrl": "https://github.com/inbo/inbotheme",
-      "RemoteRef": "HEAD",
-      "RemoteSha": "efd415e626b2f873b1c1fe872aa55fe7257d250e",
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
       "Requirements": [
         "R",
         "assertthat",
@@ -856,10 +848,7 @@
       "Version": "1.0.8",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "c35768291560ce302c0a6589f92e837d",
-=======
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
       "Requirements": [
         "fastmap",
         "rlang"
@@ -971,16 +960,8 @@
       "Version": "3.6.1",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "89e6d8219950eac806ae0c489052048a",
       "Requirements": []
-=======
-      "Requirements": [
-        "R",
-        "utils"
-      ],
-      "Hash": "89e6d8219950eac806ae0c489052048a"
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
     },
     "clipr": {
       "Package": "clipr",
@@ -1049,19 +1030,8 @@
       "Version": "2.1-0",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "f20c47fd52fae58b4e377c37bb8c335b",
       "Requirements": []
-=======
-      "Requirements": [
-        "R",
-        "grDevices",
-        "graphics",
-        "methods",
-        "stats"
-      ],
-      "Hash": "f20c47fd52fae58b4e377c37bb8c335b"
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
     },
     "colourpicker": {
       "Package": "colourpicker",
@@ -1513,17 +1483,8 @@
       "Version": "1.0.4",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "1d9e7ad3c8312a192dea7d3db0274fde",
       "Requirements": []
-=======
-      "Requirements": [
-        "R",
-        "grDevices",
-        "utils"
-      ],
-      "Hash": "1d9e7ad3c8312a192dea7d3db0274fde"
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
     },
     "farver": {
       "Package": "farver",
@@ -1537,12 +1498,8 @@
       "Version": "1.1.1",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "f7736a18de97dea803bde0a2daaafb27",
       "Requirements": []
-=======
-      "Hash": "f7736a18de97dea803bde0a2daaafb27"
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
     },
     "fontawesome": {
       "Package": "fontawesome",
@@ -1772,15 +1729,9 @@
       "Version": "3.4.2",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "3a147ee02e85a8941aad9909f1b43b7b",
       "Requirements": [
         "MASS",
-=======
-      "Requirements": [
-        "MASS",
-        "R",
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
         "cli",
         "glue",
         "grDevices",
@@ -2066,7 +2017,6 @@
       "Version": "0.3.3",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "b44addadb528a0d227794121c00572a0",
       "Requirements": [
         "cli",
@@ -2074,17 +2024,6 @@
         "lifecycle",
         "rlang"
       ]
-=======
-      "Requirements": [
-        "R",
-        "cli",
-        "glue",
-        "grid",
-        "lifecycle",
-        "rlang"
-      ],
-      "Hash": "b44addadb528a0d227794121c00572a0"
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
     },
     "gtools": {
       "Package": "gtools",
@@ -2414,16 +2353,8 @@
       "Version": "0.2.7",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "0080607b4a1a7b28979aecef976d8bc2",
       "Requirements": []
-=======
-      "Requirements": [
-        "grid",
-        "utils"
-      ],
-      "Hash": "0080607b4a1a7b28979aecef976d8bc2"
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
     },
     "iterators": {
       "Package": "iterators",
@@ -3234,10 +3165,7 @@
       "Version": "1.9.0",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "15da5a8412f317beeee6175fbc76f4bb",
-=======
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
       "Requirements": [
         "cli",
         "fansi",
@@ -3753,16 +3681,8 @@
       "Version": "1.1.1",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "a85c767b55f0bf9b7ad16c6d7baee5bb",
       "Requirements": []
-=======
-      "Requirements": [
-        "R",
-        "utils"
-      ],
-      "Hash": "a85c767b55f0bf9b7ad16c6d7baee5bb"
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
     },
     "rmarkdown": {
       "Package": "rmarkdown",
@@ -4503,10 +4423,7 @@
       "Version": "3.2.1",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "a84e2cc86d07289b3b6f5069df7a004c",
-=======
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
       "Requirements": [
         "R",
         "fansi",
@@ -4750,15 +4667,8 @@
       "Version": "1.2.3",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "1fe17157424bb09c48a8b3b550c753bc",
       "Requirements": []
-=======
-      "Requirements": [
-        "R"
-      ],
-      "Hash": "1fe17157424bb09c48a8b3b550c753bc"
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
     },
     "uuid": {
       "Package": "uuid",
@@ -4775,10 +4685,7 @@
       "Version": "0.6.2",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "a745bda7aff4734c17294bb41d4e4607",
-=======
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
       "Requirements": [
         "R",
         "cli",
@@ -4821,15 +4728,8 @@
       "Version": "0.4.2",
       "Source": "Repository",
       "Repository": "CRAN",
-<<<<<<< HEAD
       "Hash": "c826c7c4241b6fc89ff55aaea3fa7491",
       "Requirements": []
-=======
-      "Requirements": [
-        "R"
-      ],
-      "Hash": "c826c7c4241b6fc89ff55aaea3fa7491"
->>>>>>> a0a69e9d17720b03e583d1db0486347aae11c2e4
     },
     "visNetwork": {
       "Package": "visNetwork",
