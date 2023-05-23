@@ -1,0 +1,38 @@
+---
+title: "Korte beschrijving van de procedure om data te downloaden van de SOVON WFS service"
+author: "Hans Van Calster"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Stappenplan
+
+1.  een account aanmaken via <https://www.vogelatlas.be/user/newuser>
+
+2.  open QGIS en kies `Kaartlagen` --\> `Databronnen beheren` --\> `WFS / OGC API objecten`
+
+3.  klik `nieuw` in het dialoogvenster om een nieuwe WFS verbinding te maken
+
+    1.   Gebruik als naam `sovon` en als url `https://portal.sovon.nl/views/wfs/453/`
+    1.   Klik op OK
+
+1.  Maak een verbinding met de zopas toegevoegde WFS service
+
+    1.   Klik op verbinden
+    1.   Selecteer de laag `ms:viewpoints`
+    1.   Klik op toevoegen
+    1.   Geef je gebruikersnaam en paswoord
+    1.   Indien QGIS vraagt voor transformatie van EPSG:28992 naar een ander CRS, kan je dit best cancellen.
+
+Als alles goed gaat worden nu alle data waar je toegang toe hebt gekregen gedownload (dit kan even duren).
+Dit zijn de zogenaamde bezoekstippen.
+Wanneer alle data gedownload zijn, kan je deze laag exporteren:
+
+1.  Zorg dat alle data zichtbaar zijn in de view
+
+2.  Selecteer `Kaartlagen` --\> `Opslaan als ...` en sla op als `Geojson` (of `Geopackage`) met als bestandsnaam `<YYYYMMDD_qgis_export_sovon_wfs>` en CRS `EPSG:28992`.
+    Klik op OK (dit kan even duren).

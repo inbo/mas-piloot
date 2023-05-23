@@ -1292,3 +1292,19 @@ steekproef_out %>%
     delete_dsn = TRUE)
 ```
 
+
+## Manuele controle
+
+Johannes doet manuele controle van de puntenset.
+In de Westelijke leemstreek zijn drie punten gevonden die niet mogelijk zijn om te tellen (track verdwenen).  
+  
+Het resultaat wordt als CSV en KML teruggestuurd. Een eerste kolom `beslissing` wordt toegevoegd met de volgende zaken:
+
+- *behouden*: als punt prima te tellen valt
+- *vervangen door reserve*: punt kan niet geteld worden en moet vervangen worden door eerstvolgende punt uit reserveset
+- *vervanging*: reservepunt dat dient als vervanging voor geschrapt punt
+
+Een tweede kolom wordt toegevoegd `vervangen door`. Dit is enkel ingevuld bij een geschrapt punt uit de eerste set met de pointid van het punt waardoor het vervangen word uit de reserve set.  
+  
+Uiteindelijk moeten we tot een CSV komen waarbij enkel de punten *behouden* van de eerste batch en *vervanging* van de reserve batch geüpload worden in Avimap (met tellerscode erbij). Overlappen met reeds getelde MAS punten worden niet meegegeven (0 punten).
+
