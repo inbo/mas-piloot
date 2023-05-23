@@ -168,7 +168,7 @@ telpunten_2018_2022_df <- merge(telpunten_2018_2022, as.data.frame(jaar))
 
 # Verklarende variabelen van prioritair belang
 
-## Oppervlakte-aandeel beheerovereenkomsten soortbeschermingsmaatregelen
+## Oppervlakte-aandeel soortbeschermingsmaatregelen
 
 ### Beschrijving
 
@@ -182,7 +182,7 @@ Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
 -   erosiemaatregelen
 -   bufferstroken
 
-We maken zowel een variabele aan voor soortbeschermingsmaatregelen als voor erosiemaatregelen en bufferstroken.
+We maken zowel een variabele aan voor soortbeschermingsmaatregelen als voor de overige maatregelen.
 
 ### Welk datatype?
 
@@ -239,7 +239,7 @@ add_bo_by_year <- function(punten_df, path_bo, ...) {
 bo_file_2022 <- path_to_bo(jaar = 2022)
 
 # Add proportion bo per year
-telpunten_2018_2022_bo <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
+telpunten_2018_2022_bo_soort <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
 ```
 
 ```{r}
@@ -253,7 +253,7 @@ summary_df <- tibble(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_bo %>%
+telpunten_2018_2022_bo_soort %>%
   ggplot() +
     geom_histogram(aes(x = area_prop_sb)) +
     labs(
@@ -264,13 +264,93 @@ telpunten_2018_2022_bo %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_bo$area_prop_sb, 
-          by = list(telpunten_2018_2022_bo$jaar), FUN = summary)
+aggregate(telpunten_2018_2022_bo_soort$area_prop_sb, 
+          by = list(telpunten_2018_2022_bo_soort$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
 
 In model of visualisatie eventueel transformeren (logit + klein getal?).
+
+## Oppervlakte-aandeel overige beschermingsmaatregelen
+
+### Beschrijving
+
+Het aandeel oppervlakte aan beheerovereenkomsten binnen de telcirkel.
+
+Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
+
+-   soortbeschermingsmaatregelen
+    -   perceelsniveau
+    -   randen
+-   erosiemaatregelen
+-   bufferstroken
+
+We maken zowel een variabele aan voor soortbeschermingsmaatregelen als voor de overige maatregelen.
+
+### Welk datatype?
+
+Continue variabele tussen 0 en 1. Proportie.
+
+### Waar verzameld?
+
+Bestand aangeleverd door VLM: `BO_2022_VLM_EXTERN.shp`
+
+### Hoe verzameld?
+
+Aangevraagd.
+
+### Hoe berekend?
+
+Elke overeenkomst is een polygoon met informatie over begin en einde van de beheerovereenkomst.
+Start is steeds op 1 januari en stop is steeds op 31 december.
+We filteren dus telkens de punten per jaar en we filteren de beheerovereenkomsten zodat ze reeds in werking waren in dat jaar.
+Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirkel te berekenen.
+
+```{r}
+# Add proportion bo per year
+telpunten_2018_2022_bo_rest <- add_bo_by_year(
+  telpunten_2018_2022_df, 
+  bo_file_2022,
+  bh_doel = c("beheer KLE's (KLE)",
+             "erosiebestrijding (ER)",
+             "perceelsrandenbeheer (PR)",
+             "botanisch beheer (BB)"))
+telpunten_2018_2022_bo_rest <- telpunten_2018_2022_bo_rest %>%
+  st_drop_geometry() %>%
+  rename(area_prop_bo_overig = area_prop_sb)
+```
+
+```{r}
+summary_df <- tibble(
+  categorie = "prioritair", 
+  variabele = "oppervlakte-aandeel overige beschermingsmaatregelen", 
+  eenheid = "proportie", 
+  bron = "VLM")
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2022_bo_rest %>%
+  ggplot() +
+    geom_histogram(aes(x = area_prop_sb)) +
+    labs(
+      title = "Oppervlakte-aandeel overige beschermingsmaatregelen",
+      x = "Oppervlakte-aandeel",
+      y = "Aantal telpunten") +
+    facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2022_bo_rest$area_prop_sb, 
+          by = list(telpunten_2018_2022_bo_rest$jaar), FUN = summary)
+```
+
+### Opmerkingen
+
+-  In model of visualisatie eventueel transformeren (logit + klein getal?).
+-  Zeer kleine getallen
 
 ## Oppervlakte-aandeel hoofdteelten {#opp-hfdtlt}
 
@@ -1826,7 +1906,8 @@ summary_df %>%
 
 ```{r}
 # Variables that vary by year
-variables_df_per_year <- telpunten_2018_2022_bo %>%
+variables_df_per_year <- telpunten_2018_2022_bo_soort %>%
+  full_join(telpunten_2018_2022_bo_rest) %>%
   full_join(telpunten_2018_2022_hfdtlt, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_hfdtlt_div1, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_hfdtlt_div2, by = c("pointid", "jaar")) %>%
