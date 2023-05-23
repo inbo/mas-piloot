@@ -438,7 +438,7 @@ mas_clean <- mas_no_dubbel %>%
 ## Status teller
 
 ```{r}
-profs <- c("WVNT00", "JJNN16", "NOVN00")
+profs <- c("WVNT00", "JJNN16", "NOVN00", "ETBX00", "RPLT02")
 ```
 
 Voeg status teller toe als variabele (vrijwilligers vs. professionele teller).
