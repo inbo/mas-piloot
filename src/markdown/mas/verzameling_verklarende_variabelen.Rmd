@@ -1117,6 +1117,8 @@ summary_df <- rbind(summary_df, c(
 
 ### Opmerkingen
 
+Geen kaartlaag beschikbaar. Bovendien is er niet veel biolandbouw in ons gebied. We verwachten ook niet dat dit een belangrijke factor zal zijn.
+
 ## Perceelsgroottes
 
 ### Beschrijving
@@ -1758,7 +1760,7 @@ We willen een maat voor het aantal natuurgebieden waarbij we de afstand tot het 
 > Of zie mail Hans: gewichten met formules van https://github.com/STBrinkmann/GVI#viewshed-greenness-visibility-index-vgvi
 
 ```{r}
-max_distance <- 10000
+max_distance <- 3000
 ```
 
 Beschouw telpunt $i$ met $J$ natuurgebieden met oppervlakte $A_j$ ($j = 1, ..., J$) binnen een arbitraire straal. We kiezen hier voor `r max_distance / 1000` km. Dat wil zeggen we geen rekening houden met eventuele invloeden van natuurgebieden op grotere afstanden.
@@ -1887,11 +1889,11 @@ Visualisatie voor twee mogelijke vervalfuncties die we kunnen gebruiken:
 
 ```{r}
 tibble(dist = seq(0, max_distance, 1)) %>% 
-  mutate("exponentieel\n(m = 1.3, b = 1)" = calc_weights(
-    dist, max_distance, b = 1, m = 1.3, mode = "exponential")) %>%
+  mutate("exponentieel\n(m = 1.37, b = 1)" = calc_weights(
+    dist, max_distance, b = 1, m = 1.37, mode = "exponential")) %>%
   mutate("logistisch\n(m = 0.5, b = 8)" = calc_weights(
     dist, max_distance, mode = "logistic")) %>%
-  pivot_longer(cols = c("exponentieel\n(m = 1.3, b = 1)", 
+  pivot_longer(cols = c("exponentieel\n(m = 1.37, b = 1)", 
                         "logistisch\n(m = 0.5, b = 8)"), 
                names_to = "Vervalfunctie", values_to = "w") %>%
   ggplot() +
@@ -1921,27 +1923,23 @@ distance_long <- dist_mat %>%
 
 # Bereken gewichten
 distance_weights <- distance_long %>%
-  mutate(w_log  = calc_weights(dist_m, max_distance, 
-                               mode = "logistic"),
-         wA_log = w_log * oppervlakte_km2,
-         w_exp  = calc_weights(dist_m, max_distance, b = 1, m = 1.3, 
+  mutate(w_exp  = calc_weights(dist_m, max_distance, b = 1, m = 1.3, 
                                mode = "exponential"),
          wA_exp = w_exp * oppervlakte_km2)
 
 # Sommeer gewichten per telpunt
 telpunten_2018_2022_natuurgebieden <- distance_weights %>%
   group_by(pointid) %>%
-  summarise(natuur_log = sum(wA_log),
-            natuur_exp = sum(wA_exp), .groups = "drop") %>%
+  summarise(natuur_exp = sum(wA_exp), .groups = "drop") %>%
   full_join(telpunten_2018_2022, by = "pointid") %>%
-  select(pointid, regio, natuur_log, natuur_exp)
+  select(pointid, regio, natuur_exp) %>%
+  mutate(natuur_exp = ifelse(is.na(natuur_exp), 0, natuur_exp))
 ```
 
 ```{r}
 summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
-  variabele = c("gewogen oppervlakte natuurgebieden (exponentieel verval)", 
-                "gewogen oppervlakte natuurgebieden (logistisch verval)"), 
+  variabele = "gewogen oppervlakte natuurgebieden (exponentieel verval)", 
   eenheid = "km²", 
   bron = "kaarten natuurgebieden Vlaanderen, Nederland, Frankrijk, Wallonië (zie tekst)"))
 ```
@@ -1950,33 +1948,17 @@ summary_df <- rbind(summary_df, tibble(
 
 ```{r}
 telpunten_2018_2022_natuurgebieden %>%
-  pivot_longer(cols = c(natuur_log, natuur_exp), names_to = "vervalfunctie", 
-               values_to = "natuur") %>%
-  mutate(vervalfunctie = ifelse(vervalfunctie == "natuur_log", 
-                                "logistische vervalfunctie",
-                                "exponentiële vervalfunctie")) %>%
-  ggplot(aes(x = natuur, fill = regio)) +
-    geom_histogram(bins = 40) +
-    facet_grid(regio~vervalfunctie, scales = "free_y") +
+  ggplot(aes(x = natuur_exp, fill = regio)) +
+    geom_histogram() +
+    facet_grid(~regio, scales = "free") +
     theme(legend.position = "") +
     labs(title = "Nabijheid natuurgebieden", y = "Aantal telcirkels", 
          x = "Gewogen som van oppervlaktes natuurgebieden (km²)")
 ```
 
 ```{r}
-telpunten_2018_2022_natuurgebieden %>%
-  pivot_longer(cols = c(natuur_log, natuur_exp), names_to = "vervalfunctie", 
-               values_to = "natuur") %>%
-  mutate(vervalfunctie = ifelse(vervalfunctie == "natuur_log", 
-                                "logistische vervalfunctie",
-                                "exponentiële vervalfunctie")) %>%
-  group_by(regio, vervalfunctie) %>%
-  summarise(mediaan = median(natuur), 
-            gemiddelde = mean(natuur),
-            min = min(natuur),
-            max =  max(natuur), 
-            .groups = "drop") %>%
-  kable()
+aggregate(telpunten_2018_2022_natuurgebieden$natuur_exp, 
+          by = list(telpunten_2018_2022_natuurgebieden$regio), FUN = summary)
 ```
 
 ### Opmerkingen
