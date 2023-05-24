@@ -313,9 +313,10 @@ telpunten_2018_2022_bo_rest <- add_bo_by_year(
   telpunten_2018_2022_df, 
   bo_file_2022,
   bh_doel = c("beheer KLE's (KLE)",
-             "erosiebestrijding (ER)",
-             "perceelsrandenbeheer (PR)",
-             "botanisch beheer (BB)"))
+              "erosiebestrijding (ER)",
+              "perceelsrandenbeheer (PR)",
+              "botanisch beheer (BB)"))
+
 telpunten_2018_2022_bo_rest <- telpunten_2018_2022_bo_rest %>%
   st_drop_geometry() %>%
   rename(area_prop_bo_overig = area_prop_sb)
