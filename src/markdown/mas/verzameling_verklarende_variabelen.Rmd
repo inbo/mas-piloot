@@ -28,6 +28,8 @@ opts_knit$set(root.dir = here())
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
 
+Sys.setenv("PROJ_NETWORK" = "ON")
+
 # Packages
 library(tidyverse)
 library(INBOtheme)
@@ -335,7 +337,7 @@ summary_df <- tibble(
 ```{r}
 telpunten_2018_2022_bo_rest %>%
   ggplot() +
-    geom_histogram(aes(x = area_prop_sb)) +
+    geom_histogram(aes(x = area_prop_bo_overig)) +
     labs(
       title = "Oppervlakte-aandeel overige beschermingsmaatregelen",
       x = "Oppervlakte-aandeel",
@@ -344,7 +346,7 @@ telpunten_2018_2022_bo_rest %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_bo_rest$area_prop_sb, 
+aggregate(telpunten_2018_2022_bo_rest$area_prop_bo_overig, 
           by = list(telpunten_2018_2022_bo_rest$jaar), FUN = summary)
 ```
 
@@ -1651,7 +1653,8 @@ nb_wallonie2   <- nb_wallonie1 %>%
 
 ```{r}
 # Visualise
-mapview::mapview(st_buffer(perimeters, buffer_km * 1000), color = "red", 
+map1 <- st_buffer(perimeters, buffer_km * 1000)
+mapview::mapview(map1, color = "red", 
                  alpha.regions = 0, legend = FALSE) + 
   mapview::mapview(select(nb_vlaanderen2, geometry), layer = "Vlaanderen",
                    col.regions = "yellow") + 
@@ -1704,11 +1707,47 @@ f(x) = \frac{1}{1 + \exp(b(x-m))}
 $$
 
 ```{r}
+visualize_weights <- function(x, m = 0.5, b = 8, 
+                              mode = c("logit", "exponential")) {
+  if (is(x, "SpatRaster")) {
+    xy <- x %>% terra::xyFromCell(which(x[] == 1))
+    max_dist = (terra::nrow(x)/2) * terra::res(x)[1]
+  }
+  else if (is.numeric(x)) {
+    max_dist <- x
+  }
+  else {
+    stop("x needs to be numeric or a SpatRaster object")
+  }
+  if (all(mode == c("logit", "exponential")) || mode == "logit") {
+    logfun <- function(x) {
+      return(1/(1 + exp((b) * (x - m))))
+    }
+    plot_main <- paste0("Mode: logit\nm: ", m, "    b: ", 
+      b)
+  }
+  else if (mode == "exponential") {
+    logfun <- function(x) {
+      return(1/(1 + ((b) * x^(m))))
+    }
+    plot_main <- paste0("Mode: exponential\nm: ", m, "    b: ", 
+      b)
+  }
+  else {
+    stop("Currently only logit and exponential are supported")
+  }
+  plot(logfun(seq(0, 1, length.out = max_dist)), type = "l", 
+    ylab = "Decay Weight (d)", xlab = "Distance [m]", main = plot_main)
+}
+```
+
+
+```{r}
 par(mfrow = c(2, 2))
-GVI::visualizeWeights(max_distance, m = 0.4, b = 8, mode = "logit")
-GVI::visualizeWeights(max_distance, m = 0.5, b = 8, mode = "logit")
-GVI::visualizeWeights(max_distance, m = 0.4, b = 10, mode = "logit")
-GVI::visualizeWeights(max_distance, m = 0.5, b = 10, mode = "logit")
+visualize_weights(max_distance, m = 0.4, b = 8, mode = "logit")
+visualize_weights(max_distance, m = 0.5, b = 8, mode = "logit")
+visualize_weights(max_distance, m = 0.4, b = 10, mode = "logit")
+visualize_weights(max_distance, m = 0.5, b = 10, mode = "logit")
 par(mfrow = c(1, 1))
 ```
 
@@ -1723,10 +1762,10 @@ $$
 
 ```{r}
 par(mfrow = c(2, 2))
-GVI::visualizeWeights(max_distance, m = 1, b = 6, mode = "exponential")
-GVI::visualizeWeights(max_distance, m = 1.3, b = 6, mode = "exponential")
-GVI::visualizeWeights(max_distance, m = 1, b = 3, mode = "exponential")
-GVI::visualizeWeights(max_distance, m = 1.3, b = 3, mode = "exponential")
+visualize_weights(max_distance, m = 1, b = 6, mode = "exponential")
+visualize_weights(max_distance, m = 1.3, b = 6, mode = "exponential")
+visualize_weights(max_distance, m = 1, b = 3, mode = "exponential")
+visualize_weights(max_distance, m = 1.3, b = 3, mode = "exponential")
 par(mfrow = c(1, 1))
 ```
 
