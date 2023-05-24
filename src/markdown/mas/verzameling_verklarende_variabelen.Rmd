@@ -477,7 +477,7 @@ summary_df <- rbind(summary_df, tibble(
   categorie = "prioritair", 
   variabele = tolower(unique(telpunten_2018_2022_hfdtlt_long$GEWASGROEP)), 
   eenheid = "proportie", 
-  bron = "landbouwgebruikspercelen kaart (LV)"))
+  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
 ```
 
 ### Visualisatie
@@ -559,7 +559,7 @@ summary_df <- rbind(summary_df, c(
   categorie = "prioritair", 
   variabele = "effectief aantal hoofdteelten", 
   eenheid = "continu getal", 
-  bron = "landbouwgebruikspercelen kaart (LV)"))
+  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
 ```
 
 ### Visualisatie
@@ -637,7 +637,7 @@ summary_df <- rbind(summary_df, c(
   categorie = "prioritair", 
   variabele = "absoluut aantal hoofdteelten", 
   eenheid = "aantal", 
-  bron = "landbouwgebruikspercelen kaart (LV)"))
+  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
 ```
 
 ### Opmerkingen
@@ -695,7 +695,7 @@ summary_df <- rbind(summary_df, c(
   categorie = "prioritair", 
   variabele = "evenness gewasdiversiteit", 
   eenheid = "fractie", 
-  bron = "landbouwgebruikspercelen kaart (LV)"))
+  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
 ```
 
 ### Opmerkingen
@@ -966,7 +966,7 @@ n.v.t.
 
 ### Hoe berekend?
 
-De volgende teller codes behoren tot professionele tellers: `c("WVNT00", "JJNN16", "NOVN00")`. Zolang het niet duidelijk is welke punten wanneer geteld zijn (incl. nulwaarnemingen) zullen we de berekeningen hier niet doen. Bovendien zijn dus enkele punten zowel door vrijwilligers als professionelen geteld en soms ook buiten telperiodes. Deze variabele moet dus berekend worden na filtering van de data.
+De volgende teller codes behoren tot professionele tellers: `c("WVNT00", "JJNN16", "NOVN00", "ETBX00")` en `"RPLT02"` vanaf 2022. Zolang het niet duidelijk is welke punten wanneer geteld zijn (incl. nulwaarnemingen) zullen we de berekeningen hier niet doen. Bovendien zijn dus enkele punten zowel door vrijwilligers als professionelen geteld en soms ook buiten telperiodes. Deze variabele moet dus berekend worden na filtering van de data.
 
 ```{r}
 summary_df <- rbind(summary_df, c(
@@ -1052,7 +1052,7 @@ summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
   variabele = tolower(unique(telpunten_2018_2022_kle_long$subklasse)), 
   eenheid = "proportie", 
-  bron = "kaart landschapselementen (LV)"))
+  bron = "kaart landschapselementen (Bron: Dept. LV)"))
 ```
 
 ### Visualisatie
@@ -1251,7 +1251,7 @@ summary_df <- rbind(summary_df, tibble(
                 "variabiliteit perceelsgroottes",
                 "variatiecoëfficiënt"), 
   eenheid = c("m²", "m²", "coëfficiënt"), 
-  bron = "landbouwgebruikspercelen kaart (LV)"))
+  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
 ```
 
 ### Visualisatie
@@ -1331,7 +1331,7 @@ summary_df <- rbind(summary_df, tibble(
   variabele = c("X-coördinaat Lambert 72", 
                 "Y-coördinaat Lambert 72"), 
   eenheid = "m", 
-  bron = "landbouwgebruikspercelen kaart (LV)"))
+  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
 ```
 
 ### Visualisatie
