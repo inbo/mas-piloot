@@ -436,6 +436,20 @@ In het tweede geval moeten we de GEWASGROEP manueel aanvullen.
 -   Flageolets (voor de boon) $\rightarrow$ Groenten, kruiden en sierplanten
 -   Zomerhaver, Winterhaver $\rightarrow$ Granen, zaden en peulvruchten
 
+Een logische en veelgebruikte opdeling voor gewassen is:
+
+- graangewassen (monocotylen zoals tarwe, gerst, etc..) 
+- grasland (opdelen permanent en tijdelijk)
+- mais
+- aardappelen
+- wortelgewassen (biet, chicorei, wortel)
+- peulvruchten (erwt)
+- groententeelt (kolen zoals bloemkool, brocolli, spruiten, prei, ajuin, sla)
+- groenbemester (klavers, luzerne, mosterd) of koolzaad
+- meerjarige fruitteelt (appel, peer, kers, ea)
+- vlas
+- andere (vb eenjarig fruitteelt)
+
 ```{r}
 # Add proportion main crop per year
 telpunten_2018_2022_hfdtlt_long_tot <- calc_lbg_by_year(telpunten_2018_2022_df)
@@ -445,7 +459,7 @@ telpunten_2018_2022_hfdtlt_long <- telpunten_2018_2022_hfdtlt_long_tot %>%
     is.na(GEWASGROEP) & LBLHFDTLT %in% c("Zomerhaver", "Winterhaver") ~ 
       "Granen, zaden en peulvruchten",
     is.na(GEWASGROEP) & startsWith(LBLHFDTLT, "Flageolets")  ~ 
-      "Granen, zaden en peulvruchten",
+      "Groenten, kruiden en sierplanten",
     TRUE ~ GEWASGROEP
   ))
 
@@ -501,7 +515,7 @@ telpunten_2018_2022_hfdtlt_long %>%
 
 -   Compositionele variabele somt niet to 1 $\rightarrow$ gebruiken als proporties
 
-## Diversiteit aan hoofdteelten (1)
+## Effectief aantal hoofdteelten
 
 ### Beschrijving
 
@@ -543,8 +557,8 @@ telpunten_2018_2022_hfdtlt_div1 <- telpunten_2018_2022_hfdtlt_long_tot %>%
 ```{r}
 summary_df <- rbind(summary_df, c(
   categorie = "prioritair", 
-  variabele = "gewasdiversiteit 1", 
-  eenheid = "Shannon index", 
+  variabele = "effectief aantal hoofdteelten", 
+  eenheid = "continu getal", 
   bron = "landbouwgebruikspercelen kaart (LV)"))
 ```
 
@@ -554,7 +568,7 @@ summary_df <- rbind(summary_df, c(
 telpunten_2018_2022_hfdtlt_div1 %>%
   ggplot() +
     geom_histogram(aes(x = gewas_div_shannon)) +
-    labs(title = "Diversiteit aan hoofdteelten (Shannon)",
+    labs(title = "Effectief aantal hoofdteelten",
          x = "Effectief aantal hoofdteelten per plot", 
          y = "Frequentie") +
     facet_wrap(~jaar)
@@ -569,7 +583,7 @@ aggregate(telpunten_2018_2022_hfdtlt_div1$gewas_div_shannon,
 
 /
 
-## Diversiteit aan hoofdteelten (2)
+## Absoluut aantal hoofdteelten
 
 ### Beschrijving
 
@@ -621,7 +635,7 @@ aggregate(telpunten_2018_2022_hfdtlt_div2$gewas_div_n,
 ```{r}
 summary_df <- rbind(summary_df, c(
   categorie = "prioritair", 
-  variabele = "gewasdiversiteit 2", 
+  variabele = "absoluut aantal hoofdteelten", 
   eenheid = "aantal", 
   bron = "landbouwgebruikspercelen kaart (LV)"))
 ```
@@ -629,6 +643,64 @@ summary_df <- rbind(summary_df, c(
 ### Opmerkingen
 
 Deze variabele wordt gebruikt als 'gewasdiversiteit' door @klaassen2022.
+
+## Evenness aan hoofdteelten
+
+### Beschrijving
+
+Evenness hoofdteelten per telcirkel.
+
+### Welk datatype?
+
+Fractie tussen 0 en 1.
+
+### Waar verzameld?
+
+n.v.t.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+We delen het effectief aantal hoofdteelten (als alle proporties gelijk zouden zijn) door het absoluut aantal hoofdteelten. Deze maat is dus 1 als alle hoofteelten binnen de telcirkel in eenzelfde proportie voorkomen.
+
+```{r}
+telpunten_2018_2022_hfdtlt_evenness <- telpunten_2018_2022_hfdtlt_div2 %>%
+  full_join(telpunten_2018_2022_hfdtlt_div1, by = join_by(pointid, jaar)) %>%
+  mutate(gewas_evenness = gewas_div_shannon / gewas_div_n) %>%
+  select(-c(gewas_div_shannon, gewas_div_n))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2022_hfdtlt_evenness %>%
+  ggplot() +
+    geom_histogram(aes(x = gewas_evenness)) +
+    labs(title = "Evenness hoofdteelten",
+         x = "Evenness", 
+         y = "Frequentie") +
+    facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2022_hfdtlt_evenness$gewas_evenness, 
+          by = list(telpunten_2018_2022_hfdtlt_evenness$jaar), FUN = summary)
+```
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "prioritair", 
+  variabele = "evenness gewasdiversiteit", 
+  eenheid = "fractie", 
+  bron = "landbouwgebruikspercelen kaart (LV)"))
+```
+
+### Opmerkingen
+
+/
 
 # Verklarende variabelen van secundair belang
 
