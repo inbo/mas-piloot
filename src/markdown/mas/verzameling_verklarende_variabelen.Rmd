@@ -1342,11 +1342,11 @@ n.v.t.
 
 /
 
-## Inertie beheerovereenkomsten
+## Inertie soortbeschermingsmaatregelen
 
 ### Beschrijving
 
-Gewogen gemiddelde van jaar sinds implementatie beheerovereenkomsten per telcirkel.  
+Gewogen gemiddelde van jaar sinds implementatie soortbeschermingsmaatregelen per telcirkel.  
   
 -  Geen beheerovereenkomst: 0
 -  Wel beheerovereekomst: Gewogen (oppervlakte beheerovereenkomst) gemiddelde van ...
@@ -1372,7 +1372,7 @@ Aangevraagd.
 ### Hoe berekend?
 
 ```{r}
-add_bo_inertia <- function(punten_df, path_bo) {
+add_bo_inertia <- function(punten_df, path_bo, bh_doel) {
   # Read in bo layer and calculate start and stop year
   bo_layer <- read_bo(path = path_bo)
   bo_layer2 <- bo_layer %>% 
@@ -1394,7 +1394,7 @@ add_bo_inertia <- function(punten_df, path_bo) {
     out_df_year <- st_intersection(st_buffer(punten_df_year, 300), 
                                    bo_layer_year) %>%
       st_drop_geometry() %>%
-      filter(BH_DOELST == "soortenbescherming (SB)") %>%
+      filter(BH_DOELST %in% bh_doel) %>%
       mutate(inertia_row = jaar - startjaar + 1) %>%
       group_by(pointid) %>%
       summarise(inertia_sb = round(mean(inertia_row)), .groups = "drop")
@@ -1414,14 +1414,15 @@ add_bo_inertia <- function(punten_df, path_bo) {
 bo_file_2022 <- path_to_bo(jaar = 2022)
 
 # Add proportion bo per year
-telpunten_2018_2022_inertia <- add_bo_inertia(telpunten_2018_2022_df, 
-                                               bo_file_2022)
+telpunten_2018_2022_inertia_sb <- add_bo_inertia(telpunten_2018_2022_df, 
+                                              path_bo = bo_file_2022, 
+                                              bh_doel = "soortenbescherming (SB)")
 ```
 
 ```{r}
 summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
-  variabele = "inertie beheerovereenkomsten", 
+  variabele = "inertie soortbeschermingsmaatregelen", 
   eenheid = "aantal", 
   bron = "VLM"))
 ```
@@ -1429,20 +1430,20 @@ summary_df <- rbind(summary_df, c(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_inertia %>%
+telpunten_2018_2022_inertia_sb %>%
   ggplot() +
     geom_bar(aes(x = inertia_sb)) +
     scale_x_continuous(breaks = 
-                         unique(telpunten_2018_2022_inertia$inertia_sb)) +
+                         unique(telpunten_2018_2022_inertia_sb$inertia_sb)) +
     labs(
-      title = "Implementatie beheerovereenkomsten",
-      x = "Gemiddeld jaar sinds beheerovereenkomst (gecategoriseerd)",
+      title = "Implementatie soortbeschermingsmaatregelen",
+      x = "Gemiddeld jaar sinds soortbeschermingsmaatregelen (gecategoriseerd)",
       y = "Aantal telpunten") +
     facet_wrap(~jaar)
 ```
 
 ```{r}
-telpunten_2018_2022_inertia %>% 
+telpunten_2018_2022_inertia_sb %>% 
   st_drop_geometry() %>% 
   mutate(cat = ifelse(inertia_sb == 0, "0", ">0")) %>% 
   count(jaar, cat) %>%
@@ -1451,8 +1452,8 @@ telpunten_2018_2022_inertia %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_inertia$inertia_sb, 
-          by = list(telpunten_2018_2022_inertia$jaar), FUN = summary)
+aggregate(telpunten_2018_2022_inertia_sb$inertia_sb, 
+          by = list(telpunten_2018_2022_inertia_sb$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -2005,7 +2006,7 @@ variables_df_per_year <- telpunten_2018_2022_bo_soort %>%
   full_join(telpunten_2018_2022_hfdtlt_div2, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_prcl, by = c("pointid", "regio", "jaar", 
                                              "geometry")) %>%
-  full_join(telpunten_2018_2022_inertia, by = c("pointid", "regio", "jaar", 
+  full_join(telpunten_2018_2022_inertia_sb, by = c("pointid", "regio", "jaar", 
                                                 "geometry"))
 
 # Variables that do not vary by year
