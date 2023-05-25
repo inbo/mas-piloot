@@ -184,7 +184,7 @@ Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
 -   erosiemaatregelen
 -   bufferstroken
 
-We maken zowel een variabele aan voor soortbeschermingsmaatregelen als voor de overige maatregelen.
+We maken zowel een variabele aan voor soortbeschermingsmaatregelen als voor erosiebeheer en bufferstroken.
 
 ### Welk datatype?
 
@@ -274,7 +274,7 @@ aggregate(telpunten_2018_2022_bo_soort$area_prop_sb,
 
 In model of visualisatie eventueel transformeren (logit + klein getal?).
 
-## Oppervlakte-aandeel overige beschermingsmaatregelen
+## Oppervlakte-aandeel erosiebeheer en bufferstroken
 
 ### Beschrijving
 
@@ -288,7 +288,7 @@ Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
 -   erosiemaatregelen
 -   bufferstroken
 
-We maken zowel een variabele aan voor soortbeschermingsmaatregelen als voor de overige maatregelen.
+We maken zowel een variabele aan voor soortbeschermingsmaatregelen als voor erosiebeheer en bufferstroken.
 
 ### Welk datatype?
 
@@ -314,10 +314,8 @@ Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirke
 telpunten_2018_2022_bo_rest <- add_bo_by_year(
   telpunten_2018_2022_df, 
   bo_file_2022,
-  bh_doel = c("beheer KLE's (KLE)",
-              "erosiebestrijding (ER)",
-              "perceelsrandenbeheer (PR)",
-              "botanisch beheer (BB)"))
+  bh_doel = c("erosiebestrijding (ER)",
+              "perceelsrandenbeheer (PR)"))
 
 telpunten_2018_2022_bo_rest <- telpunten_2018_2022_bo_rest %>%
   st_drop_geometry() %>%
@@ -327,7 +325,7 @@ telpunten_2018_2022_bo_rest <- telpunten_2018_2022_bo_rest %>%
 ```{r}
 summary_df <- tibble(
   categorie = "prioritair", 
-  variabele = "oppervlakte-aandeel overige beschermingsmaatregelen", 
+  variabele = "oppervlakte-aandeel erosiebeheer en bufferstroken", 
   eenheid = "proportie", 
   bron = "VLM")
 ```
@@ -339,7 +337,7 @@ telpunten_2018_2022_bo_rest %>%
   ggplot() +
     geom_histogram(aes(x = area_prop_bo_overig)) +
     labs(
-      title = "Oppervlakte-aandeel overige beschermingsmaatregelen",
+      title = "Oppervlakte-aandeel erosiebeheer en bufferstroken",
       x = "Oppervlakte-aandeel",
       y = "Aantal telpunten") +
     facet_wrap(~jaar)
