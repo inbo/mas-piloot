@@ -1397,7 +1397,7 @@ add_bo_inertia <- function(punten_df, path_bo, bh_doel) {
       filter(BH_DOELST %in% bh_doel) %>%
       mutate(inertia_row = jaar - startjaar + 1) %>%
       group_by(pointid) %>%
-      summarise(inertia_sb = round(mean(inertia_row)), .groups = "drop")
+      summarise(inertia = round(mean(inertia_row)), .groups = "drop")
     
     out_list[[i]] <- out_df_year %>% 
       full_join(punten_df_year, by = c("pointid")) %>%
@@ -1414,9 +1414,11 @@ add_bo_inertia <- function(punten_df, path_bo, bh_doel) {
 bo_file_2022 <- path_to_bo(jaar = 2022)
 
 # Add proportion bo per year
-telpunten_2018_2022_inertia_sb <- add_bo_inertia(telpunten_2018_2022_df, 
-                                              path_bo = bo_file_2022, 
-                                              bh_doel = "soortenbescherming (SB)")
+telpunten_2018_2022_inertia_sb <- add_bo_inertia(
+    punten_df = telpunten_2018_2022_df, 
+    path_bo = bo_file_2022, 
+    bh_doel = "soortenbescherming (SB)") %>%
+  rename(inertie_sb = inertia)
 ```
 
 ```{r}
@@ -1454,6 +1456,85 @@ telpunten_2018_2022_inertia_sb %>%
 ```{r}
 aggregate(telpunten_2018_2022_inertia_sb$inertia_sb, 
           by = list(telpunten_2018_2022_inertia_sb$jaar), FUN = summary)
+```
+
+### Opmerkingen
+
+/
+
+## Inertie erosiebeheer en bufferstroken
+
+### Beschrijving
+
+Gewogen gemiddelde van jaar sinds implementatie erosiebeheer en bufferstroken per telcirkel.  
+  
+-  Geen beheerovereenkomst: 0
+-  Wel beheerovereekomst: Gewogen (oppervlakte beheerovereenkomst) gemiddelde van ...
+   -  1: start beheerovereenkomst in zelfde jaar als telling
+   -  2: start beheerovereenkomst 1 jaar vóór telling
+   -  3: start beheerovereenkomst 2 jaar vóór telling
+   -  ...
+
+We categoriseren de gemiddeldes door af te ronden naar een geheel getal.
+
+### Welk datatype?
+
+Continu.
+
+### Waar verzameld?
+
+Bestand aangeleverd door VLM: `BO_2022_VLM_EXTERN.shp`
+
+### Hoe verzameld?
+
+Aangevraagd.
+
+### Hoe berekend?
+
+```{r}
+# Add proportion bo per year
+telpunten_2018_2022_inertia_rest <- add_bo_inertia(
+    telpunten_2018_2022_df, 
+    path_bo = bo_file_2022, 
+    bh_doel = c("erosiebestrijding (ER)", "perceelsrandenbeheer (PR)")) %>%
+  rename(inertie_rest = inertia)
+```
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "inertie erosiebeheer en bufferstroken", 
+  eenheid = "aantal", 
+  bron = "VLM"))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2022_inertia_rest %>%
+  ggplot() +
+    geom_bar(aes(x = inertia_rest)) +
+    scale_x_continuous(breaks = 
+                         unique(telpunten_2018_2022_inertia_rest$inertia_rest)) +
+    labs(
+      title = "Implementatie erosiebeheer en bufferstroken",
+      x = "Gemiddeld jaar sinds erosiebeheer en bufferstroken (gecategoriseerd)",
+      y = "Aantal telpunten") +
+    facet_wrap(~jaar)
+```
+
+```{r}
+telpunten_2018_2022_inertia_rest %>% 
+  st_drop_geometry() %>% 
+  mutate(cat = ifelse(inertia_rest == 0, "0", ">0")) %>% 
+  count(jaar, cat) %>%
+  pivot_wider(names_from = cat, values_from = n) %>%
+  kable()
+```
+
+```{r}
+aggregate(telpunten_2018_2022_inertia_rest$inertia_rest, 
+          by = list(telpunten_2018_2022_inertia_rest$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -2007,7 +2088,9 @@ variables_df_per_year <- telpunten_2018_2022_bo_soort %>%
   full_join(telpunten_2018_2022_prcl, by = c("pointid", "regio", "jaar", 
                                              "geometry")) %>%
   full_join(telpunten_2018_2022_inertia_sb, by = c("pointid", "regio", "jaar", 
-                                                "geometry"))
+                                                   "geometry")) %>%
+  full_join(telpunten_2018_2022_inertia_rest, by = c("pointid", "regio", "jaar", 
+                                                     "geometry"))
 
 # Variables that do not vary by year
 variables_df <- cbind(telpunten_2018_2022_openheid, 
