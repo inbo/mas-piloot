@@ -50,6 +50,58 @@ calc_lbg_by_year <- function(punten_df) {
   return(do.call(rbind.data.frame, out_list))
 }
 
+path_to_vzml <- function(jaar) {
+  string <- paste("Landbouwgebruikspercelen", jaar, sep = "_")
+  if (jaar == 2022) extension = ".gpkg" else extension = ".shp"
+
+  file.path(mbag_dir, "data", "verzamelaanvraag", string,
+            paste0(string, extension))
+}
+
+calc_vzml <- function(path, punten_sf, group_by_col = "GWSNAM_V") {
+  layer_sf <- st_read(path)
+
+  if (!"geometry" %in% names(layer_sf)) {
+    layer_sf <- layer_sf %>%
+      rename(geometry = geom)
+  }
+
+  points_vzml <- landusemetrics_grid_cell(
+    grid_cell = punten_sf %>%
+      st_buffer(dist = 300),
+    layer = layer_sf %>%
+      st_set_crs(31370),
+    grid_group_by_col = "pointid",
+    layer_group_by_col = group_by_col)
+
+  points_vzml <- points_vzml %>%
+    ungroup()
+
+  return(points_vzml)
+}
+
+calc_vzml_by_year <- function(punten_df, ...) {
+  # Loop over years
+  years <- unique(punten_df$jaar)
+  out_list <- vector(mode = "list", length = length(years))
+
+  for (i in seq_along(years)) {
+    year <- years[i]
+
+    # Filter by year
+    punten_df_year <- punten_df %>% filter(jaar == year)
+    vzml_file_year <- path_to_vzml(jaar = year)
+
+    out_df_year <- calc_vzml(path = vzml_file_year,
+                             punten_sf = punten_df_year,
+                             ...)
+
+    out_list[[i]] <- out_df_year %>% ungroup() %>% mutate(jaar = year)
+  }
+
+  return(do.call(rbind.data.frame, out_list))
+}
+
 # Binnen buiten sbp per regio
 add_sbp_per_regio <- function(punten_sf, perimeters) {
 
