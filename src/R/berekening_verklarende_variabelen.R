@@ -244,3 +244,43 @@ visualize_weights <- function(x, m = 0.5, b = 8,
   plot(logfun(seq(0, 1, length.out = max_dist)), type = "l",
        ylab = "Decay Weight (d)", xlab = "Distance [m]", main = plot_main)
 }
+
+# Calculate weights for exponential and logistic decay functions
+calc_weights <- function(x, max_dist, m = NULL, b = NULL, mode = "logistic") {
+  if (mode == "logistic") {
+    # Parameters
+    if (is.null(m)) {
+      m <- 0.5
+    }
+    if (is.null(b)) {
+      b <- 8
+    }
+
+    # Rescale
+    m <- m * max_dist
+    b <- b / max_dist
+
+    # Function
+    out <- 1 / (1 + exp((b) * (x - m)))
+
+  } else if (mode == "exponential") {
+    # Parameters
+    if (is.null(m)) {
+      m <- 1
+    }
+    if (is.null(b)) {
+      b <- 6
+    }
+
+    # Rescale
+    b <- b / max_dist
+
+    # Function
+    out <- 1 / (1 + ((b) * x^(m)))
+
+  } else {
+    stop("Currently only logistic and exponential are supported", call. = FALSE)
+  }
+
+  return(out)
+}
