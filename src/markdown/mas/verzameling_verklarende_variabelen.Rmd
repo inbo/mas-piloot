@@ -666,15 +666,62 @@ Finale kaart wordt eind april gepubliceerd (?).
 
 ### Hoe verzameld?
 
+Download van url.
 
 ### Hoe berekend?
 
+```{r}
+telpunten_2018_2022_vrtlt_long <- calc_vzml_by_year(telpunten_2018_2022_df)
+
+telpunten_2018_2022_vrtlt <- telpunten_2018_2022_vrtlt_long %>%
+  pivot_wider(id_cols = c(pointid, jaar), 
+              names_from = GWSNAM_V, 
+              values_from = area_prop, 
+              values_fill = 0)
+```
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "prioritair", 
+  variabele = tolower(unique(telpunten_2018_2022_vrtlt_long$GWSNAM_V)), 
+  eenheid = "proportie",
+  bron = "verzamelaanvraag (Bron: Dept. LV)"))
+```
 
 ### Visualisatie
 
+```{r}
+telpunten_2018_2022_vrtlt_long %>%
+  group_by(jaar, GWSNAM_V) %>%
+  summarise(area_prop_vrtlt = median(area_prop), .groups = "drop") %>%
+  mutate(GWSNAM_V = reorder(factor(GWSNAM_V), area_prop_vrtlt, sum,
+                              decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = GWSNAM_V, y = area_prop_vrtlt  , 
+                 fill = factor(jaar, ordered = TRUE)), 
+             stat = "identity") +
+    labs(title = "Oppervlakte-aandeel gewasgroepen", fill = "Jaar",
+         x = "", y = "Mediaan proportie over telcirkels") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+```{r}
+telpunten_2018_2022_vrtlt_long %>%
+  group_by(jaar, GWSNAM_V) %>%
+  summarise(mediaan = median(area_prop), 
+            gemiddelde = mean(area_prop),
+            min = min(area_prop),
+            max =  max(area_prop), 
+            .groups = "drop") %>%
+  mutate(GWSNAM_V = reorder(factor(GWSNAM_V), mediaan, sum,
+                              decreasing = TRUE)) %>%
+  arrange(jaar, GWSNAM_V) %>%
+  kable()
+```
 
 ### Opmerkingen
 
+-   Veel `NA`. Variabele bruikbaar?
 
 
 # Verklarende variabelen van secundair belang
@@ -1824,6 +1871,7 @@ variables_df_per_year <- telpunten_2018_2022_bo_soort %>%
   full_join(telpunten_2018_2022_hfdtlt, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_hfdtlt_div1, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_hfdtlt_div2, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2022_vrtlt, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_prcl, by = c("pointid", "regio", "jaar", 
                                              "geometry")) %>%
   full_join(telpunten_2018_2022_inertia_sb, by = c("pointid", "regio", "jaar", 
