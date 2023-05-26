@@ -75,3 +75,52 @@ add_sbp_per_regio <- function(punten_sf, perimeters) {
 
   return(do.call(rbind.data.frame, out_list))
 }
+
+# Perceelgroottes per telcirkel per jaar
+calc_perceelsgrootte_by_year <- function(punten_df) {
+  # Loop over years
+  years <- unique(punten_df$jaar)
+  out_list <- vector(mode = "list", length = length(years))
+
+  for (i in seq_along(years)) {
+    year <- years[i]
+    number_string <- sub(".*([0-9]{2})$", "\\1", year)
+
+    # Filter by year
+    punten_df_year <- punten_df %>% filter(jaar == year)
+    lbg_binding <- st_read(file.path("data", "landbouwgebruikspercelen",
+                                     "Shapefile", paste0("Lbgbrprc", number_string,
+                                                         ".shp"))) %>%
+      st_transform(crs = 31370)
+
+    # Intersection
+    intersect <- st_intersection(punten_df_year %>% st_buffer(300), lbg_binding)
+
+    out_df_year <- lbg_binding %>%
+      filter(OIDN %in% intersect$OIDN) %>%       # Filter percelen
+      full_join(st_drop_geometry(intersect),
+                by = c("OIDN", "UIDN", "ALVID", "HFDTLT", "LBLHFDTLT",
+                       "GEWASGROEP", "PM", "LBLPM", "LENGTE", "OPPERVL")) %>%
+      filter(!is.na(LBLHFDTLT)) %>%
+
+      # Join neighbouring polygons by main crop
+      group_by(pointid, LBLHFDTLT) %>%
+      summarise() %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON") %>%
+      ungroup() %>%
+
+      # Calculate median perceel area by point
+      mutate(area = st_area(geometry)) %>%
+      st_drop_geometry() %>%
+      group_by(pointid) %>%
+      summarise(perceel_median_area = units::drop_units(median(area)),
+                perceel_iqr_area = IQR(area),
+                perceel_cv_area = perceel_iqr_area / perceel_median_area,
+                .groups = "drop")
+
+    out_list[[i]] <- out_df_year %>% full_join(punten_df_year)
+  }
+
+  return(do.call(rbind.data.frame, out_list))
+}
