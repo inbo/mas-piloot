@@ -124,3 +124,40 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
 
   return(do.call(rbind.data.frame, out_list))
 }
+
+# Voeg inertia parameter toe
+add_bo_inertia <- function(punten_df, path_bo, bh_doel) {
+  # Read in bo layer and calculate start and stop year
+  bo_layer <- read_bo(path = path_bo)
+  bo_layer2 <- bo_layer %>%
+    mutate(startjaar = year(START),
+           stopjaar = year(STOP))
+
+  # Loop over years
+  years <- unique(punten_df$jaar)
+  out_list <- vector(mode = "list", length = length(years))
+
+  for (i in seq_along(years)) {
+    year <- years[i]
+
+    # Filter by year
+    punten_df_year <- punten_df %>% filter(jaar == year)
+    bo_layer_year <- bo_layer2 %>%
+      filter(startjaar <= year & stopjaar >= year)
+
+    out_df_year <- st_intersection(st_buffer(punten_df_year, 300),
+                                   bo_layer_year) %>%
+      st_drop_geometry() %>%
+      filter(BH_DOELST %in% bh_doel) %>%
+      mutate(inertia_row = jaar - startjaar + 1) %>%
+      group_by(pointid) %>%
+      summarise(inertia = round(mean(inertia_row)), .groups = "drop")
+
+    out_list[[i]] <- out_df_year %>%
+      full_join(punten_df_year, by = c("pointid")) %>%
+      replace(is.na(.), 0) %>%
+      mutate(jaar = year)
+  }
+
+  return(do.call(rbind.data.frame, out_list))
+}
