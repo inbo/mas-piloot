@@ -1600,35 +1600,9 @@ nb_wallonie <- bind_rows(nb_wallonie_1,
   st_transform(31370)
 ```
 
-```{r}
-# Selecteer (multi)polygonen binnen buffered perimeter (ev. per gebied)
-buffer_layers_to_perimeter <- function(layer, buffer_km, group_var = NULL) {
-  buffer_to_meters <- buffer_km * 1000
-  
-  if (is.null(group_var)) {
-    layer <- layer %>%
-      rownames_to_column("id")
-    
-    polygons <- perimeters %>%
-      st_buffer(buffer_to_meters) %>%
-      st_intersection(layer) %>%
-      pull(id)
-  
-    out <- layer %>%
-      filter(id %in% polygons) %>%
-      select(-id)
-  } else {
-    polygons <- perimeters %>%
-      st_buffer(buffer_to_meters) %>%
-      st_intersection(layer) %>%
-      pull(group_var)
-  
-    out <- layer %>%
-      filter(!!sym(group_var) %in% polygons)
-  }
- return(out) 
-}
+Selecteer (multi)polygonen binnen buffered perimeter (ev. per gebied)
 
+```{r}
 nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, buffer_km, 
                                              group_var = "naamdossie")
 nb_nederland1  <- buffer_layers_to_perimeter(nb_nederland, buffer_km)

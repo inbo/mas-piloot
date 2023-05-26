@@ -161,3 +161,31 @@ add_bo_inertia <- function(punten_df, path_bo, bh_doel) {
 
   return(do.call(rbind.data.frame, out_list))
 }
+
+# Selecteer (multi)polygonen binnen buffered perimeter (ev. per gebied)
+buffer_layers_to_perimeter <- function(layer, buffer_km, group_var = NULL) {
+  buffer_to_meters <- buffer_km * 1000
+
+  if (is.null(group_var)) {
+    layer <- layer %>%
+      rownames_to_column("id")
+
+    polygons <- perimeters %>%
+      st_buffer(buffer_to_meters) %>%
+      st_intersection(layer) %>%
+      pull(id)
+
+    out <- layer %>%
+      filter(id %in% polygons) %>%
+      select(-id)
+  } else {
+    polygons <- perimeters %>%
+      st_buffer(buffer_to_meters) %>%
+      st_intersection(layer) %>%
+      pull(group_var)
+
+    out <- layer %>%
+      filter(!!sym(group_var) %in% polygons)
+  }
+  return(out)
+}
