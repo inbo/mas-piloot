@@ -210,3 +210,37 @@ splits_polys <- function(layer, id_name, group_var = NULL) {
   }
   return(out)
 }
+
+# visualizeWeights function of GVI for R 4.3.0
+visualize_weights <- function(x, m = 0.5, b = 8,
+                              mode = c("logit", "exponential")) {
+  if (is(x, "SpatRaster")) {
+    xy <- x %>% terra::xyFromCell(which(x[] == 1))
+    max_dist = (terra::nrow(x)/2) * terra::res(x)[1]
+  }
+  else if (is.numeric(x)) {
+    max_dist <- x
+  }
+  else {
+    stop("x needs to be numeric or a SpatRaster object")
+  }
+  if (all(mode == c("logit", "exponential")) || mode == "logit") {
+    logfun <- function(x) {
+      return(1/(1 + exp((b) * (x - m))))
+    }
+    plot_main <- paste0("Mode: logit\nm: ", m, "    b: ",
+                        b)
+  }
+  else if (mode == "exponential") {
+    logfun <- function(x) {
+      return(1/(1 + ((b) * x^(m))))
+    }
+    plot_main <- paste0("Mode: exponential\nm: ", m, "    b: ",
+                        b)
+  }
+  else {
+    stop("Currently only logit and exponential are supported")
+  }
+  plot(logfun(seq(0, 1, length.out = max_dist)), type = "l",
+       ylab = "Decay Weight (d)", xlab = "Distance [m]", main = plot_main)
+}
