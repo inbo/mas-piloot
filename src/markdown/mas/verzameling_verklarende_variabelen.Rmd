@@ -367,29 +367,6 @@ Voor elk jaar hebben we een aparte file.
 We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
 Daarna gebruiken we de `calc_lbg()` functie om de proporties per telcirkel te berekenen.
 
-```{r}
-calc_lbg_by_year <- function(punten_df) {
-  # Loop over years
-  years <- unique(punten_df$jaar)
-  out_list <- vector(mode = "list", length = length(years))
-  
-  for (i in seq_along(years)) {
-    year <- years[i]
-    
-    # Filter by year
-    punten_df_year <- punten_df %>% filter(jaar == year)
-    lbg_file_year <- path_to_lbg(jaar = year)
-    
-    out_df_year <- calc_lbg(path = lbg_file_year,
-                            punten_sf = punten_df_year)
-    
-    out_list[[i]] <- out_df_year %>% ungroup() %>% mutate(jaar = year)
-  }
-  
-  return(do.call(rbind.data.frame, out_list)) 
-}
-```
-
 We groeperen per gewasgroep.
 Voor sommige gewasgroepen is er geen data (`NA`).
 Er zijn twee categoriën.

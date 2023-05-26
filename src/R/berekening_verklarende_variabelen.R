@@ -27,3 +27,25 @@ add_bo_by_year <- function(punten_df, path_bo, ...) {
 
   return(do.call(rbind.data.frame, out_list))
 }
+
+# Proportie hoofdteelten per telcirkel per jaar
+calc_lbg_by_year <- function(punten_df) {
+  # Loop over years
+  years <- unique(punten_df$jaar)
+  out_list <- vector(mode = "list", length = length(years))
+
+  for (i in seq_along(years)) {
+    year <- years[i]
+
+    # Filter by year
+    punten_df_year <- punten_df %>% filter(jaar == year)
+    lbg_file_year <- path_to_lbg(jaar = year)
+
+    out_df_year <- calc_lbg(path = lbg_file_year,
+                            punten_sf = punten_df_year)
+
+    out_list[[i]] <- out_df_year %>% ungroup() %>% mutate(jaar = year)
+  }
+
+  return(do.call(rbind.data.frame, out_list))
+}
