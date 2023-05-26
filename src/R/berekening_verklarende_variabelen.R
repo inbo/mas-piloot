@@ -49,3 +49,29 @@ calc_lbg_by_year <- function(punten_df) {
 
   return(do.call(rbind.data.frame, out_list))
 }
+
+# Binnen buiten sbp per regio
+add_sbp_per_regio <- function(punten_sf, perimeters) {
+
+  out_list <- vector(mode = "list", length = length(perimeters$Naam))
+  i <- 0
+
+  for (r in perimeters$Naam) {
+    i <- i + 1
+
+    # Filter by region
+    punten_df_regio <- punten_sf %>% filter(regio == r)
+    sbp_akkervogels_regio <- read_sbp_akkervogels(
+      path = path_to_sbp_akkervogels(),
+      gebied = perimeters %>% filter(Naam == r))
+
+    telpunten_2018_2022_regio <- add_stratum_sbp(
+      punten_sf = punten_df_regio,
+      sbp       = sbp_akkervogels_regio) %>%
+      mutate(sbp = ifelse(is_sbp == TRUE, "binnen", "buiten"))
+
+    out_list[[i]] <- telpunten_2018_2022_regio
+  }
+
+  return(do.call(rbind.data.frame, out_list))
+}
