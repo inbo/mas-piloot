@@ -1611,28 +1611,9 @@ nb_frankrijk1  <- buffer_layers_to_perimeter(nb_frankrijk, buffer_km,
 nb_wallonie1   <- buffer_layers_to_perimeter(nb_wallonie, buffer_km)
 ```
 
-```{r}
-# Opsplitsen in aparte polygonen (ev. mergen per gebied eerst)
-splits_polys <- function(layer, id_name, group_var = NULL) {
-  if (is.null(group_var)) {
-    out <- layer %>%
-      st_cast("POLYGON") %>%
-      rownames_to_column("id") %>%
-      mutate(id = paste(id_name, id, sep = "_")) %>%
-      select(id)
-  } else {
-    out <- layer %>%
-      group_by_at(group_var) %>%
-      summarise() %>%
-      st_cast("MULTIPOLYGON") %>%
-      st_cast("POLYGON") %>%
-      rownames_to_column("id") %>%
-      mutate(id = paste(id_name, id, sep = "_")) %>%
-      select(id)
-  }
- return(out) 
-}
+Opsplitsen in aparte polygonen (ev. mergen per gebied eerst)
 
+```{r}
 nb_vlaanderen2 <- splits_polys(nb_vlaanderen1, "VL", group_var = "naamdossie")
 nb_nederland2  <- splits_polys(nb_nederland1, "NL")
 nb_frankrijk2  <- splits_polys(nb_frankrijk1, "FR", group_var = "NOM")

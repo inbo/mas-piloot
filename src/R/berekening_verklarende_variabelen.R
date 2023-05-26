@@ -189,3 +189,24 @@ buffer_layers_to_perimeter <- function(layer, buffer_km, group_var = NULL) {
   }
   return(out)
 }
+
+# Opsplitsen in aparte polygonen (ev. mergen per gebied eerst)
+splits_polys <- function(layer, id_name, group_var = NULL) {
+  if (is.null(group_var)) {
+    out <- layer %>%
+      st_cast("POLYGON") %>%
+      rownames_to_column("id") %>%
+      mutate(id = paste(id_name, id, sep = "_")) %>%
+      select(id)
+  } else {
+    out <- layer %>%
+      group_by_at(group_var) %>%
+      summarise() %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON") %>%
+      rownames_to_column("id") %>%
+      mutate(id = paste(id_name, id, sep = "_")) %>%
+      select(id)
+  }
+  return(out)
+}
