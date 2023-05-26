@@ -43,6 +43,7 @@ library(lubridate)
 mbag_dir <- here()
 source(file.path("src", "R", "berekening_hulpvariabelen.R"))
 source(file.path("src", "R", "geocomputations.R"))
+source(file.path("src", "R", "berekening_verklarende_variabelen.R"))
 ```
 
 # Kadering
@@ -204,37 +205,6 @@ Elke overeenkomst is een polygoon met informatie over begin en einde van de behe
 Start is steeds op 1 januari en stop is steeds op 31 december.
 We filteren dus telkens de punten per jaar en we filteren de beheerovereenkomsten zodat ze reeds in werking waren in dat jaar.
 Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirkel te berekenen.
-
-```{r}
-add_bo_by_year <- function(punten_df, path_bo, ...) {
-  # Read in bo layer and calculate start and stop year
-  bo_layer <- read_bo(path = path_bo)
-  bo_layer2 <- bo_layer %>% 
-    mutate(startjaar = year(START), 
-           stopjaar = year(STOP))
-  
-  # Loop over years
-  years <- unique(punten_df$jaar)
-  out_list <- vector(mode = "list", length = length(years))
-  
-  for (i in seq_along(years)) {
-    year <- years[i]
-    
-    # Filter by year
-    punten_df_year <- punten_df %>% filter(jaar == year)
-    bo_layer_year <- bo_layer2 %>% 
-      filter(startjaar <= year & stopjaar >= year)
-    
-    out_df_year <- add_bo_to_frame(punten_df = punten_df_year, 
-                                   bo_layer = bo_layer_year, 
-                                   ...)
-    
-    out_list[[i]] <- out_df_year
-  }
-  
-  return(do.call(rbind.data.frame, out_list))
-}
-```
 
 ```{r}
 # Path to bo file
