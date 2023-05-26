@@ -700,6 +700,36 @@ summary_df <- rbind(summary_df, c(
 
 /
 
+## Oppervlakte aandeel voorteelten
+
+### Beschrijving
+
+Het aandeel oppervlakte aan verschillende voorteelten binnen de telcirkel.
+
+### Welk datatype?
+
+Continue variabelen tussen 0 en 1. Proporties.
+
+### Waar verzameld?
+
+<https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>
+
+2022: voorlopige kaart.
+Finale kaart wordt eind april gepubliceerd (?).
+
+### Hoe verzameld?
+
+
+### Hoe berekend?
+
+
+### Visualisatie
+
+
+### Opmerkingen
+
+
+
 # Verklarende variabelen van secundair belang
 
 ## Regio
