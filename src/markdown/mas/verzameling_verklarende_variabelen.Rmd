@@ -41,8 +41,10 @@ library(lubridate)
 
 # Source
 mbag_dir <- here()
-source(file.path("src", "R", "berekening_hulpvariabelen.R"))
-source(file.path("src", "R", "geocomputations.R"))
+
+source(here("src", "R", "geocomputations.R"))
+source(here("src", "R", "berekening_hulpvariabelen.R"))
+source(here("src", "R", "berekening_verklarende_variabelen.R"))
 ```
 
 # Kadering
@@ -206,37 +208,6 @@ We filteren dus telkens de punten per jaar en we filteren de beheerovereenkomste
 Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirkel te berekenen.
 
 ```{r}
-add_bo_by_year <- function(punten_df, path_bo, ...) {
-  # Read in bo layer and calculate start and stop year
-  bo_layer <- read_bo(path = path_bo)
-  bo_layer2 <- bo_layer %>% 
-    mutate(startjaar = year(START), 
-           stopjaar = year(STOP))
-  
-  # Loop over years
-  years <- unique(punten_df$jaar)
-  out_list <- vector(mode = "list", length = length(years))
-  
-  for (i in seq_along(years)) {
-    year <- years[i]
-    
-    # Filter by year
-    punten_df_year <- punten_df %>% filter(jaar == year)
-    bo_layer_year <- bo_layer2 %>% 
-      filter(startjaar <= year & stopjaar >= year)
-    
-    out_df_year <- add_bo_to_frame(punten_df = punten_df_year, 
-                                   bo_layer = bo_layer_year, 
-                                   ...)
-    
-    out_list[[i]] <- out_df_year
-  }
-  
-  return(do.call(rbind.data.frame, out_list))
-}
-```
-
-```{r}
 # Path to bo file
 bo_file_2022 <- path_to_bo(jaar = 2022)
 
@@ -396,29 +367,6 @@ Bijvoorbeeld voor 2019:
 Voor elk jaar hebben we een aparte file.
 We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
 Daarna gebruiken we de `calc_lbg()` functie om de proporties per telcirkel te berekenen.
-
-```{r}
-calc_lbg_by_year <- function(punten_df) {
-  # Loop over years
-  years <- unique(punten_df$jaar)
-  out_list <- vector(mode = "list", length = length(years))
-  
-  for (i in seq_along(years)) {
-    year <- years[i]
-    
-    # Filter by year
-    punten_df_year <- punten_df %>% filter(jaar == year)
-    lbg_file_year <- path_to_lbg(jaar = year)
-    
-    out_df_year <- calc_lbg(path = lbg_file_year,
-                            punten_sf = punten_df_year)
-    
-    out_list[[i]] <- out_df_year %>% ungroup() %>% mutate(jaar = year)
-  }
-  
-  return(do.call(rbind.data.frame, out_list)) 
-}
-```
 
 We groeperen per gewasgroep.
 Voor sommige gewasgroepen is er geen data (`NA`).
@@ -719,15 +667,62 @@ Finale kaart wordt eind april gepubliceerd (?).
 
 ### Hoe verzameld?
 
+Download van url.
 
 ### Hoe berekend?
 
+```{r}
+telpunten_2018_2022_vrtlt_long <- calc_vzml_by_year(telpunten_2018_2022_df)
+
+telpunten_2018_2022_vrtlt <- telpunten_2018_2022_vrtlt_long %>%
+  pivot_wider(id_cols = c(pointid, jaar), 
+              names_from = GWSNAM_V, 
+              values_from = area_prop, 
+              values_fill = 0)
+```
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "prioritair", 
+  variabele = tolower(unique(telpunten_2018_2022_vrtlt_long$GWSNAM_V)), 
+  eenheid = "proportie",
+  bron = "verzamelaanvraag (Bron: Dept. LV)"))
+```
 
 ### Visualisatie
 
+```{r}
+telpunten_2018_2022_vrtlt_long %>%
+  group_by(jaar, GWSNAM_V) %>%
+  summarise(area_prop_vrtlt = median(area_prop), .groups = "drop") %>%
+  mutate(GWSNAM_V = reorder(factor(GWSNAM_V), area_prop_vrtlt, sum,
+                              decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = GWSNAM_V, y = area_prop_vrtlt  , 
+                 fill = factor(jaar, ordered = TRUE)), 
+             stat = "identity") +
+    labs(title = "Oppervlakte-aandeel gewasgroepen", fill = "Jaar",
+         x = "", y = "Mediaan proportie over telcirkels") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+```{r}
+telpunten_2018_2022_vrtlt_long %>%
+  group_by(jaar, GWSNAM_V) %>%
+  summarise(mediaan = median(area_prop), 
+            gemiddelde = mean(area_prop),
+            min = min(area_prop),
+            max =  max(area_prop), 
+            .groups = "drop") %>%
+  mutate(GWSNAM_V = reorder(factor(GWSNAM_V), mediaan, sum,
+                              decreasing = TRUE)) %>%
+  arrange(jaar, GWSNAM_V) %>%
+  kable()
+```
 
 ### Opmerkingen
 
+-   Veel `NA`. Variabele bruikbaar?
 
 
 # Verklarende variabelen van secundair belang
@@ -892,33 +887,6 @@ https://www.vlaanderen.be/datavindplaats/catalogus/beheergebieden-akkervogelsoor
 url
 
 ### Hoe berekend?
-
-```{r}
-add_sbp_per_regio <- function(punten_sf, perimeters) {
-  
-  out_list <- vector(mode = "list", length = length(perimeters$Naam))
-  i <- 0
-  
-  for (r in perimeters$Naam) {
-    i <- i + 1
-    
-    # Filter by region
-    punten_df_regio <- punten_sf %>% filter(regio == r)
-    sbp_akkervogels_regio <- read_sbp_akkervogels(
-      path = path_to_sbp_akkervogels(), 
-      gebied = perimeters %>% filter(Naam == r))
-    
-    telpunten_2018_2022_regio <- add_stratum_sbp(
-        punten_sf = punten_df_regio, 
-        sbp       = sbp_akkervogels_regio) %>%
-      mutate(sbp = ifelse(is_sbp == TRUE, "binnen", "buiten"))
-    
-    out_list[[i]] <- telpunten_2018_2022_regio
-  }
-  
-  return(do.call(rbind.data.frame, out_list))
-}
-```
 
 ```{r}
 telpunten_2018_2022_sbp <- add_sbp_per_regio(telpunten_2018_2022, perimeters)
@@ -1181,56 +1149,6 @@ Download van url's.
 We selecteren alle landbouwgebruikspercelen die overlappen met de telcirkels. We aggregeren aaneenliggende percelen indien ze dezelfde hoofdteelt hebben. Per telcirkel berekenen we de oppervlaktes van bijbehorende percelen. We nemen finaal de mediaan en interkwartielafstand van de oppervlaktes.  
 Zoals voordien zijn er enkele `NA`'s in de `LBLHFDTLT` kolom van de laag van 2019 die effectief niet met landbouwpercelen lijken overeen te komen (vaak smalle stroken tussenin). Deze worden weggefilterd.
 
-```{r}
-calc_perceelsgrootte_by_year <- function(punten_df) {
-  # Loop over years
-  years <- unique(punten_df$jaar)
-  out_list <- vector(mode = "list", length = length(years))
-  
-  for (i in seq_along(years)) {
-    year <- years[i]
-    number_string <- sub(".*([0-9]{2})$", "\\1", year)
-    
-    # Filter by year
-    punten_df_year <- punten_df %>% filter(jaar == year)
-    lbg_binding <- st_read(file.path("data", "landbouwgebruikspercelen", 
-                            "Shapefile", paste0("Lbgbrprc", number_string, 
-                                                ".shp"))) %>%
-      st_transform(crs = 31370)
-    
-    # Intersection
-    intersect <- st_intersection(punten_df_year %>% st_buffer(300), lbg_binding)
-    
-    out_df_year <- lbg_binding %>% 
-      filter(OIDN %in% intersect$OIDN) %>%       # Filter percelen
-      full_join(st_drop_geometry(intersect), by = c("OIDN", "UIDN", "ALVID",
-                  "HFDTLT", "LBLHFDTLT", "GEWASGROEP", "PM", "LBLPM", "LENGTE",
-                  "OPPERVL")) %>% # Get point ids back
-      filter(!is.na(LBLHFDTLT)) %>%
-      
-      # Join neighbouring polygons by main crop
-      group_by(pointid, LBLHFDTLT) %>%
-      summarise() %>%
-      st_cast("MULTIPOLYGON") %>%
-      st_cast("POLYGON") %>%
-      ungroup() %>%
-      
-      # Calculate median perceel area by point
-      mutate(area = st_area(geometry)) %>%
-      st_drop_geometry() %>%
-      group_by(pointid) %>%
-      summarise(perceel_median_area = units::drop_units(median(area)),
-                perceel_iqr_area = IQR(area),
-                perceel_cv_area = perceel_iqr_area / perceel_median_area,
-                .groups = "drop")
-    
-    out_list[[i]] <- out_df_year %>% full_join(punten_df_year)
-  }
-  
-  return(do.call(rbind.data.frame, out_list)) 
-}
-```
-
 > Voorlopig niet berekenen voor 2022. Code loopt vast, maar hopelijk snel finale kaartlaag.
 
 ```{r}
@@ -1402,44 +1320,6 @@ Aangevraagd.
 ### Hoe berekend?
 
 ```{r}
-add_bo_inertia <- function(punten_df, path_bo, bh_doel) {
-  # Read in bo layer and calculate start and stop year
-  bo_layer <- read_bo(path = path_bo)
-  bo_layer2 <- bo_layer %>% 
-    mutate(startjaar = year(START), 
-           stopjaar = year(STOP))
-  
-  # Loop over years
-  years <- unique(punten_df$jaar)
-  out_list <- vector(mode = "list", length = length(years))
-  
-  for (i in seq_along(years)) {
-    year <- years[i]
-    
-    # Filter by year
-    punten_df_year <- punten_df %>% filter(jaar == year)
-    bo_layer_year <- bo_layer2 %>% 
-      filter(startjaar <= year & stopjaar >= year)
-    
-    out_df_year <- st_intersection(st_buffer(punten_df_year, 300), 
-                                   bo_layer_year) %>%
-      st_drop_geometry() %>%
-      filter(BH_DOELST %in% bh_doel) %>%
-      mutate(inertia_row = jaar - startjaar + 1) %>%
-      group_by(pointid) %>%
-      summarise(inertia = round(mean(inertia_row)), .groups = "drop")
-    
-    out_list[[i]] <- out_df_year %>% 
-      full_join(punten_df_year, by = c("pointid")) %>%
-      replace(is.na(.), 0) %>%
-      mutate(jaar = year)
-  }
-  
-  return(do.call(rbind.data.frame, out_list))
-}
-```
-
-```{r}
 # Path to bo file
 bo_file_2022 <- path_to_bo(jaar = 2022)
 
@@ -1464,9 +1344,9 @@ summary_df <- rbind(summary_df, c(
 ```{r}
 telpunten_2018_2022_inertia_sb %>%
   ggplot() +
-    geom_bar(aes(x = inertia_sb)) +
+    geom_bar(aes(x = inertie_sb)) +
     scale_x_continuous(breaks = 
-                         unique(telpunten_2018_2022_inertia_sb$inertia_sb)) +
+                         unique(telpunten_2018_2022_inertia_sb$inertie_sb)) +
     labs(
       title = "Implementatie soortbeschermingsmaatregelen",
       x = "Gemiddeld jaar sinds soortbeschermingsmaatregelen (gecategoriseerd)",
@@ -1477,14 +1357,14 @@ telpunten_2018_2022_inertia_sb %>%
 ```{r}
 telpunten_2018_2022_inertia_sb %>% 
   st_drop_geometry() %>% 
-  mutate(cat = ifelse(inertia_sb == 0, "0", ">0")) %>% 
+  mutate(cat = ifelse(inertie_sb == 0, "0", ">0")) %>% 
   count(jaar, cat) %>%
   pivot_wider(names_from = cat, values_from = n) %>%
   kable()
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_inertia_sb$inertia_sb, 
+aggregate(telpunten_2018_2022_inertia_sb$inertie_sb, 
           by = list(telpunten_2018_2022_inertia_sb$jaar), FUN = summary)
 ```
 
@@ -1543,9 +1423,9 @@ summary_df <- rbind(summary_df, c(
 ```{r}
 telpunten_2018_2022_inertia_rest %>%
   ggplot() +
-    geom_bar(aes(x = inertia_rest)) +
+    geom_bar(aes(x = inertie_rest)) +
     scale_x_continuous(breaks = 
-                         unique(telpunten_2018_2022_inertia_rest$inertia_rest)) +
+                         unique(telpunten_2018_2022_inertia_rest$inertie_rest)) +
     labs(
       title = "Implementatie erosiebeheer en bufferstroken",
       x = "Gemiddeld jaar sinds erosiebeheer en bufferstroken (gecategoriseerd)",
@@ -1556,14 +1436,14 @@ telpunten_2018_2022_inertia_rest %>%
 ```{r}
 telpunten_2018_2022_inertia_rest %>% 
   st_drop_geometry() %>% 
-  mutate(cat = ifelse(inertia_rest == 0, "0", ">0")) %>% 
+  mutate(cat = ifelse(inertie_rest == 0, "0", ">0")) %>% 
   count(jaar, cat) %>%
   pivot_wider(names_from = cat, values_from = n) %>%
   kable()
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_inertia_rest$inertia_rest, 
+aggregate(telpunten_2018_2022_inertia_rest$inertie_rest, 
           by = list(telpunten_2018_2022_inertia_rest$jaar), FUN = summary)
 ```
 
@@ -1768,35 +1648,9 @@ nb_wallonie <- bind_rows(nb_wallonie_1,
   st_transform(31370)
 ```
 
-```{r}
-# Selecteer (multi)polygonen binnen buffered perimeter (ev. per gebied)
-buffer_layers_to_perimeter <- function(layer, buffer_km, group_var = NULL) {
-  buffer_to_meters <- buffer_km * 1000
-  
-  if (is.null(group_var)) {
-    layer <- layer %>%
-      rownames_to_column("id")
-    
-    polygons <- perimeters %>%
-      st_buffer(buffer_to_meters) %>%
-      st_intersection(layer) %>%
-      pull(id)
-  
-    out <- layer %>%
-      filter(id %in% polygons) %>%
-      select(-id)
-  } else {
-    polygons <- perimeters %>%
-      st_buffer(buffer_to_meters) %>%
-      st_intersection(layer) %>%
-      pull(group_var)
-  
-    out <- layer %>%
-      filter(!!sym(group_var) %in% polygons)
-  }
- return(out) 
-}
+Selecteer (multi)polygonen binnen buffered perimeter (ev. per gebied)
 
+```{r}
 nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, buffer_km, 
                                              group_var = "naamdossie")
 nb_nederland1  <- buffer_layers_to_perimeter(nb_nederland, buffer_km)
@@ -1805,28 +1659,9 @@ nb_frankrijk1  <- buffer_layers_to_perimeter(nb_frankrijk, buffer_km,
 nb_wallonie1   <- buffer_layers_to_perimeter(nb_wallonie, buffer_km)
 ```
 
-```{r}
-# Opsplitsen in aparte polygonen (ev. mergen per gebied eerst)
-splits_polys <- function(layer, id_name, group_var = NULL) {
-  if (is.null(group_var)) {
-    out <- layer %>%
-      st_cast("POLYGON") %>%
-      rownames_to_column("id") %>%
-      mutate(id = paste(id_name, id, sep = "_")) %>%
-      select(id)
-  } else {
-    out <- layer %>%
-      group_by_at(group_var) %>%
-      summarise() %>%
-      st_cast("MULTIPOLYGON") %>%
-      st_cast("POLYGON") %>%
-      rownames_to_column("id") %>%
-      mutate(id = paste(id_name, id, sep = "_")) %>%
-      select(id)
-  }
- return(out) 
-}
+Opsplitsen in aparte polygonen (ev. mergen per gebied eerst)
 
+```{r}
 nb_vlaanderen2 <- splits_polys(nb_vlaanderen1, "VL", group_var = "naamdossie")
 nb_nederland2  <- splits_polys(nb_nederland1, "NL")
 nb_frankrijk2  <- splits_polys(nb_frankrijk1, "FR", group_var = "NOM")
@@ -1891,42 +1726,6 @@ f(x) = \frac{1}{1 + \exp(b(x-m))}
 $$
 
 ```{r}
-visualize_weights <- function(x, m = 0.5, b = 8, 
-                              mode = c("logit", "exponential")) {
-  if (is(x, "SpatRaster")) {
-    xy <- x %>% terra::xyFromCell(which(x[] == 1))
-    max_dist = (terra::nrow(x)/2) * terra::res(x)[1]
-  }
-  else if (is.numeric(x)) {
-    max_dist <- x
-  }
-  else {
-    stop("x needs to be numeric or a SpatRaster object")
-  }
-  if (all(mode == c("logit", "exponential")) || mode == "logit") {
-    logfun <- function(x) {
-      return(1/(1 + exp((b) * (x - m))))
-    }
-    plot_main <- paste0("Mode: logit\nm: ", m, "    b: ", 
-      b)
-  }
-  else if (mode == "exponential") {
-    logfun <- function(x) {
-      return(1/(1 + ((b) * x^(m))))
-    }
-    plot_main <- paste0("Mode: exponential\nm: ", m, "    b: ", 
-      b)
-  }
-  else {
-    stop("Currently only logit and exponential are supported")
-  }
-  plot(logfun(seq(0, 1, length.out = max_dist)), type = "l", 
-    ylab = "Decay Weight (d)", xlab = "Distance [m]", main = plot_main)
-}
-```
-
-
-```{r}
 par(mfrow = c(2, 2))
 visualize_weights(max_distance, m = 0.4, b = 8, mode = "logit")
 visualize_weights(max_distance, m = 0.5, b = 8, mode = "logit")
@@ -1951,48 +1750,6 @@ visualize_weights(max_distance, m = 1.3, b = 6, mode = "exponential")
 visualize_weights(max_distance, m = 1, b = 3, mode = "exponential")
 visualize_weights(max_distance, m = 1.3, b = 3, mode = "exponential")
 par(mfrow = c(1, 1))
-```
-
-```{r}
-calc_weights <- function(x, max_dist, m = NULL, b = NULL, mode = "logistic") {
-  
-  if (mode == "logistic") {
-    # Parameters
-    if (is.null(m)) {
-      m <- 0.5
-    } 
-    if (is.null(b)) {
-      b <- 8
-    }
-    
-    # Rescale
-    m <- m * max_dist
-    b <- b / max_dist
-    
-    # Function
-    out <- 1 / (1 + exp((b) * (x - m)))
-    
-  } else if (mode == "exponential") {
-    # Parameters
-    if (is.null(m)) {
-      m <- 1
-    } 
-    if (is.null(b)) {
-      b <- 6
-    }
-    
-    # Rescale
-    b <- b / max_dist
-    
-    # Function
-    out <- 1 / (1 + ((b) * x^(m)))
-    
-  } else {
-    stop("Currently only logistic and exponential are supported", call. = FALSE)
-  }
-  
-  return(out)
-}
 ```
 
 Visualisatie voor twee mogelijke vervalfuncties die we kunnen gebruiken:
@@ -2115,6 +1872,7 @@ variables_df_per_year <- telpunten_2018_2022_bo_soort %>%
   full_join(telpunten_2018_2022_hfdtlt, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_hfdtlt_div1, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_hfdtlt_div2, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2022_vrtlt, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_prcl, by = c("pointid", "regio", "jaar", 
                                              "geometry")) %>%
   full_join(telpunten_2018_2022_inertia_sb, by = c("pointid", "regio", "jaar", 
