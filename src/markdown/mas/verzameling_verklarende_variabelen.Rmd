@@ -41,9 +41,10 @@ library(lubridate)
 
 # Source
 mbag_dir <- here()
-source(file.path("src", "R", "berekening_hulpvariabelen.R"))
-source(file.path("src", "R", "geocomputations.R"))
-source(file.path("src", "R", "berekening_verklarende_variabelen.R"))
+
+source(here("src", "R", "geocomputations.R"))
+source(here("src", "R", "berekening_hulpvariabelen.R"))
+source(here("src", "R", "berekening_verklarende_variabelen.R"))
 ```
 
 # Kadering
@@ -1343,9 +1344,9 @@ summary_df <- rbind(summary_df, c(
 ```{r}
 telpunten_2018_2022_inertia_sb %>%
   ggplot() +
-    geom_bar(aes(x = inertia_sb)) +
+    geom_bar(aes(x = inertie_sb)) +
     scale_x_continuous(breaks = 
-                         unique(telpunten_2018_2022_inertia_sb$inertia_sb)) +
+                         unique(telpunten_2018_2022_inertia_sb$inertie_sb)) +
     labs(
       title = "Implementatie soortbeschermingsmaatregelen",
       x = "Gemiddeld jaar sinds soortbeschermingsmaatregelen (gecategoriseerd)",
@@ -1356,14 +1357,14 @@ telpunten_2018_2022_inertia_sb %>%
 ```{r}
 telpunten_2018_2022_inertia_sb %>% 
   st_drop_geometry() %>% 
-  mutate(cat = ifelse(inertia_sb == 0, "0", ">0")) %>% 
+  mutate(cat = ifelse(inertie_sb == 0, "0", ">0")) %>% 
   count(jaar, cat) %>%
   pivot_wider(names_from = cat, values_from = n) %>%
   kable()
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_inertia_sb$inertia_sb, 
+aggregate(telpunten_2018_2022_inertia_sb$inertie_sb, 
           by = list(telpunten_2018_2022_inertia_sb$jaar), FUN = summary)
 ```
 
@@ -1422,9 +1423,9 @@ summary_df <- rbind(summary_df, c(
 ```{r}
 telpunten_2018_2022_inertia_rest %>%
   ggplot() +
-    geom_bar(aes(x = inertia_rest)) +
+    geom_bar(aes(x = inertie_rest)) +
     scale_x_continuous(breaks = 
-                         unique(telpunten_2018_2022_inertia_rest$inertia_rest)) +
+                         unique(telpunten_2018_2022_inertia_rest$inertie_rest)) +
     labs(
       title = "Implementatie erosiebeheer en bufferstroken",
       x = "Gemiddeld jaar sinds erosiebeheer en bufferstroken (gecategoriseerd)",
@@ -1435,14 +1436,14 @@ telpunten_2018_2022_inertia_rest %>%
 ```{r}
 telpunten_2018_2022_inertia_rest %>% 
   st_drop_geometry() %>% 
-  mutate(cat = ifelse(inertia_rest == 0, "0", ">0")) %>% 
+  mutate(cat = ifelse(inertie_rest == 0, "0", ">0")) %>% 
   count(jaar, cat) %>%
   pivot_wider(names_from = cat, values_from = n) %>%
   kable()
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_inertia_rest$inertia_rest, 
+aggregate(telpunten_2018_2022_inertia_rest$inertie_rest, 
           by = list(telpunten_2018_2022_inertia_rest$jaar), FUN = summary)
 ```
 
