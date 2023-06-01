@@ -174,7 +174,6 @@
       "RemoteUsername": "inbo",
       "RemoteRef": "HEAD",
       "RemoteSha": "efd415e626b2f873b1c1fe872aa55fe7257d250e",
-      "Hash": "c080c2075108eb8fe9c4057ce60dfa63",
       "Requirements": [
         "R",
         "assertthat",
@@ -184,7 +183,7 @@
         "grid",
         "scales"
       ],
-      "Hash": "e7f7d962abb5a037ab6447e8d9cd1d88"
+      "Hash": "c080c2075108eb8fe9c4057ce60dfa63"
     },
     "INLA": {
       "Package": "INLA",
@@ -383,16 +382,6 @@
         "utils"
       ],
       "Hash": "f4973b1ae398066b0db9274b7635709c"
-    },
-    "RcppSimdJson": {
-      "Package": "RcppSimdJson",
-      "Version": "0.1.9",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "f4973b1ae398066b0db9274b7635709c",
-      "Requirements": [
-        "Rcpp"
-      ]
     },
     "RefManageR": {
       "Package": "RefManageR",
@@ -848,7 +837,6 @@
       "Version": "1.0.8",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "c35768291560ce302c0a6589f92e837d",
       "Requirements": [
         "fastmap",
         "rlang"
@@ -960,8 +948,11 @@
       "Version": "3.6.1",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "89e6d8219950eac806ae0c489052048a",
-      "Requirements": []
+      "Requirements": [
+        "R",
+        "utils"
+      ],
+      "Hash": "89e6d8219950eac806ae0c489052048a"
     },
     "clipr": {
       "Package": "clipr",
@@ -1030,8 +1021,14 @@
       "Version": "2.1-0",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "f20c47fd52fae58b4e377c37bb8c335b",
-      "Requirements": []
+      "Requirements": [
+        "R",
+        "grDevices",
+        "graphics",
+        "methods",
+        "stats"
+      ],
+      "Hash": "f20c47fd52fae58b4e377c37bb8c335b"
     },
     "colourpicker": {
       "Package": "colourpicker",
@@ -1089,18 +1086,6 @@
         "rlang"
       ],
       "Hash": "bb097fccb22d156624fd07cd2894ddb6"
-    },
-    "conflicted": {
-      "Package": "conflicted",
-      "Version": "1.2.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "bb097fccb22d156624fd07cd2894ddb6",
-      "Requirements": [
-        "cli",
-        "memoise",
-        "rlang"
-      ]
     },
     "countrycode": {
       "Package": "countrycode",
@@ -1483,8 +1468,12 @@
       "Version": "1.0.4",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "1d9e7ad3c8312a192dea7d3db0274fde",
-      "Requirements": []
+      "Requirements": [
+        "R",
+        "grDevices",
+        "utils"
+      ],
+      "Hash": "1d9e7ad3c8312a192dea7d3db0274fde"
     },
     "farver": {
       "Package": "farver",
@@ -1498,8 +1487,7 @@
       "Version": "1.1.1",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "f7736a18de97dea803bde0a2daaafb27",
-      "Requirements": []
+      "Hash": "f7736a18de97dea803bde0a2daaafb27"
     },
     "fontawesome": {
       "Package": "fontawesome",
@@ -1729,9 +1717,9 @@
       "Version": "3.4.2",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "3a147ee02e85a8941aad9909f1b43b7b",
       "Requirements": [
         "MASS",
+        "R",
         "cli",
         "glue",
         "grDevices",
@@ -1889,17 +1877,6 @@
       ],
       "Hash": "0426bf00768eaf006cfe2954a145619d"
     },
-    "googlePolylines": {
-      "Package": "googlePolylines",
-      "Version": "0.8.2",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "6b811143f8e8b18ef4bd6ee4b38b4a9b",
-      "Requirements": [
-        "BH",
-        "Rcpp"
-      ]
-    },
     "googledrive": {
       "Package": "googledrive",
       "Version": "2.1.0",
@@ -2017,13 +1994,15 @@
       "Version": "0.3.3",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "b44addadb528a0d227794121c00572a0",
       "Requirements": [
+        "R",
         "cli",
         "glue",
+        "grid",
         "lifecycle",
         "rlang"
-      ]
+      ],
+      "Hash": "b44addadb528a0d227794121c00572a0"
     },
     "gtools": {
       "Package": "gtools",
@@ -2353,8 +2332,11 @@
       "Version": "0.2.7",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "0080607b4a1a7b28979aecef976d8bc2",
-      "Requirements": []
+      "Requirements": [
+        "grid",
+        "utils"
+      ],
+      "Hash": "0080607b4a1a7b28979aecef976d8bc2"
     },
     "iterators": {
       "Package": "iterators",
@@ -2691,7 +2673,7 @@
       "Repository": "https://inbo.r-universe.dev",
       "RemoteUrl": "https://github.com/tidyverse/lubridate",
       "RemoteRef": "HEAD",
-      "RemoteSha": "87afddf0a9c583ad2e0bd15631e08c9469a82a0a",
+      "RemoteSha": "b0440b09619b7d4a2b11f207ca0c4e2416ba3f5b",
       "Requirements": [
         "R",
         "generics",
@@ -2721,17 +2703,6 @@
         "sf"
       ],
       "Hash": "e3b5a5d6ee07cee730a38303e51df21c"
-    },
-    "mapiso": {
-      "Package": "mapiso",
-      "Version": "0.2.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "e3b5a5d6ee07cee730a38303e51df21c",
-      "Requirements": [
-        "isoband",
-        "sf"
-      ]
     },
     "mapview": {
       "Package": "mapview",
@@ -3078,20 +3049,6 @@
       ],
       "Hash": "7a7939439f7ad17756c51c82a28490fc"
     },
-    "osrm": {
-      "Package": "osrm",
-      "Version": "4.0.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "5cbec2eecfeed5eb5f849603f0da4bd2",
-      "Requirements": [
-        "RcppSimdJson",
-        "curl",
-        "googlePolylines",
-        "mapiso",
-        "sf"
-      ]
-    },
     "parallelly": {
       "Package": "parallelly",
       "Version": "1.35.0",
@@ -3165,7 +3122,6 @@
       "Version": "1.9.0",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "15da5a8412f317beeee6175fbc76f4bb",
       "Requirements": [
         "cli",
         "fansi",
@@ -3436,22 +3392,25 @@
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
+      "RemoteUsername": "r-spatial",
       "RemoteRepo": "qgisprocess",
-      "RemoteUsername": "paleolimbot",
-      "RemoteRef": "HEAD",
-      "RemoteSha": "21853dbd5744479a9dd4a47a0459aafdf8657cb5",
+      "RemoteRef": "main",
+      "RemoteSha": "d0118f3d4e1eb17307bcfdab171f7df7a740667e",
+      "Remotes": "Nowosad/spDataLarge",
       "Requirements": [
+        "assertthat",
         "glue",
         "jsonlite",
         "processx",
         "rappdirs",
         "rlang",
+        "stats",
         "stringr",
         "tibble",
         "vctrs",
         "withr"
       ],
-      "Hash": "53b573251d0d7e910fb662afada8fd2c"
+      "Hash": "73a70620d14b22b1f7dbb4155b98f88b"
     },
     "qs": {
       "Package": "qs",
@@ -3681,8 +3640,11 @@
       "Version": "1.1.1",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "a85c767b55f0bf9b7ad16c6d7baee5bb",
-      "Requirements": []
+      "Requirements": [
+        "R",
+        "utils"
+      ],
+      "Hash": "a85c767b55f0bf9b7ad16c6d7baee5bb"
     },
     "rmarkdown": {
       "Package": "rmarkdown",
@@ -4423,7 +4385,6 @@
       "Version": "3.2.1",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "a84e2cc86d07289b3b6f5069df7a004c",
       "Requirements": [
         "R",
         "fansi",
@@ -4667,8 +4628,10 @@
       "Version": "1.2.3",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "1fe17157424bb09c48a8b3b550c753bc",
-      "Requirements": []
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "1fe17157424bb09c48a8b3b550c753bc"
     },
     "uuid": {
       "Package": "uuid",
@@ -4685,7 +4648,6 @@
       "Version": "0.6.2",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "a745bda7aff4734c17294bb41d4e4607",
       "Requirements": [
         "R",
         "cli",
@@ -4728,8 +4690,10 @@
       "Version": "0.4.2",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "c826c7c4241b6fc89ff55aaea3fa7491",
-      "Requirements": []
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "c826c7c4241b6fc89ff55aaea3fa7491"
     },
     "visNetwork": {
       "Package": "visNetwork",
