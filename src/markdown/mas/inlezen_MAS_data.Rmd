@@ -249,7 +249,7 @@ De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 20
 # 2018-2021
 telpunten_2018_2021_raw <- read_sf(
   file.path("data", "mas",
-       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")) %>%
+    "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")) %>%
   rename(teller_2021 = teller) %>%
   mutate(
     regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
@@ -258,7 +258,8 @@ telpunten_2018_2021_raw <- read_sf(
         regio == "Vlaanderen - Leefdaal" ~ "professioneel",
       is.na(teller_2021) &
         regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
-      TRUE ~ "vrijwilliger"))
+      TRUE ~ "vrijwilliger")
+    )
 
 telpunten_2018_2021_amersfoort <- telpunten_2018_2021_raw %>%
   st_drop_geometry() %>%
@@ -326,12 +327,28 @@ mas_design <- mas_perimeters %>%
 
 ### Telcirkel
 
-> steek controle afstanden hier
+We herberekenen de afstanden tussen de waarnemingen en de telpunten. We ronden af to 1 m nauwkeurig.
+
+```{r}
+mas_controle_afstand <- mas_perimeters %>%
+  select(oid, plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
+  inner_join(mas_design %>% as_tibble() %>% distinct(plotnaam, regio, geometry),
+             by = "plotnaam", suffix = c(".stip", ".telpunt")) %>%
+  mutate(calc_distance = st_distance(.$geometry.stip, .$geometry.telpunt,
+            by_element = TRUE),
+         calc_distance = round(units::drop_units(calc_distance))) %>%
+  st_drop_geometry()
+```
+
 
 We selecteren vervolgens alle waarnemingen **binnen een afstand van 300 m**.
 
 ```{r}
 mas_distance <- mas_perimeters %>%
+  full_join(mas_controle_afstand, 
+            by = join_by(oid, plotnaam, naam, jaar, distance2plot)) %>%
+  select(-c(distance2plot, geometry.telpunt, waarneme)) %>%
+  rename(distance2plot = calc_distance) %>%
   filter(distance2plot <= 300)
 ```
 
@@ -362,9 +379,14 @@ mas_soortgrp <- mas_distance %>%
 
 ## Dubbeltellingen
 
-Voor de waarnemingen verwijderen we dubbeltellingen. Indien binnen een jaar op meerdere teldagen binnen eenzelfde telperiode werd geteld, wordt de laatste teldag genomen.
+Voor de waarnemingen verwijderen we dubbeltellingen. Indien binnen een jaar op meerdere teldagen binnen eenzelfde telperiode werd geteld, wordt de laatste teldag genomen tenzij er ook door een professionele teller is geteld. Dan nemen we de telling van de professionele teller.
 
-> waarom laatste teldag? beter van profs behouden?
+```{r}
+profs <- c("WVNT00", "JJNN16", "NOVN00", "ETBX00")
+profs_2022 <- "RPLT02"
+```
+
+Professionele tellers zijn `r profs`. `r profs_2022` is professionele teller vanaf 2022.
 
 ```{r}
 dubbels <- mas_soortgrp %>%
@@ -382,10 +404,28 @@ dubbels %>%
 mas_no_dubbel <- mas_soortgrp %>%
   semi_join(dubbels, by = c("plotnaam", "jaar", "periode_in_jaar")) %>%
   group_by(plotid, jaar, periode_in_jaar) %>%
-  filter(doy == max(doy)) %>%
+  mutate(status_teller = ifelse((waarnemer %in% profs) | 
+                                (waarnemer %in% profs_2022 & jaar == 2022), 
+                                  "professioneel", 
+                                  "vrijwilliger")) %>%
+  mutate(prof_in_period = ifelse(any(status_teller == "professioneel"),
+                                 TRUE, FALSE),
+         max_doy = ifelse(doy == max(doy), TRUE, FALSE)
+  ) %>%
+  arrange(plotid, jaar, periode_in_jaar, doy, waarnemer) %>%
+  ungroup() %>%
+  rowwise() %>%
+  # Keep observations of professionals or otherwise the last day
+  mutate(keep = ifelse(status_teller == "professioneel", TRUE,
+                       ifelse(!isTRUE(prof_in_period) & isTRUE(max_doy), 
+                              TRUE, FALSE))
+  ) %>%
+  filter(isTRUE(keep)) %>%
   ungroup() %>%
   bind_rows(mas_soortgrp %>%
-              anti_join(dubbels, by = c("plotnaam", "jaar", "periode_in_jaar")))
+              anti_join(dubbels, 
+                        by = c("plotnaam", "jaar", "periode_in_jaar"))) %>%
+  select(-c(prof_in_period, max_doy, keep))
 ```
 
 ## Soortnamen
@@ -438,11 +478,6 @@ mas_clean <- mas_no_dubbel %>%
 # Berekening specifieke variabelen
 ## Status teller
 
-```{r}
-profs <- c("WVNT00", "JJNN16", "NOVN00", "ETBX00")
-profs_2022 <- "RPLT02"
-```
-
 Voeg status teller toe als variabele (vrijwilligers vs. professionele teller).
 Professionele tellers zijn `r profs`. `r profs_2022` is professionele teller vanaf 2022.
 
@@ -474,86 +509,13 @@ mas_profs <- mas_clean %>%
   mutate(predator = ifelse(naam %in% predatoren, "ja", "nee"))
 ```
 
-# Finale controles
-## Controle afstanden
-
-```{r}
-mas_controle_afstand <- mas_profs %>%
-  select(plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
-  inner_join(mas_design %>% as_tibble() %>% distinct(plotnaam, regio, geometry),
-             by = "plotnaam", suffix = c(".stip", ".telpunt")) %>%
-  mutate(calc_distance = st_distance(.$geometry.stip, .$geometry.telpunt,
-            by_element = TRUE),
-         calc_distance = units::drop_units(calc_distance)) %>%
-  mutate(
-    abs_verschil = abs(calc_distance - distance2plot),
-    verschil = ifelse(abs_verschil <= 1, 
-                      "minder dan 1 m",
-                      "meer dan 1 m"))
-
-probleempunten <- mas_controle_afstand %>% 
-  filter(abs_verschil > 1.5)
-
-mapview::mapview(probleempunten$geometry.stip) +
-  mapview::mapview(st_buffer(probleempunten$geometry.stip, 
-                             probleempunten$distance2plot),
-                   color = "black", alpha.regions = 0) +
-  mapview::mapview(probleempunten$geometry.telpunt, 
-                   col.regions = "red") +
-  mapview::mapview(st_buffer(probleempunten$geometry.telpunt, 300), 
-                   color = "red", alpha.regions = 0)
-```
-
-We zitten met een probleempunt `r unique(probleempunten$plotnaam)`.
-Het punt Ol_4273.8 is vervangen door VL0273 met als opmerking: "schuiven naar oud punt, te checken met marleen (midden in veld)".
-Dit punt is elk jaar geteld 2019-2022 vanop de straat. We opvallend weinig data. Dit komt doordat helft is verloren gegaan bij filteren op 300 m binnen telpunt.
-
-```{r}
-test <- mas_perimeters %>%
-  filter(plotnaam == unique(probleempunten$plotnaam))
-
-test2 <- filter(mas_controle_afstand2, plotnaam == unique(probleempunten$plotnaam)) %>% 
-  select(-jaar.telpunt) %>% 
-  distinct()
-
-mapview::mapview(probleempunten$geometry.stip) +
-  mapview::mapview(st_buffer(probleempunten$geometry.stip, 
-                             probleempunten$distance2plot),
-                   color = "black", alpha.regions = 0) +
-  mapview::mapview(probleempunten$geometry.telpunt, 
-                   col.regions = "red") +
-  mapview::mapview(st_buffer(probleempunten$geometry.telpunt, 300), 
-                   color = "red", alpha.regions = 0) +
-  mapview::mapview(test, col.regions = "green")
-
-mapview::mapview(probleempunten$geometry.stip) +
-  mapview::mapview(st_buffer(test2, 
-                             test2$distance2plot),
-                   color = "black", alpha.regions = 0) +
-  mapview::mapview(probleempunten$geometry.telpunt, 
-                   col.regions = "red") +
-  mapview::mapview(st_buffer(probleempunten$geometry.telpunt, 300), 
-                   color = "red", alpha.regions = 0) +
-  mapview::mapview(test2, col.regions = "green")
-```
-
-Dus alles is wel in orde, de nieuwe afstanden moeten gebruikt worden voor dit punt. Coördinaten Ol_4273.8 doorgegeven aan SOVON i.p.v. VL0273?
-
-> Waarom kwam dit punt niet eerder op? In de eerdere export waren de afstande wel t.o.v. correct punt gemeten.
-
-
-```{r}
-stopifnot(all(mas_controle_afstand$abs_verschil <= 1.5))
-```
-
-
-## Controle ontbrekende gegevens
+# Controle ontbrekende gegevens
 
 > apart hoofdstuk
 
 check NAs in data
 
-## Overzicht
+# Overzicht
 
 Aantal telpunten:
 
