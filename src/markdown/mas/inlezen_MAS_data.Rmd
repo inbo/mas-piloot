@@ -482,11 +482,8 @@ Voeg status teller toe als variabele (vrijwilligers vs. professionele teller).
 Professionele tellers zijn `r profs`. `r profs_2022` is professionele teller vanaf 2022.
 
 ```{r}
-mas_profs <- mas_clean %>%
-  mutate(status_teller = ifelse((waarneme %in% profs) | 
-                                (waarneme %in% profs_2022 & jaar == 2022), 
-                                  "professioneel", 
-                                  "vrijwilliger"))
+# Reeds toegevoegd bij dubbeltellingen
+mas_profs <- mas_clean
 ```
 
 ## Predator
@@ -503,6 +500,8 @@ predatoren <- c(roofvogels, kraaiachtigen)
 
 Voeg predator toe als variabele (ja vs. nee).
 Als predatoren beschouwen we roofvogels (`r roofvogels`) en kraaiachtigen (`r kraaiachtigen`).
+
+> foutje nog!
 
 ```{r}
 mas_profs <- mas_clean %>%
