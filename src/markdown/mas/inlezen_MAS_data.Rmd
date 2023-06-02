@@ -509,6 +509,11 @@ mas_finaal_df <- mas_profs %>%
 
 # Controle ontbrekende gegevens
 
+Enkel ontbrekende gegevens waar verwacht.
+
+```{r}
+apply(mas_finaal_df, 2, function(x) any(is.na(x)))
+```
 
 
 # Overzicht
