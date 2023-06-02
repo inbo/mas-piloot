@@ -557,12 +557,14 @@ plots_per_telperiode %>%
 mas_finaal_df %>%
   st_drop_geometry() %>%
   group_by(jaar, plotnaam) %>%
-  summarise(n_per_telperiode = n_distinct(periode_in_jaar)) %>%
+  summarise(n_per_telperiode = n_distinct(periode_in_jaar),
+            .groups = "drop") %>%
   ggplot(aes(x = n_per_telperiode)) +
     geom_bar() +
     geom_text(stat = "count", aes(label = after_stat(count)), vjust = 0,
               colour = "black") +
-    facet_wrap(~jaar, scales = "free_y")
+    facet_wrap(~jaar, scales = "free_y") +
+    labs(x = "aantal bezoeken van eenzelfde telpunt per jaar", y = "frequentie")
 ```
 
 > controleer dit door alles opnieuw te runnen zonder op te delen in periodes
