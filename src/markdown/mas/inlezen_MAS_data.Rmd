@@ -520,14 +520,59 @@ apply(mas_finaal_df, 2, function(x) any(is.na(x)))
 
 Aantal telpunten:
 
+```{r}
+plots_per_telperiode <- mas_finaal_df %>%
+  st_drop_geometry() %>%
+  group_by(jaar, periode_in_jaar) %>%
+  summarise(n_per_telperiode = n_distinct(plotnaam)) %>%
+  ungroup()
+
+plots_per_telperiode %>%
+  arrange(jaar, periode_in_jaar) %>%
+  kable()
+```
+
+```{r}
+plots_per_jaar <- mas_design %>%
+  st_drop_geometry() %>%
+  group_by(jaar) %>%
+  summarise(n_per_jaar = n_distinct(plotnaam)) %>%
+  ungroup()
+
+plots_per_jaar %>%
+  arrange(jaar) %>%
+  kable()
+```
+
+Niet elke plot in elke periode geteld?
+
+```{r}
+plots_per_telperiode %>%
+  full_join(plots_per_jaar, by = join_by(jaar)) %>%
+  arrange(jaar) %>%
+  kable()
+```
+
+```{r}
+mas_finaal_df %>%
+  st_drop_geometry() %>%
+  group_by(jaar, plotnaam) %>%
+  summarise(n_per_telperiode = n_distinct(periode_in_jaar)) %>%
+  ggplot(aes(x = n_per_telperiode)) +
+    geom_bar() +
+    geom_text(stat = "count", aes(label = after_stat(count)), vjust = 0,
+              colour = "black") +
+    facet_wrap(~jaar, scales = "free_y")
+```
+
+> controleer dit door alles opnieuw te runnen zonder op te delen in periodes
+
 Aantal waarnemingen:
 
 ```{r}
-mas_soortgrp %>%
+mas_finaal_df %>%
   st_drop_geometry() %>%
-  group_by(jaar, periode_in_jaar) %>%
-  summarise(n = n_distinct(plotnaam)) %>%
-  ungroup() %>%
+  count(jaar, periode_in_jaar) %>%
   arrange(jaar, periode_in_jaar) %>%
   kable()
 ```
