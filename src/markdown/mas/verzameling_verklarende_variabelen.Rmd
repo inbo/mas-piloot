@@ -368,46 +368,28 @@ Voor elk jaar hebben we een aparte file.
 We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
 Daarna gebruiken we de `calc_lbg()` functie om de proporties per telcirkel te berekenen.
 
+```{r}
+hftlt_groepen_raw <- read_csv2(file.path(mbag_dir, "data", "gewasgroepen", 
+                                         "hoofdteelten_groep.csv"))
+```
+
 We groeperen per gewasgroep.
-Voor sommige gewasgroepen is er geen data (`NA`).
-Er zijn twee categoriën.
 
-1.  GEWASGROEP is `NA` en LBLHFDTLT is `NA`
-2.  GEWASGROEP is `NA` en LBLHFDTLT is Flageolets (voor de boon), Zomerhaver of Winterhaver
+```{r}
+hftlt_groepen <- hftlt_groepen_raw %>%
+  select(LBLHFDTLT, GEWASGROEP = nieuwe_groep)
 
-In het eerste geval komen de polygonen ook effectief niet met landbouwpercelen overeen.
-Die kunnen we dus wegfilteren.
-In het tweede geval moeten we de GEWASGROEP manueel aanvullen.
-
--   Flageolets (voor de boon) $\rightarrow$ Groenten, kruiden en sierplanten
--   Zomerhaver, Winterhaver $\rightarrow$ Granen, zaden en peulvruchten
-
-Een logische en veelgebruikte opdeling voor gewassen is:
-
-- graangewassen (monocotylen zoals tarwe, gerst, etc..) 
-- grasland (opdelen permanent en tijdelijk)
-- mais
-- aardappelen
-- wortelgewassen (biet, chicorei, wortel)
-- peulvruchten (erwt)
-- groententeelt (kolen zoals bloemkool, brocolli, spruiten, prei, ajuin, sla)
-- groenbemester (klavers, luzerne, mosterd) of koolzaad
-- meerjarige fruitteelt (appel, peer, kers, ea)
-- vlas
-- andere (vb eenjarig fruitteelt)
+hftlt_groepen %>%
+  kable()
+```
 
 ```{r}
 # Add proportion main crop per year
 telpunten_2018_2022_hfdtlt_long_tot <- calc_lbg_by_year(telpunten_2018_2022_df)
 telpunten_2018_2022_hfdtlt_long <- telpunten_2018_2022_hfdtlt_long_tot %>%
   filter(!is.na(LBLHFDTLT)) %>%
-  mutate(GEWASGROEP = case_when(
-    is.na(GEWASGROEP) & LBLHFDTLT %in% c("Zomerhaver", "Winterhaver") ~ 
-      "Granen, zaden en peulvruchten",
-    is.na(GEWASGROEP) & startsWith(LBLHFDTLT, "Flageolets")  ~ 
-      "Groenten, kruiden en sierplanten",
-    TRUE ~ GEWASGROEP
-  ))
+  select(-GEWASGROEP) %>%
+  full_join(hftlt_groepen, by = join_by(LBLHFDTLT))
 
 telpunten_2018_2022_hfdtlt <- telpunten_2018_2022_hfdtlt_long %>%
   group_by(pointid, jaar, GEWASGROEP) %>%
@@ -672,19 +654,37 @@ Download van url.
 ### Hoe berekend?
 
 ```{r}
-telpunten_2018_2022_vrtlt_long <- calc_vzml_by_year(telpunten_2018_2022_df)
+vrtlt_groepen_raw <- read_csv2(file.path(mbag_dir, "data", "gewasgroepen", 
+                                         "voorteelten_groep.csv"))
+```
+
+We groeperen per gewasgroep.
+
+```{r}
+vrtlt_groepen <- vrtlt_groepen_raw %>%
+  select(GWSNAM_V, GEWASGROEP = nieuwe_groep)
+
+vrtlt_groepen %>%
+  kable()
+```
+
+```{r}
+telpunten_2018_2022_vrtlt_long_tot <- calc_vzml_by_year(telpunten_2018_2022_df)
+telpunten_2018_2022_vrtlt_long <- telpunten_2018_2022_vrtlt_long_tot %>%
+  full_join(vrtlt_groepen, by = join_by(GWSNAM_V))
 
 telpunten_2018_2022_vrtlt <- telpunten_2018_2022_vrtlt_long %>%
   pivot_wider(id_cols = c(pointid, jaar), 
-              names_from = GWSNAM_V, 
-              values_from = area_prop, 
+              names_from = GEWASGROEP, 
+              values_from = area_prop,
+              values_fn = sum,
               values_fill = 0)
 ```
 
 ```{r}
 summary_df <- rbind(summary_df, tibble(
   categorie = "prioritair", 
-  variabele = tolower(unique(telpunten_2018_2022_vrtlt_long$GWSNAM_V)), 
+  variabele = tolower(unique(telpunten_2018_2022_vrtlt_long$GEWASGROEP)), 
   eenheid = "proportie",
   bron = "verzamelaanvraag (Bron: Dept. LV)"))
 ```
@@ -693,30 +693,30 @@ summary_df <- rbind(summary_df, tibble(
 
 ```{r}
 telpunten_2018_2022_vrtlt_long %>%
-  group_by(jaar, GWSNAM_V) %>%
+  group_by(jaar, GEWASGROEP) %>%
   summarise(area_prop_vrtlt = median(area_prop), .groups = "drop") %>%
-  mutate(GWSNAM_V = reorder(factor(GWSNAM_V), area_prop_vrtlt, sum,
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), area_prop_vrtlt, sum,
                               decreasing = TRUE)) %>%
   ggplot() +
-    geom_bar(aes(x = GWSNAM_V, y = area_prop_vrtlt  , 
+    geom_bar(aes(x = GEWASGROEP, y = area_prop_vrtlt, 
                  fill = factor(jaar, ordered = TRUE)), 
              stat = "identity") +
-    labs(title = "Oppervlakte-aandeel gewasgroepen", fill = "Jaar",
+    labs(title = "Oppervlakte-aandeel gewasgroepen voorteelt", fill = "Jaar",
          x = "", y = "Mediaan proportie over telcirkels") +
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
 
 ```{r}
 telpunten_2018_2022_vrtlt_long %>%
-  group_by(jaar, GWSNAM_V) %>%
+  group_by(jaar, GEWASGROEP) %>%
   summarise(mediaan = median(area_prop), 
             gemiddelde = mean(area_prop),
             min = min(area_prop),
             max =  max(area_prop), 
             .groups = "drop") %>%
-  mutate(GWSNAM_V = reorder(factor(GWSNAM_V), mediaan, sum,
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), mediaan, sum,
                               decreasing = TRUE)) %>%
-  arrange(jaar, GWSNAM_V) %>%
+  arrange(jaar, GEWASGROEP) %>%
   kable()
 ```
 
@@ -789,23 +789,15 @@ perimeters %>%
 
 ### Beschrijving
 
-We beshouwen vier categoriën van openheid landschap:
+We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie. Werkwijze:
 
--   OL open landschap
--   HOL halfopen landschap
--   HGL halfgesloten landschap
--   GL gesloten landschap
-
-Akkervogelgemeenschappen worden vaak ingedeeld volgens hun affiniteit met open landschap (OLA - Open landschap Akkervogels), half-open landschap (HOLA) en kleinschalig landschap (KLA).
-Onder kleinschalig landschap verstaat men een landschap waar de percelen relatief klein zijn en het landschap in sterke mate dooraderd is door hagen, rietkragen en andere lijn- of puntvormige kleine landschapselementen (KLE's).
-De manier waarop we openheid van het landschap hebben bepaald laat niet toe om KLA te bepalen zonder bijkomende berekeningen.
-KLA zullen een subset zijn van wat wij HOL noemen, met name HOL waar de gemiddelde perceelsgrootte relatief klein is.
-
-Deze variabele verschilt niet over de jaren.
+-  berekening “canopy height model” (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, …)
+-  berekening van “positive topographic openness” (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 1000 m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians)
+-  met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 1000 m
 
 ### Welk datatype?
 
-Categorisch.
+Continu.
 
 ### Waar verzameld?
 
@@ -818,25 +810,16 @@ download van url
 
 ### Hoe berekend?
 
-We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie.
-Werkwijze:
-
--   berekening "canopy height model" (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, ...).
--   berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
--   met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 300 m.
--   deze gemiddelden zijn daarna ingedeeld in drie klassen:
-    -   OL open landschap (\> 86,5°),
-    -   HOL halfopen landschap (77,3° - 86,5°),
-    -   HGL halfgesloten landschap (71,6° - 77,3°)
-    -   GL (\< 71,6°) gesloten landschap
-
+zie file `landschap_chm_openheid_1000m.R`
 
 Met de functie `add_openheid_landschap_to_frame()` kunnen we deze categoriën toevoegen aan de telpunten.
 
 Per punt is openheid landschap berekend in een straal van 300 vanuit het centrum van de telcirkel.
 
 ```{r}
-openheid_landschap_file <- path_to_openheid_landschap()
+openheid_landschap_file <- path_to_openheid_landschap(
+  "openness1000m_chm_res25_c1000_mean_vlaanderen.tif"
+)
 telpunten_2018_2022_openheid <- add_openheid_landschap_to_frame(
   path = openheid_landschap_file,
   punten_sf = telpunten_2018_2022,
@@ -846,8 +829,8 @@ telpunten_2018_2022_openheid <- add_openheid_landschap_to_frame(
 ```{r}
 summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
-  variabele = "openheid landschap", 
-  eenheid = "categorisch", 
+  variabele = "openheid landschap (1000 m)", 
+  eenheid = "continu", 
   bron = "Digitaal Hoogtemodel Vlaanderen II"))
 ```
 
@@ -856,10 +839,15 @@ summary_df <- rbind(summary_df, c(
 ```{r}
 telpunten_2018_2022_openheid %>%
   ggplot() +
-    geom_bar(aes(x = openheid_klasse)) +
+    geom_histogram(aes(x = openheid_waarde, fill = openheid_klasse)) +
     facet_wrap(~regio) +
-    labs(x = "Openheid klasse", y = "Aantal telcirkels",
+    labs(x = "Openheid waarde (1000 m)", y = "Aantal telcirkels",
          title = "Openheid landschap")
+```
+
+```{r}
+aggregate(telpunten_2018_2022_openheid$openheid_waarde, 
+          by = list(telpunten_2018_2022_openheid$regio), FUN = summary)
 ```
 
 ### Opmerkingen

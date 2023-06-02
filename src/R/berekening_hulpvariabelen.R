@@ -115,10 +115,9 @@ calc_lbg <- function(path,
 }
 
 
-path_to_openheid_landschap <- function() {
-  file.path(mbag_dir,
-    "data", "dem",
-    "openness300m_chm_res25_c300_mean_vlaanderen.tif")
+path_to_openheid_landschap <- function(
+    file = "openness300m_chm_res25_c300_mean_vlaanderen.tif") {
+  file.path(mbag_dir, "data", "dem", file)
 }
 
 add_openheid_landschap_to_frame <- function(
