@@ -383,7 +383,6 @@ hftlt_groepen %>%
   kable()
 ```
 
-
 ```{r}
 # Add proportion main crop per year
 telpunten_2018_2022_hfdtlt_long_tot <- calc_lbg_by_year(telpunten_2018_2022_df)
@@ -655,19 +654,37 @@ Download van url.
 ### Hoe berekend?
 
 ```{r}
-telpunten_2018_2022_vrtlt_long <- calc_vzml_by_year(telpunten_2018_2022_df)
+vrtlt_groepen_raw <- read_csv2(file.path(mbag_dir, "data", "gewasgroepen", 
+                                         "voorteelten_groep.csv"))
+```
+
+We groeperen per gewasgroep.
+
+```{r}
+vrtlt_groepen <- vrtlt_groepen_raw %>%
+  select(GWSNAM_V, GEWASGROEP = nieuwe_groep)
+
+vrtlt_groepen %>%
+  kable()
+```
+
+```{r}
+telpunten_2018_2022_vrtlt_long_tot <- calc_vzml_by_year(telpunten_2018_2022_df)
+telpunten_2018_2022_vrtlt_long <- telpunten_2018_2022_vrtlt_long_tot %>%
+  full_join(vrtlt_groepen, by = join_by(GWSNAM_V))
 
 telpunten_2018_2022_vrtlt <- telpunten_2018_2022_vrtlt_long %>%
   pivot_wider(id_cols = c(pointid, jaar), 
-              names_from = GWSNAM_V, 
-              values_from = area_prop, 
+              names_from = GEWASGROEP, 
+              values_from = area_prop,
+              values_fn = sum,
               values_fill = 0)
 ```
 
 ```{r}
 summary_df <- rbind(summary_df, tibble(
   categorie = "prioritair", 
-  variabele = tolower(unique(telpunten_2018_2022_vrtlt_long$GWSNAM_V)), 
+  variabele = tolower(unique(telpunten_2018_2022_vrtlt_long$GEWASGROEP)), 
   eenheid = "proportie",
   bron = "verzamelaanvraag (Bron: Dept. LV)"))
 ```
@@ -676,30 +693,30 @@ summary_df <- rbind(summary_df, tibble(
 
 ```{r}
 telpunten_2018_2022_vrtlt_long %>%
-  group_by(jaar, GWSNAM_V) %>%
+  group_by(jaar, GEWASGROEP) %>%
   summarise(area_prop_vrtlt = median(area_prop), .groups = "drop") %>%
-  mutate(GWSNAM_V = reorder(factor(GWSNAM_V), area_prop_vrtlt, sum,
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), area_prop_vrtlt, sum,
                               decreasing = TRUE)) %>%
   ggplot() +
-    geom_bar(aes(x = GWSNAM_V, y = area_prop_vrtlt  , 
+    geom_bar(aes(x = GEWASGROEP, y = area_prop_vrtlt, 
                  fill = factor(jaar, ordered = TRUE)), 
              stat = "identity") +
-    labs(title = "Oppervlakte-aandeel gewasgroepen", fill = "Jaar",
+    labs(title = "Oppervlakte-aandeel gewasgroepen voorteelt", fill = "Jaar",
          x = "", y = "Mediaan proportie over telcirkels") +
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
 
 ```{r}
 telpunten_2018_2022_vrtlt_long %>%
-  group_by(jaar, GWSNAM_V) %>%
+  group_by(jaar, GEWASGROEP) %>%
   summarise(mediaan = median(area_prop), 
             gemiddelde = mean(area_prop),
             min = min(area_prop),
             max =  max(area_prop), 
             .groups = "drop") %>%
-  mutate(GWSNAM_V = reorder(factor(GWSNAM_V), mediaan, sum,
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), mediaan, sum,
                               decreasing = TRUE)) %>%
-  arrange(jaar, GWSNAM_V) %>%
+  arrange(jaar, GEWASGROEP) %>%
   kable()
 ```
 
@@ -832,7 +849,6 @@ telpunten_2018_2022_openheid %>%
 aggregate(telpunten_2018_2022_openheid$openheid_waarde, 
           by = list(telpunten_2018_2022_openheid$regio), FUN = summary)
 ```
-
 
 ### Opmerkingen
 
