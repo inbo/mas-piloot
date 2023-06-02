@@ -340,7 +340,6 @@ mas_controle_afstand <- mas_perimeters %>%
   st_drop_geometry()
 ```
 
-
 We selecteren vervolgens alle waarnemingen **binnen een afstand van 300 m**.
 
 ```{r}
@@ -404,10 +403,9 @@ dubbels %>%
 mas_no_dubbel <- mas_soortgrp %>%
   semi_join(dubbels, by = c("plotnaam", "jaar", "periode_in_jaar")) %>%
   group_by(plotid, jaar, periode_in_jaar) %>%
-  mutate(status_teller = ifelse((waarnemer %in% profs) | 
-                                (waarnemer %in% profs_2022 & jaar == 2022), 
-                                  "professioneel", 
-                                  "vrijwilliger")) %>%
+  mutate(status_teller = ifelse(
+    (waarnemer %in% profs) | (waarnemer %in% profs_2022 & jaar == 2022), 
+    "professioneel", "vrijwilliger")) %>%
   mutate(prof_in_period = ifelse(any(status_teller == "professioneel"),
                                  TRUE, FALSE),
          max_doy = ifelse(doy == max(doy), TRUE, FALSE)
@@ -483,7 +481,10 @@ Professionele tellers zijn `r profs`. `r profs_2022` is professionele teller van
 
 ```{r}
 # Reeds toegevoegd bij dubbeltellingen
-mas_profs <- mas_clean
+mas_profs <- mas_clean %>%
+  mutate(status_teller = ifelse(
+    (waarnemer %in% profs) | (waarnemer %in% profs_2022 & jaar == 2022), 
+    "professioneel", "vrijwilliger"))
 ```
 
 ## Predator
@@ -501,18 +502,14 @@ predatoren <- c(roofvogels, kraaiachtigen)
 Voeg predator toe als variabele (ja vs. nee).
 Als predatoren beschouwen we roofvogels (`r roofvogels`) en kraaiachtigen (`r kraaiachtigen`).
 
-> foutje nog!
-
 ```{r}
-mas_profs <- mas_clean %>%
+mas_finaal_df <- mas_profs %>%
   mutate(predator = ifelse(naam %in% predatoren, "ja", "nee"))
 ```
 
 # Controle ontbrekende gegevens
 
-> apart hoofdstuk
 
-check NAs in data
 
 # Overzicht
 
