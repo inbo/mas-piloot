@@ -368,46 +368,29 @@ Voor elk jaar hebben we een aparte file.
 We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
 Daarna gebruiken we de `calc_lbg()` functie om de proporties per telcirkel te berekenen.
 
+```{r}
+hftlt_groepen_raw <- read_csv2(file.path(mbag_dir, "data", "gewasgroepen", 
+                                         "hoofdteelten_groep.csv"))
+```
+
 We groeperen per gewasgroep.
-Voor sommige gewasgroepen is er geen data (`NA`).
-Er zijn twee categoriën.
 
-1.  GEWASGROEP is `NA` en LBLHFDTLT is `NA`
-2.  GEWASGROEP is `NA` en LBLHFDTLT is Flageolets (voor de boon), Zomerhaver of Winterhaver
+```{r}
+hftlt_groepen <- hftlt_groepen_raw %>%
+  select(LBLHFDTLT, GEWASGROEP = nieuwe_groep)
 
-In het eerste geval komen de polygonen ook effectief niet met landbouwpercelen overeen.
-Die kunnen we dus wegfilteren.
-In het tweede geval moeten we de GEWASGROEP manueel aanvullen.
+hftlt_groepen %>%
+  kable()
+```
 
--   Flageolets (voor de boon) $\rightarrow$ Groenten, kruiden en sierplanten
--   Zomerhaver, Winterhaver $\rightarrow$ Granen, zaden en peulvruchten
-
-Een logische en veelgebruikte opdeling voor gewassen is:
-
-- graangewassen (monocotylen zoals tarwe, gerst, etc..) 
-- grasland (opdelen permanent en tijdelijk)
-- mais
-- aardappelen
-- wortelgewassen (biet, chicorei, wortel)
-- peulvruchten (erwt)
-- groententeelt (kolen zoals bloemkool, brocolli, spruiten, prei, ajuin, sla)
-- groenbemester (klavers, luzerne, mosterd) of koolzaad
-- meerjarige fruitteelt (appel, peer, kers, ea)
-- vlas
-- andere (vb eenjarig fruitteelt)
 
 ```{r}
 # Add proportion main crop per year
 telpunten_2018_2022_hfdtlt_long_tot <- calc_lbg_by_year(telpunten_2018_2022_df)
 telpunten_2018_2022_hfdtlt_long <- telpunten_2018_2022_hfdtlt_long_tot %>%
   filter(!is.na(LBLHFDTLT)) %>%
-  mutate(GEWASGROEP = case_when(
-    is.na(GEWASGROEP) & LBLHFDTLT %in% c("Zomerhaver", "Winterhaver") ~ 
-      "Granen, zaden en peulvruchten",
-    is.na(GEWASGROEP) & startsWith(LBLHFDTLT, "Flageolets")  ~ 
-      "Groenten, kruiden en sierplanten",
-    TRUE ~ GEWASGROEP
-  ))
+  select(-GEWASGROEP) %>%
+  full_join(hftlt_groepen, by = join_by(LBLHFDTLT))
 
 telpunten_2018_2022_hfdtlt <- telpunten_2018_2022_hfdtlt_long %>%
   group_by(pointid, jaar, GEWASGROEP) %>%
