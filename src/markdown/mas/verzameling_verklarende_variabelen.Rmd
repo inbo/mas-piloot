@@ -789,23 +789,15 @@ perimeters %>%
 
 ### Beschrijving
 
-We beshouwen vier categoriën van openheid landschap:
+We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie. Werkwijze:
 
--   OL open landschap
--   HOL halfopen landschap
--   HGL halfgesloten landschap
--   GL gesloten landschap
-
-Akkervogelgemeenschappen worden vaak ingedeeld volgens hun affiniteit met open landschap (OLA - Open landschap Akkervogels), half-open landschap (HOLA) en kleinschalig landschap (KLA).
-Onder kleinschalig landschap verstaat men een landschap waar de percelen relatief klein zijn en het landschap in sterke mate dooraderd is door hagen, rietkragen en andere lijn- of puntvormige kleine landschapselementen (KLE's).
-De manier waarop we openheid van het landschap hebben bepaald laat niet toe om KLA te bepalen zonder bijkomende berekeningen.
-KLA zullen een subset zijn van wat wij HOL noemen, met name HOL waar de gemiddelde perceelsgrootte relatief klein is.
-
-Deze variabele verschilt niet over de jaren.
+-  berekening “canopy height model” (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, …)
+-  berekening van “positive topographic openness” (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 1000 m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians)
+-  met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 1000 m
 
 ### Welk datatype?
 
-Categorisch.
+Continu.
 
 ### Waar verzameld?
 
@@ -818,25 +810,16 @@ download van url
 
 ### Hoe berekend?
 
-We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie.
-Werkwijze:
-
--   berekening "canopy height model" (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, ...).
--   berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
--   met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 300 m.
--   deze gemiddelden zijn daarna ingedeeld in drie klassen:
-    -   OL open landschap (\> 86,5°),
-    -   HOL halfopen landschap (77,3° - 86,5°),
-    -   HGL halfgesloten landschap (71,6° - 77,3°)
-    -   GL (\< 71,6°) gesloten landschap
-
+zie file `landschap_chm_openheid_1000m.R`
 
 Met de functie `add_openheid_landschap_to_frame()` kunnen we deze categoriën toevoegen aan de telpunten.
 
 Per punt is openheid landschap berekend in een straal van 300 vanuit het centrum van de telcirkel.
 
 ```{r}
-openheid_landschap_file <- path_to_openheid_landschap()
+openheid_landschap_file <- path_to_openheid_landschap(
+  "openness1000m_chm_res25_c1000_mean_vlaanderen.tif"
+)
 telpunten_2018_2022_openheid <- add_openheid_landschap_to_frame(
   path = openheid_landschap_file,
   punten_sf = telpunten_2018_2022,
@@ -846,8 +829,8 @@ telpunten_2018_2022_openheid <- add_openheid_landschap_to_frame(
 ```{r}
 summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
-  variabele = "openheid landschap", 
-  eenheid = "categorisch", 
+  variabele = "openheid landschap (1000 m)", 
+  eenheid = "continu", 
   bron = "Digitaal Hoogtemodel Vlaanderen II"))
 ```
 
@@ -856,11 +839,17 @@ summary_df <- rbind(summary_df, c(
 ```{r}
 telpunten_2018_2022_openheid %>%
   ggplot() +
-    geom_bar(aes(x = openheid_klasse)) +
+    geom_histogram(aes(x = openheid_waarde, fill = openheid_klasse)) +
     facet_wrap(~regio) +
-    labs(x = "Openheid klasse", y = "Aantal telcirkels",
+    labs(x = "Openheid waarde (1000 m)", y = "Aantal telcirkels",
          title = "Openheid landschap")
 ```
+
+```{r}
+aggregate(telpunten_2018_2022_openheid$openheid_waarde, 
+          by = list(telpunten_2018_2022_openheid$regio), FUN = summary)
+```
+
 
 ### Opmerkingen
 
