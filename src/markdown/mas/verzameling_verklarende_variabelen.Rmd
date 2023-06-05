@@ -1137,8 +1137,7 @@ Zoals voordien zijn er enkele `NA`'s in de `LBLHFDTLT` kolom van de laag van 201
 > Voorlopig niet berekenen voor 2022. Code loopt vast, maar hopelijk snel finale kaartlaag.
 
 ```{r}
-telpunten_2018_2022_prcl <- calc_perceelsgrootte_by_year(
-  telpunten_2018_2022_df %>% filter(jaar != 2022))
+telpunten_2018_2022_prcl <- calc_perceelsgrootte_by_year(telpunten_2018_2022_df)
 ```
 
 Een voorbeeld:
@@ -1195,7 +1194,8 @@ telpunten_2018_2022_prcl %>%
     geom_histogram(aes(x = perceel_median_area)) +
     labs(title = "Perceelsgroottes (mediaan)",
          x = "Mediaan perceelsgroottes (m²)",
-         y = "Aantal telpunten")
+         y = "Aantal telpunten") +
+  facet_wrap(~jaar)
 ```
 
 ```{r}
@@ -1209,7 +1209,8 @@ telpunten_2018_2022_prcl %>%
     geom_histogram(aes(x = perceel_iqr_area)) +
     labs(title = "Perceelsgroottes (IQR)",
          x = "IQR perceelsgroottes (m²)",
-         y = "Aantal telpunten")
+         y = "Aantal telpunten") +
+  facet_wrap(~jaar)
 ```
 
 ```{r}
@@ -1223,7 +1224,8 @@ telpunten_2018_2022_prcl %>%
     geom_histogram(aes(x = perceel_cv_area)) +
     labs(title = "Perceelsgroottes (CV)",
          x = "Variatiecoëfficiënt",
-         y = "Aantal telpunten")
+         y = "Aantal telpunten") +
+  facet_wrap(~jaar)
 ```
 
 ```{r}

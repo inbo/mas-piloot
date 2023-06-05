@@ -145,14 +145,21 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
                                                          ".shp"))) %>%
       st_transform(crs = 31370)
 
+    if (year == 2022) {
+      lbg_binding <- lbg_binding %>%
+        rename(LBLHFDTLT = GWSNAM_H,
+               perc_id = REF_ID)
+    } else {
+      lbg_binding <- lbg_binding %>%
+        rename(perc_id = OIDN)
+    }
+
     # Intersection
     intersect <- st_intersection(punten_df_year %>% st_buffer(300), lbg_binding)
 
     out_df_year <- lbg_binding %>%
-      filter(OIDN %in% intersect$OIDN) %>%       # Filter percelen
-      full_join(st_drop_geometry(intersect),
-                by = c("OIDN", "UIDN", "ALVID", "HFDTLT", "LBLHFDTLT",
-                       "GEWASGROEP", "PM", "LBLPM", "LENGTE", "OPPERVL")) %>%
+      filter(perc_id %in% intersect$perc_id) %>%       # Filter percelen
+      full_join(st_drop_geometry(intersect)) %>%
       filter(!is.na(LBLHFDTLT)) %>%
 
       # Join neighbouring polygons by main crop
