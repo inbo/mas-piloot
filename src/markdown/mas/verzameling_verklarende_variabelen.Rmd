@@ -69,10 +69,6 @@ We hebben dus een lijst nodig met alle plots die geteld zijn met coördinaten.
 De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON.
 Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn.
 Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest).
-Het kan ook zijn dat het wel bezocht is geweest, maar dat er geen waarnemingen zijn.
-
-> We moeten navragen welke punten bezocht zijn in 2018-2021.
-> Nu weten we enkel dat een plot bezocht is als er ook effectief waarnemingen waren, maar we hebben geen idee in welke plots er nultellingen zijn geweest.
 
 ```{r}
 Sys.setenv("PROJ_NETWORK" = "ON")
