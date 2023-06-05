@@ -392,12 +392,12 @@ telpunten_2018_2022_hfdtlt_long <- telpunten_2018_2022_hfdtlt_long_tot %>%
   full_join(hftlt_groepen, by = join_by(LBLHFDTLT))
 
 telpunten_2018_2022_hfdtlt <- telpunten_2018_2022_hfdtlt_long %>%
-  group_by(pointid, jaar, GEWASGROEP) %>%
-  summarise(area_prop_hfdtlt = sum(area_prop), .groups = "drop") %>%
   pivot_wider(id_cols = c(pointid, jaar), 
               names_from = GEWASGROEP, 
-              values_from = area_prop_hfdtlt, 
-              values_fill = 0)
+              values_from = area_prop, 
+              values_fill = 0,
+              values_fn = sum,
+              names_glue  = "{GEWASGROEP}_hfdtlt")
 ```
 
 ```{r}
@@ -678,7 +678,8 @@ telpunten_2018_2022_vrtlt <- telpunten_2018_2022_vrtlt_long %>%
               names_from = GEWASGROEP, 
               values_from = area_prop,
               values_fn = sum,
-              values_fill = 0)
+              values_fill = 0,
+              names_glue  = "{GEWASGROEP}_vrtlt")
 ```
 
 ```{r}
