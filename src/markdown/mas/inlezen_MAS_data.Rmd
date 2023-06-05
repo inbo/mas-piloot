@@ -473,7 +473,7 @@ mas_clean <- mas_no_dubbel %>%
 ```
 
 
-# Berekening specifieke variabelen
+# Toevoegen specifieke variabelen
 ## Status teller
 
 Voeg status teller toe als variabele (vrijwilligers vs. professionele teller).
@@ -503,8 +503,24 @@ Voeg predator toe als variabele (ja vs. nee).
 Als predatoren beschouwen we roofvogels (`r roofvogels`) en kraaiachtigen (`r kraaiachtigen`).
 
 ```{r}
-mas_finaal_df <- mas_profs %>%
+mas_predators <- mas_profs %>%
   mutate(predator = ifelse(naam %in% predatoren, "ja", "nee"))
+```
+
+## Plotspecifieke variabelen
+
+`inner_join()` met verklarende variabelen berekend in `verzameling_verklarende_variabelen.Rmd`. 
+Dit zijn variabelen op plot- en jaarniveau.
+
+```{r}
+verklarende_variabelen_plotjaar <- read_csv(
+  file.path("data", "processed", "verklarende_variabelen_2018_2022.csv")
+  ) %>%
+  rename(geometry_telpunt = geometry)
+
+mas_finaal_df <- mas_predators %>%
+  inner_join(verklarende_variabelen_plotjaar, 
+             by = join_by(plotnaam, jaar, regio))
 ```
 
 # Controle ontbrekende gegevens
