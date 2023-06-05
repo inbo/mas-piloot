@@ -473,7 +473,7 @@ mas_clean <- mas_no_dubbel %>%
 ```
 
 
-# Berekening specifieke variabelen
+# Toevoegen specifieke variabelen
 ## Status teller
 
 Voeg status teller toe als variabele (vrijwilligers vs. professionele teller).
@@ -503,8 +503,24 @@ Voeg predator toe als variabele (ja vs. nee).
 Als predatoren beschouwen we roofvogels (`r roofvogels`) en kraaiachtigen (`r kraaiachtigen`).
 
 ```{r}
-mas_finaal_df <- mas_profs %>%
+mas_predators <- mas_profs %>%
   mutate(predator = ifelse(naam %in% predatoren, "ja", "nee"))
+```
+
+## Plotspecifieke variabelen
+
+`inner_join()` met verklarende variabelen berekend in `verzameling_verklarende_variabelen.Rmd`. 
+Dit zijn variabelen op plot- en jaarniveau.
+
+```{r}
+verklarende_variabelen_plotjaar <- read_csv(
+  file.path("data", "processed", "verklarende_variabelen_2018_2022.csv")
+  ) %>%
+  rename(geometry_telpunt = geometry)
+
+mas_finaal_df <- mas_predators %>%
+  inner_join(verklarende_variabelen_plotjaar, 
+             by = join_by(plotnaam, jaar, regio))
 ```
 
 # Controle ontbrekende gegevens
@@ -567,7 +583,48 @@ mas_finaal_df %>%
     labs(x = "aantal bezoeken van eenzelfde telpunt per jaar", y = "frequentie")
 ```
 
-> controleer dit door alles opnieuw te runnen zonder op te delen in periodes
+We bekijken enkele voorbeelden. 
+Sommige plots zijn niet in elke telperiode geteld.
+Anderen zijn niet binnen de correcte datumintervallen geteld waardoor ze worden weggefilterd.
+Nog anderen zijn tweemaal in eenzelfde telperiode geteld en niet meer in een andere één van de twee tellingen wordt behouden.
+
+VL0039:  
+3x geteld in 2018: niets van data in periode 4  
+4x geteld in 2019  
+3x geteld in 2020: geteld op 20 maart voor periode 1 -> weggefilterd  
+4x geteld in 2021
+
+VL0050:  
+2x geteld in 2018: geteld tussen telperiodes 2 en 3 op 16 juni, niets van data in in periode 4  
+3x geteld in 2019: dubbeltelling telperiode 4  
+3x geteld in 2020: geteld buiten range telperiode 4 op 18 juni -> weggefilterd
+
+VL0004:  
+4x geteld in 2018  
+1x geteld in 2020: effectief maar data voor 1 telperiode
+
+VL0297:  
+2x geteld in 2018: niets van data in periodes 2 en 3  
+2x geteld in 2019: niets van data in periodes 1 en 2  
+4x geteld in 2020  
+3x geteld in 2021: niets van data in periode 1  
+4x geteld in 2022
+
+VL0538:  
+3x geteld in 2021: geteld buiten range telperiode 4 op 11 juni -> weggefilterd  
+2x geteld in 2022: niets van data in periode 1, geteld buiten range telperiode 4 op 16 juli -> weggefilterd
+	
+Ol_9862.14:  
+3x geteld in 2022: geteld tussen telperiodes 2 en 3 op 12 juni -> weggefilterd
+
+Ol_12609.15:  
+3x geteld in 2022: dubbelgeteld in periode 1, niet geteld in periode 2
+
+DM_257.2:  
+3x geteld in 2022: geteld tussen telperiodes 2 en 3 op 17 juni -> weggefilterd
+
+DM_44.45:  
+3x geteld in 2022: geteld tussen telperiodes 2 en 3 op 17 juni -> weggefilterd
 
 Aantal waarnemingen:
 
