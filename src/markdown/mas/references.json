@@ -437,5 +437,48 @@
         "title": "Improving Estimates of Bird Density Using Multiple- Covariate Distance Sampling",
         "type": "article-journal",
         "volume": "124"
+    },
+    {
+        "author": [
+            {
+                "family": "Klaassen",
+                "given": "Raymond"
+            },
+            {
+                "family": "Schultinga",
+                "given": "Marjon"
+            },
+            {
+                "family": "Sirks",
+                "given": "Aniëla"
+            },
+            {
+                "family": "Kleyheeg",
+                "given": "Erik"
+            },
+            {
+                "family": "Wiersma",
+                "given": "Popko"
+            }
+        ],
+        "genre": "GKA-rapport 2022-01",
+        "id": "klaassen2022",
+        "issued": {
+            "date-parts": [
+                [
+                    2022
+                ]
+            ]
+        },
+        "key": "P7DDYTLK",
+        "language": "nl",
+        "libraryid": "1",
+        "page": "60",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Grauwe Kiekendief – Kenniscentrum Akkervogels",
+        "publisher-place": "Scheemda",
+        "source": "Zotero",
+        "title": "Evaluatie van de effecten van het agrarisch natuurbeheer op voorkomen en trends van akkervogels in de provincie Groningen 2015 - 2020",
+        "type": "report"
     }
 ]

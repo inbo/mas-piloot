@@ -167,9 +167,11 @@
     "INBOtheme": {
       "Package": "INBOtheme",
       "Version": "0.6.0",
-      "Source": "Repository",
-      "Repository": "https://inbo.r-universe.dev",
-      "RemoteUrl": "https://github.com/inbo/inbotheme",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "INBOtheme",
+      "RemoteUsername": "inbo",
       "RemoteRef": "HEAD",
       "RemoteSha": "efd415e626b2f873b1c1fe872aa55fe7257d250e",
       "Requirements": [
@@ -181,7 +183,7 @@
         "grid",
         "scales"
       ],
-      "Hash": "e7f7d962abb5a037ab6447e8d9cd1d88"
+      "Hash": "c080c2075108eb8fe9c4057ce60dfa63"
     },
     "INLA": {
       "Package": "INLA",
@@ -2671,7 +2673,7 @@
       "Repository": "https://inbo.r-universe.dev",
       "RemoteUrl": "https://github.com/tidyverse/lubridate",
       "RemoteRef": "HEAD",
-      "RemoteSha": "87afddf0a9c583ad2e0bd15631e08c9469a82a0a",
+      "RemoteSha": "b0440b09619b7d4a2b11f207ca0c4e2416ba3f5b",
       "Requirements": [
         "R",
         "generics",
@@ -3390,22 +3392,25 @@
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
+      "RemoteUsername": "r-spatial",
       "RemoteRepo": "qgisprocess",
-      "RemoteUsername": "paleolimbot",
-      "RemoteRef": "HEAD",
-      "RemoteSha": "21853dbd5744479a9dd4a47a0459aafdf8657cb5",
+      "RemoteRef": "main",
+      "RemoteSha": "d0118f3d4e1eb17307bcfdab171f7df7a740667e",
+      "Remotes": "Nowosad/spDataLarge",
       "Requirements": [
+        "assertthat",
         "glue",
         "jsonlite",
         "processx",
         "rappdirs",
         "rlang",
+        "stats",
         "stringr",
         "tibble",
         "vctrs",
         "withr"
       ],
-      "Hash": "53b573251d0d7e910fb662afada8fd2c"
+      "Hash": "73a70620d14b22b1f7dbb4155b98f88b"
     },
     "qs": {
       "Package": "qs",

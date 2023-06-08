@@ -48,10 +48,14 @@ add_bo2021_to_frame <- function(
 
 add_bo_to_frame <- function(
     punten_df,
-    path_bo
+    path_bo,
+    bo_layer = NULL,
+    bh_doel = "soortenbescherming (SB)"
     ) {
 
-  bo_layer <- read_bo(path = path_bo)
+  if (is.null(bo_layer)) {
+    bo_layer <- read_bo(path = path_bo)
+  }
 
   points_bo <- landusemetrics_grid_cell(
     grid_cell = punten_df %>%
@@ -67,7 +71,7 @@ add_bo_to_frame <- function(
   aandeel_sb <- points_bo %>%
     select(pointid, SRT_OBJECT, area_prop) %>%
     left_join(bo_maatregelen, by = "SRT_OBJECT") %>%
-    filter(BH_DOELST == "soortenbescherming (SB)") %>%
+    filter(BH_DOELST %in% bh_doel) %>%
     group_by(pointid) %>%
     summarise(area_prop_sb = sum(area_prop))
 
@@ -111,10 +115,9 @@ calc_lbg <- function(path,
 }
 
 
-path_to_openheid_landschap <- function() {
-  file.path(mbag_dir,
-    "data", "dem",
-    "openness300m_chm_res25_c300_mean_vlaanderen.tif")
+path_to_openheid_landschap <- function(
+    file = "openness300m_chm_res25_c300_mean_vlaanderen.tif") {
+  file.path(mbag_dir, "data", "dem", file)
 }
 
 add_openheid_landschap_to_frame <- function(
