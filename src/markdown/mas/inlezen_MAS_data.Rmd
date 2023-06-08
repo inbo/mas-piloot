@@ -643,5 +643,7 @@ mas_finaal_df %>%
 
 # Uitschrijven data
 
-schrijf data weg
-
+```{r}
+write_csv(mas_finaal_df, file.path("data", "processed", 
+                                   "MAS_data_full_2018_2022.csv"))
+```
