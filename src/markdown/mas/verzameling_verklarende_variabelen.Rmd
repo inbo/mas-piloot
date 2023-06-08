@@ -71,8 +71,6 @@ Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn.
 Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest).
 
 ```{r}
-Sys.setenv("PROJ_NETWORK" = "ON")
-sf_proj_network(TRUE)
 pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
 
 # We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
@@ -792,6 +790,17 @@ We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) e
 -  berekening van “positive topographic openness” (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 1000 m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians)
 -  met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 1000 m
 
+We voegen ook de categorische variabele toe gebaseerd op 300 m.
+
+-   berekening "canopy height model" (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, ...).
+-   berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
+-   met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 300 m.
+-   deze gemiddelden zijn daarna ingedeeld in drie klassen:
+    -   OL open landschap (\> 86,5°),
+    -   HOL halfopen landschap (77,3° - 86,5°),
+    -   HGL halfgesloten landschap (71,6° - 77,3°)
+    -   GL (\< 71,6°) gesloten landschap
+
 ### Welk datatype?
 
 Continu.
@@ -817,17 +826,31 @@ Per punt is openheid landschap berekend in een straal van 300 vanuit het centrum
 openheid_landschap_file <- path_to_openheid_landschap(
   "openness1000m_chm_res25_c1000_mean_vlaanderen.tif"
 )
-telpunten_2018_2022_openheid <- add_openheid_landschap_to_frame(
-  path = openheid_landschap_file,
-  punten_sf = telpunten_2018_2022,
-  gebied = perimeters)
+telpunten_2018_2022_openheid_1000 <- add_openheid_landschap_to_frame(
+    path = openheid_landschap_file,
+    punten_sf = telpunten_2018_2022,
+    gebied = perimeters) %>%
+  rename(openheid_waarde_1000 = openheid_waarde) %>%
+  select(-openheid_klasse)
+
+telpunten_2018_2022_openheid_300 <- add_openheid_landschap_to_frame(
+    path = path_to_openheid_landschap(),
+    punten_sf = telpunten_2018_2022,
+    gebied = perimeters) %>%
+  rename(openheid_klasse_300 = openheid_klasse) %>%
+  select(-openheid_waarde)
+
+telpunten_2018_2022_openheid <- telpunten_2018_2022_openheid_1000 %>%
+  full_join(st_drop_geometry(telpunten_2018_2022_openheid_300),
+            by = join_by(pointid, regio))
 ```
 
 ```{r}
-summary_df <- rbind(summary_df, c(
+summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
-  variabele = "openheid landschap (1000 m)", 
-  eenheid = "continu", 
+  variabele = c("openheid landschap waarde (1000 m)",
+                "openheid landschap klasse (300 m)"),
+  eenheid = c("continu", "categorisch"), 
   bron = "Digitaal Hoogtemodel Vlaanderen II"))
 ```
 
@@ -836,20 +859,20 @@ summary_df <- rbind(summary_df, c(
 ```{r}
 telpunten_2018_2022_openheid %>%
   ggplot() +
-    geom_histogram(aes(x = openheid_waarde, fill = openheid_klasse)) +
+    geom_histogram(aes(x = openheid_waarde_1000)) +
     facet_wrap(~regio) +
     labs(x = "Openheid waarde (1000 m)", y = "Aantal telcirkels",
          title = "Openheid landschap")
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_openheid$openheid_waarde, 
+aggregate(telpunten_2018_2022_openheid$openheid_waarde_1000, 
           by = list(telpunten_2018_2022_openheid$regio), FUN = summary)
 ```
 
 ### Opmerkingen
 
-We zijn enkel geïnteresseerd in OL in De Moeren en OL en HOL in de Oostelijke leemstreek. Voor de modellen kunnen deze eruit gefilterd worden. Verder is het mogelijk dat deze variabele niet wordt meegenomen in het model, maar dat we voor open landschap soorten bijvoorbeeld enkel waarnemingen in OL selecteren HOL voor half-open landschap soorten. 
+Voor de modellen zijn we geïnteresseerd in de continue openheidswaardes op 1000 m. De categorische waarden op 300 m worden hier toegevoegd ter compleetheid. Deze kunnen eventueel ook nog gebruikt worden om de data te filteren.
 
 ## Soortbeschermingsplan
 
