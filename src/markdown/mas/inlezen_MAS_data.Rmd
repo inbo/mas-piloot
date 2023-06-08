@@ -534,6 +534,10 @@ apply(mas_finaal_df, 2, function(x) any(is.na(x)))
 
 # Overzicht
 
+```{r}
+glimpse(mas_finaal_df)
+```
+
 Aantal telpunten:
 
 ```{r}
