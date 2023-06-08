@@ -501,10 +501,18 @@ predatoren <- c(roofvogels, kraaiachtigen)
 
 Voeg predator toe als variabele (ja vs. nee).
 Als predatoren beschouwen we roofvogels (`r roofvogels`) en kraaiachtigen (`r kraaiachtigen`).
+We maken ook een variabele met per plot, per telperiode, per jaar het aantal predatoren (individuen en soorten).
 
 ```{r}
 mas_predators <- mas_profs %>%
-  mutate(predator = ifelse(naam %in% predatoren, "ja", "nee"))
+  mutate(predator = ifelse(naam %in% predatoren, "ja", "nee"),
+         predator_num = ifelse(naam %in% predatoren, aantal, 0),
+         predator_spec = ifelse(naam %in% predatoren, naam, NA)) %>%
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  mutate(n_predators = sum(predator_num),
+         n_predators_spec = n_distinct(predator_spec, na.rm = TRUE)) %>%
+  ungroup() %>%
+  select(-c(predator_num, predator_spec))
 ```
 
 ## Plotspecifieke variabelen
