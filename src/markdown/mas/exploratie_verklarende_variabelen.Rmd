@@ -14,6 +14,7 @@ bibliography: references.json
 ---
 
 ```{r setup, include=FALSE}
+# renv
 renv::restore()
 
 # Set up
@@ -25,6 +26,7 @@ opts_chunk$set(
   warning = FALSE)
 opts_knit$set(root.dir = here())
 
+# Conflicting packages
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
 
