@@ -39,6 +39,8 @@ source(here("src", "R", "geocomputations.R"))
 
 # Inlezen data
 
+We lezen de data in uit het aangeleverde bestand "macroinvertebratenMAP.xlsx".
+
 ```{r mapdata}
 sheetnames <- excel_sheets(here("data", "vmm", "macroinvertebratenMAP.xlsx"))
 
@@ -84,6 +86,8 @@ bekkens <- vmmdata2022 %>%
   )
 ```
 
+
+Via een jaarlijkse export van VMM databank naar INBO databank, lezen we ook nog de data in over fysicochemie.
 
 Gegevensbron: "Vlaamse Milieumaatschappij – Fysisch-chemisch en biologisch meetnet oppervlaktewater".
 
@@ -215,12 +219,16 @@ nitraat_data <- bind_rows(nitraat_data_winterjaar, nitraat_data_zomerjaar) %>%
 
 ## Macro-invertebraten
 
+De macro-invertebraten data worden samengevat in twee indices.
+
 BBI: Biotische biodiversiteitsindex
 
 ```{r}
 vmm_meetnet %>%
   ggplot() + 
   geom_line(aes(x = jaar, y = bbi, group = meetplaats)) +
+  geom_smooth(aes(x = jaar, y = bbi),
+              method = "lm") +
   facet_wrap(~bekken)
 ```
 
@@ -231,9 +239,14 @@ MMIF: Multimetrische Macro-invertebratenindex Vlaanderen
 vmm_meetnet %>%
   ggplot() + 
   geom_line(aes(x = jaar, y = mmif, group = meetplaats)) +
+  geom_smooth(aes(x = jaar, y = mmif),
+              method = "lm") +
   facet_wrap(~bekken)
 ```
 
+De regressielijnen zijn slechts een benadering (niet het correcte statistische model).
+Er zijn duidelijk bekkens waar minder macro-invertebraten data beschikbaar zijn.
+Bovendien zijn er slechts een beperkt aantal meetplaatsen waar recente meetgegevens beschikbaar zijn of langlopende tijdreeksen van bestaan.
 
 ```{r}
 vmm_meetnet %>%
@@ -309,13 +322,22 @@ mmif_beste_reeksen <- mapviewdata %>%
 
 ## Fysico-chemische data: nitraat
 
+De zomerhalfjaar gegevens voor nitraat zijn veel completer dan de winterhalfjaar gegevens voor nitraat.
+
+Als doelstelling hanteert VMM vanaf MAP 6 (2019-2022) de gemiddelde nitraatconcentratie per afstroomzone op basis van de wintergegevens:
+
+-   Lange termijn doelstelling per afstroomzone is een streefwaarde van 18 mg nitraat per liter.
+
+-   Daarnaast wordt een verbetering met 4 mg nitraat/l vooropgesteld voor de afstroomzones die in de periode 2015-2018 een gemiddelde nitraatconcentratie van meer dan 18 mg nitraat/l hadden.
+
 ```{r fig.height = 200/25.4}
 nitraat_data %>%
   unnest(data) %>%
   ggplot() +
-  geom_line(aes(x = jaar, y = `gemiddelde_NO3-`,
-                colour = periode, group = MeetpuntCode),
-            alpha = 0.3) +
+  geom_line(aes(
+    x = jaar, y = `gemiddelde_NO3-`,
+    colour = periode, group = MeetpuntCode),
+    alpha = 0.3) +
   scale_y_log10() +
   facet_grid(Bekken ~ periode)
 ```
@@ -335,14 +357,16 @@ nitraat_meetplaatsen_sf <- fc_data %>%
   distinct(MeetpuntCode, geometry)
 
 nitraat_mapviewdata <- nitraat_meetplaatsen_sf %>%
-  inner_join(nitraat_data %>%
-               unnest(data) %>%
-               group_by(MeetpuntCode, periode) %>%
-               summarize(jaren = paste(jaar, collapse = ", "),
-                         lengte_reeks = max(jaar) - min(jaar) + 1,
-                         aantal_jaren_gemeten = n(),
-                         recentste_jaar = max(jaar),
-                         .groups = "drop"))
+  inner_join(
+    nitraat_data %>%
+      unnest(data) %>%
+      group_by(MeetpuntCode, periode) %>%
+      summarize(
+        jaren = paste(jaar, collapse = ", "),
+        lengte_reeks = max(jaar) - min(jaar) + 1,
+        aantal_jaren_gemeten = n(),
+        recentste_jaar = max(jaar),
+        .groups = "drop"))
 
 nitraat_mapviewdata %>%
   st_drop_geometry() %>%
@@ -356,7 +380,7 @@ nitraat_mapviewdata %>%
 
 ## Samengestelde dataset
 
-We maken een samengestelde dataset door de biotische gegevens en de fysico-chemische gegevens aan elkaar te koppelen op basis van meetplaats en jaar (winterjaar).
+We maken een samengestelde dataset door de biotische gegevens en de fysico-chemische gegevens aan elkaar te koppelen op basis van meetplaats en jaar.
 
 ```{r}
 mi_fc <- vmm_meetnet %>%
@@ -377,13 +401,16 @@ mi_fc %>%
   kable()
 ```
 
+De volgende figuur toont dat er vaak een negatief verband is tussen de MMIF en nitraat, maar bv in het Denderbekken is het omgekeerd.
+Ook deze regressielijnen zijn enkel indicatief en geen correct statistisch model.
 
 ```{r}
 mi_fc %>%
   ggplot(aes(x = `gemiddelde_NO3-`, y = mmif, colour = periode)) +
   geom_point() +
-  geom_smooth(method = "lm",
-              aes(fill = periode)) +
+  geom_smooth(
+    method = "lm",
+    aes(fill = periode)) +
   scale_x_log10() +
   facet_wrap(~Bekken)
 ```
@@ -674,6 +701,24 @@ Oppervlakte-aandeel van alle gewasgroepen = oppervlakte-aandeel landbouw.
 
 Als benadering van intensieve landbouw, heb ik ook oppervlakte-aandeel van gewasgroepen "Aardappelen", "Maïs", "Groenten, kruiden en sierplanten" en "Voedergewassen" (eerder stikstof-eisende gewassen / gewassen die sterker bemest worden).
 
+In veruit de meeste afstroomgebieden is het oppervlakte-aandeel landbouw hoog (> 50%).
+Het oppervlakteaandeel van meer intensieve landbouw ligt gemiddeld rond `r round(mean(watersheds_aandeel_landbouw_intensief$area_prop) * 100, 0)` %.
+
+```{r}
+watersheds_aandeel_landbouw %>%
+  ggplot() +
+  geom_histogram(aes(x = area_prop)) +
+  labs(x = "Oppervlakte-aandeel landbouw")
+
+watersheds_aandeel_landbouw_intensief %>%
+  ggplot() +
+  geom_histogram(aes(x = area_prop)) +
+  labs(x = "Oppervlakte-aandeel intensieve landbouw")
+```
+
+De volgende figuur gaat na of er een relatie is tussen MMIF en oppervlakte-aandeel aan intensieve landbouw in het afstroomgebied.
+De regressielijnen zijn indicatief (geen correct statistisch model).
+
 ```{r}
 mi_fc %>%
   inner_join(watersheds_aandeel_landbouw_intensief,
@@ -686,6 +731,8 @@ mi_fc %>%
   facet_wrap(~bekken) +
   labs(x = "Oppervlakte-aandeel intensieve landbouw in afstroomgebied")
 ```
+
+De volgende figuren gaan na of er een relatie is tussen nitraat (gemiddeld, max; zomer, winter) en de oppervlakte aan intensieve landbouw in het afstroomgebied.
 
 ```{r}
 mi_fc %>%
@@ -723,14 +770,12 @@ watersheds <- watersheds %>%
   as_tibble() %>%
   st_as_sf() %>%
   mutate(opp_ha = as.numeric(st_area(.)) / 1e4)
-
 ```
 
 ```{r}
 mm <- mean(log(watersheds$opp_ha))
 sd <- sd(log(watersheds$opp_ha))
 between <- round(exp(c(mm + 0.5 * sd, mm + 1.2 * sd)), -1)
-exp(mm)
 ```
 
 ```{r}
@@ -743,41 +788,40 @@ watersheds %>%
 ```
 
 
-Selectie
+Selectie eerste stap:
 
 -   middelgrote afstroomgebieden tussen `r between[1]` en `r between[2]` ha (`r round(exp(mm))` ha is geometrisch gemiddelde)
--   met voldoende oppervlakte-aandeel landbouw (> 0.5)
+-   afstroomgebieden die voor een groot deel buiten Vlaanderen vallen uitsluiten (de informatie over gewasgroepen is immers enkel binnen Vlaanderen beschikbaar) (alle afstroomgebieden waarvan overlap met Vlaanderen minder is dan 80% werden uitgesloten)
 
 Door te kiezen voor middelgrote afstroomgebieden, verkleinen we de kans dat factoren zoals overstorten / waterzuiveringsstations en verdunningseffecten, die een grote invloed gaan hebben in grote afstroomgebieden, de effecten van bemestingsdruk en MAP7 maatregelen gaan overheersen.
 Aan de andere kant willen we dat de afstroomgebieden voldoende groot zijn zodat de meetplaatsen de effecten van bemestingsdruk / MAP7 maatregelen voldoende integreren.
 
 
 ```{r}
-watersheds_aandeel_landbouw %>%
-  ggplot() +
-  geom_histogram(aes(x = area_prop)) +
-  labs(x = "Oppervlakte-aandeel landbouw")
+overlap <- st_intersection(watersheds, st_union(vha_bekkens)) %>% 
+   mutate(intersect_opp_ha = as.numeric(st_area(.)) / 1e4,
+          overlap_vlndrn = intersect_opp_ha / opp_ha) %>%
+   st_drop_geometry() %>%
+  select(-intersect_opp_ha)
 
-watersheds_aandeel_landbouw_intensief %>%
-  ggplot() +
-  geom_histogram(aes(x = area_prop)) +
-  labs(x = "Oppervlakte-aandeel intensieve landbouw")
-
-```
-
-
-```{r}
 watersheds_selectie <- watersheds %>%
   filter(between(opp_ha, between[1], between[2])) %>%
+  left_join(overlap) %>%
+  filter(overlap_vlndrn > 0.8) %>%
   left_join(watersheds_aandeel_landbouw %>%
               select(meetplaats, aandeel_landbouw = area_prop)) %>%
   left_join(watersheds_aandeel_landbouw_intensief %>%
               select(meetplaats, aandeel_intensief = area_prop))
 ```
 
+
 ```{r}
 mapview(watersheds_selectie, zcol = "aandeel_landbouw")
 ```
+
+Voor deze eerste selectie van meetplaatsen berekenen we vervolgens een clustering op basis van gelijkaardige gewasgroepensamenstelling.
+Hiervoor hebben we enkel de oppervlakte-aandelen van de belangrijkste gewasgroepen gebruikt (combinatie van voldoende oppervlakte-aandeel en potentieel effect op nitraat en MMIF): Grasland, Granen, zaden en peulvruchten, Suikerbieten, Maïs, Voedergewassen, Aardappelen.
+
 
 ```{r supersom}
 selectie_gewasgroep <- watersheds_gewasgroep_2022 %>%
@@ -790,7 +834,9 @@ selectie_gewasgroep <- watersheds_gewasgroep_2022 %>%
               values_fill = 0)
 
 somdata_combined <- selectie_gewasgroep %>%
-  select(meetplaats, Grasland, `Granen, zaden en peulvruchten`, Suikerbieten,
+  select(meetplaats, Grasland, `Granen, zaden en peulvruchten`,
+         `Groenten, kruiden en sierplanten`,
+         Suikerbieten,
          Maïs, Voedergewassen, Aardappelen) %>%
   arrange(meetplaats) %>%
   left_join(
@@ -811,7 +857,8 @@ somdata_combined <- selectie_gewasgroep %>%
         gem_gem_no3 = mean(`gemiddelde_NO3-`),
         gem_max_no3 = mean(`max_NO3-`),
         jaar_no3 = mean(jaar)
-      )) 
+      ))
+
 somdata <- list(
   gewasgroep = somdata_combined %>%
     select(Grasland:Aardappelen) %>%
@@ -829,7 +876,7 @@ somdata <- list(
 set.seed(77)
 pc1 <- kohonen::som(
   somdata$gewasgroep,
-  grid = kohonen::somgrid(2, 3)
+  grid = kohonen::somgrid(2, 2)
 )
 
 codes <- as_tibble(pc1$codes[[1]]) %>%
@@ -880,14 +927,6 @@ fc_data_binnen_watersheds <- fc_data_winterjaar %>%
           left = FALSE)
 ```
 
-
-```{r}
-codes %>%
-  select(classcode, label) %>%
-  gt::gt()
-```
-
-
 ```{r}
 som_results <- somdata_combined %>%
   select(meetplaats:Aardappelen) %>%
@@ -899,27 +938,40 @@ som_results <- somdata_combined %>%
            )
          )
 
-som_results %>%
-  pivot_longer(cols = !c(meetplaats, group, fgroup)) %>%
-  ggplot() +
-  geom_line(aes(x = name, y = value, group = meetplaats,
-                colour = factor(group))) +
-  coord_flip()
-
 watersheds_selectie <- watersheds_selectie %>%
   inner_join(som_results)
-
-
 ```
 
+De tabel toont de 4 clusters die we hiermee hebben berekend.
+De kolom "fgroup" geeft de typische samenstelling (prototypes) weer in afstroomgebieden die in deze categorie vallen.
 
 ```{r}
-mapview(vha_bekkens, alpha.regions = 0, legend = FALSE) +
-  mapview(watersheds_selectie, zcol = "fgroup") +
-  mapview(mi_fc_selectie_meetplaatsen,
-          zcol = c("recentste_mmif_nitraat"))
+watersheds_selectie %>%
+  st_drop_geometry() %>%
+  count(group, fgroup) %>%
+  gt::gt()
 ```
 
+Deze figuur toont dat er binnen deze clusters tamelijk wat variatie kan zijn binnen clusters (afwijkingen t.o.v. prototype).
+Elke meetplaats (afstroomgebied) is een aparte lijn en ook het gemiddelde en 95% betrouwbaarheidsinterval per gewasgroep wordt getoond.
+
+```{r}
+som_results %>%
+  pivot_longer(cols = !c(meetplaats, group, fgroup)) %>%
+  mutate(name = reorder(name, value)) %>%
+  ggplot() +
+  geom_line(
+    aes(x = name, y = value, group = meetplaats),
+    alpha = 0.3) +
+  stat_summary(
+    aes(x = name, y = value, colour = name),
+    fun.data = mean_cl_boot) +
+  coord_flip() +
+  facet_wrap(~group, ncol = 2) +
+  labs(x = "", y = "Oppervlakte-aandeel")
+```
+
+We kunnen kijken wanneer de laatste MMIF en nitraat gegevens verzameld werden voor deze `r nrow(watersheds_selectie)` meetplaatsen:
 
 ```{r}
 mi_fc_selectie_meetplaatsen %>%
@@ -929,6 +981,17 @@ mi_fc_selectie_meetplaatsen %>%
              alpha = 0.3)
 ```
 
+En dit visualiseren op een kaart samen met het resultaat van de clustering:
+
+```{r}
+mapview(vha_bekkens, alpha.regions = 0, legend = FALSE) +
+  mapview(watersheds_selectie, zcol = "fgroup",
+          alpha.regions = 0.3) +
+  mapview(mi_fc_selectie_meetplaatsen,
+          zcol = c("recentste_mmif_nitraat"))
+```
+
+De volgende twee figuren tonen de evoluties in MMIF en nitraat voor deze selectie van meetplaatsen opgesplitst volgens de clustering:
 
 ```{r}
 mi_fc %>%
@@ -936,7 +999,8 @@ mi_fc %>%
   distinct(jaar, meetplaats, mmif, fgroup, group) %>%
   ggplot() +
   geom_line(aes(x = jaar, y = mmif, group = meetplaats)) +
-  facet_wrap(~ group)
+  geom_smooth(aes(x = jaar, y = mmif), method = "lm") +
+  facet_wrap(~ group, ncol = 2)
 
 mi_fc %>%
   inner_join(watersheds_selectie %>% st_drop_geometry()) %>%
@@ -946,9 +1010,34 @@ mi_fc %>%
         colour = periode,
         group = interaction(meetplaats, periode))) +
   scale_y_log10() +
-  facet_wrap(~ group)
-
+  facet_wrap(~ group, ncol = 2)
 ```
+
+In groepen 1 (Grasland dominant en laag aandeel landbouw) en 4 (Maïs dominant) zijn de meeste "historische" gegevens beschikbaar voor MMIF en nitraat.
+Groep 2 (Grasland dominant en hoog aandeel) is eveneens interessant omdat het afstroomgebieden betreft met hoger aandeel (vaak permanent) grasland.
+Groep 3 (granen dominant) is interessant omdat het een duidelijk andere groep is (voornamelijk leemstreek en polders).
+
+Het voorstel is 20 meetplaatsen per jaar (2023 en 2024), dus is een verdere keuze van meetplaatsen uit deze eerste selectie nog nodig.
+
+Voorstel: Groepen 3 en 4 selecteren (n = 40)?
+Daarmee selecteren we twee typische, maar contrasterende, intensieve landbouw types (één op de zwaardere gronden - granen; en een ander op de zandgronden - maïs).
+
+```{r}
+groepen <- c(3, 4)
+
+watersheds_selectie %>%
+  st_drop_geometry() %>%
+  filter(group %in% groepen) %>%
+  count(group, fgroup) %>%
+  gt::gt()
+
+watersheds_selectie %>%
+  filter(group %in% groepen) %>%
+  mapview(zcol = "fgroup",
+          alpha.regions = 0.3)
+```
+
+
 
 
 Andere, niet beschouwde relevante factoren in afstroomgebied:
@@ -957,25 +1046,10 @@ Andere, niet beschouwde relevante factoren in afstroomgebied:
 - puntvervuilingen
 - omgevend landgebruik rond de meetplaats buiten het afstroomgebied
 - bemestingsdruk
-- beschermingsmaatregelen
+- beschermingsmaatregelen zoals teeltvrije stroken
 
 
 Zie ook http://geoloket.vmm.be/Geoviews/
-
-Groepen 1, 4 en 5 selecteren (n = 50)?
-
-```{r}
-watersheds_selectie %>%
-  filter(group %in% c(1, 4, 5)) %>%
-  mapview(zcol = "fgroup")
-
-watersheds_selectie %>%
-  filter(group %in% c(1, 4, 5)) %>%
-  st_drop_geometry() %>%
-  count(fgroup) %>%
-  gt::gt()
-
-```
 
 
 
