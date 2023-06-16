@@ -36,7 +36,7 @@ library(INBOtheme)
 library(sf)
 ```
 
-# Read in data
+# Inlezen data
 
 ```{r}
 data_path <- here("data", "processed")
@@ -48,11 +48,16 @@ perimeters <- read_sf(
   here("data", "processed", "piloot_perimeters.gpkg"))
 ```
 
-# Dataset structure
+# Dataset structuur
+## Algemeen
+
+Hoe ziet de dataset eruit?
 
 ```{r}
 glimpse(mas_data_df)
 ```
+
+We visualiseren ook de waarnemingen en kleuren hoeveel jaren het telpunt geteld is.
 
 ```{r}
 visits_per_jaar <- mas_data_sf %>%
@@ -87,4 +92,63 @@ mas_data_sf %>%
     guides(colour = guide_legend(override.aes = list(size = 3)))
 ```
 
+## Aantal tellingen en waarnemingen
+
+Aantal verschillende telpunten geteld per regio, jaar en telperiode.
+
+```{r}
+mas_data_df %>%
+  group_by(regio, jaar, periode_in_jaar) %>%
+  mutate(n_per_telperiode = n_distinct(plotnaam)) %>%
+  ungroup() %>%
+  group_by(regio, jaar) %>%
+  mutate(n_per_jaar = n_distinct(plotnaam)) %>%
+  ungroup() %>%
+  group_by(regio) %>%
+  mutate(n_per_regio = n_distinct(plotnaam)) %>%
+  ungroup() %>%
+  select(regio, jaar, periode_in_jaar, n_per_telperiode, n_per_jaar,
+         n_per_regio) %>%
+  distinct() %>%
+  arrange(regio, jaar, periode_in_jaar) %>%
+  kable()
+```
+
+```{r}
+mas_data_df %>%
+  group_by(regio, jaar, periode_in_jaar) %>%
+  mutate(n_per_telperiode = n_distinct(plotnaam)) %>%
+  ungroup() %>%
+  select(regio, jaar, periode_in_jaar, n_per_telperiode) %>%
+  distinct() %>%
+  ggplot(aes(x = periode_in_jaar, y = n_per_telperiode, 
+             fill = periode_in_jaar)) +
+    geom_bar(stat = "identity") +
+    facet_grid(regio~jaar, scales = "free_y") +
+    labs(x = "telperiode", y = "aantal tellingen") +
+    theme(legend.position = "")
+```
+
+```{r}
+mas_data_df %>%
+  group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = n, colour = periode_in_jaar)) +
+    geom_boxplot() +
+    facet_grid(regio~jaar, scales = "free_y") +
+    labs(x = "telperiode", y = "aantal waarnemingen") +
+    theme(legend.position = "")
+```
+
+```{r}
+mas_data_df %>%
+  filter(aantal < 3000) %>%
+  group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
+  summarise(n = sum(aantal), .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = n, colour = periode_in_jaar)) +
+    geom_boxplot() +
+    facet_grid(regio~jaar, scales = "free_y") +
+    labs(x = "telperiode", y = "aantal individuen") +
+    theme(legend.position = "")
+```
 
