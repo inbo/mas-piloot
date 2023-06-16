@@ -265,9 +265,10 @@ for (var in plot_vars) {
 hfdtlt_vars <- sort(names(mas_data_df)[grep("hfdtlt$", names(mas_data_df))])
 vrtlt_vars <- sort(names(mas_data_df)[grep("vrtlt$", names(mas_data_df))])
 plotjaar_vars <- c("area_prop_sb", "area_prop_bo_overig", hfdtlt_vars, 
-                   "gewas_div_shannon", "gewas_div_n", vrtlt_vars, 
-                   "perceel_median_area", "perceel_iqr_area", "perceel_cv_area",
-                   "inertie_sb", "inertie_rest", "status_teller", "sbp")
+                   "gewas_div_shannon", "gewas_div_n", "gewas_evenness",
+                   vrtlt_vars, "perceel_median_area", "perceel_iqr_area", 
+                   "perceel_cv_area", "inertie_sb", "inertie_rest", 
+                   "status_teller", "sbp")
 
 plotjaar_df <- mas_data_df %>%
   select(plotnaam, regio, jaar, all_of(plotjaar_vars)) %>%
@@ -276,8 +277,6 @@ plotjaar_df <- mas_data_df %>%
 ```
 
 Variabelen eigen aan het telpunt variabel over de jaren: `r plotjaar_vars`.
-
-> eveness vergeten!
 
 ```{r}
 for (var in plotjaar_vars) {
