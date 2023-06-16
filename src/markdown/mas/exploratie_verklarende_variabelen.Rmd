@@ -159,12 +159,37 @@ Niet strikt univariaat. We groeperen de variabelen per regio en indien van toepa
 
 ## Plot-specifieke variabelen
 
-Variabelen eigen aan het telpunt niet variabel over de jaren.
+```{r}
+kle_vars <- c("haag", "houtkant", "boom", "bomengroep", "bomenrij", "bosrand")
+plot_vars <- c("status_teller", "sbp", "openheid_waarde_1000", "natuur_exp",
+               kle_vars)
+```
+
+Variabelen eigen aan het telpunt niet variabel over de jaren: `r plot_var_list`.
+
+
 
 ## Plot-jaar-specifieke variabelen
 
-Variabelen eigen aan het telpunt variabel over de jaren.
+```{r}
+hfdtlt_vars <- sort(names(mas_data_df)[grep("hfdtlt$", names(mas_data_df))])
+vrtlt_vars <- sort(names(mas_data_df)[grep("vrtlt$", names(mas_data_df))])
+plotyear_vars <- c("area_prop_sb", "area_prop_bo_overig", hfdtlt_vars, 
+                   "gewas_div_shannon", "gewas_div_n", vrtlt_vars, 
+                   "perceel_median_area", "perceel_iqr_area", "perceel_cv_area",
+                   "inertie_sb", "inertie_rest")
+```
+
+Variabelen eigen aan het telpunt variabel over de jaren: `r plotyear_vars`.
+
+
 
 ## Telling-specifieke variabelen
 
-Variabelen eigen aan de telling.
+```{r}
+telling_vars <- c("n_predators", "n_predators_spec")
+```
+
+Variabelen eigen aan de telling: `r telling_vars`.
+
+
