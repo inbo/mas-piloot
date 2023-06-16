@@ -157,11 +157,90 @@ mas_data_df %>%
 
 Niet strikt univariaat. We groeperen de variabelen per regio en indien van toepassing ook nog per jaar en/of telperiode.
 
+```{r}
+is_discrete   <- function(vec) all(is.numeric(vec)) && all(vec %% 1 == 0)
+
+is_continuous <- function(vec) all(is.numeric(vec)) && !is_discrete(vec)
+
+select_df <- function(df, var, grouping) {
+  df %>%
+    select(plotnaam, all_of(grouping), !!sym(var))
+}
+
+univar_tab <- function(df, var, grouping) {
+  df_select <- select_df(df, var, grouping)
+  
+  if (is.numeric(pull(df[var]))) {
+    out <- df_select %>%
+      group_by_at(grouping) %>%
+      summarise(min = min(!!sym(var)),
+                mean = mean(!!sym(var)),
+                max = max(!!sym(var)),
+                Q1 = quantile(!!sym(var), 0.25),
+                Q2 = quantile(!!sym(var), 0.5),
+                Q3 = quantile(!!sym(var), 0.75))
+    
+  } else {
+    out <- df_select %>%
+      group_by_at(c(grouping, var)) %>%
+      summarise(n = n(), .groups = "drop") %>%
+      group_by(regio) %>%
+      mutate(prop = n / sum(n)) %>%
+      arrange(regio, !!sym(var))
+      
+  }
+  
+  out %>% 
+    kable(caption = var, digits = 5) %>%
+    print()
+}
+
+univar_plot <- function(df, selection, grouping) {
+  df_select <- select_df(df, var, grouping)
+  
+  if (length(grouping) < 3) {
+    if (is_continuous(pull(df[var]))) {
+      out <- df_select %>%
+        ggplot() +
+          geom_histogram(aes(x = .data[[var]])) +
+          theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+          labs(y = "Aantal telcirkels")
+    } else {
+      out <- df_select %>%
+        group_by_at(c(grouping, var)) %>%
+        summarise(n = n(), .groups = "drop") %>%
+        ggplot(aes(x = .data[[var]], y = n)) +
+          geom_bar(stat = "identity") +
+          theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+          labs(y = "Aantal telcirkels")
+    }
+  } else {
+    out <- df_select %>%
+        ggplot(aes(x = .data[[grouping[3]]], y = .data[[var]], 
+                   colour = .data[[grouping[3]]])) +
+          geom_boxplot() +
+          labs(x = "telperiode") +
+          theme(legend.position = "")
+  }
+  
+  if (length(grouping) == 1) {
+    out <- out + facet_wrap(~.data[[grouping]], scales = "free")
+  } else {
+    out <- out + facet_grid(rows = vars(!!sym(grouping[1])),
+                            cols = vars(!!sym(grouping[2])), 
+                            scales = "free")
+  }
+  
+  return(print(out))
+}
+```
+
+
 ## Plot-specifieke variabelen
 
 ```{r}
 kle_vars <- c("haag", "houtkant", "boom", "bomengroep", "bomenrij", "bosrand")
-plot_vars <- c("status_teller", "sbp", "openheid_waarde_1000", "natuur_exp",
+plot_vars <- c("openheid_waarde_1000", "natuur_exp",
                kle_vars)
 
 plot_df <- mas_data_df %>%
@@ -170,27 +249,13 @@ plot_df <- mas_data_df %>%
   arrange(regio, plotnaam)
 ```
 
-Variabelen eigen aan het telpunt niet variabel over de jaren: `r plot_var_list`.
+Variabelen eigen aan het telpunt niet variabel over de jaren: `r plot_vars`.
 
 ```{r}
-plot_df %>%
-  select(plotnaam, regio, openheid_waarde_1000) %>%
-  group_by(regio) %>%
-  summarise(min = min(openheid_waarde_1000),
-            mean = mean(openheid_waarde_1000),
-            max = max(openheid_waarde_1000),
-            Q1 = quantile(openheid_waarde_1000, 0.25),
-            Q2 = quantile(openheid_waarde_1000, 0.5),
-            Q3 = quantile(openheid_waarde_1000, 0.75)) %>%
-  kable()
-
-plot_df %>%
-  select(plotnaam, regio, openheid_waarde_1000) %>%
-  ggplot() +
-    geom_histogram(aes(x = openheid_waarde_1000)) +
-    facet_wrap(~regio) +
-    labs(x = "Openheid waarde (1000 m)", y = "Aantal telcirkels",
-         title = "Openheid landschap")
+for (var in plot_vars) {
+  univar_tab(plot_df, var, "regio")
+  univar_plot(plot_df, var, "regio")
+}
 ```
 
 
@@ -202,17 +267,24 @@ vrtlt_vars <- sort(names(mas_data_df)[grep("vrtlt$", names(mas_data_df))])
 plotjaar_vars <- c("area_prop_sb", "area_prop_bo_overig", hfdtlt_vars, 
                    "gewas_div_shannon", "gewas_div_n", vrtlt_vars, 
                    "perceel_median_area", "perceel_iqr_area", "perceel_cv_area",
-                   "inertie_sb", "inertie_rest")
+                   "inertie_sb", "inertie_rest", "status_teller", "sbp")
 
 plotjaar_df <- mas_data_df %>%
-  select(plotnaam, regio, jaar, all_of(plotyear_vars)) %>%
+  select(plotnaam, regio, jaar, all_of(plotjaar_vars)) %>%
   distinct() %>%
   arrange(regio, jaar, plotnaam)
 ```
 
 Variabelen eigen aan het telpunt variabel over de jaren: `r plotjaar_vars`.
 
+> eveness vergeten!
 
+```{r}
+for (var in plotjaar_vars) {
+  univar_tab(plotjaar_df, var, c("regio", "jaar"))
+  univar_plot(plotjaar_df, var, c("regio", "jaar"))
+}
+```
 
 ## Telling-specifieke variabelen
 
@@ -227,4 +299,13 @@ telling_df <- mas_data_df %>%
 
 Variabelen eigen aan de telling: `r telling_vars`.
 
+```{r}
+for (var in telling_vars) {
+  univar_tab(telling_df, var, c("regio", "jaar", "periode_in_jaar"))
+  univar_plot(telling_df, var, c("regio", "jaar", "periode_in_jaar"))
+}
+```
 
+## Discussie
+
+...
