@@ -200,7 +200,12 @@ mas_31370_pipeline <-
                pipeline = chosen_pipeline_definition) %>% 
   st_sf(st_drop_geometry(mas_geojson_new), geometry = .) %>% 
   as_tibble() %>% 
-  st_as_sf()
+  st_as_sf() %>%
+  rename(x_amersfoord = x_coord,
+         y_amersfoord = y_coord) %>%
+  mutate(x_lambert = unlist(map(.data$geometry, 1)),
+         y_lambert = unlist(map(.data$geometry, 2))) %>%
+  select(oid:y_amersfoord, x_lambert, y_lambert, everything())
 ```
 
 ## Data selectie
@@ -523,8 +528,7 @@ Dit zijn variabelen op plot- en jaarniveau.
 ```{r}
 verklarende_variabelen_plotjaar <- read_csv(
   file.path("data", "processed", "verklarende_variabelen_2018_2022.csv")
-  ) %>%
-  rename(geometry_telpunt = geometry)
+  )
 
 mas_finaal_df <- mas_predators %>%
   inner_join(verklarende_variabelen_plotjaar, 
@@ -652,6 +656,6 @@ mas_finaal_df %>%
 # Uitschrijven data
 
 ```{r}
-write_csv(mas_finaal_df, file.path("data", "processed", 
-                                   "MAS_data_full_2018_2022.csv"))
+write_csv(st_drop_geometry(mas_finaal_df), 
+          file.path("data", "processed", "MAS_data_full_2018_2022.csv"))
 ```
