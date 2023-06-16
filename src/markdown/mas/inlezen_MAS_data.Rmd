@@ -1,0 +1,661 @@
+---
+title: "Inlezen MAS data"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+#renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here::here())
+
+Sys.setenv("PROJ_NETWORK" = "ON")
+
+# Packages
+library(tidyverse)
+library(lubridate)
+library(sf)
+
+# Source
+mbag_dir <- here()
+data_path <- file.path("data", "mas")
+```
+
+# Initiële controles
+## Oude exports
+
+Eerst controleren we of `20220906_qgis_export_sovon_wfs.gpkg` en `20220906_qgis_export_sovon_wfs.geojson` dezelfde informatie bevatten.
+
+File size `20220906_qgis_export_sovon_wfs.gpkg`:
+
+```{r}
+file_gpkg <- file.path(data_path, "20220906_qgis_export_sovon_wfs.gpkg")
+info_gpkg <- file.info(file_gpkg)
+info_gpkg$size
+```
+
+File size `20220906_qgis_export_sovon_wfs.geojson`:
+
+```{r}
+file_geojson <- file.path(data_path, "20220906_qgis_export_sovon_wfs.geojson")
+info_geojson <- file.info(file_geojson)
+info_geojson$size
+```
+
+We vergelijken beide bestanden.
+
+```{r}
+mas_gpkg <- read_sf(file_gpkg)
+mas_geojson <- read_sf(file_geojson)
+```
+
+Het enige verschil tussen beide bestanden is de benaming van de geometry kolom en het type van 3 kolommen die enkel maar `NA`'s bevatten.
+
+```{r}
+waldo::compare(mas_gpkg, mas_geojson)
+```
+
+## Nieuwe export
+
+File size `20230509_qgis_export_sovon_wfs.geojson`:
+
+```{r}
+file_geojson_new <- file.path(data_path, 
+                              "20230509_qgis_export_sovon_wfs.geojson")
+info_geojson_new <- file.info(file_geojson_new)
+info_geojson_new$size
+```
+
+```{r}
+mas_geojson_new <- read_sf(file_geojson_new)
+```
+
+We selecteren eerst de MAS-data binnen 2018 en 2022.
+
+```{r}
+mas_geojson_new <- mas_geojson_new %>%
+  filter(jaar %in% 2018:2022)
+```
+
+Zelfde bounding box:
+
+```{r}
+st_bbox(mas_geojson)
+st_bbox(mas_geojson_new)
+```
+
+```{r}
+diff_df1 <- setdiff(x = mas_geojson, y = mas_geojson_new)
+diff_df2 <- setdiff(x = mas_geojson_new, y = mas_geojson)
+```
+
+Er zitten `r nrow(diff_df1)` in de oude export die niet in de nieuwe zitten en `r nrow(diff_df2)` in de nieuwe die niet in de oude zitten.
+
+*Welke waarnemingen zitten niet meer in de nieuwe export?*
+
+De waarnemingen zitten wel nog in de nieuwe export:
+
+```{r}
+old_oids <- diff_df1$oid
+test1 <- mas_geojson %>% 
+  filter(oid %in% old_oids) %>%
+  arrange(oid)
+test2 <- mas_geojson_new %>%
+  filter(oid %in% old_oids) %>%
+  arrange(oid)
+
+all(c(nrow(test1), nrow(test2)) == length(old_oids))
+```
+
+Waar zit dan wel het verschil?
+
+```{r}
+waldo::compare(test1, test2, max_diffs = Inf)
+```
+
+Het verschil zit in de plotnamen, de soortnaam voor het groene kikker-complex en `distance2plot`.
+
+*Welke waarnemingen zijn nieuw in de nieuwe export?*
+
+Het gaat dus om `r nrow(diff_df2)` - `r nrow(diff_df1)`  = `r nrow(diff_df2) - nrow(diff_df1)` waarnemingen.
+
+```{r}
+new_oids <- diff_df2$oid
+diff_new_oids <- setdiff(new_oids, old_oids)
+
+new_obs_df <- mas_geojson_new %>%
+  filter(oid %in% diff_new_oids)
+```
+
+Het gaat om waarnemingen van `r sort(unique(new_obs_df$jaar))` door `r sort(unique(new_obs_df$waarneme))`.  
+Niet alle waarnemingen vallen binnen het MAS pilootmeetnet, maar toch een aantal:
+
+```{r}
+mapview::mapview(new_obs_df)
+```
+
+```{r}
+test_plots <- c("Ol_2279.16", "VL0203", "Ol_11033.1", "VL0584")
+```
+
+We nemen enkele voorbeelden: `r test_plots`.
+
+```{r}
+out <- vector(mode = "list", length = length(test_plots))
+for (i in seq_along(test_plots)) {
+  oid_old <- mas_geojson %>% 
+    filter(plotnaam == test_plots[i]) %>%
+    pull(oid)
+  oid_extra <- new_obs_df %>% 
+    filter(plotnaam == test_plots[i]) %>%
+    pull(oid)
+  
+  df <- data.frame(plotnaam = test_plots[i],
+                   old_oid = paste(oid_old, collapse = ", "),
+                   extra_oid = paste(oid_extra, collapse = ", "))
+  out[[i]] <- df
+}
+
+do.call(rbind.data.frame, out) %>%
+  kable()
+```
+
+We zien vaak al waarnemingen voor de punten in de oude export. In de nieuwe export zitten deze ook, maar toch zitten er veel meer extra waarnemingen in de nieuwe export.
+
+Zouden er nieuwe waarnemingen ingevoerd zijn na de laatste export?
+
+# Data preparatie
+## CRS
+
+De CRS moet aangepast worden naar van Amersfoort naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
+
+```{r}
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+glimpse(pipelines)
+
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# If the grids are installed, this should match the first line of the pipelines object.
+
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% 
+  pull(definition)
+
+mas_31370_pipeline <- 
+  st_transform(st_geometry(mas_geojson_new), "EPSG:31370",
+               pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(mas_geojson_new), geometry = .) %>% 
+  as_tibble() %>% 
+  st_as_sf() %>%
+  rename(x_amersfoord = x_coord,
+         y_amersfoord = y_coord) %>%
+  mutate(x_lambert = unlist(map(.data$geometry, 1)),
+         y_lambert = unlist(map(.data$geometry, 2))) %>%
+  select(oid:y_amersfoord, x_lambert, y_lambert, everything())
+```
+
+## Data selectie
+### Telrondes
+
+We selecteren eerst de MAS-data **binnen de telrondes**.
+
+```{r}
+r1_start <- "04-01"
+r1_stop  <- "04-20"
+r2_start <- "04-21"
+r2_stop  <- "05-10"
+r3_start <- "05-11"
+r3_stop  <- "06-10"
+r4_start <- "06-21"
+r4_stop  <- "07-15"
+
+mas_telperiodes <- mas_31370_pipeline %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    )) %>%
+  filter(!is.na(periode_in_jaar))
+```
+
+
+### Perimeter
+
+We selecteren de telpunten **binnen de perimeter van het piloomeetnet**. We hebben dus een lijst nodig met alle plots die geteld zijn met coördinaten.
+
+De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON. Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn. Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest). Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden. Wel zijn de locaties in 2022 verkeerd voor VL plots. Dit zijn reeds bestaande plots en zitten dus al in de lijst van 2018-2021. We selecteren voor 2022 dus enkel de nieuwe plots.
+
+```{r}
+# 2018-2021
+telpunten_2018_2021_raw <- read_sf(
+  file.path("data", "mas",
+    "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger")
+    )
+
+telpunten_2018_2021_amersfoort <- telpunten_2018_2021_raw %>%
+  st_drop_geometry() %>%
+  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
+
+telpunten_2018_2021 <- st_transform(
+  st_geometry(telpunten_2018_2021_amersfoort), "EPSG:31370",
+  pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(telpunten_2018_2021_raw), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf %>%
+  mutate(regio = gsub("Vlaanderen - ", "", regio),
+         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio),
+         regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio))
+
+design_2018_2021 <- telpunten_2018_2021 %>%
+  select(plotnaam = naam)
+
+# 2022
+design_2022_raw <- read_csv(file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370)
+
+design_2022 <- design_2022_raw %>%
+  filter(!grepl("^VL", plotnaam)) %>%
+  select(plotnaam)
+```
+
+Finaal voegen we alles samen. We behouden enkel plots binnen de perimeters van de pilootstudie: De Moeren en Oostelijke leemstreek.
+
+```{r}
+perimeters <- read_sf(
+  file.path("data", "processed", "piloot_perimeters.gpkg"))
+
+telpunten_2018_2022 <- bind_rows(design_2018_2021, design_2022) %>%
+  st_intersection(perimeters) %>%
+  select(plotnaam, regio = Naam)
+```
+
+We filteren bijgevolg de data op basis van deze lijst.
+
+```{r}
+mas_perimeters <- mas_telperiodes %>%
+  filter(plotnaam %in% telpunten_2018_2022$plotnaam)
+```
+
+Omgekeerd maken we ook een lijst met alle plotjaar combinaties en de coördinaten van de telpunten door te inner-joinen met het design.
+
+```{r}
+mas_design <- mas_perimeters %>%
+  distinct(plotnaam, jaar) %>%
+  inner_join(telpunten_2018_2022, by = "plotnaam") %>%
+  st_as_sf()
+```
+
+### Telcirkel
+
+We herberekenen de afstanden tussen de waarnemingen en de telpunten. We ronden af to 1 m nauwkeurig.
+
+```{r}
+mas_controle_afstand <- mas_perimeters %>%
+  select(oid, plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
+  inner_join(mas_design %>% as_tibble() %>% distinct(plotnaam, regio, geometry),
+             by = "plotnaam", suffix = c(".stip", ".telpunt")) %>%
+  mutate(calc_distance = st_distance(.$geometry.stip, .$geometry.telpunt,
+            by_element = TRUE),
+         calc_distance = round(units::drop_units(calc_distance))) %>%
+  st_drop_geometry()
+```
+
+We selecteren vervolgens alle waarnemingen **binnen een afstand van 300 m**.
+
+```{r}
+mas_distance <- mas_perimeters %>%
+  full_join(mas_controle_afstand, 
+            by = join_by(oid, plotnaam, naam, jaar, distance2plot)) %>%
+  select(-c(distance2plot, geometry.telpunt, waarneme)) %>%
+  rename(distance2plot = calc_distance) %>%
+  filter(distance2plot <= 300)
+```
+
+De afstanden van de waarnemingen tot het middelpunt zijn correct:
+
+```{r}
+detail <- c("xmin" = 200000,
+            "ymin" = 155000,
+            "xmax" = 210000,
+            "ymax" = 160000)
+
+detail_sf <- tibble(geometry = st_as_sfc(st_bbox(detail))) %>% 
+  st_as_sf() %>%
+  st_set_crs(31370)
+
+mapview::mapview(st_crop(perimeters, detail_sf), color = "red", alpha.regions = 0, legend = FALSE) + 
+  mapview::mapview(st_crop(distinct(mas_design, geometry), detail_sf), legend = FALSE) +
+  mapview::mapview(st_crop(st_buffer(mas_distance, mas_distance$distance2plot), detail_sf), 
+                   alpha.regions = 0, legend = FALSE)
+```
+
+We selecteren vervolgens alle waarnemingen **van vogels en zoogdieren**.
+
+```{r}
+mas_soortgrp <- mas_distance %>%
+  filter(soortgrp %in% 1:2)
+```
+
+## Dubbeltellingen
+
+Voor de waarnemingen verwijderen we dubbeltellingen. Indien binnen een jaar op meerdere teldagen binnen eenzelfde telperiode werd geteld, wordt de laatste teldag genomen tenzij er ook door een professionele teller is geteld. Dan nemen we de telling van de professionele teller.
+
+```{r}
+profs <- c("WVNT00", "JJNN16", "NOVN00", "ETBX00")
+profs_2022 <- "RPLT02"
+```
+
+Professionele tellers zijn `r profs`. `r profs_2022` is professionele teller vanaf 2022.
+
+```{r}
+dubbels <- mas_soortgrp %>%
+  st_drop_geometry() %>%
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  summarize(aantal_teldagen = n_distinct(doy),
+            .groups = "drop") %>%
+  filter(aantal_teldagen > 1)
+
+dubbels %>%
+  kable
+```
+
+```{r}
+mas_no_dubbel <- mas_soortgrp %>%
+  semi_join(dubbels, by = c("plotnaam", "jaar", "periode_in_jaar")) %>%
+  group_by(plotid, jaar, periode_in_jaar) %>%
+  mutate(status_teller = ifelse(
+    (waarnemer %in% profs) | (waarnemer %in% profs_2022 & jaar == 2022), 
+    "professioneel", "vrijwilliger")) %>%
+  mutate(prof_in_period = ifelse(any(status_teller == "professioneel"),
+                                 TRUE, FALSE),
+         max_doy = ifelse(doy == max(doy), TRUE, FALSE)
+  ) %>%
+  arrange(plotid, jaar, periode_in_jaar, doy, waarnemer) %>%
+  ungroup() %>%
+  rowwise() %>%
+  # Keep observations of professionals or otherwise the last day
+  mutate(keep = ifelse(status_teller == "professioneel", TRUE,
+                       ifelse(!isTRUE(prof_in_period) & isTRUE(max_doy), 
+                              TRUE, FALSE))
+  ) %>%
+  filter(isTRUE(keep)) %>%
+  ungroup() %>%
+  bind_rows(mas_soortgrp %>%
+              anti_join(dubbels, 
+                        by = c("plotnaam", "jaar", "periode_in_jaar"))) %>%
+  select(-c(prof_in_period, max_doy, keep))
+```
+
+## Soortnamen
+
+We controleren de soortnamen.
+Voor de vogels hebben we:
+
+```{r}
+vogels <- mas_no_dubbel %>%
+  filter(soortgrp == 2) %>%
+  distinct(naam) %>%
+  arrange(naam) %>%
+  pull(naam)
+vogels
+```
+
+We vervangen `Gele kwikstaart (spec)` en `Engelse Kwikstaart` door `Gele Kwikstaart`, `Witte Kwikstaart (spec)` en `Rouwkwikstaart` door `Witte Kwikstaart`, `canadese gans spec.` door `Grote Canadese Gans` en `Witsterblauwborst` door `Blauwborst`. *We vervangen enkel de soortnaam. Het soortnummer blijft behouden.*
+
+Voor de zoogdieren hebben we:
+
+```{r}
+zoogdieren <- mas_no_dubbel %>%
+  filter(soortgrp == 1) %>%
+  distinct(naam) %>%
+  arrange(naam) %>%
+  pull(naam)
+zoogdieren
+```
+
+```{r}
+mas_clean <- mas_no_dubbel %>%
+  mutate(
+    naam = case_when(
+      tolower(naam) %in% tolower(c("gele kwikstaart (spec)", 
+                                   "engelse kwikstaart"))
+        ~ "Gele Kwikstaart",
+      tolower(naam) %in% tolower(c("witte kwikstaart (spec)", 
+                                   "Rouwkwikstaart"))
+        ~ "Witte Kwikstaart",
+      tolower(naam) == tolower("canadese gans spec.") 
+        ~ "Grote Canadese Gans",
+      tolower(naam) == tolower("Witsterblauwborst") 
+        ~ "Blauwborst",
+      TRUE ~ naam
+      )
+    )
+```
+
+
+# Toevoegen specifieke variabelen
+## Status teller
+
+Voeg status teller toe als variabele (vrijwilligers vs. professionele teller).
+Professionele tellers zijn `r profs`. `r profs_2022` is professionele teller vanaf 2022.
+
+```{r}
+# Reeds toegevoegd bij dubbeltellingen
+mas_profs <- mas_clean %>%
+  mutate(status_teller = ifelse(
+    (waarnemer %in% profs) | (waarnemer %in% profs_2022 & jaar == 2022), 
+    "professioneel", "vrijwilliger"))
+```
+
+## Predator
+
+```{r}
+roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bosuil", "Bruine Kiekendief",
+                "Buizerd", "Grauwe Kiekendief", "Havik", "Ransuil", "Rode Wouw",
+                "Slechtvalk", "Smelleken", "Sperwer", "Steenuil", 
+                "Steppekiekendief", "Torenvalk", "Velduil", "Wespendief",
+                "Zwarte Wouw")
+kraaiachtigen <- c("Ekster", "Gaai", "Kauw", "Raaf", "Roek", "Zwarte Kraai")
+predatoren <- c(roofvogels, kraaiachtigen)
+```
+
+Voeg predator toe als variabele (ja vs. nee).
+Als predatoren beschouwen we roofvogels (`r roofvogels`) en kraaiachtigen (`r kraaiachtigen`).
+We maken ook een variabele met per plot, per telperiode, per jaar het aantal predatoren (individuen en soorten).
+
+```{r}
+mas_predators <- mas_profs %>%
+  mutate(predator = ifelse(naam %in% predatoren, "ja", "nee"),
+         predator_num = ifelse(naam %in% predatoren, aantal, 0),
+         predator_spec = ifelse(naam %in% predatoren, naam, NA)) %>%
+  group_by(plotnaam, jaar, periode_in_jaar) %>%
+  mutate(n_predators = sum(predator_num),
+         n_predators_spec = n_distinct(predator_spec, na.rm = TRUE)) %>%
+  ungroup() %>%
+  select(-c(predator_num, predator_spec))
+```
+
+## Plotspecifieke variabelen
+
+`inner_join()` met verklarende variabelen berekend in `verzameling_verklarende_variabelen.Rmd`. 
+Dit zijn variabelen op plot- en jaarniveau.
+
+```{r}
+verklarende_variabelen_plotjaar <- read_csv(
+  file.path("data", "processed", "verklarende_variabelen_2018_2022.csv")
+  )
+
+mas_finaal_df <- mas_predators %>%
+  inner_join(verklarende_variabelen_plotjaar, 
+             by = join_by(plotnaam, jaar, regio))
+```
+
+# Controle ontbrekende gegevens
+
+Enkel ontbrekende gegevens waar verwacht.
+
+```{r}
+apply(mas_finaal_df, 2, function(x) any(is.na(x)))
+```
+
+
+# Overzicht
+
+```{r}
+glimpse(mas_finaal_df)
+```
+
+Aantal telpunten:
+
+```{r}
+plots_per_telperiode <- mas_finaal_df %>%
+  st_drop_geometry() %>%
+  group_by(jaar, periode_in_jaar) %>%
+  summarise(n_per_telperiode = n_distinct(plotnaam)) %>%
+  ungroup()
+
+plots_per_telperiode %>%
+  arrange(jaar, periode_in_jaar) %>%
+  kable()
+```
+
+```{r}
+plots_per_jaar <- mas_design %>%
+  st_drop_geometry() %>%
+  group_by(jaar) %>%
+  summarise(n_per_jaar = n_distinct(plotnaam)) %>%
+  ungroup()
+
+plots_per_jaar %>%
+  arrange(jaar) %>%
+  kable()
+```
+
+Niet elke plot in elke periode geteld?
+
+```{r}
+plots_per_telperiode %>%
+  full_join(plots_per_jaar, by = join_by(jaar)) %>%
+  arrange(jaar) %>%
+  kable()
+```
+
+```{r}
+mas_finaal_df %>%
+  st_drop_geometry() %>%
+  group_by(jaar, plotnaam) %>%
+  summarise(n_per_telperiode = n_distinct(periode_in_jaar),
+            .groups = "drop") %>%
+  ggplot(aes(x = n_per_telperiode)) +
+    geom_bar() +
+    geom_text(stat = "count", aes(label = after_stat(count)), vjust = 0,
+              colour = "black") +
+    facet_wrap(~jaar, scales = "free_y") +
+    labs(x = "aantal bezoeken van eenzelfde telpunt per jaar", y = "frequentie")
+```
+
+We bekijken enkele voorbeelden. 
+Sommige plots zijn niet in elke telperiode geteld.
+Anderen zijn niet binnen de correcte datumintervallen geteld waardoor ze worden weggefilterd.
+Nog anderen zijn tweemaal in eenzelfde telperiode geteld en niet meer in een andere één van de twee tellingen wordt behouden.
+
+VL0039:  
+3x geteld in 2018: niets van data in periode 4  
+4x geteld in 2019  
+3x geteld in 2020: geteld op 20 maart voor periode 1 -> weggefilterd  
+4x geteld in 2021
+
+VL0050:  
+2x geteld in 2018: geteld tussen telperiodes 2 en 3 op 16 juni, niets van data in in periode 4  
+3x geteld in 2019: dubbeltelling telperiode 4  
+3x geteld in 2020: geteld buiten range telperiode 4 op 18 juni -> weggefilterd
+
+VL0004:  
+4x geteld in 2018  
+1x geteld in 2020: effectief maar data voor 1 telperiode
+
+VL0297:  
+2x geteld in 2018: niets van data in periodes 2 en 3  
+2x geteld in 2019: niets van data in periodes 1 en 2  
+4x geteld in 2020  
+3x geteld in 2021: niets van data in periode 1  
+4x geteld in 2022
+
+VL0538:  
+3x geteld in 2021: geteld buiten range telperiode 4 op 11 juni -> weggefilterd  
+2x geteld in 2022: niets van data in periode 1, geteld buiten range telperiode 4 op 16 juli -> weggefilterd
+	
+Ol_9862.14:  
+3x geteld in 2022: geteld tussen telperiodes 2 en 3 op 12 juni -> weggefilterd
+
+Ol_12609.15:  
+3x geteld in 2022: dubbelgeteld in periode 1, niet geteld in periode 2
+
+DM_257.2:  
+3x geteld in 2022: geteld tussen telperiodes 2 en 3 op 17 juni -> weggefilterd
+
+DM_44.45:  
+3x geteld in 2022: geteld tussen telperiodes 2 en 3 op 17 juni -> weggefilterd
+
+Aantal waarnemingen:
+
+```{r}
+mas_finaal_df %>%
+  st_drop_geometry() %>%
+  count(jaar, periode_in_jaar) %>%
+  arrange(jaar, periode_in_jaar) %>%
+  kable()
+```
+
+
+# Uitschrijven data
+
+```{r}
+write_csv(st_drop_geometry(mas_finaal_df), 
+          file.path("data", "processed", "MAS_data_full_2018_2022.csv"))
+```

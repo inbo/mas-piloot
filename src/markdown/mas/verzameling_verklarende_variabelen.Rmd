@@ -1916,9 +1916,10 @@ names(variables_df) <- iconv(names(variables_df),
 # Join everything
 final_variables_df <- variables_df_per_year %>%
   full_join(variables_df, by = c("pointid", "regio", "jaar", "geometry")) %>%
+  st_drop_geometry() %>%
   rename(plotnaam = pointid,
-         x_lambert72 = x,
-         y_lambert72 = y)
+         x_plot = x,
+         y_plot = y)
 ```
 
 ```{r}
