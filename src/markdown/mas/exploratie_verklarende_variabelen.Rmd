@@ -41,14 +41,50 @@ library(sf)
 ```{r}
 data_path <- here("data", "processed")
 mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
-mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_coord", "y_coord"), 
+mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
                         crs = 31370)
+
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
 ```
 
 # Dataset structure
 
 ```{r}
 glimpse(mas_data_df)
+```
+
+```{r}
+visits_per_jaar <- mas_data_sf %>%
+  st_drop_geometry() %>%
+  group_by(plotnaam) %>%
+  mutate(n_per_jaar = n_distinct(jaar)) %>%
+  ungroup() %>%
+  select(plotnaam, n_per_jaar) %>%
+  distinct()
+
+mas_data_sf %>%
+  filter(regio == "De Moeren") %>%
+  left_join(visits_per_jaar, by = join_by(plotnaam)) %>%
+  ggplot() +
+    geom_sf(data = perimeters %>% filter(Naam == "De Moeren"), 
+            colour = "firebrick") +
+    geom_sf(aes(colour = factor(n_per_jaar)), size = 0.5) +
+    labs(title = "De Moeren", colour = "aantal jaren\ntelpunt geteld") +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
+```
+
+```{r}
+mas_data_sf %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  left_join(visits_per_jaar, by = join_by(plotnaam)) %>%
+  ggplot() +
+    geom_sf(data = perimeters %>% filter(Naam == "Oostelijke leemstreek"), 
+            colour = "firebrick") +
+    geom_sf(aes(colour = factor(n_per_jaar)), size = 0.5) +
+    labs(title = "Oostelijke leemstreek", 
+         colour = "aantal jaren\ntelpunt geteld") +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
 ```
 
 
