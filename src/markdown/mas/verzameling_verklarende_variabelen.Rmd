@@ -1882,6 +1882,7 @@ variables_df_per_year <- telpunten_2018_2022_bo_soort %>%
   full_join(telpunten_2018_2022_hfdtlt, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_hfdtlt_div1, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_hfdtlt_div2, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2022_hfdtlt_evenness, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_vrtlt, by = c("pointid", "jaar")) %>%
   full_join(telpunten_2018_2022_prcl, by = c("pointid", "regio", "jaar", 
                                              "geometry")) %>%
