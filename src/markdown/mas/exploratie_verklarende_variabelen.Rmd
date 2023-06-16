@@ -41,6 +41,8 @@ library(sf)
 ```{r}
 data_path <- here("data", "processed")
 mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
+mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_coord", "y_coord"), 
+                        crs = 31370)
 ```
 
 # Dataset structure
@@ -48,3 +50,5 @@ mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
 ```{r}
 glimpse(mas_data_df)
 ```
+
+
