@@ -163,10 +163,35 @@ Niet strikt univariaat. We groeperen de variabelen per regio en indien van toepa
 kle_vars <- c("haag", "houtkant", "boom", "bomengroep", "bomenrij", "bosrand")
 plot_vars <- c("status_teller", "sbp", "openheid_waarde_1000", "natuur_exp",
                kle_vars)
+
+plot_df <- mas_data_df %>%
+  select(plotnaam, regio, all_of(plot_vars)) %>%
+  distinct() %>%
+  arrange(regio, plotnaam)
 ```
 
 Variabelen eigen aan het telpunt niet variabel over de jaren: `r plot_var_list`.
 
+```{r}
+plot_df %>%
+  select(plotnaam, regio, openheid_waarde_1000) %>%
+  group_by(regio) %>%
+  summarise(min = min(openheid_waarde_1000),
+            mean = mean(openheid_waarde_1000),
+            max = max(openheid_waarde_1000),
+            Q1 = quantile(openheid_waarde_1000, 0.25),
+            Q2 = quantile(openheid_waarde_1000, 0.5),
+            Q3 = quantile(openheid_waarde_1000, 0.75)) %>%
+  kable()
+
+plot_df %>%
+  select(plotnaam, regio, openheid_waarde_1000) %>%
+  ggplot() +
+    geom_histogram(aes(x = openheid_waarde_1000)) +
+    facet_wrap(~regio) +
+    labs(x = "Openheid waarde (1000 m)", y = "Aantal telcirkels",
+         title = "Openheid landschap")
+```
 
 
 ## Plot-jaar-specifieke variabelen
@@ -174,13 +199,18 @@ Variabelen eigen aan het telpunt niet variabel over de jaren: `r plot_var_list`.
 ```{r}
 hfdtlt_vars <- sort(names(mas_data_df)[grep("hfdtlt$", names(mas_data_df))])
 vrtlt_vars <- sort(names(mas_data_df)[grep("vrtlt$", names(mas_data_df))])
-plotyear_vars <- c("area_prop_sb", "area_prop_bo_overig", hfdtlt_vars, 
+plotjaar_vars <- c("area_prop_sb", "area_prop_bo_overig", hfdtlt_vars, 
                    "gewas_div_shannon", "gewas_div_n", vrtlt_vars, 
                    "perceel_median_area", "perceel_iqr_area", "perceel_cv_area",
                    "inertie_sb", "inertie_rest")
+
+plotjaar_df <- mas_data_df %>%
+  select(plotnaam, regio, jaar, all_of(plotyear_vars)) %>%
+  distinct() %>%
+  arrange(regio, jaar, plotnaam)
 ```
 
-Variabelen eigen aan het telpunt variabel over de jaren: `r plotyear_vars`.
+Variabelen eigen aan het telpunt variabel over de jaren: `r plotjaar_vars`.
 
 
 
@@ -188,6 +218,11 @@ Variabelen eigen aan het telpunt variabel over de jaren: `r plotyear_vars`.
 
 ```{r}
 telling_vars <- c("n_predators", "n_predators_spec")
+
+telling_df <- mas_data_df %>%
+  select(plotnaam, regio, jaar, periode_in_jaar, all_of(telling_vars)) %>%
+  distinct() %>%
+  arrange(regio, jaar, plotnaam, periode_in_jaar)
 ```
 
 Variabelen eigen aan de telling: `r telling_vars`.
