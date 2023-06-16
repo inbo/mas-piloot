@@ -152,3 +152,19 @@ mas_data_df %>%
     theme(legend.position = "")
 ```
 
+
+# Univariate exploratie
+
+Niet strikt univariaat. We groeperen de variabelen per regio en indien van toepassing ook nog per jaar en/of telperiode.
+
+## Plot-specifieke variabelen
+
+Variabelen eigen aan het telpunt niet variabel over de jaren.
+
+## Plot-jaar-specifieke variabelen
+
+Variabelen eigen aan het telpunt variabel over de jaren.
+
+## Telling-specifieke variabelen
+
+Variabelen eigen aan de telling.
