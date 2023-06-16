@@ -43,6 +43,8 @@ data_path <- here("data", "processed")
 mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
 ```
 
+# Dataset structure
+
 ```{r}
 glimpse(mas_data_df)
 ```
