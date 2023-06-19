@@ -346,21 +346,196 @@ continue_bivariate <- bivariate_df %>%
 
 ### Lineaire verbanden
 
-Pearsons correlatie (lineair verband). De Pearson correlatie tussen twee variabelen zal hoog zijn wanneer waarnemingen een positief lineair verband vertonen en laag wanneer ze een positief lineair verband vertonen.
-
 ```{r}
-corrplot(cor(continue_bivariate, method = "pearson"), method =  "circle",
-         tl.col =  "black", tl.srt = 45, tl.cex = 0.7)
+plot_corr <- function(x, y, df = bivariate_df, facet = "regio") {
+  df %>%
+    ggplot(aes(x = .data[[x]], y = .data[[y]])) +
+      geom_point() +
+      geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+      geom_smooth(formula = y ~ x, method = "loess", colour = "firebrick") +
+      facet_wrap(vars(!!sym(facet)), scales = "free")
+}
 ```
 
+Pearsons correlatie (lineair verband). De Pearson correlatie tussen twee variabelen zal hoog zijn wanneer waarnemingen een positief lineair verband vertonen en laag wanneer ze een positief lineair verband vertonen. We visualiseren enkel correlaties sterker of gelijk aan 0.2.
 
+```{r, out.width=2000}
+cormat_pearson <- cor(continue_bivariate, method = "pearson")
+cormat_pearson[abs(cormat_pearson) < 0.2] <- 0
+corrplot(cormat_pearson, method =  "circle",
+         tl.col =  "black", tl.srt = 45, tl.cex = 0.6)
+```
+
+We zien dat de oppervlakte aan soortbeschermingsplannen sterk positief gecorreleerd is met de oppervlakte aan beheerovereenkomsten in de hoofdteeltenlaag. Dit is logisch want het gaat om dezelfde informatie. De variabele `beheerovereenkomst_hfdtlt` kunnen we dus beter weglaten. De positieve correlaties tussen oppervlakte beheerovereenkomsten (soortbescherming en overige) met de inertie toont gewoon aan dat de oppervlakte aan beheerovereenkomsten zijn toegenomen over de jaren heen.
+
+```{r}
+plot_corr("beheerovereenkomst_hfdtlt", "area_prop_sb")
+```
+
+We zien dat de openheidsvariabele negatief gecorreleerd is met de variabelen van de kleine landschapselementen. 
+Dit is logisch aangezien bomen, hagen etc. het landschap minder open maken. Zo zien we ook een negatieve correlatie met fruitteelten. Een positieve correlatie zien we dan weer met afwezigheid van voorteelten en groottes van percelen. 
+Dan zal het landschap inderdaad meer open zijn. 
+We zien wel dat de verbanden niet altijd lineair zijn.
+
+```{r}
+for (var in kle_vars) {
+  print(plot_corr(var, "openheid_waarde_1000"))
+}
+```
+
+```{r}
+plot_corr("afwezig_vrtlt", "openheid_waarde_1000")
+plot_corr("perceel_median_area", "openheid_waarde_1000")
+```
+
+De mediaan en interkwartielafstand van perceelsgroottes zijn sterk gecorreleerd. Als maat voor de perceelsgroottes lijkt de variatiecoëfficient de beste optie om mee te nemen.
+
+```{r}
+plot_corr("perceel_median_area", "perceel_iqr_area")
+```
+
+Ook de gewasdiversiteit (Shannon en absolute aantal gewassen) zijn op dezelfde laag van de perceelsgroottes gebasseerd en we zien een sterke negatieve correlatie, maar niet met de variatiecoëfficient.
+De eveness maat is ook gecorreleerd met de gewasdiversiteitmaten.
+
+```{r}
+plot_corr("gewas_div_shannon", "gewas_evenness")
+plot_corr("gewas_div_n", "gewas_evenness")
+```
+
+Proportie hagen en meerjarige fruitteelt zijn blijkbaar ook vrij sterk positief gecorreleerd.
+
+```{r}
+plot_corr("haag", "meerjarige_fruitteelt_hfdtlt")
+```
+
+Verder zien we nog dat er minder hagen, houkanten en bomen zijn als de gewaseveness toeneemt, als er meer afwezigheid is aan voorteelten en als percelen gemiddeld groter zijn.
+
+```{r}
+plot_corr("afwezig_vrtlt", "haag")
+plot_corr("perceel_median_area", "haag")
+```
+
+Hagen, houtkanten en bomen zijn onderling positief gecorreleerd.
+
+```{r}
+plot_corr("boom", "haag")
+```
+
+Aantal predatorsoorten en individuen zijn ook positief gecorreleerd.
+
+```{r}
+plot_corr("n_predators", "n_predators_spec")
+```
 
 ### Monotone verbanden
 
 Spearmans correlatie (monotoon verband). De Spearman correlatie tussen twee variabelen zal hoog zijn wanneer waarnemingen een vergelijkbare (of identieke) rangorde hebben tussen de twee variabelen, en laag wanneer waarnemingen een ongelijke (of volledig tegengestelde) rangorde hebben tussen de twee variabelen.
 
-```{r}
-corrplot(cor(continue_bivariate, method = "spearman"), method =  "circle",
-         tl.col =  "black", tl.srt = 45, tl.cex = 0.7)
+```{r, out.width=2000}
+cormat_spearman <- cor(continue_bivariate, method = "spearman")
+cormat_spearman[abs(cormat_spearman) < 0.2] <- 0
+corrplot(cormat_spearman, method =  "circle",
+         tl.col =  "black", tl.srt = 45, tl.cex = 0.6)
 ```
 
+De Spearman correlatie geeft gelijkaardige resultaten, maar alle correlaties zijn sterker en er komen ook meer correlaties bij die sterker zijn dan 0.2.
+
+### Conclusie
+
+We kunnen verschillende conclusies maken:
+
+-  `beheerovereenkomst_hfdtlt` weglaten: voorrang aan `area_prop_sb`
+-  `perceel_median_area` en `perceel_iqr_area` weglaten: `perceel_cv_area` gebruiken als maat voor perceelsgrootte
+-  keuze maken over gewasdiversiteitsvariabele: `gewas_div_shannon` over `gewas_div_n` omdat proportie in rekening wordt gebracht?
+-  sommige KLE variabelen tonen sterke correlaties met andere variabelen en bovendien zijn sommige van deze variabelen heel zeldzaam: extra variabele propotie KLE's in plaats van apart `haag`, `boom` ...?
+-  keuze maken over predatorvariabele: `n_predators_spec` over `n_predators` omwille van veel uitschieters bij deze laatste?
+-  voorteelten zijn vaak afwezig waardoor het misschien eerder een maat is van de oppervlakte aan landbouwgebruikspercelen binnen een telcirkel eerder dan indicatief te zijn voor voorteelten zelf: hoe meer afwezigheid voorteelt, hoe minder landbouwgebruikspercelen, hoe minder kleine landschapselementen (neg. corr.), hoe minder openheid landschap (pos. corr.) ... `afwezig_vrtlt` wordt dus toch ook beter weggelaten (?)
+
+```{r}
+exclude_continue_bivars <- c("beheerovereenkomst_hfdtlt", "afwezig_vrtlt",
+                             "perceel_median_area", "perceel_iqr_area", 
+                             "gewas_div_n", "n_predators")
+
+continue_bivariate2 <- continue_bivariate %>%
+  mutate(area_prop_kle = rowSums(across(all_of(kle_vars)))) %>%
+  select(-all_of(c(exclude_continue_bivars, kle_vars)))
+
+bivariate_df <- bivariate_df %>%
+   mutate(area_prop_kle = rowSums(across(all_of(kle_vars)))) %>%
+   select(-all_of(c(exclude_continue_bivars)))
+```
+
+```{r}
+plot_corr("area_prop_kle", "openheid_waarde_1000")
+```
+
+De nieuwe Pearson correlatie matrix ziet er als volgt uit.
+
+```{r, out.width=2000}
+cormat_pearson2 <- cor(continue_bivariate2, method = "pearson")
+cormat_pearson2[abs(cormat_pearson2) < 0.2] <- 0
+corrplot(cormat_pearson2, method =  "circle",
+         tl.col =  "black", tl.srt = 45, tl.cex = 0.6)
+```
+
+Er blijven nog altijd een aantal correlaties over die we in het achterhoofd zullen moeten houden tijdens het modelleren:
+
+Hoe meer groenbemester hoe groter de oppervlakte soortbeschermingsplannen.
+
+```{r}
+plot_corr("groenbemester_hfdtlt", "area_prop_sb")
+```
+
+Hoe groter de gewasdiversiteit hoe groter het oppervlakte soortbeschermingsplannen.
+
+```{r}
+plot_corr("gewas_div_shannon", "area_prop_sb")
+```
+
+...
+
+## Continue vs. categorische variabelen
+
+```{r}
+cat_vars <- bivariate_df %>% 
+  select(!where(is.numeric)) %>%
+  names()
+
+cont_vars <- bivariate_df %>% 
+  select(where(is.numeric)) %>%
+  names()
+```
+
+De categorische variabelen zijn: `r cat_vars`. 
+We weten al dat regio, jaar en telperiode belangrijke factoren zijn om in rekening te brengen voor onze respons. Hun verband met andere predictors is niet zo relevant.
+We weten al dat sommige variabelen eigen zijn aan het telpunt, andere aan telpunt en jaar en andere aan telpunt, jaar en periode in jaar.
+De regio's verschillen sterk van elkaar in verschillende facetten en we houden al telkens rekening met deze variabele in de eerdere exploratie.
+We kunnen wel kijken naar `status_teller` en `sbp` voor deze laatste zijn we vooral geïnteressseerd in het verband met `area_prop_sb`.
+
+```{r}
+bivariate_df %>%
+  ggplot(aes(x = sbp, y = area_prop_sb)) +
+    geom_boxplot() +
+    facet_wrap(~regio)
+```
+
+```{r}
+for (var in cont_vars) {
+  p <- bivariate_df %>%
+    ggplot(aes(x = status_teller, y = .data[[var]])) +
+      geom_boxplot(aes(fill = status_teller)) +
+      facet_wrap(~regio) +
+      theme(legend.position = "")
+  print(p)
+}
+```
+
+### conclusie
+
+Buiten sbp zien we inderdaad opvallend minder oppervlakte soorbeschermingsplannen. 
+De `sbp` variabele zal niet echt van interesse zijn voor modelleren.
+
+
+## Categorisch vs. categorisch
+
+Niet van toepassing.
