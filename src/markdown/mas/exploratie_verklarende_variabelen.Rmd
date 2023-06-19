@@ -576,7 +576,7 @@ bind_rows(perc_var(pca_moeren$sdev) %>%
     geom_bar(stat = "identity") +
     geom_line(aes(y = cumulative), colour = "firebrick") +
     geom_point(aes(y = cumulative), colour = "firebrick") +
-    scale_x_continuous(breaks = 1:length(pca_cont$sdev)) +
+    scale_x_continuous(breaks = 1:length(pca_moeren$sdev)) +
     scale_y_continuous(limits = c(0, 1)) +
     geom_text(aes(y = cumulative, label = round(cumulative, digits = 3)*100), 
               vjust = -0.5, size = 3, colour = "firebrick") +
