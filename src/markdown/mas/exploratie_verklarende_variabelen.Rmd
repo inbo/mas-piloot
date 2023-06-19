@@ -325,3 +325,8 @@ bivariate_df <- mas_data_df %>%
   distinct() %>%
   arrange(regio, jaar, plotnaam, periode_in_jaar)
 ```
+
+
+# Bivariate exploratie
+
+Voor bivariate relaties tussen de variabelen, berekenen we correlaties en maken we scatterplots tussen continue variabelen, boxplots om continue met categorische variabelen te vergelijken en tabellen om categorische variabelen te vergelijken.
