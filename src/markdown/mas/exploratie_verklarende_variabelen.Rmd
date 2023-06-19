@@ -34,6 +34,7 @@ conflicted::conflicts_prefer(dplyr::select)
 library(tidyverse)
 library(INBOtheme)
 library(sf)
+library(corrplot)
 ```
 
 # Inlezen data
@@ -311,17 +312,22 @@ for (var in telling_vars) {
 exclude_hfdtlt <- c("andere_hfdtlt", "braakland_hfdtlt", "graangewassen_hfdtlt",
                     "houtachtige_gewassen", "water_hfdtlt", "zaden_hfdtlt",
                     "zomergranen_hfdtlt")
+exclude_vrtlt <- setdiff(vrtlt_vars, "afwezig_vrtlt")
+exclude_univars <- c(exclude_hfdtlt, exclude_vrtlt)
 ```
 
 
 Van de hoofdteelten zijn er een aantal variabelen met bijna geen data (geen/weinig oppervlakte binnen telcirkels). De volgende variabelen hebben nul als Q3: `r exclude_hfdtlt`. Deze zullen we verder uitsluiten.
 
-Voor de voorteelten is er bijna geen data. We creeëren wel een variabele of voorteelt aan- of afwezig is.
+Voor de voorteelten is er bijna geen data. We behouden enkel de proportie afwezige voorteelt.
 
 ```{r}
-bivar_vars <- setdiff(c(plot_vars, plotjaar_vars, telling_vars), exclude_hfdtlt)
+bivar_vars <- setdiff(c(plot_vars, plotjaar_vars, telling_vars), 
+                      exclude_univars)
+
 bivariate_df <- mas_data_df %>%
   select(plotnaam, regio, jaar, periode_in_jaar, all_of(bivar_vars)) %>%
+  mutate(jaar = factor(jaar)) %>%
   distinct() %>%
   arrange(regio, jaar, plotnaam, periode_in_jaar)
 ```
@@ -330,3 +336,31 @@ bivariate_df <- mas_data_df %>%
 # Bivariate exploratie
 
 Voor bivariate relaties tussen de variabelen, berekenen we correlaties en maken we scatterplots tussen continue variabelen, boxplots om continue met categorische variabelen te vergelijken en tabellen om categorische variabelen te vergelijken.
+
+## Continue variabelen
+
+```{r}
+continue_bivariate <- bivariate_df %>%
+  select(where(is.numeric))
+```
+
+### Lineaire verbanden
+
+Pearsons correlatie (lineair verband). De Pearson correlatie tussen twee variabelen zal hoog zijn wanneer waarnemingen een positief lineair verband vertonen en laag wanneer ze een positief lineair verband vertonen.
+
+```{r}
+corrplot(cor(continue_bivariate, method = "pearson"), method =  "circle",
+         tl.col =  "black", tl.srt = 45, tl.cex = 0.7)
+```
+
+
+
+### Monotone verbanden
+
+Spearmans correlatie (monotoon verband). De Spearman correlatie tussen twee variabelen zal hoog zijn wanneer waarnemingen een vergelijkbare (of identieke) rangorde hebben tussen de twee variabelen, en laag wanneer waarnemingen een ongelijke (of volledig tegengestelde) rangorde hebben tussen de twee variabelen.
+
+```{r}
+corrplot(cor(continue_bivariate, method = "spearman"), method =  "circle",
+         tl.col =  "black", tl.srt = 45, tl.cex = 0.7)
+```
+
