@@ -307,4 +307,21 @@ for (var in telling_vars) {
 
 ## Discussie
 
-...
+```{r}
+exclude_hfdtlt <- c("andere_hfdtlt", "braakland_hfdtlt", "graangewassen_hfdtlt",
+                    "houtachtige_gewassen", "water_hfdtlt", "zaden_hfdtlt",
+                    "zomergranen_hfdtlt")
+```
+
+
+Van de hoofdteelten zijn er een aantal variabelen met bijna geen data (geen/weinig oppervlakte binnen telcirkels). De volgende variabelen hebben nul als Q3: `r exclude_hfdtlt`. Deze zullen we verder uitsluiten.
+
+Voor de voorteelten is er bijna geen data. We creeëren wel een variabele of voorteelt aan- of afwezig is.
+
+```{r}
+bivar_vars <- setdiff(c(plot_vars, plotjaar_vars, telling_vars), exclude_hfdtlt)
+bivariate_df <- mas_data_df %>%
+  select(plotnaam, regio, jaar, periode_in_jaar, all_of(bivar_vars)) %>%
+  distinct() %>%
+  arrange(regio, jaar, plotnaam, periode_in_jaar)
+```
