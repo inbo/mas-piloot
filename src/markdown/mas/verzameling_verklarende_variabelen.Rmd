@@ -1413,11 +1413,11 @@ Aangevraagd.
 
 ```{r}
 # Add proportion bo per year
-telpunten_2018_2022_inertia_rest <- add_bo_inertia(
+telpunten_2018_2022_inertia_overig <- add_bo_inertia(
     telpunten_2018_2022_df, 
     path_bo = bo_file_2022, 
     bh_doel = c("erosiebestrijding (ER)", "perceelsrandenbeheer (PR)")) %>%
-  rename(inertie_rest = inertia)
+  rename(inertie_overig = inertia)
 ```
 
 ```{r}
@@ -1431,11 +1431,11 @@ summary_df <- rbind(summary_df, c(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_inertia_rest %>%
+telpunten_2018_2022_inertia_overig %>%
   ggplot() +
-    geom_bar(aes(x = inertie_rest)) +
+    geom_bar(aes(x = inertie_overig)) +
     scale_x_continuous(breaks = 
-                         unique(telpunten_2018_2022_inertia_rest$inertie_rest)) +
+                         unique(telpunten_2018_2022_inertia_overig$inertie_overig)) +
     labs(
       title = "Implementatie erosiebeheer en bufferstroken",
       x = "Gemiddeld jaar sinds erosiebeheer en bufferstroken (gecategoriseerd)",
@@ -1444,17 +1444,17 @@ telpunten_2018_2022_inertia_rest %>%
 ```
 
 ```{r}
-telpunten_2018_2022_inertia_rest %>% 
+telpunten_2018_2022_inertia_overig %>% 
   st_drop_geometry() %>% 
-  mutate(cat = ifelse(inertie_rest == 0, "0", ">0")) %>% 
+  mutate(cat = ifelse(inertie_overig == 0, "0", ">0")) %>% 
   count(jaar, cat) %>%
   pivot_wider(names_from = cat, values_from = n) %>%
   kable()
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_inertia_rest$inertie_rest, 
-          by = list(telpunten_2018_2022_inertia_rest$jaar), FUN = summary)
+aggregate(telpunten_2018_2022_inertia_overig$inertie_overig, 
+          by = list(telpunten_2018_2022_inertia_overig$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -1888,7 +1888,7 @@ variables_df_per_year <- telpunten_2018_2022_bo_soort %>%
                                              "geometry")) %>%
   full_join(telpunten_2018_2022_inertia_sb, by = c("pointid", "regio", "jaar", 
                                                    "geometry")) %>%
-  full_join(telpunten_2018_2022_inertia_rest, by = c("pointid", "regio", "jaar", 
+  full_join(telpunten_2018_2022_inertia_overig, by = c("pointid", "regio", "jaar", 
                                                      "geometry"))
 
 # Variables that do not vary by year

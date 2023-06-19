@@ -13,7 +13,7 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-#renv::restore()
+renv::restore()
 
 # Set up
 library(knitr)
