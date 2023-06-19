@@ -492,7 +492,107 @@ Hoe groter de gewasdiversiteit hoe groter het oppervlakte soortbeschermingsplann
 plot_corr("gewas_div_shannon", "area_prop_sb")
 ```
 
-...
+Visualisatie via PCA.
+
+```{r}
+# Functie om proportie variatie te berekenen van PC's
+perc_var <- function(vec) {
+  data.frame(proportie = (vec ^ 2) / sum(vec ^ 2), PC = seq_along(vec))
+}
+
+# Definieer pijlstijl voor plotten
+arrow_style <- function() {
+  arrow(angle = 20, ends = "first", type = "closed", 
+        length = grid::unit(8, "pt"))
+}
+
+plot_rotation <- function(pca_obj, x = 1, y = 2, pca_obj2 = NULL, label1, label2) {
+  x_axis <- paste0("PC", x)
+  y_axis <- paste0("PC", y)
+  
+  if (is.null(pca_obj2)) {
+    p <- pca_obj$rotation %>%
+      as.data.frame() %>%
+      rownames_to_column("variable") %>%
+      as_tibble() %>%
+      mutate(lengte = sqrt(.data[[x_axis]]^2 + .data[[y_axis]]^2)) %>%
+      ggplot(aes(x = .data[[x_axis]], y = .data[[y_axis]])) +
+        geom_segment(aes(colour = .data$lengte), xend = 0, yend = 0, arrow = arrow_style()) +
+        geom_text(aes(label = .data$variable), size = 3, nudge_y  = 0.02, nudge_x = 0.05) +
+        scale_x_continuous(expand = c(0.1, 0)) +
+        scale_color_gradientn(colours = rainbow(5))
+  } else {
+    df1 <- pca_obj$rotation %>%
+      as.data.frame() %>%
+      rownames_to_column("variable") %>%
+      as_tibble() %>%
+      mutate(lengte = sqrt(.data[[x_axis]]^2 + .data[[y_axis]]^2),
+             label = label1)
+    df2 <- pca_obj2$rotation %>%
+      as.data.frame() %>%
+      rownames_to_column("variable") %>%
+      as_tibble() %>%
+      mutate(lengte = sqrt(.data[[x_axis]]^2 + .data[[y_axis]]^2),
+             label = label2)
+    
+    p <- bind_rows(df1, df2) %>%
+      ggplot(aes(x = .data[[x_axis]], y = .data[[y_axis]])) +
+        geom_segment(aes(colour = .data$lengte), xend = 0, yend = 0, arrow = arrow_style()) +
+        geom_text(aes(label = .data$variable), size = 3, nudge_y  = 0.02, nudge_x = 0.05) +
+        scale_x_continuous(expand = c(0.1, 0)) +
+        scale_color_gradientn(colours = rainbow(5)) +
+        facet_wrap(~label, scales = "free")
+  }
+  
+  return(p)
+}
+```
+
+```{r}
+pca_moeren <- bivariate_df %>%
+  select(regio, all_of(names(continue_bivariate2))) %>%
+  select(!starts_with("inertie")) %>%
+  filter(regio == "De Moeren") %>%
+  select(-regio) %>%
+  prcomp(scale. = TRUE)
+
+pca_leemstreek <- bivariate_df %>%
+  select(regio, all_of(names(continue_bivariate2))) %>%
+  select(!starts_with("inertie")) %>%
+  filter(regio != "De Moeren") %>%
+  select(-regio) %>%
+  prcomp(scale. = TRUE)
+```
+
+```{r}
+bind_rows(perc_var(pca_moeren$sdev) %>% 
+            mutate(regio = "De Moeren"),
+          perc_var(pca_leemstreek$sdev) %>% 
+            mutate(regio = "Oostelijke leemstreek")) %>%
+  group_by(regio) %>%
+  mutate(cumulative = cumsum(proportie)) %>%
+  ungroup() %>%
+  ggplot(aes(x = PC, y = proportie)) +
+    geom_bar(stat = "identity") +
+    geom_line(aes(y = cumulative), colour = "firebrick") +
+    geom_point(aes(y = cumulative), colour = "firebrick") +
+    scale_x_continuous(breaks = 1:length(pca_cont$sdev)) +
+    scale_y_continuous(limits = c(0, 1)) +
+    geom_text(aes(y = cumulative, label = round(cumulative, digits = 3)*100), 
+              vjust = -0.5, size = 3, colour = "firebrick") +
+    geom_text(aes(label = round(proportie, digits = 3)*100), 
+              vjust = -0.5, size = 3) +
+    facet_wrap(~regio, nrow = 2)
+```
+
+```{r, fig.width=10}
+for (i in seq_len(3)) {
+  p <- plot_rotation(pca_obj = pca_moeren, pca_obj2 = pca_leemstreek,
+                     x = i, y = i + 1,
+                     label1 = "De Moeren", label2 = "Oostelijke leemstreek")
+  print(p)
+}
+```
 
 ## Continue vs. categorische variabelen
 
@@ -530,7 +630,7 @@ for (var in cont_vars) {
 }
 ```
 
-### conclusie
+### Conclusie
 
 Buiten sbp zien we inderdaad opvallend minder oppervlakte soorbeschermingsplannen. 
 De `sbp` variabele zal niet echt van interesse zijn voor modelleren.
