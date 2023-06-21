@@ -93,9 +93,26 @@ Later generalisatie.
 
 # Inlezen data {#inlezen-data}
 
-We selecteren eerst de MAS-data binnen de telrondes.
+```{r}
+data_path <- here("data", "processed")
+mas_data_df_raw <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
+mas_data_df <- mas_data_df_raw %>%
+  rename(openheid  = openheid_klasse_300) %>%
+  mutate(stratum = paste0(openheid, "\n", sbp, " plan"))
+mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
+                        crs = 31370)
+```
 
-```{r ronde-intervallen}
+
+# Data selectie en preparatie {#selectie-prep-data}
+
+## Data selectie {#selectie-data}
+
+We zijn geïnteresseerd in broedparen van de Veldleeuwerik in De Moeren en de Oostelijke leemstreek.
+Daarvoor selecteren we alleen waarnemingen met broedcode 1 of hoger.
+In het Nederlandse onderzoek van @wiersma2021 beschouwen ze tevens enkel waarnemingen van binnen soortspecifieke datumgrenzen om niet-broedende individuen uit te sluiten.
+
+```{r}
 r1_start <- "04-01"
 r1_stop <- "04-20"
 r2_start <- "04-21"
@@ -105,239 +122,6 @@ r3_stop <- "06-10"
 r4_start <- "06-21"
 r4_stop <- "07-15"
 ```
-
-```{r inlezen-mas-waarnemingen-2018-2022}
-mas <- read_sf(
-  here("data/mas/20220906_qgis_export_sovon_wfs.gpkg")) %>%
-  mutate(
-    datum = ymd(paste(jaar, maand, dag, sep = "-")),
-    periode_in_jaar = case_when(
-      datum %within% interval(
-        ymd(paste(jaar, r1_start, sep = "-")),
-        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
-      datum %within% interval(
-        ymd(paste(jaar, r2_start, sep = "-")),
-        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
-      datum %within% interval(
-        ymd(paste(jaar, r3_start, sep = "-")),
-        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
-      datum %within% interval(
-        ymd(paste(jaar, r4_start, sep = "-")),
-        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
-    ))
-```
-
-De CRS moet aangepast worden naar Lambert 72.
-Dit doen we via een specifieke pipeline, zie: <https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/>
-
-```{r mas-waarnemingen-conversie-31370}
-Sys.setenv("PROJ_NETWORK" = "ON")
-sf_proj_network(TRUE)
-pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
-glimpse(pipelines)
-# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
-# If the grids are installed, this should match the first line of the pipelines object.
-chosen_pipeline_definition <- pipelines %>%
-  filter(accuracy < 0.02) %>% pull(definition)
-
-mas_31370_pipeline1 <- 
-  st_transform(st_geometry(mas), "EPSG:31370",
-               pipeline = chosen_pipeline_definition) %>% 
-  st_sf(st_drop_geometry(mas), geometry = .) %>% 
-  as_tibble %>% 
-  st_as_sf
-```
-
-```{r inlezen-polygoon-lagen}
-perimeters <- read_sf(
-  here("data", "processed", "piloot_perimeters.gpkg"))
-
-vlaanderen <- get_feature_wfs(
-  wfs = "https://eservices.minfin.fgov.be/arcgis/services/R2C/Regions/MapServer/WFSServer",
-  layername = "regions",
-  crs = "EPSG:31370",
-  filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
-  select(NameDUT)
-
-sbp_akkervogels <- tar_read(sbp_akkervogels,
-                            store = targets_store)
-
-```
-
-We bepalen alle plot-jaar combinaties waarvoor er waarnemingen zijn.
-Het kan ook zijn dat een plot bezocht is, maar dat er geen waarnemingen van zijn.
-
-```{r plot-jaar-waarnemingen-2018-2022}
-plot_jaar_met_waarnemingen <- mas_31370_pipeline1 %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam, jaar)
-```
-
-Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden.
-Voor 2018-2021 moeten we er *voorlopig* vanuit gaan dat als er geen waarnemingen zijn voor een bepaald telpunt, het telpunt niet geteld werd.
-
-<!--De plot-jaar lijsten voor 2018-2021 opvragen die bezocht werden zodat we nullen/afwezigheden correct kunnen toevoegen-->
-
-We stellen nu eerst een lijst samen van plot - jaar combinaties die bezocht zijn.
-Hiervoor moeten we eerst het design inlezen van 2022.
-
-```{r design_2022}
-design2022_raw <- read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  select(plotnaam = definitief_punt,
-         regio,
-         stratum,
-         X, Y) %>%
-  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
-         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
-         stratum = gsub("L\\s{1}", "L\\\n", stratum),
-         jaar = 2022L) %>%
-  st_as_sf(coords = c("X", "Y"), crs = 31370)
-
-plot_bezocht_2022 <- design2022_raw %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam, jaar)
-```
-
-Vervolgens samenvoegen met 2018-2021
-
-```{r plot-jaar-bezocht-2018-2022}
-# veronderstel dat bezocht gelijk is aan die met waarnemingen voor 2018-2021
-plot_jaar_bezocht <- plot_jaar_met_waarnemingen %>%
-  filter(jaar < 2022) %>%
-  rbind(plot_bezocht_2022)
-```
-
-Zijn er bezochte plots waarvan er geen waarnemingen zijn?
-
-```{r bezocht-zonder-waarnemingen}
-pjb <- plot_jaar_bezocht %>%
-  anti_join(plot_jaar_met_waarnemingen)
-
-pjb %>%
-  kable()
-```
-
-Ja, in `r nrow(pjb)` telpunten werd niets waargenomen.
-Dus het is aannemelijk dat dit ook in de eerdere jaren soms het geval zal geweest zijn.
-
-We voegen nu eerst de locatie van de telpunten toe aan `plot_jaar_bezocht`.
-De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON.
-Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn.
-Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest).
-Het kan ook zijn dat het wel bezocht is geweest, maar dat er geen waarnemingen zijn.
-
-```{r telpunten-2018-2021}
-telpunten_2018_2021 <- read_sf(
-  here("data", "mas",
-       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
-) %>%
-  rename(teller_2021 = teller) %>%
-  mutate(
-    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
-    type_teller_2021 = case_when(
-      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
-        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
-      is.na(teller_2021) &
-        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
-      TRUE ~ "vrijwilliger"))
-
-telpunten_2018_2021_amersfoort <- telpunten_2018_2021 %>%
-  st_drop_geometry() %>%
-  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
-
-telpunten_2018_2021 <- st_transform(
-  st_geometry(telpunten_2018_2021_amersfoort), "EPSG:31370",
-  pipeline = chosen_pipeline_definition) %>% 
-  st_sf(st_drop_geometry(telpunten_2018_2021), geometry = .) %>% 
-  as_tibble %>% 
-  st_as_sf %>%
-  mutate(regio = gsub("Vlaanderen - ", "", regio),
-         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio),
-         regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio))
-```
-
-```{r telpunten-2018-2022-locaties}
-telpunten_2018_2021_geom_only <- telpunten_2018_2021 %>%
-  select(plotnaam = naam, regio)
-
-telpunten_2022_geom_only <- design2022_raw %>%
-  select(plotnaam, regio)
-
-# locaties 2022 zijn verkeerd in design_2022 voor VL plots
-telpunten_geom_only <- bind_rows(
-  telpunten_2018_2021_geom_only,
-  telpunten_2022_geom_only %>% filter(!grepl("VL", .$plotnaam))
-)
-```
-
-Nu voegen we de geometry toe aan de plot - jaar combinaties via een inner join.
-Opgepast!
-Er zijn een aantal telpunten die in geen enkel jaar werden bezocht.
-Deze worden in deze stap verwijderd.
-Het kan ook zijn dat er hier een aantal onterecht verwijderd worden (wel bezocht, maar geen waarnemingen).
-Zoals eerder aangegeven in commentaar moeten we dit navragen.
-
-```{r toevoegen-geoms}
-plot_jaar_bezocht_sf <- telpunten_geom_only %>%
-  inner_join(plot_jaar_bezocht)
-```
-
-Tot slot voegen we aan `plot_jaar_bezocht_sf` de strata toe waartoe ze behoren.
-We gebruiken hiervoor dezelfde code als werd gebruikt in het `targets` project voor het trekken van de pilootsteekproef 2022.
-
-```{r toevoegen-strata}
-telpunten_strata <- add_openheid_landschap_to_frame(
-  path = path_to_openheid_landschap(),
-  punten_sf = plot_jaar_bezocht_sf %>% distinct(plotnaam, regio, geometry),
-  gebied = vlaanderen,
-  cutlevels = c(1.25, 1.35, 1.51),
-  class_labels = c("GL", "HGL", "HOL", "OL")) %>%
-  select(plotnaam, regio, openheid = openheid_klasse) %>%
-  mutate(sbp = st_intersects(.,
-                             st_union(sbp_akkervogels),
-                             sparse = FALSE) %>%
-           as.logical(),
-         sbp = ifelse(sbp, "binnen", "buiten")
-  ) %>%
-  mutate(stratum = paste0(openheid, "\n", sbp, " plan"))
-
-design_2018_2022_sf <- plot_jaar_bezocht_sf %>%
-  st_join(telpunten_strata %>% select(-plotnaam, -regio)) %>%
-  filter(regio %in% c("Oostelijke leemstreek", "De Moeren")) %>%
-  mutate(openheid = as.character(openheid))
-```
-
-Voor de waarnemingen verwijderen we ook dubbeltellingen.
-Indien de soort gezien was op meerdere teldagen binnen eenzelfde telperiode, wordt de laatste teldag genomen.
-
-```{r check-dubbeltelling}
-dubbels <- mas_31370_pipeline1 %>%
-  st_drop_geometry() %>%
-  group_by(plotid, jaar, periode_in_jaar, soortnr) %>%
-  summarize(aantal_teldagen = n_distinct(doy),
-            .groups = "drop") %>%
-  filter(aantal_teldagen > 1)
-# kan zowel zelfde waarnemer als andere waarnemer zijn
-
-mas_clean <- mas_31370_pipeline1 %>%
-  semi_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")) %>%
-  group_by(plotid, jaar, periode_in_jaar) %>%
-  filter(doy == max(doy)) %>%
-  ungroup() %>%
-  bind_rows(mas_31370_pipeline1 %>%
-              anti_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")))
-```
-
-# Data selectie en preparatie {#selectie-prep-data}
-
-## Data selectie {#selectie-data}
-
-We zijn geïnteresseerd in broedparen van de Veldleeuwerik in De Moeren en de Oostelijke leemstreek.
-Daarvoor selecteren we alleen waarnemingen met broedcode 1 of hoger.
-In het Nederlandse onderzoek van @wiersma2021 beschouwen ze tevens enkel waarnemingen van binnen soortspecifieke datumgrenzen om niet-broedende individuen uit te sluiten.
 
 ```{r}
 datumgrenzen_df <- read_csv2(here("data", "SOVON", 
@@ -398,23 +182,14 @@ datumgrenzen_mas <- datumgrenzen_df2 %>%
     
     ) %>%
   select(id, soort, datum_begin, datum_eind, R1, R2, R3, R4)
-        
-
 ```
 
-Wel selecteren we enkel waarnemingen binnen de telrondes van vogels die tot op maximum 300 m afstand van het telpunt zijn gezien.
-
 ```{r}
-# design 2018-2022 Oostelijke leemstreek en De Moeren
-design_2018_2022 <- design_2018_2022_sf %>%
-  st_drop_geometry()
-
 # Selecteer tellingen van Veldleeuwerik in 2018-2022 in de twee regio's
 # met broedcode > 0, op minder dan 300 m en binnen telrondes
-veldleeuwerik_presences <- mas_clean %>%
-  filter(naam == "Veldleeuwerik", !is.na(periode_in_jaar), wrntype > 0L,
-         distance2plot <= 300) %>%  
-  inner_join(design_2018_2022, by = c("plotnaam", "jaar")) %>%
+veldleeuwerik_presences <- mas_data_sf %>%
+  filter(naam == "Veldleeuwerik", 
+         wrntype > 0L) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "))
 ```
 
@@ -453,7 +228,7 @@ We verwijderen deze plots voor verdere analyses.
 ```{r}
 # Totale lijst van bezochte plots in 2018-2022
 bezoekenlijst_2018_2022 <- design_2018_2022 %>% 
-  expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # voeg telperiodes toe
+  expand_grid(distinct(mas_data_sf, periode_in_jaar)) %>% # voeg telperiodes toe
   filter(!is.na(periode_in_jaar),
          periode_in_jaar %in% telperiodes) %>% # selectie telperiodes Veldleeuwerik
   arrange(plotnaam, jaar, periode_in_jaar)
@@ -1824,13 +1599,13 @@ Deze finale modellen kunnen dan in het rapport gebruikt worden voor het generere
 
 We hebben 3 belangrijke dataframes.
 
-1.  `mas_clean` met alle observaties
+1.  `mas_data_sf` met alle observaties
 2.  `design_2018_2022_mas` met alle bezochte plots
     -   selecteer OL in De Moeren en OL en HOL in Oostelijke leemstreek
 3.  `datum_grenzen_mas` met de datumgrenzen voor elke soort
 
 ```{r}
-mas_clean <- mas_clean
+mas_data_sf <- mas_data_sf
 design_2018_2022_mas <- design_2018_2022_sf %>%
   st_drop_geometry() %>%
   filter((regio == "Oostelijke leemstreek" & openheid %in% c("OL", "HOL")) |
@@ -1852,7 +1627,7 @@ We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
 We voegen ook Haas toe en roofvogels (`r roofvogels`) zonder te filteren op broedcode.
 
 ```{r}
-mas_observations <- mas_clean %>%
+mas_observations <- mas_data_sf %>%
   filter(wrntype > 0L, distance2plot <= 300, !is.na(periode_in_jaar),
          soortgrp == 2) %>%  
   inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
@@ -1862,7 +1637,7 @@ mas_observations <- mas_clean %>%
          naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
                        naam))
 
-haas_raptor_observations <- mas_clean %>%
+haas_raptor_observations <- mas_data_sf %>%
   filter(naam == "Haas" | naam %in% roofvogels, distance2plot <= 300, 
          !is.na(periode_in_jaar)) %>%  
   inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
