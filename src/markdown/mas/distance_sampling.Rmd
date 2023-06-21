@@ -1236,7 +1236,7 @@ perimeters_strata <- steekproefkader %>%
          !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
   group_by(Naam, openheid_klasse, is_sbp) %>%
   st_buffer(dist = 300) %>%
-  summarize() %>%
+  summarise() %>%
   mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
                          sep = " - "))
 
@@ -1611,10 +1611,7 @@ We hebben 3 belangrijke dataframes.
 
 ```{r}
 mas_data_sf <- mas_data_sf
-design_2018_2022_mas <- design_2018_2022_sf %>%
-  st_drop_geometry() %>%
-  filter((regio == "Oostelijke leemstreek" & openheid %in% c("OL", "HOL")) |
-         (regio == "De Moeren" & openheid == "OL"))
+design_2018_2022_mas <- bezoekenlijst_2018_2022
 datumgrenzen_mas <- datumgrenzen_mas 
 ```
 
@@ -1627,25 +1624,24 @@ roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief", "Buizerd",
                 "Wespendief", "Zwarte Wouw")
 ```
 
-We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0, geen afstanden \> 300 m en dat ze binnen telperiodes vallen.
+We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0.
 We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
 We voegen ook Haas toe en roofvogels (`r roofvogels`) zonder te filteren op broedcode.
 
 ```{r}
 mas_observations <- mas_data_sf %>%
-  filter(wrntype > 0L, distance2plot <= 300, !is.na(periode_in_jaar),
+  filter(wrntype > 0L,
          soortgrp == 2) %>%  
-  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
-  mutate(Region.Label = paste(regio, jaar, sep = " - "),
-         naam = ifelse(naam == "Gele kwikstaart (spec)", "Gele Kwikstaart",
-                       naam),
-         naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
-                       naam))
+  inner_join(design_2018_2022_mas, 
+             by = join_by(plotnaam, jaar, periode_in_jaar, regio, openheid, 
+                          sbp)) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "))
 
 haas_raptor_observations <- mas_data_sf %>%
-  filter(naam == "Haas" | naam %in% roofvogels, distance2plot <= 300, 
-         !is.na(periode_in_jaar)) %>%  
-  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
+  filter(naam == "Haas" | naam %in% roofvogels) %>%  
+  inner_join(design_2018_2022_mas, 
+             by = join_by(plotnaam, jaar, periode_in_jaar, regio, openheid, 
+                          sbp)) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "),
          naam = ifelse(naam %in% roofvogels, 
                        paste(naam, "zonder_broedcode", sep = "_"), 
@@ -1838,7 +1834,7 @@ perimeters_strata_2022 <- steekproefkader %>%
          !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
   group_by(Naam, openheid_klasse, is_sbp) %>%
   st_buffer(dist = 300) %>%
-  summarize() %>%
+  summarise(.groups = "drop") %>%
   mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
                          sep = " - "))
 
@@ -1935,7 +1931,7 @@ stratum_cijfers_lijst <- lapply(seq_along(distance_dfs_2018_2022_final),
        pull(n) %>%
        min()
      
-     if (min <= 11){
+     if (min <= 11) {
        out$n_interactie <- FALSE
      }
     
@@ -2223,7 +2219,7 @@ forms2[sapply(forms2, is.null)] <- NULL
 forms_2018_2022 <- c("~1", forms1, forms2)
 ```
 
-Voor Bruine Kiekendief kunnen we geen model fitten. Voor Bruine Kiekendief zonder broedcode kunnen we ~regio*jaar niet fitten.
+Voor BlauweKiekendief zonder broedcode en Buizerd (met en zonder broedcode) kunnen we geen model fitten. Voor Huismus en Witte kwikstaart kunnen we ~regio*jaar niet fitten.
 
 ```{r}
 all_models <- list()
@@ -2236,7 +2232,9 @@ keys <- c("hn", "hr")
 model_path <- "./src/markdown/mas/distance_models/"
 
 # Verwijder BruineKiekendief
-index_kiek <- which(names(distance_dfs_2018_2022_final) == "BruineKiekendief")
+index_kiek <- which(names(distance_dfs_2018_2022_final) %in%
+                      c("BlauweKiekendief_zonder_broedcode", "Buizerd",
+                        "Buizerd_zonder_broedcode"))
 
 # Loop over species
 for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
@@ -2260,7 +2258,7 @@ for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
     form_spec[sapply(form_spec, function(i) grepl("\\*", i))] <- NULL
   }
   
-  if (spec == "BruineKiekendief_zonder_broedcode") {
+  if (spec %in% c("Huismus", "WitteKwikstaart")) {
     form_spec[sapply(form_spec, function(i) grepl("\\*", i))] <- NULL
   }
 
@@ -2368,7 +2366,7 @@ model_path <- "./src/markdown/mas/distance_models/"
 index_kiek_2022 <- which(names(distance_dfs_2022_final) == "BruineKiekendief_zonder_broedcode")
 
 # Loop over species
-for (spec in names(distance_dfs_2022_final)[-index_kiek_2022]) {
+for (spec in names(distance_dfs_2022_final)) {
   distance_data_2022 <- distance_dfs_2022_final[[spec]]
   sample_table_2022 <- sample_tables_2022[[spec]]
   obs_table_2022 <- obs_tables_2022[[spec]]
@@ -2404,8 +2402,21 @@ for (spec in names(distance_dfs_2022_final)[-index_kiek_2022]) {
     form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
   }
   
-  if (spec %in% c("Buizerd", "Winterkoning")) {
+  #if (spec %in% c("Buizerd", "Winterkoning")) {
+  #  form_spec[sapply(form_spec, function(i) grepl("regio\\+openheid", i))] <- NULL
+  #  form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
+  #}
+  
+  if (spec %in% c("Huismus", "Kauw", "TurkseTortel", "Winterkoning", 
+                  "ZwarteRoodstaart")) {
     form_spec[sapply(form_spec, function(i) grepl("regio\\+openheid", i))] <- NULL
+  }
+  
+  if (spec %in% c("Huismus")) {
+    form_spec[sapply(form_spec, function(i) grepl("sbp\\+openheid", i))] <- NULL
+  }
+  
+  if (spec %in% c("Winterkoning", "ZwarteRoodstaart")) {
     form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
   }
 
