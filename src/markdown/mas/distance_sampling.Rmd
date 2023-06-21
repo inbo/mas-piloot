@@ -647,7 +647,8 @@ ggplot(data = circle_fun()) +
   geom_text(aes(x = 150, y = 0, label = "w"), nudge_y = 25) +
   geom_point(aes(x = -100, y = 200), shape = "\U1F986", size = 10) +
   geom_segment(aes(x = 0, y = 0, xend = -100, yend = 200)) +
-  geom_text(aes(x = -50, y = 100), label = "r[i]", nudge_y = 20, nudge_x = 20, parse = TRUE) +
+  geom_text(aes(x = -50, y = 100), label = "r[i]", nudge_y = 20, nudge_x = 20, 
+            parse = TRUE) +
   geom_path(aes(x, y), colour = "red") + 
   geom_point(aes(x = 0, y = 0), colour = "red", size = 2) +
   labs(x = "", y = "") +
@@ -966,7 +967,7 @@ De fit ziet er beter uit dan voordien.
 plot(veldleeuwerik_dist_2018_2022_hr4_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
-We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van regio en jaar in interactie als finale model.
+We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van regio en jaar als finale model.
 
 ```{r}
 veldleeuwerik_dist_2018_2022_model <- veldleeuwerik_dist_2018_2022_hr4_binned
@@ -1420,14 +1421,7 @@ summarize_ds_models2(out_models) %>%
   kable()
 ```
 
-De volgende hazard-rate modellen konden niet gefit worden (Hessian = `NA`):
-
--   \~regio + sbp
--   \~openheid
--   \~regio + sbp + openheid
--   \~regio + openheid
-
-Het Hazard-rate model waarbij de detectiekans afhankelijk is van sbp en openheid scoort het best.
+Het Hazard-rate model waarbij de detectiekans afhankelijk is van openheid scoort het best.
 Op basis van dit model testen we nog enkele combinaties waarbij we interacties tussen elke combinatie van twee variabelen toevoegen (niet regio\*openheid).
 
 ```{r, cache=TRUE}
@@ -1444,13 +1438,14 @@ veldleeuwerik_dist_2022_hr11 <- ds(data = veldleeuwerik_distance, key = "hr",
         sample_table = sample_table, obs_table = obs_table)
 
 summarize_ds_models2(
+  veldleeuwerik_dist_2022_hr3,
   veldleeuwerik_dist_2022_hr6, veldleeuwerik_dist_2022_hr9,
   veldleeuwerik_dist_2022_hr10, veldleeuwerik_dist_2022_hr11
   ) %>%
   kable()
 ```
 
-We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van sbp en openheid.
+We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van openheid.
 
 ## Model fit {#fit-distance2022}
 
@@ -1460,9 +1455,9 @@ Voor studies met punttransecten geven kansdichtheidsfunctieplots ook een goed id
 
 ```{r}
 par(mfrow = c(1, 2))
-von_mises <- gof_ds(veldleeuwerik_dist_2022_hr6)
+von_mises <- gof_ds(veldleeuwerik_dist_2022_hr3)
 von_mises
-plot(veldleeuwerik_dist_2022_hr6, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_2022_hr3, pdf = TRUE, showpoints = FALSE)
 par(mfrow = c(1, 1))
 ```
 
@@ -1479,8 +1474,8 @@ plot_detection_curve(veldleeuwerik_dist_2022_hr6, plot_average_fit = FALSE,
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
 
 ```{r, cache=TRUE}
-veldleeuwerik_dist_2022_hr6_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~sbp + openheid, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2022_hr3_binned <- ds(data = veldleeuwerik_distance, 
+        key = "hr", formula = ~openheid, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         cutpoints = c(0, 50, 100, 150, 200, 250, 300),
         convert_units = conversion_factor, region_table = region_table, 
@@ -1490,20 +1485,20 @@ veldleeuwerik_dist_2022_hr6_binned <- ds(data = veldleeuwerik_distance, key = "h
 De fit ziet er beter uit dan voordien.
 
 ```{r}
-plot(veldleeuwerik_dist_2022_hr6_binned, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_2022_hr3_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
 Maar is nog niet ideaal:
 
 ```{r}
-gof_ds(veldleeuwerik_dist_2022_hr6_binned)
+gof_ds(veldleeuwerik_dist_2022_hr3_binned)
 ```
 
 We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van sbp, jaar en openheid met sbp en jaar in interactie als finale model.
 
 ```{r}
-veldleeuwerik_dist_2022_model <- veldleeuwerik_dist_2022_hr6_binned
-veldleeuwerik_covars <- c("sbp", "openheid")
+veldleeuwerik_dist_2022_model <- veldleeuwerik_dist_2022_hr3_binned
+veldleeuwerik_covars <- c("openheid")
 ```
 
 ## Resultaten {#resultaten-distance2022}
@@ -1526,8 +1521,10 @@ De gemiddelde detectiekans $\hat{P}_a$ is gelijk aan `r round(veldleeuwerik_dist
 Deze kunnen we als volgt visualiseren:
 
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_2022_model, 
-                     plot_average_fit = TRUE)
+design_plot <- matrix(c(1, 0, 1, 1), ncol = 2, byrow = TRUE)
+labels_plot <- c("HOL", "OL")
+plot_detection_curve(veldleeuwerik_dist_2022_model, design_mat = design_plot, 
+                     labels = labels_plot, plot_average_fit = TRUE)
 ```
 
 ```{r}
