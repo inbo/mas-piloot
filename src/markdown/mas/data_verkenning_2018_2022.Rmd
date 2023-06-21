@@ -671,17 +671,17 @@ for (soort in doelsoorten) {
   for (reg in unique(diversiteit_vogels_strat$regio)) {
     print(
       relfreqs_doelvogels_strat %>% 
-      filter(naam == soort, regio == reg) %>%
-      ggplot() +
-        geom_jitter(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
-                       shape = periode_in_jaar),
-                    width = 0.1) +
-        labs(title = toString(soort), 
-             y = "Relatieve frequentie", 
-             x = "") +
-        expand_limits(y = 1) +
-        facet_wrap(~regio)
-      )
+        filter(naam == soort, regio == reg) %>%
+        ggplot() +
+          geom_jitter(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
+                         shape = periode_in_jaar),
+                      width = 0.1) +
+          labs(title = toString(soort), 
+               y = "Relatieve frequentie", 
+               x = "") +
+          expand_limits(y = 1) +
+          facet_wrap(~regio)
+        )
   }
 }
 ```
@@ -742,8 +742,9 @@ relfreqs_torenvalk_strat <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  mutate(jaar = factor(jaar)) %>%
   group_by(periode_in_jaar, jaar, regio, stratum) %>%
-  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
                    .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
@@ -755,16 +756,16 @@ relfreqs_torenvalk_strat <- mas_vogels %>%
 for (reg in unique(diversiteit_vogels_strat$regio)) {
   print(
     relfreqs_torenvalk_strat %>% 
-    filter(naam == "Torenvalk", regio == reg) %>%
-    ggplot() +
-      geom_jitter(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
-                     shape = periode_in_jaar),
-                  width = 0.1) +
-      labs(title = "Torenvalk", 
-           y = "Relatieve frequentie", 
-           x = "") +
-      expand_limits(y = 1) +
-      facet_wrap(~regio)
+      filter(naam == "Torenvalk", regio == reg) %>%
+      ggplot() +
+        geom_jitter(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
+                       shape = periode_in_jaar),
+                    width = 0.1) +
+        labs(title = "Torenvalk", 
+             y = "Relatieve frequentie", 
+             x = "") +
+        expand_limits(y = 1) +
+        facet_wrap(~regio)
     )
 }
 ```
