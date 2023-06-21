@@ -13,20 +13,32 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
+# renv
 renv::restore()
-library(Hmisc)
+
+# Set up
 library(knitr)
 library(here)
 opts_chunk$set(
   echo = TRUE,
   message = FALSE,
   warning = FALSE)
-opts_knit$set(root.dir = here::here())
+opts_knit$set(root.dir = here())
+
+# Conflicting packages
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+
+# Packages
+library(Hmisc)
 library(tidyverse)
+library(INBOtheme)
 library(sf)
 library(lubridate)
 library(targets)
 library(terra)
+
+# Source
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
