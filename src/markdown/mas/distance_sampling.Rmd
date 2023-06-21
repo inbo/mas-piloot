@@ -285,7 +285,8 @@ We maken een tweede dataset waarbij we ook afwezigheden toevoegen door te joinen
 veldleeuwerik_df <- veldleeuwerik_presences %>%
   st_drop_geometry() %>%
   group_by(plotnaam, jaar, periode_in_jaar) %>%
-  summarise(aantal = sum(aantal)) %>% # som aantallen gespot per dag 
+  summarise(aantal = sum(aantal),
+            .groups = "drop") %>% # som aantallen gespot per dag 
   full_join(bezoekenlijst_2018_2022, by = c("plotnaam", "jaar", 
                                             "periode_in_jaar")) %>%
   replace(is.na(.), 0) %>%
@@ -348,7 +349,8 @@ veldleeuwerik_df %>%
             mediaan = median(aantal),
             gemiddelde = mean(aantal),
             max = max(aantal),
-            varantie = var(aantal)) %>%
+            varantie = var(aantal),
+            .groups = "drop") %>%
   kable()
 ```
 
@@ -474,7 +476,8 @@ bezoekenlijst_2018_2022 %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, sbp) %>%
-  summarise(aantal_plots = n()) %>%
+  summarise(aantal_plots = n(),
+            .groups = "drop") %>%
   full_join(design_sbp, by = c("regio", "jaar", "sbp")) %>%
   replace(is.na(.), 0) %>%
   arrange(regio, jaar, sbp) %>%
@@ -486,7 +489,8 @@ bezoekenlijst_2018_2022 %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, sbp) %>%
-  summarise(aantal_plots = n()) %>%
+  summarise(aantal_plots = n(),
+            .groups = "drop") %>%
   ggplot(aes(x = sbp, y = aantal_plots, fill = factor(jaar))) +
     geom_bar(stat = "identity") +
     theme(panel.grid.minor.x = element_blank(),
@@ -526,7 +530,8 @@ bezoekenlijst_2018_2022 %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, openheid, sbp) %>%
-  summarise(aantal_plots = n()) %>%
+  summarise(aantal_plots = n(),
+            .groups = "drop") %>%
   full_join(design_openheid, by = c("regio", "jaar", "openheid", "sbp")) %>%
   replace(is.na(.), 0) %>%
   arrange(regio, jaar, openheid, sbp) %>%
@@ -538,7 +543,8 @@ bezoekenlijst_2018_2022 %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, openheid, sbp) %>%
-  summarise(aantal_plots = n()) %>%
+  summarise(aantal_plots = n(),
+            .groups = "drop") %>%
   ggplot(aes(x = openheid, y = aantal_plots, fill = sbp)) +
     geom_bar(stat = "identity") +
     theme(panel.grid.minor.x = element_blank(),
