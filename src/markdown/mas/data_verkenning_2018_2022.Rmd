@@ -33,12 +33,26 @@ conflicted::conflicts_prefer(dplyr::select)
 library(tidyverse)
 library(INBOtheme)
 library(sf)
-library(lubridate)
-library(targets)
 library(terra)
 
-# Source
+# Targets
+library(targets)
+
+## to use tar_read()
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
+
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+
+# Source
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
 ```
@@ -782,17 +796,6 @@ bo_2021 <- read_sf(
 
 perimeters <- read_sf(
   here("data", "processed", "piloot_perimeters.gpkg"))
-
-new_tar_vector <- function(value, objects) {
-    out <- do.call(vctrs::vec_rbind, objects)
-    if (any(sapply(out, inherits, what = "sfc"))) {
-      sf::st_as_sf(out)
-    } else {out}
-}
-try(assignInNamespace(
-  "value_produce_aggregate.tar_vector",
-  new_tar_vector,
-  ns = "targets"))
 
 sbp_akkervogels <- tar_read(sbp_akkervogels,
                             store = targets_store)
