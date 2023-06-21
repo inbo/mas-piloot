@@ -29,6 +29,7 @@ opts_knit$set(root.dir = here())
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
 conflicted::conflicts_prefer(dplyr::summarise)
+conflicted::conflicts_prefer(terra::mask)
 
 # Packages
 library(tidyverse)
@@ -38,6 +39,7 @@ library(Hmisc)
 library(lubridate)
 library(targets)
 library(terra)
+library(units)
 
 # Source
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
@@ -781,20 +783,37 @@ bo_2021 <- read_sf(
   mutate(start = lubridate::ymd(start),
          stop = lubridate::ymd(stop)) %>%
   st_transform(crs = 31370)
+
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
+
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
+
+sbp_akkervogels <- tar_read(sbp_akkervogels,
+                            store = targets_store)
 ```
 
 ```{r opp-bo-data}
 bo_dm_ol <- bo_2021 %>%
   st_intersection(y = perimeters)
 
-openheid <- rast(here("data", "dem",
+openheid_sf <- rast(here("data", "dem",
     "openness300m_chm_res25_c300_mean_vlaanderen_classified.tif")) %>%
   mask(perimeters %>% st_buffer(dist = 50)) %>%
   as.polygons() %>%
   st_as_sf() %>%
   mutate(openheid = factor(focal_sum, labels = c("GL", "HGL", "HOL", "OL")))
 
-#mapview::mapview(openheid, zcol = "openheid")
+#mapview::mapview(openheid_sf, zcol = "openheid")
 binnen_sbp <- perimeters %>%
   st_intersection(sbp_akkervogels) %>%
   select(Naam) %>%
@@ -813,8 +832,7 @@ sbp_sf <- bind_rows(buiten_sbp, binnen_sbp)
 
 regio_sbp_openheid <- sbp_sf %>%
   select(regio = Naam, is_sbp) %>%
-  st_intersection(openheid %>%
-             select(openheid))
+  st_intersection(openheid_sf %>% select(openheid))
 
 opp_evolutie <- bo_dm_ol %>%
   filter(eenheid == "Hectare") %>%
@@ -829,7 +847,6 @@ Deze cijfers gelden voor het volledige projectgebied van de Moeren en de Oosteli
 De data voor 2022 zitten hier nog niet bij.
 
 ```{r opp-bo-evolutie, out.width="100%"}
-library(units)
 opp_evolutie %>%
   expand_grid(jaar = ymd(paste0(2017:2021, "-02-02"))) %>%
   mutate(opp2 = case_when(
@@ -839,7 +856,8 @@ opp_evolutie %>%
   )) %>%
   filter(bh_doelst == "soortenbescherming (SB)",
          openheid %in% c("HOL", "OL")) %>%
-  group_by(bh_doelst, srt_object, regio, is_sbp, openheid, jaar) %>%
+  group_by(bh_doelst, srt_object, regio, is_sbp, openheid, jaar,
+           .groups = "drop") %>%
   summarise(tot_opp_ha = sum(opp2) / 1e4) %>%
   ggplot() +
   geom_bar(aes(x = jaar, weight = tot_opp_ha,
@@ -868,8 +886,9 @@ meanabu <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  mutate(jaar = factor(jaar)) %>%
   group_by(jaar, periode_in_jaar, regio) %>%
-  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x) / n() * (100 * 1e4) / (pi * 300^2)),
             .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
@@ -916,7 +935,6 @@ meanabu %>%
   mutate(verschil = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   slice_max(verschil, n = 20) %>%
-  select(-Bilzen) %>%
   kable(digits = 2)
 ```
 
@@ -933,7 +951,6 @@ meanabu %>%
   mutate(verschil = `De Moeren` - `Oostelijke leemstreek`) %>%
   ungroup() %>%
   slice_max(-verschil, n = 20) %>%
-  select(-Bilzen) %>%
   kable(digits = 2)
 ```
 
@@ -955,8 +972,9 @@ meanabu_doel <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  mutate(jaar = factor(jaar)) %>%
   group_by(jaar, periode_in_jaar, regio) %>%
-  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x) / n() * (100 * 1e4) / (pi * 300^2)),
             .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
@@ -977,7 +995,7 @@ meanabu_doel %>%
               values_fill = 0) %>%
   ungroup() %>%
   arrange(naam) %>%
-  kable(digits = 2)
+  kable(digits = 3)
 ```
 
 De volgende figuren tonen de dichtheden van de doelsoorten in een bepaalde telperiode voor de verschillende regio’s over de jaren.
@@ -986,13 +1004,13 @@ De volgende figuren tonen de dichtheden van de doelsoorten in een bepaalde telpe
 for (soort in doelsoorten) {
   print(
     meanabu_doel %>% 
-    filter(naam == soort) %>%
-    ggplot() +
-      geom_point(aes(x = periode_in_jaar, y = aantal_per_100ha, colour = regio)) +
-      labs(title = toString(soort), 
-           y = "Aantal per 100 ha", 
-           x = "Telperiode") +
-      facet_wrap(~jaar)
+      filter(naam == soort) %>%
+      ggplot() +
+        geom_point(aes(x = periode_in_jaar, y = aantal_per_100ha, colour = regio)) +
+        labs(title = toString(soort), 
+             y = "Aantal per 100 ha", 
+             x = "Telperiode") +
+        facet_wrap(~jaar)
     )
 }
 ```
@@ -1003,12 +1021,12 @@ Telperiodes zijn herhalingen binnen een jaar en we zijn vooral geïnteresseerd i
 for (soort in doelsoorten) {
   print(
     meanabu_doel %>% 
-    filter(naam == soort) %>%
-    ggplot() +
-      geom_jitter(aes(x = jaar, y = aantal_per_100ha, colour = regio, 
-                     shape = periode_in_jaar),
-                  width = 0.1) +
-      labs(title = toString(soort), y = "Aantal per 100 ha", x = "")
+      filter(naam == soort) %>%
+      ggplot() +
+        geom_jitter(aes(x = jaar, y = aantal_per_100ha, colour = regio, 
+                       shape = periode_in_jaar),
+                    width = 0.1) +
+        labs(title = toString(soort), y = "Aantal per 100 ha", x = "")
     )
 }
 ```
@@ -1025,8 +1043,9 @@ meanabu_doelvogels_strat <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  mutate(jaar = factor(jaar)) %>%
   group_by(jaar, periode_in_jaar, stratum, regio) %>%
-  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x) / n() * (100 * 1e4) / (pi * 300^2)),
             .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
@@ -1041,15 +1060,15 @@ for (soort in doelsoorten) {
   for (reg in unique(meanabu_doelvogels_strat$regio)) {
     print(
       meanabu_doelvogels_strat %>% 
-      filter(naam == soort, regio == reg) %>%
-      ggplot() +
-        geom_jitter(aes(x = as.factor(jaar), y = aantal_per_100ha, 
-                       colour = stratum, shape = periode_in_jaar),
-                   width = 0.1) +
-        labs(title = toString(soort), 
-             y = "Aantal per 100 ha", 
-             x = "") +
-        facet_wrap(~regio, scales = "free_y")
+        filter(naam == soort, regio == reg) %>%
+        ggplot() +
+          geom_jitter(aes(x = as.factor(jaar), y = aantal_per_100ha, 
+                         colour = stratum, shape = periode_in_jaar),
+                     width = 0.1) +
+          labs(title = toString(soort), 
+               y = "Aantal per 100 ha", 
+               x = "") +
+          facet_wrap(~regio, scales = "free_y")
       )
   }
 }
@@ -1105,8 +1124,9 @@ meanabu_torenvalk_strat <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  mutate(jaar = factor(jaar)) %>%
   group_by(periode_in_jaar, jaar, regio, stratum) %>%
-  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x) / n() * (100 * 1e4) / (pi * 300^2)),
             .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
@@ -1153,11 +1173,12 @@ mean_maxabu_doelvogels_strat <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  mutate(jaar = factor(jaar)) %>%
   group_by(jaar, plotnaam, stratum, regio) %>%
-  summarise(across(.cols = where(~ is.integer(.x) && min(.x) == 0),
+  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~max(.x)),
             .groups = "drop") %>%
-  pivot_longer(cols = where(~ is.integer(.x) && min(.x) == 0),
+  pivot_longer(cols = where(~ is.numeric(.x) && min(.x) == 0),
                names_to = "naam",
                values_to = "max_aantal") %>%
   group_by(jaar, stratum, regio, naam) %>%
@@ -1197,5 +1218,4 @@ mean_maxabu_doelvogels_strat %>%
   select(plot) %>%
   pull(plot)
 ```
-
 
