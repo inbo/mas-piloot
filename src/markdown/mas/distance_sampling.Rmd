@@ -227,10 +227,10 @@ We verwijderen deze plots voor verdere analyses.
 
 ```{r}
 # Totale lijst van bezochte plots in 2018-2022
-bezoekenlijst_2018_2022 <- design_2018_2022 %>% 
-  expand_grid(distinct(mas_data_sf, periode_in_jaar)) %>% # voeg telperiodes toe
-  filter(!is.na(periode_in_jaar),
-         periode_in_jaar %in% telperiodes) %>% # selectie telperiodes Veldleeuwerik
+bezoekenlijst_2018_2022 <- mas_data_sf %>%
+  distinct(plotnaam, regio, openheid, sbp, jaar, periode_in_jaar) %>%
+  # selectie telperiodes Veldleeuwerik
+  filter(periode_in_jaar %in% telperiodes) %>% 
   arrange(plotnaam, jaar, periode_in_jaar)
 
 design <- bezoekenlijst_2018_2022 %>%
@@ -245,7 +245,9 @@ bezoekenlijst_2018_2022 %>%
   replace(is.na(.), 0) %>%
   arrange(regio, openheid) %>%
   kable()
+```
 
+```{r}
 # Verwijder plots
 plot_to_remove <- bezoekenlijst_2018_2022 %>%
   filter(openheid == "HGL" |
