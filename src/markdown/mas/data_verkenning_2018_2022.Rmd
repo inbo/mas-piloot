@@ -29,17 +29,14 @@ opts_knit$set(root.dir = here())
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
 conflicted::conflicts_prefer(dplyr::summarise)
-conflicted::conflicts_prefer(terra::mask)
 
 # Packages
 library(tidyverse)
 library(INBOtheme)
 library(sf)
-library(Hmisc)
 library(lubridate)
 library(targets)
 library(terra)
-library(units)
 
 # Source
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
