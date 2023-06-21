@@ -4,7 +4,6 @@ author: "Ward Langeraert"
 date: "`r Sys.Date()`"
 output:
   bookdown::html_document2:
-    
     code_folding: hide
     toc: true
     toc_float: true
@@ -18,8 +17,9 @@ zotero: true
 ---
 
 ```{r setup, include=FALSE}
+# renv
 renv::restore()
-
+ 
 # Set up
 library(knitr)
 library(here)
@@ -27,23 +27,41 @@ opts_chunk$set(
   echo = TRUE,
   message = FALSE,
   warning = FALSE)
-opts_knit$set(root.dir = here::here())
+opts_knit$set(root.dir = here())
+ 
+# Conflicting packages
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
 
 # Data preparation and visualization
 library(tidyverse)
 library(INBOtheme)
 
-library(targets)
 library(sf)
 library(terra)
-library(lubridate)
 library(gridExtra)
 
 # Data analysis
 library(Distance)
 
-# Source
+# Targets
+library(targets)
+ 
+## to use tar_read()
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
+ 
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+
+# Source
 mbag_dir <- here()
 source(here("src", "R", "wfs_wcs.R"))
 source(here("src", "R", "berekening_hulpvariabelen.R"))
