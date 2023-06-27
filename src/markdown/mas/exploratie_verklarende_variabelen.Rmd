@@ -458,27 +458,26 @@ We kunnen verschillende conclusies maken:
 
 -  `beheerovereenkomst_hfdtlt` weglaten: voorrang aan `area_prop_sb`
 -  `perceel_median_area` en `perceel_iqr_area` weglaten: `perceel_cv_area` gebruiken als maat voor perceelsgrootte
--  keuze maken over gewasdiversiteitsvariabele: `gewas_div_shannon` over `gewas_div_n` omdat proportie in rekening wordt gebracht?
--  sommige KLE variabelen tonen sterke correlaties met andere variabelen en bovendien zijn sommige van deze variabelen heel zeldzaam: extra variabele propotie KLE's in plaats van apart `haag`, `boom` ...?
--  keuze maken over predatorvariabele: `n_predators_spec` over `n_predators` omwille van veel uitschieters bij deze laatste?
--  voorteelten zijn vaak afwezig waardoor het misschien eerder een maat is van de oppervlakte aan landbouwgebruikspercelen binnen een telcirkel eerder dan indicatief te zijn voor voorteelten zelf: hoe meer afwezigheid voorteelt, hoe minder landbouwgebruikspercelen, hoe minder kleine landschapselementen (neg. corr.), hoe minder openheid landschap (pos. corr.) ... `afwezig_vrtlt` wordt dus toch ook beter weggelaten (?)
+-  keuze maken over gewasdiversiteitsvariabele: `gewas_div_shannon` over `gewas_div_n` omdat proportie in rekening wordt gebracht, `gewas_evenness` minder van belang
+-  sommige KLE variabelen tonen sterke correlaties met andere variabelen en bovendien zijn sommige van deze variabelen heel zeldzaam, toch zijn ze allemaal belangrijk voor de vogels. Tijdens het modelleren kan het toch blijken dat het beter is om alles te sommeren tot 1 KLE proportie variabele
+-  keuze maken over predatorvariabele: `n_predators` over `n_predators_spec` omwille van meer variatie
+-  voorteelten zijn vaak afwezig waardoor het misschien eerder een maat is van de oppervlakte aan landbouwgebruikspercelen binnen een telcirkel eerder dan indicatief te zijn voor voorteelten zelf: hoe meer afwezigheid voorteelt, hoe minder landbouwgebruikspercelen, hoe minder kleine landschapselementen (neg. corr.), hoe minder openheid landschap (pos. corr.) ... `afwezig_vrtlt` wordt dus toch ook beter weggelaten. Hoewel voorteelten in praktijk belangrijk kunnen zijn voor de akkervogels, blijkt dat we niet de goede data hebben om dit effectief te gaan controleren. Commentaar Johannes (2-06-2023):
+   -  "Voorteelt is vaak NA omdat er geen voorteelt mogelijk is. Die verzamelaanvraag loopt van 1 januari tot eind van het jaar, en bij wintergewassen staat de hoofdteelt er al op in het vroege voorjaar. Er zijn nog andere gevallen waarbij er geen voorteelt mogelijk is, vanwege de te korte tijd die er vrij is als de hoofdteelt er op moet komen."
+   -  "Ik heb het nog eens opgezocht, en hoofdteelt is de voornaamste teelt die er tussen 15 mei en eind augustus op staat. Een voorteelt wordt voor die tijd ondergewerkt of geoogst, zodat de hoofdteelt er op kan. Dus als er wintertarwe of een ander wintergraan op staat in de voorteelt, wil dat zeggen dat die (voor de organische stof, als voeder of om in te kuilen) wordt geoogst, of gewoon wordt ingeploegd omdat die mislukt is of als vanggewas is gezet. Dat zou dus een uitzondering moeten zijn. Wintergranen die er al op staan in de voorteelt periode, maar als hoofdteelt blijven staan, daar komt dan bij de voorteelt NA vermeld." 
+   -  "Wel blijkt er geen controle te zijn op de verzamelaanvraag gegevens, dus het kan ook een interpretatie zijn van de landbouwer om dezelfde voorteelt als hoofdteelt te vermelden (vb wintertarwe) die gewoon blijft staan."
+      "Voor ons onderzoek is vooral de hoofdteelt belangrijk eigenlijk, en bijkomstig of er een verschillende voorteelt is."
 
 ```{r}
 exclude_continue_bivars <- c("beheerovereenkomst_hfdtlt", "afwezig_vrtlt",
                              "perceel_median_area", "perceel_iqr_area", 
-                             "gewas_div_n", "n_predators")
+                             "gewas_div_n", "gewas_evenness",
+                             "n_predators_spec")
 
 continue_bivariate2 <- continue_bivariate %>%
-  mutate(area_prop_kle = rowSums(across(all_of(kle_vars)))) %>%
-  select(-all_of(c(exclude_continue_bivars, kle_vars)))
+  select(-all_of(c(exclude_continue_bivars)))
 
 bivariate_df <- bivariate_df %>%
-   mutate(area_prop_kle = rowSums(across(all_of(kle_vars)))) %>%
    select(-all_of(c(exclude_continue_bivars)))
-```
-
-```{r}
-plot_corr("area_prop_kle", "openheid_waarde_1000")
 ```
 
 De nieuwe Pearson correlatie matrix ziet er als volgt uit.
