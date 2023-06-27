@@ -1087,6 +1087,13 @@
       ],
       "Hash": "bb097fccb22d156624fd07cd2894ddb6"
     },
+    "corrplot": {
+      "Package": "corrplot",
+      "Version": "0.92",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "fcf11a91936fd5047b2ee9bc00595e36"
+    },
     "countrycode": {
       "Package": "countrycode",
       "Version": "1.4.0",
