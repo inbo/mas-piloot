@@ -1,0 +1,92 @@
+---
+title: "Invloed van beheerovereenkomsten op akkervogels"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+bibliography: references.json
+---
+
+```{r setup, include=FALSE}
+# renv
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here())
+
+# Conflicting packages
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+
+# Packages
+library(tidyverse)
+library(INBOtheme)
+library(sf)
+```
+
+# Inlezen data
+
+```{r}
+data_path <- here("data", "processed")
+mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
+mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
+                        crs = 31370)
+
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
+```
+
+# Dataset structuur
+
+Hoe ziet de dataset eruit?
+
+```{r}
+glimpse(mas_data_df)
+```
+
+We visualiseren ook de waarnemingen en kleuren hoeveel jaren het telpunt geteld is.
+
+```{r}
+visits_per_jaar <- mas_data_sf %>%
+  st_drop_geometry() %>%
+  group_by(plotnaam) %>%
+  mutate(n_per_jaar = n_distinct(jaar)) %>%
+  ungroup() %>%
+  select(plotnaam, n_per_jaar) %>%
+  distinct()
+
+mas_data_sf %>%
+  filter(regio == "De Moeren") %>%
+  left_join(visits_per_jaar, by = join_by(plotnaam)) %>%
+  ggplot() +
+    geom_sf(data = perimeters %>% filter(Naam == "De Moeren"), 
+            colour = "firebrick") +
+    geom_sf(aes(colour = factor(n_per_jaar)), size = 0.5) +
+    labs(title = "De Moeren", colour = "aantal jaren\ntelpunt geteld") +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
+```
+
+```{r}
+mas_data_sf %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  left_join(visits_per_jaar, by = join_by(plotnaam)) %>%
+  ggplot() +
+    geom_sf(data = perimeters %>% filter(Naam == "Oostelijke leemstreek"), 
+            colour = "firebrick") +
+    geom_sf(aes(colour = factor(n_per_jaar)), size = 0.5) +
+    labs(title = "Oostelijke leemstreek", 
+         colour = "aantal jaren\ntelpunt geteld") +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
+```
