@@ -34,6 +34,7 @@ conflicted::conflicts_prefer(dplyr::select)
 library(tidyverse)
 library(INBOtheme)
 library(sf)
+library(projpred)
 ```
 
 # Inlezen data
@@ -41,12 +42,39 @@ library(sf)
 ```{r}
 data_path <- here("data", "processed")
 mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
+
+```
+
+Er zijn 3 tellingen in De Moeren van 2022 die op eenzelfde dag zijn geteld door 2 verschillende personen.
+
+-  DM_137.2 op 2022-06-03 door JJNN16 en HMLE02
+-  DM_18 op 2022-06-03 door JJNN16 en HMLE02
+-  DM_39.22 op 2022-04-28 door JJNN16 en ATRR00
+
+Voorlopig passen we we de variabele `teller_status` manueel aan naar 'professioneel' voor deze tellingen (we gaan ervan uit dat het een opleidingsmoment was).
+
+> aan Johannes vragen
+
+```{r}
+mas_data_df <- mas_data_df %>%
+  mutate(status_teller = case_when(
+    plotnaam == "DM_137.2" & datum == "2022-06-03" ~ "professioneel",
+    plotnaam == "DM_18" & datum == "2022-06-03" ~ "professioneel",
+    plotnaam == "DM_39.22" & datum == "2022-04-28" ~ "professioneel",
+    TRUE ~ status_teller))
+```
+
+```{r}
+design <- mas_data_df %>%
+  distinct(plotnaam, regio, periode_in_jaar, jaar)
+
 mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
                         crs = 31370)
 
 perimeters <- read_sf(
   here("data", "processed", "piloot_perimeters.gpkg"))
 ```
+
 
 # Dataset structuur
 
@@ -90,3 +118,33 @@ mas_data_sf %>%
          colour = "aantal jaren\ntelpunt geteld") +
     guides(colour = guide_legend(override.aes = list(size = 3)))
 ```
+
+# Model specificatie test: Gele kwikstaart
+
+We selecteren de data van de Gele kwikstaart met broedcode > 0. We sommeren de aantal per telcirkel, telperiode en jaar. We voegen ook afwezigheden toe.
+
+```{r}
+# Presence data
+gele_kwik_presences <- mas_data_df %>%
+  filter(naam == "Gele Kwikstaart",
+         wrntype > 0) %>%
+  group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup()
+
+# Add absences
+gele_kwik_total <- design %>%
+  left_join(gele_kwik_presences, 
+            by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
+  replace(is.na(.), 0) %>%
+  arrange(plotnaam, periode_in_jaar, jaar)
+
+# Add variables
+gele_kwik_df <- gele_kwik_total %>%
+  left_join(
+    select(mas_data_df, plotnaam, regio, periode_in_jaar, jaar, status_teller,
+    which(names(mas_data_df) == "n_predators"):length(names(mas_data_df))),
+    by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
+  distinct()
+```
+
