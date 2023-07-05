@@ -29,11 +29,15 @@ opts_knit$set(root.dir = here())
 # Conflicting packages
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(brms::ar)
+conflicted::conflicts_prefer(brms::do_call)
 
 # Packages
 library(tidyverse)
 library(INBOtheme)
 library(sf)
+library(brms)
 library(projpred)
 ```
 
@@ -145,6 +149,46 @@ gele_kwik_df <- gele_kwik_total %>%
     select(mas_data_df, plotnaam, regio, periode_in_jaar, jaar, status_teller,
     which(names(mas_data_df) == "n_predators"):length(names(mas_data_df))),
     by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
-  distinct()
+  distinct() %>%
+  mutate(jaar.f = factor(jaar))
+```
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 4000          # number of iterations (incl. burn-in)
+burnin <- niter / 2    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+
+
+brmpois1 <- brm(bf(aantal ~ periode_in_jaar + regio*jaar.f + (1 | plotnaam)), 
+                data = gele_kwik_df, family = poisson(), 
+                chains = nchains, warmup = burnin, iter = niter, 
+                cores = nparallel, backend = "cmdstanr")
+```
+
+```{r}
+summary(brmpois1)
+```
+
+```{r}
+plot(brmpois1)
+```
+
+```{r}
+pp_check(brmpois1, type = "bars_grouped", ndraws = 100, group = "regio",
+         facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+```{r}
+library(tidybayes)
+draws <- gele_kwik_df %>%
+  distinct(plotnaam, regio, periode_in_jaar, jaar.f) %>%
+  add_epred_draws(brmpois1)
+  
+draws %>%
+  ggplot(aes(x = periode_in_jaar, y = .epred, colour = jaar.f)) +
+  stat_halfeye() +
+  facet_grid(regio~jaar.f)
 ```
 
