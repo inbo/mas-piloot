@@ -38,7 +38,6 @@ library(tidyverse)
 library(INBOtheme)
 library(sf)
 library(brms)
-library(projpred)
 ```
 
 # Inlezen data
@@ -180,15 +179,4 @@ pp_check(brmpois1, type = "bars_grouped", ndraws = 100, group = "regio",
          facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
-```{r}
-library(tidybayes)
-draws <- gele_kwik_df %>%
-  distinct(plotnaam, regio, periode_in_jaar, jaar.f) %>%
-  add_epred_draws(brmpois1)
-  
-draws %>%
-  ggplot(aes(x = periode_in_jaar, y = .epred, colour = jaar.f)) +
-  stat_halfeye() +
-  facet_grid(regio~jaar.f)
-```
 
