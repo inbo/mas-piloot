@@ -133,6 +133,8 @@ gele_kwik_df <- gele_kwik_total %>%
   mutate(jaar.f = factor(jaar))
 ```
 
+
+
 ```{r}
 # MCMC parameters
 nchains <- 3           # number of chains
@@ -141,23 +143,105 @@ burnin <- niter / 2    # number of initial samples to discard (burn-in)
 nparallel <- nchains   # number of cores used for parallel computing
 
 
-brmpois1 <- brm(bf(aantal ~ periode_in_jaar + regio*jaar.f + (1 | plotnaam)), 
+brmpois1 <- brm(bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb + 
+                     (1 | plotnaam)), 
                 data = gele_kwik_df, family = poisson(), 
                 chains = nchains, warmup = burnin, iter = niter, 
                 cores = nparallel, backend = "cmdstanr")
 ```
 
-```{r}
-summary(brmpois1)
-```
+MCMC convergence.
 
 ```{r}
 plot(brmpois1)
 ```
+
+Posterior predictive check.
 
 ```{r}
 pp_check(brmpois1, type = "bars_grouped", ndraws = 100, group = "regio",
          facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
+Summary.
+
+```{r}
+summary(brmpois1)
+```
+
+```{r}
+get_hyp_estimates <- function(model, regio, perc_inc) {
+  if (regio == "De Moeren") {
+    hyp <- paste0("exp(area_prop_sb*", perc_inc, ") = 1")
+    est_hyp <- hypothesis(model, hyp)
+  } else {
+    hyp <- paste0("exp(area_prop_sb*", perc_inc, 
+                  " + regioOostelijkeleemstreek:area_prop_sb*", 
+                  perc_inc, ") = 1")
+    est_hyp <- hypothesis(model, hyp)
+  }
+ est_hyp$hypothesis[,2:5] %>%
+   mutate(regio = regio,
+          perc_inc = perc_inc)
+}
+
+increases <- seq(0, 1, 0.01)
+out <- vector(mode = "list", length = length(increases) * 
+         length(unique(gele_kwik_df$regio)))
+
+for (i in seq_along(unique(gele_kwik_df$regio))) {
+  reg <- unique(gele_kwik_df$regio)[i]
+  for (j in seq_along(increases)) {
+    perc <- increases[j]
+    index <- j + (length(increases) * (i - 1))
+    out[[index]] <- get_hyp_estimates(brmpois1, reg, perc)
+  }
+}
+
+hyp_est_df <- do.call(rbind.data.frame, out)
+```
+
+```{r}
+hyp_est_df %>%
+  mutate(perc_inc = perc_inc * 100) %>%
+  ggplot(aes(x = perc_inc, y = Estimate)) +
+    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_line(colour = "black", linewidth = 1.2) +
+    geom_ribbon(aes(ymin = CI.Lower, ymax = CI.Upper, fill = regio), alpha = 0.3) +
+    facet_wrap(~regio) +
+    theme(legend.position = "") +
+    labs(x = "procent toename in oppervlakte soorbeschermingsplannen",
+         y = "aantal keer meer Gele kwikstaarten")
+```
+
+
+
+http://mjskay.github.io/tidybayes/articles/tidybayes.html
+
+```{r}
+library(tidybayes)
+pred_df <- gele_kwik_df %>%
+  group_by(plotnaam, periode_in_jaar, jaar.f, regio) %>%
+  data_grid(area_prop_sb = seq_range(area_prop_sb, n = 100)) %>%
+  add_epred_draws(brmpois1)
+
+pred_df %>%
+  ggplot(aes(x = area_prop_sb, y = .epred, color = regio)) +
+  stat_lineribbon() +
+  scale_fill_brewer(palette = "Greys") +
+  scale_color_brewer(palette = "Set2") +
+  facet_grid(periode_in_jaar~jaar.f)
+```
+
+https://mc-stan.org/projpred/articles/projpred.html  
+https://mc-stan.org/projpred/articles/latent.html
+
+```{r}
+library(projpred)
+refm_poiss <- get_refmodel(brmpois1, latent = TRUE)
+vs_lat <- cv_varsel(refm_poiss,
+                    ### Only for the sake of speed (not recommended in general):
+                    validate_search = FALSE, nclusters_pred = 20)
+plot(vs_lat, stats = "mlpd", deltas = TRUE)
+```
 
