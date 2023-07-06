@@ -48,25 +48,6 @@ mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
 
 ```
 
-Er zijn 3 tellingen in De Moeren van 2022 die op eenzelfde dag zijn geteld door 2 verschillende personen.
-
--  DM_137.2 op 2022-06-03 door JJNN16 en HMLE02
--  DM_18 op 2022-06-03 door JJNN16 en HMLE02
--  DM_39.22 op 2022-04-28 door JJNN16 en ATRR00
-
-Voorlopig passen we we de variabele `teller_status` manueel aan naar 'professioneel' voor deze tellingen (we gaan ervan uit dat het een opleidingsmoment was).
-
-> aan Johannes vragen
-
-```{r}
-mas_data_df <- mas_data_df %>%
-  mutate(status_teller = case_when(
-    plotnaam == "DM_137.2" & datum == "2022-06-03" ~ "professioneel",
-    plotnaam == "DM_18" & datum == "2022-06-03" ~ "professioneel",
-    plotnaam == "DM_39.22" & datum == "2022-04-28" ~ "professioneel",
-    TRUE ~ status_teller))
-```
-
 ```{r}
 design <- mas_data_df %>%
   distinct(plotnaam, regio, periode_in_jaar, jaar)
@@ -132,8 +113,8 @@ gele_kwik_presences <- mas_data_df %>%
   filter(naam == "Gele Kwikstaart",
          wrntype > 0) %>%
   group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
-  summarise(aantal = sum(aantal)) %>%
-  ungroup()
+  summarise(aantal = sum(aantal),
+            .groups = "drop")
 
 # Add absences
 gele_kwik_total <- design %>%
