@@ -383,7 +383,7 @@ mas_soortgrp <- mas_distance %>%
 
 ## Dubbeltellingen
 
-Voor de waarnemingen verwijderen we dubbeltellingen. Indien binnen een jaar op meerdere teldagen binnen eenzelfde telperiode werd geteld, wordt de laatste teldag genomen tenzij er ook door een professionele teller is geteld. Dan nemen we de telling van de professionele teller.
+Voor de waarnemingen verwijderen we dubbeltellingen. Indien binnen een jaar binnen eenzelfde telperiode op meerdere teldagen OF op eenzelfde teldag door verschillende waarnemers werd geteld, wordt de laatste teldag genomen tenzij er ook door een professionele teller is geteld. Dan nemen we de telling van de professionele teller.
 
 ```{r}
 profs <- c("WVNT00", "JJNN16", "NOVN00", "ETBX00")
@@ -397,8 +397,9 @@ dubbels <- mas_soortgrp %>%
   st_drop_geometry() %>%
   group_by(plotnaam, jaar, periode_in_jaar) %>%
   summarize(aantal_teldagen = n_distinct(doy),
+            aantal_waarnemers = n_distinct(waarnemer),
             .groups = "drop") %>%
-  filter(aantal_teldagen > 1)
+  filter(aantal_teldagen > 1 | aantal_waarnemers > 1)
 
 dubbels %>%
   kable
