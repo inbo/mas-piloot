@@ -404,8 +404,16 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZINB"))) {
 ```
 
 ```{r}
-models <- c("Poisson", "Zero-inflated Negative binomial", 
-            "Zero-inflated Poisson", "Negative binomial")
+models_dist <- data.frame(
+  model = c("Poisson", 
+            "Negative binomial",
+            "Zero-inflated Poisson",
+            "Zero-inflated Negative binomial"),
+  naam =  c("fit_sbp_gelekwik_pois1", 
+            "fit_sbp_gelekwik_negbin1",
+            "fit_sbp_gelekwik_ZIP1",
+            "fit_sbp_gelekwik_ZINB1")
+  )
 
 # Comparison among models
 comparisons <- loo_compare(fit_sbp_gelekwik_pois1, 
@@ -414,7 +422,8 @@ comparisons <- loo_compare(fit_sbp_gelekwik_pois1,
                            fit_sbp_gelekwik_ZINB1, 
                            criterion = "kfold")[, c(1, 2)] %>%
                 as.data.frame() %>%
-                mutate(model = models)
+                rownames_to_column("naam") %>% 
+                full_join(models_dist, by = join_by(naam))
 
 rbind(
   fit_sbp_gelekwik_pois1$criteria$kfold$estimates[, "Estimate"],
@@ -423,11 +432,11 @@ rbind(
   fit_sbp_gelekwik_ZINB1$criteria$kfold$estimates[, "Estimate"]
   ) %>%
   as.data.frame() %>%
-  mutate(model = models) %>%
+  mutate(model = models_dist$model) %>%
   full_join(comparisons, by = "model") %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
-  select(model, everything()) %>%
+  select(model, naam, everything()) %>%
   arrange(desc(elpd_diff)) %>%
   kable(digits = 3)
 ```
@@ -602,8 +611,14 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois2"))) {
 ```
 
 ```{r}
-models2 <- c("Poisson geen random effects", "Poisson random intercept", 
-            "Poisson AR")
+models_random <- data.frame(
+  model = c("Poisson geen random effects", 
+           "Poisson random intercept",
+           "Poisson AR"),
+  naam = c("fit_sbp_gelekwik_pois0", 
+           "fit_sbp_gelekwik_pois1",
+           "fit_sbp_gelekwik_pois2")
+  )
 
 # Comparison among models
 comparisons2 <- loo_compare(fit_sbp_gelekwik_pois0, 
@@ -611,7 +626,8 @@ comparisons2 <- loo_compare(fit_sbp_gelekwik_pois0,
                            fit_sbp_gelekwik_pois2, 
                            criterion = "kfold")[, c(1, 2)] %>%
                 as.data.frame() %>%
-                mutate(model = models2)
+                rownames_to_column("naam") %>% 
+                full_join(models_random, by = join_by(naam))
 
 rbind(
   fit_sbp_gelekwik_pois0$criteria$kfold$estimates[, "Estimate"],
@@ -619,11 +635,11 @@ rbind(
   fit_sbp_gelekwik_pois2$criteria$kfold$estimates[, "Estimate"]
   ) %>%
   as.data.frame() %>%
-  mutate(model = models) %>%
-  full_join(comparison2s, by = "model") %>%
+  mutate(model = models_random$model) %>%
+  full_join(comparisons2, by = "model") %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
-  select(model, everything()) %>%
+  select(model, naam, everything()) %>%
   arrange(desc(elpd_diff)) %>%
   kable(digits = 3)
 ```
