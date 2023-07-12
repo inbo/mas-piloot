@@ -269,6 +269,8 @@ $$
 g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{2}X_{jaar, i} + \beta_{3}X_{regio, i} + \beta_{4}X_{\text{area_prop_sb}, i} + \beta_{4}X_{regio, i} \times X_{\text{area_prop_sb}, i} + b_{1,j}
 $$
 
+### Modellen fitten
+
 ```{r}
 # Save brms models to this path
 model_path <- "./src/markdown/mas/brms_models/"
@@ -350,11 +352,50 @@ summary(sbp_gelekwik_ZINB1)
 plot(sbp_gelekwik_ZINB1)
 ```
 
-MCMC convergence.
+Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
 
+### Model selectie en fit
+
+We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, *waarom?*). 
+Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte.
+Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. 
+We stratificeren volgens regio.
+Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
+ 
 ```{r}
-plot(brmpois1)
+# Perform K-fold cross-validation
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois1"))) {
+  fit_sbp_gelekwik_pois1 <- add_criterion(
+    sbp_gelekwik_pois1, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois1"))
+  fit_sbp_gelekwik_negbin1 <- add_criterion(
+    sbp_gelekwik_negbin1, c("kfold"), K = 5, cores = 5, 
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_negbin1"))
+  fit_sbp_gelekwik_ZIP1 <- add_criterion(
+    sbp_gelekwik_ZIP1, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_ZIP1"))
+  fit_sbp_gelekwik_ZINB1 <- add_criterion(
+    sbp_gelekwik_ZINB1, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio",
+    file = paste0(model_path, "fit_sbp_gelekwik_ZINB1"))
+} else {
+  fit_sbp_gelekwik_pois1 <- readRDS(paste0(model_path, "fit_sbp_gelekwik_pois1.rds"))
+  fit_sbp_gelekwik_negbin1 <- readRDS(paste0(model_path, "fit_sbp_gelekwik_negbin1.rds"))
+  fit_sbp_gelekwik_ZIP1 <- readRDS(paste0(model_path, "fit_sbp_gelekwik_ZIP1.rds"))
+  fit_sbp_gelekwik_ZINB1 <- readRDS(paste0(model_path, "fit_sbp_gelekwik_ZINB1.rds"))
+}
+
+# Comparison among models
+comparisons <- loo_compare(fit_brmpois1, fit_brmnegbin1, fit_brmZIP1, 
+                           fit_brmZINB1, criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                mutate(model = c("Poisson", "Zero-inflated Negative binomial",
+                                 "Zero-inflated Poisson", "Negative binomial"))
 ```
+
 
 Posterior predictive check.
 
