@@ -416,7 +416,8 @@ comparisons <- loo_compare(fit_sbp_gelekwik_pois1,
                 as.data.frame() %>%
                 mutate(model = models)
 
-rbind(fit_sbp_gelekwik_pois1$criteria$kfold$estimates[, "Estimate"],
+rbind(
+  fit_sbp_gelekwik_pois1$criteria$kfold$estimates[, "Estimate"],
   fit_sbp_gelekwik_negbin1$criteria$kfold$estimates[, "Estimate"],
   fit_sbp_gelekwik_ZIP1$criteria$kfold$estimates[, "Estimate"], 
   fit_sbp_gelekwik_ZINB1$criteria$kfold$estimates[, "Estimate"]
@@ -601,26 +602,25 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois2"))) {
 ```
 
 ```{r}
-models <- c("Poisson", "Zero-inflated Negative binomial", 
-            "Zero-inflated Poisson", "Negative binomial")
+models2 <- c("Poisson geen random effects", "Poisson random intercept", 
+            "Poisson AR")
 
 # Comparison among models
-comparisons <- loo_compare(fit_sbp_gelekwik_pois1, 
-                           fit_sbp_gelekwik_negbin1, 
-                           fit_sbp_gelekwik_ZIP1, 
-                           fit_sbp_gelekwik_ZINB1, 
+comparisons2 <- loo_compare(fit_sbp_gelekwik_pois0, 
+                           fit_sbp_gelekwik_pois1, 
+                           fit_sbp_gelekwik_pois2, 
                            criterion = "kfold")[, c(1, 2)] %>%
                 as.data.frame() %>%
-                mutate(model = models)
+                mutate(model = models2)
 
-rbind(fit_sbp_gelekwik_pois1$criteria$kfold$estimates[, "Estimate"],
-  fit_sbp_gelekwik_negbin1$criteria$kfold$estimates[, "Estimate"],
-  fit_sbp_gelekwik_ZIP1$criteria$kfold$estimates[, "Estimate"], 
-  fit_sbp_gelekwik_ZINB1$criteria$kfold$estimates[, "Estimate"]
+rbind(
+  fit_sbp_gelekwik_pois0$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_pois1$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_pois2$criteria$kfold$estimates[, "Estimate"]
   ) %>%
   as.data.frame() %>%
   mutate(model = models) %>%
-  full_join(comparisons, by = "model") %>%
+  full_join(comparison2s, by = "model") %>%
   mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
          CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
   select(model, everything()) %>%
@@ -628,7 +628,7 @@ rbind(fit_sbp_gelekwik_pois1$criteria$kfold$estimates[, "Estimate"],
   kable(digits = 3)
 ```
 
-Het Poisson model toont het beste evenwicht tussen model parsimonie en model fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
+Het ***...*** model toont het beste evenwicht tussen model parsimonie en model fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
 
 ```{r}
 pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
