@@ -215,7 +215,8 @@ We zijn vooral geïnteresseerd hoe de aantallen zich verhouden tot de verklarend
 
 ```{r}
 gele_kwik_df_mod <- gele_kwik_df %>%
-  select(all_of(c(response_vars, strat_vars, pred_vars)))
+  select(all_of(c(response_vars, strat_vars, pred_vars))) %>%
+  rowid_to_column("id")
 ```
 
 ```{r}
@@ -369,23 +370,36 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois1"))) {
     sbp_gelekwik_pois1, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
     file = paste0(model_path, "fit_sbp_gelekwik_pois1"))
+} else {
+  fit_sbp_gelekwik_pois1 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois1.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_negbin1"))) {
   fit_sbp_gelekwik_negbin1 <- add_criterion(
-    sbp_gelekwik_negbin1, c("kfold"), K = 5, cores = 5, 
+    sbp_gelekwik_negbin1, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
     file = paste0(model_path, "fit_sbp_gelekwik_negbin1"))
+} else {
+  fit_sbp_gelekwik_negbin1 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_negbin1.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZIP1"))) {
   fit_sbp_gelekwik_ZIP1 <- add_criterion(
     sbp_gelekwik_ZIP1, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
     file = paste0(model_path, "fit_sbp_gelekwik_ZIP1"))
-  fit_sbp_gelekwik_ZINB1 <- add_criterion(
-    sbp_gelekwik_ZINB1, c("kfold"), K = 5, cores = 5,
-    folds = "stratified", group = "regio",
-    file = paste0(model_path, "fit_sbp_gelekwik_ZINB1"))
 } else {
-  fit_sbp_gelekwik_pois1 <- readRDS(paste0(model_path, "fit_sbp_gelekwik_pois1.rds"))
-  fit_sbp_gelekwik_negbin1 <- readRDS(paste0(model_path, "fit_sbp_gelekwik_negbin1.rds"))
-  fit_sbp_gelekwik_ZIP1 <- readRDS(paste0(model_path, "fit_sbp_gelekwik_ZIP1.rds"))
-  fit_sbp_gelekwik_ZINB1 <- readRDS(paste0(model_path, "fit_sbp_gelekwik_ZINB1.rds"))
+  fit_sbp_gelekwik_ZIP1 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZIP1.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZINB"))) {
+  fit_sbp_gelekwik_ZINB <- add_criterion(
+    sbp_gelekwik_ZINB, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_ZINB"))
+} else {
+  fit_sbp_gelekwik_ZINB <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZINB.rds"))
 }
 ```
 
@@ -501,10 +515,184 @@ hyp_est_df %>%
          y = "aantal keer meer Gele kwikstaarten")
 ```
 
-
 ### Conclusies (1)
 
 Het Poisson model kan de data goed beschrijven. We kijken nu welke random effecten we best toevoegen.
+
+### Modellen fitten (1)
+
+We fitten vier modellen met Poisson verdeling. Het fixed effect gedeelte is hetzelfde als voordien:
+
+$$
+g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{2}X_{jaar, i} + \beta_{3}X_{regio, i} + \beta_{4}X_{\text{area_prop_sb}, i} + \beta_{4}X_{regio, i} \times X_{\text{area_prop_sb}, i}
+$$
+
+We beschouwen vier mogelijkheden voor de random effects:
+
+1.  Geen random effecten
+2.  Random intercept per telcirkel
+3.  Autoregressive per jaar (orde 1)
+4.  Random intercept en autoregressive (orde 1)
+5.  Random intercept en random slope per telcirkel voor jaar effect (verwijder jaar effect uit fixed effects)
+
+```{r}
+# id die telcirkels binnen telperiodes linkt (voor AR over jaren heen)
+gele_kwik_df_modAR <- gele_kwik_df_mod %>%
+  mutate(ar_id = paste(plotnaam, periode_in_jaar, sep = "_"))
+
+# 1. Geen random effecten
+sbp_gelekwik_pois0 <- 
+  brm(formula = bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb),
+      data = gele_kwik_df_mod, 
+      family = poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois0"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois0)
+plot(sbp_gelekwik_pois0)
+
+# 3. Autoregressive per jaar
+sbp_gelekwik_pois2 <- 
+  brm(formula = bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb,
+                   autocor = ~ ar(time = jaar, gr = ar_id, p = 1)),
+      data = gele_kwik_df_modAR, 
+      family = poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois2"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois2)
+plot(sbp_gelekwik_pois2)
+
+# 4. Random intercept en autoregressive
+sbp_gelekwik_pois3 <- 
+  brm(formula = bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb + 
+                   (1 | plotnaam),
+                   autocor = ~ ar(jaar, gr = ar_id, p = 1)),
+      data = gele_kwik_df_modAR, 
+      family = poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois3"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois3)
+plot(sbp_gelekwik_pois3)
+
+# 5. Random intercept en random slope per telcirkel voor jaar effect
+sbp_gelekwik_pois4 <- 
+  brm(formula = bf(aantal ~ periode_in_jaar + regio*area_prop_sb + 
+                   (1 + jaar | plotnaam)),
+      data = gele_kwik_df_mod, 
+      family = poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois4"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois4)
+plot(sbp_gelekwik_pois4)
+```
+
+Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
+
+### Model selectie en fit (2)
+
+We vergelijken de modellen gebruikmakend van 5-fold cross-validation.
+ 
+```{r}
+# Perform K-fold cross-validation
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois2"))) {
+  fit_sbp_gelekwik_pois2 <- add_criterion(
+    sbp_gelekwik_pois2, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois2"))
+} else {
+  fit_sbp_gelekwik_pois2 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois2.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois3"))) {
+  fit_sbp_gelekwik_pois3 <- add_criterion(
+    sbp_gelekwik_pois3, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois3"))
+} else {
+  fit_sbp_gelekwik_pois3 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois3.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois4"))) {
+  fit_sbp_gelekwik_pois4 <- add_criterion(
+    sbp_gelekwik_pois4, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois4"))
+} else {
+  fit_sbp_gelekwik_pois4 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois4.rds"))
+}
+```
+
+```{r}
+models <- c("Poisson", "Zero-inflated Negative binomial", 
+            "Zero-inflated Poisson", "Negative binomial")
+
+# Comparison among models
+comparisons <- loo_compare(fit_sbp_gelekwik_pois1, 
+                           fit_sbp_gelekwik_negbin1, 
+                           fit_sbp_gelekwik_ZIP1, 
+                           fit_sbp_gelekwik_ZINB1, 
+                           criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                mutate(model = models)
+
+rbind(fit_sbp_gelekwik_pois1$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_negbin1$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_ZIP1$criteria$kfold$estimates[, "Estimate"], 
+  fit_sbp_gelekwik_ZINB1$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = models) %>%
+  full_join(comparisons, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+Het Poisson model toont het beste evenwicht tussen model parsimonie en model fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
+
+```{r}
+pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
+         group = "regio", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+```{r}
+pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
+         group = "jaar.f", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+### Resultaten (2)
+
+
+### Conclusies (2)
+
+
+
 
 
 ## Selectie verklarende variabelen
