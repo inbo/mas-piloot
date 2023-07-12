@@ -173,9 +173,7 @@ gele_kwik_df <- gele_kwik_df1 %>%
 
 strat_vars <- c("plotnaam", "regio", "periode_in_jaar", "jaar", "jaar.f")
 response_vars <- c("aantal")
-pred_vars <- c("status_teller",
-               "n_predators",
-               "area_prop_sb",
+pred_vars <- c("area_prop_sb",
                "area_prop_bo_overig",
                "landbouwinfrastructuur_hfdtlt",
                "grasland_hfdtlt",
@@ -207,7 +205,9 @@ pred_vars <- c("status_teller",
                "bomengroep",
                "bomenrij",
                "bosrand",
-               "natuur_exp")
+               "natuur_exp",
+               "status_teller",
+               "n_predators")
 ```
 
 
@@ -219,23 +219,32 @@ gele_kwik_df_mod <- gele_kwik_df %>%
 ```
 
 ```{r}
-gele_kwik_df_mod %>%
-  filter(regio == "De Moeren") %>%
-  ggplot(aes(x = area_prop_sb, y = aantal)) +
-    geom_point() +
-    geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
-    geom_smooth(method = "gam", colour = "firebrick") +
-    facet_wrap(~jaar, scales = "free") +
-    ggtitle("De Moeren")
-  
-gele_kwik_df_mod %>%
-  filter(regio == "Oostelijke leemstreek") %>%
-  ggplot(aes(x = area_prop_sb, y = aantal)) +
-    geom_point() +
-    geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
-    geom_smooth(method = "gam", colour = "firebrick") +
-    facet_wrap(~jaar, scales = "free") +
-    ggtitle("Oostelijke leemstreek")
+plot_scatter <- function(x, y = "aantal", df = gele_kwik_df_mod) {
+  for (reg in unique(df$regio)) {
+    p <- df %>%
+      filter(regio == reg) %>%
+      ggplot(aes(x = .data[[x]], y = .data[[y]])) +
+        geom_point(aes(shape = periode_in_jaar)) +
+        geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+        geom_smooth(method = "gam", colour = "firebrick") +
+        facet_wrap(~jaar, scales = "free") +
+        ggtitle(reg) +
+        theme(legend.position = c(0.8, 0.2),
+              legend.direction = "vertical")
+    print(p)
+  }
+}
+```
+
+```{r}
+continue_predvars1 <- gele_kwik_df_mod %>%
+  select(where(is.numeric)) %>%
+  names()
+continue_predvars <- intersect(pred_vars, continue_predvars1)
+
+for (var in continue_predvars) {
+  plot_scatter(var)
+}
 ```
 
 
