@@ -247,22 +247,107 @@ for (var in continue_predvars) {
 }
 ```
 
-
 ## Model specificatie test
 
+We vergelijken enkele simpele modellen:
+
+-  welke distributies passen best?
+-  welke random effects moeten we toevoegen?
+
+We fitten vier modellen met verschillende verdelingsassumpties:
+
+1.  Poisson
+2.  Negative binomial
+3.  Zero-inflated Poisson
+4.  Zero-inflated Negative binomial
+
+We beginnen met een simpel model met random effect voor telcirkel.
+
+Beschouw $Y_{i}$ een observatie $i$ van een aantal broedparen in eenzelfde telcirkel $j$. Deze observaties beschouwen we afhankelijk van de telperiode (dummy variabele $X_{\text{periode_in_jaar}}$), teljaar ($X_{\text{jaar}}$), regio ($X_{\text{regio}}$) en de oppervlakte proportie soortbeschermingsplannen binnen de telcirkel ($X_{\text{area_prop_sb}}$). We voegen een interactie toe tussen regio en proportie sb zodat het effect kan verschillen per regio. We voegen ten slotte een random effect toe van telcirkel $b_{1}$. In een later stadium kunnen we testen of deze laatste noodzakelijk is en/of als er meer complexe correlatiestructuren moeten gespecifieerd worden (bv. autoregressive).
+
+$$
+g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{2}X_{jaar, i} + \beta_{3}X_{regio, i} + \beta_{4}X_{\text{area_prop_sb}, i} + \beta_{4}X_{regio, i} \times X_{\text{area_prop_sb}, i} + b_{1,j}
+$$
+
 ```{r}
+# Save brms models to this path
+model_path <- "./src/markdown/mas/brms_models/"
+
 # MCMC parameters
 nchains <- 3           # number of chains
 niter <- 4000          # number of iterations (incl. burn-in)
 burnin <- niter / 2    # number of initial samples to discard (burn-in)
 nparallel <- nchains   # number of cores used for parallel computing
 
+# Formula
+form1 <- bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb + 
+            (1 | plotnaam))
+```
 
-brmpois1 <- brm(bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb + 
-                     (1 | plotnaam)), 
-                data = gele_kwik_df_mod, family = poisson(), 
-                chains = nchains, warmup = burnin, iter = niter, 
-                cores = nparallel, backend = "cmdstanr")
+```{r}
+# 1. Poisson
+sbp_gelekwik_pois1 <- 
+  brm(formula = form1,
+      data = gele_kwik_df_mod, 
+      family = poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois1"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois1)
+plot(sbp_gelekwik_pois1)
+
+# 2. Negative binomial
+sbp_gelekwik_negbin1 <- 
+  brm(formula = form1,
+      data = gele_kwik_df_mod, 
+      family = negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_negbin1"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_negbin1)
+plot(sbp_gelekwik_negbin1)
+
+# 3. Zero-inflated Poisson
+sbp_gelekwik_ZIP1 <- 
+  brm(formula = form1,
+      data = gele_kwik_df_mod, 
+      family = zero_inflated_poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_ZIP1"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_ZIP1)
+plot(sbp_gelekwik_ZIP1)
+
+# 4. Zero-inflated Negative binomial
+sbp_gelekwik_ZINB1 <- 
+  brm(formula = form1,
+      data = gele_kwik_df_mod, 
+      family = zero_inflated_negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_ZINB1"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_ZINB1)
+plot(sbp_gelekwik_ZINB1)
 ```
 
 MCMC convergence.
@@ -274,7 +359,7 @@ plot(brmpois1)
 Posterior predictive check.
 
 ```{r}
-pp_check(brmpois1, type = "bars_grouped", ndraws = 100, group = "regio",
+pp_check(brmpois1, type = "bars_grouped", ndraws = 100, group = "jaar.f",
          facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
