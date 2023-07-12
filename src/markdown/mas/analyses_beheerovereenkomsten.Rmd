@@ -218,6 +218,26 @@ gele_kwik_df_mod <- gele_kwik_df %>%
   select(all_of(c(response_vars, strat_vars, pred_vars)))
 ```
 
+```{r}
+gele_kwik_df_mod %>%
+  filter(regio == "De Moeren") %>%
+  ggplot(aes(x = area_prop_sb, y = aantal)) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+    geom_smooth(method = "gam", colour = "firebrick") +
+    facet_wrap(~jaar, scales = "free") +
+    ggtitle("De Moeren")
+  
+gele_kwik_df_mod %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  ggplot(aes(x = area_prop_sb, y = aantal)) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+    geom_smooth(method = "gam", colour = "firebrick") +
+    facet_wrap(~jaar, scales = "free") +
+    ggtitle("Oostelijke leemstreek")
+```
+
 
 ## Model specificatie test
 
