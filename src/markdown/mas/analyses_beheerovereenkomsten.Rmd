@@ -125,7 +125,7 @@ gele_kwik_total <- design %>%
   arrange(plotnaam, periode_in_jaar, jaar)
 
 # Add variables
-gele_kwik_df <- gele_kwik_total %>%
+gele_kwik_df1 <- gele_kwik_total %>%
   left_join(
     select(mas_data_df, plotnaam, regio, periode_in_jaar, jaar, status_teller,
     which(names(mas_data_df) == "n_predators"):length(names(mas_data_df))),
@@ -134,6 +134,89 @@ gele_kwik_df <- gele_kwik_total %>%
   mutate(jaar.f = factor(jaar))
 ```
 
+We herhalen enkele plots die we ook in `modelleeroefening_Gele_kwik.Rmd` maakten.
+
+```{r}
+gele_kwik_df1 %>%
+  group_by(regio, jaar, periode_in_jaar, aantal) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  ggplot(aes(x = aantal, y = n, fill = periode_in_jaar)) +
+    geom_bar(stat = "identity", col = "black") +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank()) + 
+    facet_wrap(jaar~regio, scales = "free") +
+    labs(y = "", x = "Aantal broedparen Gele kwikstaart per plot") +
+    theme(legend.position = c(1, 0),
+          legend.justification = c(1, 0),
+          legend.direction = "horizontal")
+```
+
+```{r}
+gele_kwik_df1 %>%
+  ggplot(aes(x = jaar, y = aantal, colour = periode_in_jaar)) +
+  stat_sum(position = position_dodge(width = 0.5), alpha = 0.2) +
+  stat_summary(fun.data = mean_cl_boot,
+               position = position_dodge(width = 0.5),
+               fatten = 4, shape = "square") +
+  facet_wrap(~regio, scales = "free") +
+  labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "Telperiode") +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+# Calculate zomergranen_hfdtlt2 as specified in 
+# exploratie_verklarende_variabelen.rmd
+gele_kwik_df <- gele_kwik_df1 %>%
+  mutate(zomergranen_hfdtlt2 = rowSums(across(c(graangewassen_hfdtlt, 
+                                               zomergranen_hfdtlt)))) %>%
+  select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt))
+
+strat_vars <- c("plotnaam", "regio", "periode_in_jaar", "jaar", "jaar.f")
+response_vars <- c("aantal")
+pred_vars <- c("status_teller",
+               "n_predators",
+               "area_prop_sb",
+               "area_prop_bo_overig",
+               "landbouwinfrastructuur_hfdtlt",
+               "grasland_hfdtlt",
+               "aardappelen_hfdtlt",
+               "wintergranen_hfdtlt",
+               "bieten_hfdtlt",
+               "mais_hfdtlt",
+               "wortelgewassen_hfdtlt",
+               "vlas_en_hennep_hfdtlt",
+               "groententeelt_hfdtlt",
+               "peulvruchten_hfdtlt",
+               "meerjarige_fruitteelt_hfdtlt",
+               "groenbemester_hfdtlt",
+               "zomergranen_hfdtlt2",
+               "zaden_hfdtlt", 
+               "gewas_div_shannon",
+               "perceel_cv_area",
+               "inertie_sb",
+               "inertie_overig",
+               "openheid_waarde_1000",
+               "openheid_klasse_300",
+               "x_plot",
+               "y_plot",
+               "is_sbp",
+               "sbp",
+               "haag",
+               "houtkant",
+               "boom",
+               "bomengroep",
+               "bomenrij",
+               "bosrand",
+               "natuur_exp")
+```
+
+
+We zijn vooral geïnteresseerd hoe de aantallen zich verhouden tot de verklarende variabelen (en dit per jaar per regio). Dit zijn: `r pred_vars`.
+
+```{r}
+gele_kwik_df_mod <- gele_kwik_df %>%
+  select(all_of(c(response_vars, strat_vars, pred_vars)))
+```
 
 
 ## Model specificatie test
@@ -148,7 +231,7 @@ nparallel <- nchains   # number of cores used for parallel computing
 
 brmpois1 <- brm(bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb + 
                      (1 | plotnaam)), 
-                data = gele_kwik_df, family = poisson(), 
+                data = gele_kwik_df_mod, family = poisson(), 
                 chains = nchains, warmup = burnin, iter = niter, 
                 cores = nparallel, backend = "cmdstanr")
 ```
@@ -190,10 +273,10 @@ get_hyp_estimates <- function(model, regio, perc_inc) {
 
 increases <- seq(0, 1, 0.01)
 out <- vector(mode = "list", length = length(increases) * 
-         length(unique(gele_kwik_df$regio)))
+         length(unique(gele_kwik_df_mod$regio)))
 
-for (i in seq_along(unique(gele_kwik_df$regio))) {
-  reg <- unique(gele_kwik_df$regio)[i]
+for (i in seq_along(unique(gele_kwik_df_mod$regio))) {
+  reg <- unique(gele_kwik_df_mod$regio)[i]
   for (j in seq_along(increases)) {
     perc <- increases[j]
     index <- j + (length(increases) * (i - 1))
@@ -224,7 +307,7 @@ http://mjskay.github.io/tidybayes/articles/tidybayes.html
 ```{r}
 library(tidybayes)
 library(modelr)
-pred_df <- gele_kwik_df %>%
+pred_df <- gele_kwik_df_mod %>%
   group_by(plotnaam, periode_in_jaar, jaar.f, regio) %>%
   data_grid(area_prop_sb = seq_range(area_prop_sb, n = 100)) %>%
   add_epred_draws(brmpois1)
