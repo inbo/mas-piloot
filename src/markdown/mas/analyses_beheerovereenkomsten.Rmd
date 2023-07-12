@@ -441,7 +441,7 @@ rbind(
   kable(digits = 3)
 ```
 
-Het Poisson model toont het beste evenwicht tussen model parsimonie en model fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
+De fit van de modellen verschilt niet veel van elkaar. We besluiten dat het Poisson model toont het beste evenwicht tussen model parsimonie en model fit. De posterior predictive check toont een goede fit van dit meest eenvoudige model. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
 
 ```{r}
 pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
