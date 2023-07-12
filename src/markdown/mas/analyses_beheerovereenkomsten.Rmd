@@ -396,19 +396,20 @@ comparisons <- loo_compare(fit_brmpois1, fit_brmnegbin1, fit_brmZIP1,
                                  "Zero-inflated Poisson", "Negative binomial"))
 ```
 
-
-Posterior predictive check.
-
-```{r}
-pp_check(brmpois1, type = "bars_grouped", ndraws = 100, group = "jaar.f",
-         facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-Summary.
+Het Poisson model toont het beste evenwicht tussen model parsimonie en model fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution. Bovendien voorspelt dit model geen onmogelijk grote waarden (ZINB voorspelt bijvoorbeeld grotere maxima terwijl we in de data slechts maximaal 6 individuen hadden).
 
 ```{r}
-summary(brmpois1)
+pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
+         group = "regio", facet_args = list(ncol = 1, scales = "free_y"))
 ```
+
+```{r}
+pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
+         group = "jaar.f", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+
+
 
 ```{r}
 get_hyp_estimates <- function(model, regio, perc_inc) {
@@ -435,7 +436,7 @@ for (i in seq_along(unique(gele_kwik_df_mod$regio))) {
   for (j in seq_along(increases)) {
     perc <- increases[j]
     index <- j + (length(increases) * (i - 1))
-    out[[index]] <- get_hyp_estimates(brmpois1, reg, perc)
+    out[[index]] <- get_hyp_estimates(fit_sbp_gelekwik_pois1, reg, perc)
   }
 }
 
