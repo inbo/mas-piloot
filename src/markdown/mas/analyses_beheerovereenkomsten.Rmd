@@ -251,8 +251,8 @@ for (var in continue_predvars) {
 
 We vergelijken enkele simpele modellen:
 
--  welke distributies passen best?
--  welke random effects moeten we toevoegen?
+-  welke distributies passen best? (1)
+-  welke random effects moeten we toevoegen? (2)
 
 We fitten vier modellen met verschillende verdelingsassumpties:
 
@@ -269,7 +269,7 @@ $$
 g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{2}X_{jaar, i} + \beta_{3}X_{regio, i} + \beta_{4}X_{\text{area_prop_sb}, i} + \beta_{4}X_{regio, i} \times X_{\text{area_prop_sb}, i} + b_{1,j}
 $$
 
-### Modellen fitten
+### Modellen fitten (1)
 
 ```{r}
 # Save brms models to this path
@@ -354,7 +354,7 @@ plot(sbp_gelekwik_ZINB1)
 
 Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
 
-### Model selectie en fit
+### Model selectie en fit (1)
 
 We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, *waarom?*). 
 Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte.
@@ -387,16 +387,37 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois1"))) {
   fit_sbp_gelekwik_ZIP1 <- readRDS(paste0(model_path, "fit_sbp_gelekwik_ZIP1.rds"))
   fit_sbp_gelekwik_ZINB1 <- readRDS(paste0(model_path, "fit_sbp_gelekwik_ZINB1.rds"))
 }
-
-# Comparison among models
-comparisons <- loo_compare(fit_brmpois1, fit_brmnegbin1, fit_brmZIP1, 
-                           fit_brmZINB1, criterion = "kfold")[, c(1, 2)] %>%
-                as.data.frame() %>%
-                mutate(model = c("Poisson", "Zero-inflated Negative binomial",
-                                 "Zero-inflated Poisson", "Negative binomial"))
 ```
 
-Het Poisson model toont het beste evenwicht tussen model parsimonie en model fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution. Bovendien voorspelt dit model geen onmogelijk grote waarden (ZINB voorspelt bijvoorbeeld grotere maxima terwijl we in de data slechts maximaal 6 individuen hadden).
+```{r}
+models <- c("Poisson", "Zero-inflated Negative binomial", 
+            "Zero-inflated Poisson", "Negative binomial")
+
+# Comparison among models
+comparisons <- loo_compare(fit_sbp_gelekwik_pois1, 
+                           fit_sbp_gelekwik_negbin1, 
+                           fit_sbp_gelekwik_ZIP1, 
+                           fit_sbp_gelekwik_ZINB1, 
+                           criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                mutate(model = models)
+
+rbind(fit_sbp_gelekwik_pois1$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_negbin1$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_ZIP1$criteria$kfold$estimates[, "Estimate"], 
+  fit_sbp_gelekwik_ZINB1$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = models) %>%
+  full_join(comparisons, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+Het Poisson model toont het beste evenwicht tussen model parsimonie en model fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
 
 ```{r}
 pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
@@ -408,8 +429,32 @@ pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100,
          group = "jaar.f", facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
+### Resultaten (1)
 
+We zien geen significant verschil in aantal broedvogels Gele kwikstaart met toenemende oppervlakte aan soortbeschermingsplannen.
 
+De Moeren:
+
+```{r}
+hypothesis(fit_sbp_gelekwik_pois1,
+           "area_prop_sb = 0")
+```
+
+Oostelijke leemstreek:
+
+```{r}
+hypothesis(fit_sbp_gelekwik_pois1,
+           "area_prop_sb + regioOostelijkeleemstreek:area_prop_sb = 0")
+```
+
+Visueel:
+
+```{r}
+plot(conditional_effects(fit_sbp_gelekwik_pois1, 
+                         effects = "area_prop_sb:regio"))
+```
+
+Cumulatief:
 
 ```{r}
 get_hyp_estimates <- function(model, regio, perc_inc) {
@@ -458,23 +503,8 @@ hyp_est_df %>%
 
 
 
-http://mjskay.github.io/tidybayes/articles/tidybayes.html
 
-```{r}
-library(tidybayes)
-library(modelr)
-pred_df <- gele_kwik_df_mod %>%
-  group_by(plotnaam, periode_in_jaar, jaar.f, regio) %>%
-  data_grid(area_prop_sb = seq_range(area_prop_sb, n = 100)) %>%
-  add_epred_draws(brmpois1)
 
-pred_df %>%
-  ggplot(aes(x = area_prop_sb, y = .epred, color = regio)) +
-  stat_lineribbon() +
-  scale_fill_brewer(palette = "Greys") +
-  scale_color_brewer(palette = "Set2") +
-  facet_grid(periode_in_jaar~jaar.f)
-```
 
 https://mc-stan.org/projpred/articles/projpred.html  
 https://mc-stan.org/projpred/articles/latent.html
