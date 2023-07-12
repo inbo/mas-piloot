@@ -521,19 +521,17 @@ Het Poisson model kan de data goed beschrijven. We kijken nu welke random effect
 
 ### Modellen fitten (1)
 
-We fitten vier modellen met Poisson verdeling. Het fixed effect gedeelte is hetzelfde als voordien:
+We fitten modellen met Poisson verdeling. Het fixed effect gedeelte blijft hetzelfde als voordien:
 
 $$
 g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{2}X_{jaar, i} + \beta_{3}X_{regio, i} + \beta_{4}X_{\text{area_prop_sb}, i} + \beta_{4}X_{regio, i} \times X_{\text{area_prop_sb}, i}
 $$
 
-We beschouwen vier mogelijkheden voor de random effects:
+We beschouwen drie mogelijkheden voor de random effects:
 
 1.  Geen random effecten
 2.  Random intercept per telcirkel
 3.  Autoregressive per jaar (orde 1)
-4.  Random intercept en autoregressive (orde 1)
-5.  Random intercept en random slope per telcirkel voor jaar effect (verwijder jaar effect uit fixed effects)
 
 ```{r}
 # id die telcirkels binnen telperiodes linkt (voor AR over jaren heen)
@@ -572,41 +570,6 @@ sbp_gelekwik_pois2 <-
 
 summary(sbp_gelekwik_pois2)
 plot(sbp_gelekwik_pois2)
-
-# 4. Random intercept en autoregressive
-sbp_gelekwik_pois3 <- 
-  brm(formula = bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb + 
-                   (1 | plotnaam),
-                   autocor = ~ ar(jaar, gr = ar_id, p = 1)),
-      data = gele_kwik_df_modAR, 
-      family = poisson(), 
-      chains = nchains, 
-      warmup = burnin, 
-      iter = niter, 
-      cores = nparallel, 
-      backend = "cmdstanr",
-      file = paste0(model_path, "sbp_gelekwik_pois3"),
-      file_refit = "on_change")
-
-summary(sbp_gelekwik_pois3)
-plot(sbp_gelekwik_pois3)
-
-# 5. Random intercept en random slope per telcirkel voor jaar effect
-sbp_gelekwik_pois4 <- 
-  brm(formula = bf(aantal ~ periode_in_jaar + regio*area_prop_sb + 
-                   (1 + jaar | plotnaam)),
-      data = gele_kwik_df_mod, 
-      family = poisson(), 
-      chains = nchains, 
-      warmup = burnin, 
-      iter = niter, 
-      cores = nparallel, 
-      backend = "cmdstanr",
-      file = paste0(model_path, "sbp_gelekwik_pois4"),
-      file_refit = "on_change")
-
-summary(sbp_gelekwik_pois4)
-plot(sbp_gelekwik_pois4)
 ```
 
 Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
@@ -617,6 +580,15 @@ We vergelijken de modellen gebruikmakend van 5-fold cross-validation.
  
 ```{r}
 # Perform K-fold cross-validation
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois0"))) {
+  fit_sbp_gelekwik_pois0 <- add_criterion(
+    sbp_gelekwik_pois0, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois0"))
+} else {
+  fit_sbp_gelekwik_pois0 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois0.rds"))
+}
 if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois2"))) {
   fit_sbp_gelekwik_pois2 <- add_criterion(
     sbp_gelekwik_pois2, c("kfold"), K = 5, cores = 5,
@@ -625,24 +597,6 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois2"))) {
 } else {
   fit_sbp_gelekwik_pois2 <- readRDS(paste0(model_path, 
                                            "fit_sbp_gelekwik_pois2.rds"))
-}
-if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois3"))) {
-  fit_sbp_gelekwik_pois3 <- add_criterion(
-    sbp_gelekwik_pois3, c("kfold"), K = 5, cores = 5,
-    folds = "stratified", group = "regio", 
-    file = paste0(model_path, "fit_sbp_gelekwik_pois3"))
-} else {
-  fit_sbp_gelekwik_pois3 <- readRDS(paste0(model_path, 
-                                           "fit_sbp_gelekwik_pois3.rds"))
-}
-if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois4"))) {
-  fit_sbp_gelekwik_pois4 <- add_criterion(
-    sbp_gelekwik_pois4, c("kfold"), K = 5, cores = 5,
-    folds = "stratified", group = "regio", 
-    file = paste0(model_path, "fit_sbp_gelekwik_pois4"))
-} else {
-  fit_sbp_gelekwik_pois4 <- readRDS(paste0(model_path, 
-                                           "fit_sbp_gelekwik_pois4.rds"))
 }
 ```
 
