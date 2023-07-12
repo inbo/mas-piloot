@@ -103,7 +103,8 @@ mas_data_sf %>%
     guides(colour = guide_legend(override.aes = list(size = 3)))
 ```
 
-# Model specificatie test: Gele kwikstaart
+# Gele kwikstaart
+## Data exploratie
 
 We selecteren de data van de Gele kwikstaart met broedcode > 0. We sommeren de aantal per telcirkel, telperiode en jaar. We voegen ook afwezigheden toe.
 
@@ -134,6 +135,8 @@ gele_kwik_df <- gele_kwik_total %>%
 ```
 
 
+
+## Model specificatie test
 
 ```{r}
 # MCMC parameters
@@ -220,6 +223,7 @@ http://mjskay.github.io/tidybayes/articles/tidybayes.html
 
 ```{r}
 library(tidybayes)
+library(modelr)
 pred_df <- gele_kwik_df %>%
   group_by(plotnaam, periode_in_jaar, jaar.f, regio) %>%
   data_grid(area_prop_sb = seq_range(area_prop_sb, n = 100)) %>%
