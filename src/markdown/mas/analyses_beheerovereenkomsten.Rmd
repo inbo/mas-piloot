@@ -863,7 +863,7 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZINB12.rds"))) {
   fit_sbp_gelekwik_ZINB12 <- add_criterion(
     sbp_gelekwik_ZINB12, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
-    file = paste0(model_path, "fit_sbp_gelekwik_ZINB1"))
+    file = paste0(model_path, "fit_sbp_gelekwik_ZINB12"))
 } else {
   fit_sbp_gelekwik_ZINB12 <- readRDS(paste0(model_path, 
                                            "fit_sbp_gelekwik_ZINB12.rds"))
@@ -1050,7 +1050,7 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZINB13.rds"))) {
   fit_sbp_gelekwik_ZINB13 <- add_criterion(
     sbp_gelekwik_ZINB13, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
-    file = paste0(model_path, "fit_sbp_gelekwik_ZINB1"))
+    file = paste0(model_path, "fit_sbp_gelekwik_ZINB13"))
 } else {
   fit_sbp_gelekwik_ZINB13 <- readRDS(paste0(model_path, 
                                            "fit_sbp_gelekwik_ZINB13.rds"))
