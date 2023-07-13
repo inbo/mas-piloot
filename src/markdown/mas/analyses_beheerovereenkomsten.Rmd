@@ -59,7 +59,6 @@ perimeters <- read_sf(
   here("data", "processed", "piloot_perimeters.gpkg"))
 ```
 
-
 # Dataset structuur
 
 Hoe ziet de dataset eruit?
@@ -104,9 +103,12 @@ mas_data_sf %>%
 ```
 
 # Gele kwikstaart
+
 ## Data exploratie
 
-We selecteren de data van de Gele kwikstaart met broedcode > 0. We sommeren de aantal per telcirkel, telperiode en jaar. We voegen ook afwezigheden toe.
+We selecteren de data van de Gele kwikstaart met broedcode \> 0.
+We sommeren de aantal per telcirkel, telperiode en jaar.
+We voegen ook afwezigheden toe.
 
 ```{r}
 # Presence data
@@ -210,8 +212,8 @@ pred_vars <- c("area_prop_sb",
                "n_predators")
 ```
 
-
-We zijn vooral geïnteresseerd hoe de aantallen zich verhouden tot de verklarende variabelen (en dit per jaar per regio). Dit zijn: `r pred_vars`.
+We zijn vooral geïnteresseerd hoe de aantallen zich verhouden tot de verklarende variabelen (en dit per jaar per regio).
+Dit zijn: `r pred_vars`.
 
 ```{r}
 gele_kwik_df_mod <- gele_kwik_df %>%
@@ -248,12 +250,12 @@ for (var in continue_predvars) {
 }
 ```
 
-## Model specificatie test
+## Model specificatie test 1
 
 We vergelijken enkele simpele modellen:
 
--  welke distributies passen best? (1)
--  welke random effects moeten we toevoegen? (2)
+-   welke distributies passen best? (1)
+-   welke random effects moeten we toevoegen? (2)
 
 ### Modellen fitten (1)
 
@@ -266,7 +268,11 @@ We fitten vier modellen met verschillende verdelingsassumpties:
 
 We beginnen met een simpel model met random effect voor telcirkel.
 
-Beschouw $Y_{i}$ een observatie $i$ van een aantal broedparen in eenzelfde telcirkel $j$. Deze observaties beschouwen we afhankelijk van de telperiode (dummy variabele $X_{\text{periode_in_jaar}}$), teljaar ($X_{\text{jaar}}$), regio ($X_{\text{regio}}$) en de oppervlakte proportie soortbeschermingsplannen binnen de telcirkel ($X_{\text{area_prop_sb}}$). We voegen een interactie toe tussen regio en proportie sb zodat het effect kan verschillen per regio. We voegen ten slotte een random effect toe van telcirkel $b_{1}$. In een later stadium kunnen we testen of deze laatste noodzakelijk is en/of als er meer complexe correlatiestructuren moeten gespecifieerd worden (bv. autoregressive).
+Beschouw $Y_{i}$ een observatie $i$ van een aantal broedparen in eenzelfde telcirkel $j$.
+Deze observaties beschouwen we afhankelijk van de telperiode (dummy variabele $X_{\text{periode_in_jaar}}$), teljaar ($X_{\text{jaar}}$), regio ($X_{\text{regio}}$) en de oppervlakte proportie soortbeschermingsplannen binnen de telcirkel ($X_{\text{area_prop_sb}}$).
+We voegen een interactie toe tussen regio en proportie sb zodat het effect kan verschillen per regio.
+We voegen ten slotte een random effect toe van telcirkel $b_{1}$.
+In een later stadium kunnen we testen of deze laatste noodzakelijk is en/of als er meer complexe correlatiestructuren moeten gespecifieerd worden (bv. autoregressive).
 
 $$
 g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{2}X_{jaar, i} + \beta_{3}X_{regio, i} + \beta_{4}X_{\text{area_prop_sb}, i} + \beta_{4}X_{regio, i} \times X_{\text{area_prop_sb}, i} + b_{1,j}
@@ -357,12 +363,12 @@ Convergentie voor alle modellen ok (scale reduction factors, trace plots, poster
 
 ### Model selectie en fit (1)
 
-We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, *waarom?*). 
+We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, *waarom?*).
 Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte.
-Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten. 
+Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten.
 We stratificeren volgens regio.
 Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
- 
+
 ```{r}
 # Perform K-fold cross-validation
 if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois1.rds"))) {
@@ -441,7 +447,10 @@ rbind(
   kable(digits = 3)
 ```
 
-De fit van de modellen verschilt niet veel van elkaar. We besluiten dat het Poisson model toont het beste evenwicht tussen model parsimonie en model fit. De posterior predictive check toont een goede fit van dit meest eenvoudige model. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
+De fit van de modellen verschilt niet veel van elkaar.
+We besluiten dat het Poisson model toont het beste evenwicht tussen model parsimonie en model fit.
+De posterior predictive check toont een goede fit van dit meest eenvoudige model.
+We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
 
 ```{r}
 pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
@@ -527,11 +536,13 @@ hyp_est_df %>%
 
 ### Conclusies (1)
 
-Het Poisson model kan de data goed beschrijven. We kijken nu welke random effecten we best toevoegen.
+Het Poisson model kan de data goed beschrijven.
+We kijken nu welke random effecten we best toevoegen.
 
-### Modellen fitten (1)
+### Modellen fitten (2)
 
-We fitten modellen met Poisson verdeling. Het fixed effect gedeelte blijft hetzelfde als voordien:
+We fitten modellen met Poisson verdeling.
+Het fixed effect gedeelte blijft hetzelfde als voordien:
 
 $$
 g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{2}X_{jaar, i} + \beta_{3}X_{regio, i} + \beta_{4}X_{\text{area_prop_sb}, i} + \beta_{4}X_{regio, i} \times X_{\text{area_prop_sb}, i}
@@ -587,7 +598,7 @@ Convergentie voor alle modellen ok (scale reduction factors, trace plots, poster
 ### Model selectie en fit (2)
 
 We vergelijken de modellen gebruikmakend van 5-fold cross-validation.
- 
+
 ```{r}
 # Perform K-fold cross-validation
 if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois0.rds"))) {
@@ -646,15 +657,23 @@ rbind(
 
 Het eerdere model met random intercept geniet nog altijd de voorkeur.
 
-
 ### Conclusies (2)
 
+Zowel per design als via k-fold validation lijkt het random intercept onze voorkeur te genieten.
+
+### Conclusie
+
+-   De Poisson verdeling kan gebruikt worden om de aantallen te modelleren
+-   Er is een vrij groot verschil tussen beide regio's waardoor we quasi voor elke variabele een interactieterm zouden moeten toevoegen. We zouden best de analyses opsplitsen per gebied.
+-   We willen nagaan of er een positief effect is van beschermingsmaatregelen. Zowel ter interpretatie als eenvoud van het model kan de `sbp` variabele misschien handiger zijn dan de `area_opp_sb` variabele.
+-   De variabele `periode_in_jaar` vermoeilijkt de analyses (toevoegen van random effects). Het is allicht slimmer de aantallen per telcirkel per jaar te aggregeren. @klaassen2022 gebruiken voor gelijkaardige analyses *"het maximumaantal waargenomen broedparen (het hoogste aantal territoriale individuen van een soort tijdens één van de tellingen)"*.
+-  We vermoeden ook dat er een duidelijker signaal zal vormen als we enkel de data van 2022 en 2023 bekijken.
 
 
 ## Selectie verklarende variabelen
 
-https://mc-stan.org/projpred/articles/projpred.html  
-https://mc-stan.org/projpred/articles/latent.html
+<https://mc-stan.org/projpred/articles/projpred.html>\
+<https://mc-stan.org/projpred/articles/latent.html>
 
 ```{r, eval=FALSE}
 library(projpred)
@@ -665,3 +684,5 @@ vs_lat <- cv_varsel(refm_poiss,
 plot(vs_lat, stats = "mlpd", deltas = TRUE)
 ```
 
+
+# Referenties
