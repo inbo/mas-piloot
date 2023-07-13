@@ -644,24 +644,10 @@ rbind(
   kable(digits = 3)
 ```
 
-Het ***...*** model toont het beste evenwicht tussen model parsimonie en model fit. Dat zien we ook bij de posterior predictive check. We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
-
-```{r}
-pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
-         group = "regio", facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-```{r}
-pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
-         group = "jaar.f", facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-### Resultaten (2)
+Het eerdere model met random intercept geniet nog altijd de voorkeur.
 
 
 ### Conclusies (2)
-
-
 
 
 
