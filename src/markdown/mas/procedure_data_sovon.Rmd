@@ -16,7 +16,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
     1.   Rechten aanvragen Sovon
 
-2.  open QGIS en kies `Kaartlagen` --\> `Databronnen beheren` --\> `WFS / OGC API objecten`
+2.  open QGIS
+    
+    1. zet project crs op EPSG:28992
+    1. kies `Kaartlagen` --\> `Databronnen beheren` --\> `WFS / OGC API objecten`
 
 3.  klik `nieuw` in het dialoogvenster om een nieuwe WFS verbinding te maken
 
@@ -41,7 +44,10 @@ Dit zijn de zogenaamde bezoekstippen.
 
     1.   Rechten aanvragen Sovon
 
-2.  open QGIS en kies `Kaartlagen` --\> `Databronnen beheren` --\> `WFS / OGC API - objecten`
+2.  open QGIS
+    
+    1. zet project crs op EPSG:28992
+    1. kies `Kaartlagen` --\> `Databronnen beheren` --\> `WFS / OGC API objecten`
 
 3.  klik `nieuw` in het dialoogvenster om een nieuwe WFS verbinding te maken
 
