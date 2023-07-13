@@ -365,7 +365,7 @@ Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering
  
 ```{r}
 # Perform K-fold cross-validation
-if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois1"))) {
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois1.rds"))) {
   fit_sbp_gelekwik_pois1 <- add_criterion(
     sbp_gelekwik_pois1, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
@@ -374,7 +374,7 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois1"))) {
   fit_sbp_gelekwik_pois1 <- readRDS(paste0(model_path, 
                                            "fit_sbp_gelekwik_pois1.rds"))
 }
-if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_negbin1"))) {
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_negbin1.rds"))) {
   fit_sbp_gelekwik_negbin1 <- add_criterion(
     sbp_gelekwik_negbin1, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
@@ -383,7 +383,7 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_negbin1"))) {
   fit_sbp_gelekwik_negbin1 <- readRDS(paste0(model_path, 
                                            "fit_sbp_gelekwik_negbin1.rds"))
 }
-if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZIP1"))) {
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZIP1.rds"))) {
   fit_sbp_gelekwik_ZIP1 <- add_criterion(
     sbp_gelekwik_ZIP1, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
@@ -392,14 +392,14 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZIP1"))) {
   fit_sbp_gelekwik_ZIP1 <- readRDS(paste0(model_path, 
                                            "fit_sbp_gelekwik_ZIP1.rds"))
 }
-if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZINB"))) {
-  fit_sbp_gelekwik_ZINB <- add_criterion(
-    sbp_gelekwik_ZINB, c("kfold"), K = 5, cores = 5,
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZINB1.rds"))) {
+  fit_sbp_gelekwik_ZINB1 <- add_criterion(
+    sbp_gelekwik_ZINB1, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
     file = paste0(model_path, "fit_sbp_gelekwik_ZINB"))
 } else {
-  fit_sbp_gelekwik_ZINB <- readRDS(paste0(model_path, 
-                                           "fit_sbp_gelekwik_ZINB.rds"))
+  fit_sbp_gelekwik_ZINB1 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZINB1.rds"))
 }
 ```
 
@@ -573,7 +573,7 @@ sbp_gelekwik_pois2 <-
       chains = nchains, 
       warmup = burnin, 
       iter = niter, 
-      cores = nparallel, 
+      cores = nparallel,
       backend = "cmdstanr",
       file = paste0(model_path, "sbp_gelekwik_pois2"),
       file_refit = "on_change")
@@ -590,7 +590,7 @@ We vergelijken de modellen gebruikmakend van 5-fold cross-validation.
  
 ```{r}
 # Perform K-fold cross-validation
-if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois0"))) {
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois0.rds"))) {
   fit_sbp_gelekwik_pois0 <- add_criterion(
     sbp_gelekwik_pois0, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
@@ -599,7 +599,7 @@ if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois0"))) {
   fit_sbp_gelekwik_pois0 <- readRDS(paste0(model_path, 
                                            "fit_sbp_gelekwik_pois0.rds"))
 }
-if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois2"))) {
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois2.rds"))) {
   fit_sbp_gelekwik_pois2 <- add_criterion(
     sbp_gelekwik_pois2, c("kfold"), K = 5, cores = 5,
     folds = "stratified", group = "regio", 
