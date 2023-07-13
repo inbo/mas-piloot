@@ -911,12 +911,12 @@ rbind(
 Model fit.
 
 ```{r}
-pp_check(test_pois1, type = "bars_grouped", ndraws = 100, 
+pp_check(fit_sbp_gelekwik_negbin12, type = "bars_grouped", ndraws = 100, 
          group = "regio", facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
 ```{r}
-pp_check(test_pois1, type = "bars_grouped", ndraws = 100, 
+pp_check(fit_sbp_gelekwik_negbin12, type = "bars_grouped", ndraws = 100, 
          group = "sbp", facet_args = list(ncol = 1, scales = "free_y"))
 ```
 
@@ -925,66 +925,238 @@ Resultaten.
 De Moeren:
 
 ```{r}
-hypothesis(test_pois1,
-           "sbpbuiten = 0")
+hypothesis(fit_sbp_gelekwik_negbin12,
+           "exp(sbpbuiten) = 1")
 ```
 
 Oostelijke leemstreek:
 
 ```{r}
-hypothesis(test_pois1,
-           "sbpbuiten + sbpbuiten:regioOostelijkeleemstreek = 0")
+hypothesis(fit_sbp_gelekwik_negbin12,
+           "exp(sbpbuiten + sbpbuiten:regioOostelijkeleemstreek) = 1")
 ```
 
 Visueel:
 
 ```{r}
-plot(conditional_effects(test_pois1, 
+plot(conditional_effects(fit_sbp_gelekwik_negbin12, 
                          effects = "regio:sbp"))
 ```
 
 ### Model fitten area_prop_sb
 
+Fit modellen.
+
 ```{r}
-test_pois2 <- 
-  brm(formula = bf(aantal ~ regio*area_prop_sb),
+form3 <- bf(aantal ~ regio*area_prop_sb)
+
+# 1. Poisson
+sbp_gelekwik_pois13 <- 
+  brm(formula = form3,
+      data = gele_kwik_df2_2022, 
+      family = poisson(), 
+      chains = nchains,
+      warmup = burnin,
+      iter = niter,
+      cores = nparallel,
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois13"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois13)
+plot(sbp_gelekwik_pois13)
+
+# 2. Negative binomial
+sbp_gelekwik_negbin13 <- 
+  brm(formula = form3,
+      data = gele_kwik_df2_2022, 
+      family = negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_negbin13"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_negbin13)
+plot(sbp_gelekwik_negbin13)
+
+# 3. Zero-inflated Poisson
+sbp_gelekwik_ZIP13 <- 
+  brm(formula = form3,
       data = gele_kwik_df2_2022, 
       family = zero_inflated_poisson(), 
       chains = nchains, 
       warmup = burnin, 
       iter = niter, 
       cores = nparallel, 
-      backend = "cmdstanr")
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_ZIP13"),
+      file_refit = "on_change")
 
-summary(test_pois2)
-plot(test_pois2)
+summary(sbp_gelekwik_ZIP13)
+plot(sbp_gelekwik_ZIP13)
+
+# 4. Zero-inflated Negative binomial
+sbp_gelekwik_ZINB13 <- 
+  brm(formula = form3,
+      data = gele_kwik_df2_2022, 
+      family = zero_inflated_negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_ZINB13"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_ZINB13)
+plot(sbp_gelekwik_ZINB13)
+```
+
+Vergelijk modellen.
+
+```{r}
+# Perform K-fold cross-validation
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois13.rds"))) {
+  fit_sbp_gelekwik_pois13 <- add_criterion(
+    sbp_gelekwik_pois13, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois13"))
+} else {
+  fit_sbp_gelekwik_pois13 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois13.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_negbin13.rds"))) {
+  fit_sbp_gelekwik_negbin13 <- add_criterion(
+    sbp_gelekwik_negbin13, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_negbin13"))
+} else {
+  fit_sbp_gelekwik_negbin13 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_negbin13.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZIP13.rds"))) {
+  fit_sbp_gelekwik_ZIP13 <- add_criterion(
+    sbp_gelekwik_ZIP13, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_ZIP13"))
+} else {
+  fit_sbp_gelekwik_ZIP13 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZIP13.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZINB13.rds"))) {
+  fit_sbp_gelekwik_ZINB13 <- add_criterion(
+    sbp_gelekwik_ZINB13, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_ZINB1"))
+} else {
+  fit_sbp_gelekwik_ZINB13 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZINB13.rds"))
+}
 ```
 
 ```{r}
-pp_check(test_pois2, type = "bars_grouped", ndraws = 100, 
+models_13 <- data.frame(
+  model = c("Poisson", 
+            "Negative binomial",
+            "Zero-inflated Poisson",
+            "Zero-inflated Negative binomial"),
+  naam =  c("fit_sbp_gelekwik_pois13", 
+            "fit_sbp_gelekwik_negbin13",
+            "fit_sbp_gelekwik_ZIP13",
+            "fit_sbp_gelekwik_ZINB13")
+  )
+
+# Comparison among models
+comparisons13 <- loo_compare(fit_sbp_gelekwik_pois13, 
+                           fit_sbp_gelekwik_negbin13, 
+                           fit_sbp_gelekwik_ZIP13, 
+                           fit_sbp_gelekwik_ZINB13, 
+                           criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                rownames_to_column("naam") %>% 
+                full_join(models_13, by = join_by(naam))
+
+rbind(
+  fit_sbp_gelekwik_pois13$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_negbin13$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_ZIP13$criteria$kfold$estimates[, "Estimate"], 
+  fit_sbp_gelekwik_ZINB13$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = models_13$model) %>%
+  full_join(comparisons13, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, naam, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+Model fit.
+
+```{r}
+pp_check(fit_sbp_gelekwik_negbin13, type = "bars_grouped", ndraws = 100, 
          group = "regio", facet_args = list(ncol = 1, scales = "free_y"))
 ```
+
+Resultaten.
 
 De Moeren:
 
 ```{r}
-hypothesis(test_pois2,
-           "area_prop_sb = 0")
+hypothesis(fit_sbp_gelekwik_negbin13,
+           "exp(area_prop_sb) = 1")
 ```
 
 Oostelijke leemstreek:
 
 ```{r}
-hypothesis(test_pois2,
-           "area_prop_sb + regioOostelijkeleemstreek:area_prop_sb = 0")
+hypothesis(fit_sbp_gelekwik_negbin13,
+           "exp(area_prop_sb + regioOostelijkeleemstreek:area_prop_sb) = 1")
 ```
 
 Visueel:
 
 ```{r}
-plot(conditional_effects(test_pois2, 
+plot(conditional_effects(fit_sbp_gelekwik_negbin13, 
                          effects = "area_prop_sb:regio"))
 ```
+
+```{r}
+out <- vector(mode = "list", length = length(increases) * 
+         length(unique(gele_kwik_df2_2022$regio)))
+
+for (i in seq_along(unique(gele_kwik_df2_2022$regio))) {
+  reg <- unique(gele_kwik_df2_2022$regio)[i]
+  for (j in seq_along(increases)) {
+    perc <- increases[j]
+    index <- j + (length(increases) * (i - 1))
+    out[[index]] <- get_hyp_estimates(fit_sbp_gelekwik_negbin13, reg, perc)
+  }
+}
+
+hyp_est_df2 <- do.call(rbind.data.frame, out)
+```
+
+```{r}
+hyp_est_df2 %>%
+  mutate(perc_inc = perc_inc * 100) %>%
+  ggplot(aes(x = perc_inc, y = Estimate)) +
+    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_line(colour = "black", linewidth = 1.2) +
+    geom_ribbon(aes(ymin = CI.Lower, ymax = CI.Upper, fill = regio), alpha = 0.3) +
+    facet_wrap(~regio) +
+    theme(legend.position = "") +
+    labs(x = "procent toename in oppervlakte soorbeschermingsplannen",
+         y = "aantal keer meer Gele kwikstaarten")
+```
+
+### Conclusie
+
+
 
 ## Selectie verklarende variabelen
 
