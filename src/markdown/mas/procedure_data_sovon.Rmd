@@ -30,6 +30,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
     1.   Klik op verbinden
     1.   Selecteer de laag `ms:viewpoints`
+         -  TIP: je kaan ook een query aanvragen, bv.: SELECT * FROM viewpoints WHERE jaar = 2023
     1.   Klik op toevoegen
     1.   Geef je gebruikersnaam en paswoord
     1.   Indien QGIS vraagt voor transformatie van EPSG:28992 naar een ander CRS, kan je dit best cancellen.
@@ -59,6 +60,7 @@ Dit zijn de zogenaamde bezoekstippen.
     1.   Klik op Verbinden
     1.   Geef je gebruikersnaam en paswoord en kik op ok
     1.   Selecteer de laag `ms:viewpoints`
+         -  TIP: je kaan ook een query aanvragen, bv.: SELECT * FROM viewpoints WHERE jaar = 2023
     1.   Wijzig Coördinaten Referentiesysteem naar EPSG:28992
     1.   Klik op toevoegen
     1.   Indien QGIS vraagt voor transformatie van EPSG:28992 naar een ander CRS, kan je dit best cancellen.
