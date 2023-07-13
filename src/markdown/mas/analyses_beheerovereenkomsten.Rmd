@@ -669,6 +669,107 @@ Zowel per design als via k-fold validation lijkt het random intercept onze voork
 -   De variabele `periode_in_jaar` vermoeilijkt de analyses (toevoegen van random effects). Het is allicht slimmer de aantallen per telcirkel per jaar te aggregeren. @klaassen2022 gebruiken voor gelijkaardige analyses *"het maximumaantal waargenomen broedparen (het hoogste aantal territoriale individuen van een soort tijdens één van de tellingen)"*.
 -  We vermoeden ook dat er een duidelijker signaal zal vormen als we enkel de data van 2022 en 2023 bekijken.
 
+## Model specificatie test 2
+### Data preparatie
+
+We nemen per telpunt per jaar het maximum aantal broedvogels over de telperiodes heen. Enkel de variabele `n_predators` is afhankelijk per telperiode. Hiervan nemen we het gemiddelde.
+
+```{r}
+gele_kwik_df_mod2 <- gele_kwik_df %>%
+  select(all_of(c(response_vars, strat_vars, pred_vars))) %>%
+  group_by(group_by(across(c(-periode_in_jaar, -aantal, -n_predators)))) %>%
+  summarise(aantal = max(aantal),
+            n_predators2 = mean(n_predators),
+            .groups = "drop") %>%
+  select(aantal, everything()) %>%
+  rowid_to_column("id")
+```
+
+We selecteren data van 2022.
+
+```{r}
+gele_kwik_df2_2022 <- gele_kwik_df_mod2 %>%
+  filter(jaar == 2022)
+```
+
+### Data exploratie
+
+**sbp**
+
+```{r}
+gele_kwik_df2_2022 %>%
+  mutate(sbp2 = paste(sbp, "sbp")) %>%
+  ggplot(aes(x = aantal, fill = sbp)) +
+    geom_bar() +
+    facet_grid(regio~sbp2, scales = "free_y") +
+    theme(legend.position = "") +
+    labs(x = "aantal broedparen",
+         y = "frequentie")
+```
+
+```{r}
+gele_kwik_df2_2022 %>%
+  mutate(sbp2 = paste(sbp, "sbp")) %>%
+  ggplot(aes(x = sbp2, y = aantal, fill = sbp)) +
+    geom_boxplot() +
+    facet_wrap(~regio) +
+    theme(legend.position = "") +
+    labs(y = "aantal broedparen",
+         x = "")
+```
+
+**area_prop_sb**
+
+```{r}
+gele_kwik_df2_2022 %>%
+  ggplot(aes(x = area_prop_sb, y = aantal)) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+    geom_smooth(method = "gam", colour = "firebrick") +
+    facet_wrap(~regio, scales = "free_x") +
+    labs(y = "aantal broedparen")
+```
+
+**area_prop_bo_overig**
+
+```{r}
+gele_kwik_df2_2022 %>%
+  ggplot(aes(x = area_prop_bo_overig, y = aantal)) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+    geom_smooth(method = "gam", colour = "firebrick") +
+    facet_wrap(~regio, scales = "free_x") +
+    labs(y = "aantal broedparen")
+```
+
+**area_prop_sb** + **area_prop_bo_overig**
+
+```{r}
+gele_kwik_df2_2022 %>%
+  mutate(bo_sum = rowSums(across(c(area_prop_sb, area_prop_bo_overig)))) %>%
+  ggplot(aes(x = bo_sum, y = aantal)) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+    geom_smooth(method = "gam", colour = "firebrick") +
+    facet_wrap(~regio, scales = "free_x") +
+    labs(y = "aantal broedparen")
+```
+
+
+### Model fitten sbp
+
+```{r}
+test_pois1 <- 
+  brm(formula = bf(aantal ~ sbp*regio),
+      data = gele_kwik_df2_2022, 
+      family = poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr")
+```
+
 
 ## Selectie verklarende variabelen
 
