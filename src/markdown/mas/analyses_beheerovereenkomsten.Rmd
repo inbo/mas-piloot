@@ -1156,7 +1156,23 @@ hyp_est_df2 %>%
 
 ### Conclusie
 
+De analyses en interpretatie zijn eenvoudiger dan voordien en de modellen lijken goed te fitten. Ook zijn de resultaten min of meer in lijn met de verwachtingen. Voor `area_prop_sb` in de Oostelijke leemstreek gaf de gam in de data-exploratie een meer flexibele curve aan.
 
+```{r}
+test <- 
+  brm(formula = bf(aantal ~ s(area_prop_sb, by = regio)),
+      data = gele_kwik_df2_2022, 
+      family = negbinomial(), 
+      chains = nchains,
+      warmup = burnin,
+      iter = niter,
+      cores = nparallel,
+      backend = "cmdstanr",
+      control = list(adapt_delta = 0.9))
+
+plot(conditional_effects(test, 
+                         effects = "area_prop_sb:regio"))
+```
 
 ## Selectie verklarende variabelen
 
