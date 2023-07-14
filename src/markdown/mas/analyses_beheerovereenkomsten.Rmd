@@ -1205,12 +1205,16 @@ effects_df %>%
          y = "aantal broedparen Gele kwikstaart")
 ```
 
+Dit ziet er waardevoller uit.
+
 ## Selectie verklarende variabelen
 
 <https://mc-stan.org/projpred/articles/projpred.html>\
 <https://mc-stan.org/projpred/articles/latent.html>\
 <https://github.com/stan-dev/projpred/issues/67>\
 <https://paul-buerkner.github.io/brms/reference/R2D2.html>
+
+Zie de McLatchie et al paper die ik onlangs doorstuurde. Appendix B onder andere
 
 
 ### Referentiemodel
