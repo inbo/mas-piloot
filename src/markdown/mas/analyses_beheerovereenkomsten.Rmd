@@ -1289,6 +1289,8 @@ cvvs_fast <- cv_varsel(ref_model1,
 plot(cvvs_fast, stats = "mlpd", ranking_nterms_max = NA)
 ```
 
+9 of 20?
+
 ```{r}
 cvvs <- cv_varsel(ref_model1,
                   method = "forward",
