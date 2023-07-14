@@ -1259,7 +1259,7 @@ form_projpred <- bf(paste("aantal", "~", paste(predictor_names,
 ```
 
 
-```{r, eval=FALSE}
+```{r}
 ref_model1 <- 
   brm(formula = form_projpred,
       data = data_projpred %>%
@@ -1274,17 +1274,28 @@ ref_model1 <-
       backend = "cmdstanr",
       file = paste0(model_path, "ref_model1"),
       file_refit = "on_change")
+```
 
+```{r}
 # fast varsel for finding a suitable value for argument nterms_max
 cvvs_fast <- cv_varsel(ref_model1,
                        # for speed, better is "forward"
                        method = "L1",
-                       # for speed, better is "LOO" or higher K
+                       nclusters_pred = 20, # speed
                        cv_method = "LOO",
                        nterms_max = length(predictor_names),
                        # Only for the sake of speed
                        validate_search = FALSE)
-plot(cvvs_fast, stats = "mlpd", deltas = TRUE)
+plot(cvvs_fast, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+```{r}
+cvvs <- cv_varsel(ref_model1,
+                  method = "forward",
+                  cv_method = "LOO",
+                  nterms_max = 20,
+                  validate_search = TRUE)
+plot(cvvs, stats = "mlpd", deltas = TRUE)
 ```
 
 
