@@ -1156,31 +1156,82 @@ hyp_est_df2 %>%
 
 ### Conclusie
 
-De analyses en interpretatie zijn eenvoudiger dan voordien en de modellen lijken goed te fitten. Ook zijn de resultaten min of meer in lijn met de verwachtingen. Voor `area_prop_sb` in de Oostelijke leemstreek gaf de gam in de data-exploratie een meer flexibele curve aan.
+De analyses en interpretatie zijn eenvoudiger dan voordien en de modellen lijken goed te fitten. Ook zijn de resultaten min of meer in lijn met de verwachtingen. Voor `area_prop_sb` in de Oostelijke leemstreek gaf de gam in de data-exploratie een meer flexibele curve aan. We kunnen die variabele ook kunnen opdelen in klassen (bv. < 0.1, 0.1 - 0.2, > 0.2). Er zijn wellicht ook minder data > 0.2 (waardoor je ook minder zeker bent van het niet lineaire verband). Nog een optie is de variabele sqrt transformeren.
+
+```{r}
+gele_kwik_df2_2022 %>%
+  ggplot(aes(x = area_prop_sb)) +
+    geom_histogram() +
+    facet_wrap(~regio)
+```
 
 ```{r}
 test <- 
-  brm(formula = bf(aantal ~ s(area_prop_sb, by = regio)),
-      data = gele_kwik_df2_2022, 
+  brm(formula = bf(aantal ~ regio*area_prop_sb_cat),
+      data = gele_kwik_df2_2022 %>%
+        mutate(area_prop_sb_cat = case_when(
+          area_prop_sb == 0 ~ "area_0",
+          area_prop_sb < 0.1 ~ "area_<0.1",
+          area_prop_sb <= 0.2 ~ "area_0.1-0.2",
+          TRUE ~ "area_>0.2"
+        )), 
       family = negbinomial(), 
-      chains = nchains,
-      warmup = burnin,
-      iter = niter,
-      cores = nparallel,
-      backend = "cmdstanr",
-      control = list(adapt_delta = 0.9))
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr")
 
-plot(conditional_effects(test, 
-                         effects = "area_prop_sb:regio"))
+effects <- conditional_effects(test, effects = "area_prop_sb_cat:regio", 
+                               plot = FALSE)
+
+effects_df <- effects$`area_prop_sb_cat:regio` %>%
+  as_tibble()
+
+effects_df %>%
+  mutate(area_prop_sb_cat = factor(gsub("^area_", "", area_prop_sb_cat),
+                                   levels = c("0", "<0.1", "0.1-0.2",
+                                              ">0.2"),
+                                   ordered = TRUE)) %>%
+  ggplot(aes(x = area_prop_sb_cat, y = estimate__, colour = regio)) +
+    geom_point(position = position_dodge(width = 0.4),
+               size = 4 / 1^0.25) +
+    geom_errorbar(aes(ymin = lower__, ymax = upper__),
+                  position = position_dodge(width = 0.4),
+                  width = 0.3) +
+    facet_wrap(~regio) +
+    theme(legend.position = "") +
+    labs(x = "oppervlakte soorbeschermingsplannen",
+         y = "aantal broedparen Gele kwikstaart")
 ```
 
 ## Selectie verklarende variabelen
 
 <https://mc-stan.org/projpred/articles/projpred.html>\
-<https://mc-stan.org/projpred/articles/latent.html>
+<https://mc-stan.org/projpred/articles/latent.html>\
+<https://github.com/stan-dev/projpred/issues/67>\
+<https://paul-buerkner.github.io/brms/reference/R2D2.html>
+
+
+### Referentiemodel
+
+
 
 ```{r, eval=FALSE}
 library(projpred)
+
+sbp_gelekwik_negbin12 <- 
+  brm(formula = form2,
+      data = gele_kwik_df2_2022, 
+      family = negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_negbin12"),
+      file_refit = "on_change")
+
 refm_poiss <- get_refmodel(brmpois1, latent = TRUE)
 vs_lat <- cv_varsel(refm_poiss,
                     ### Only for the sake of speed (not recommended in general):
