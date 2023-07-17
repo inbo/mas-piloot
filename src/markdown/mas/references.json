@@ -584,5 +584,41 @@
         "title": "The R2D2 Prior for Generalized Linear Mixed Models",
         "type": "article",
         "version": "2"
+    },
+    {
+        "URL": "https://mc-stan.org/projpred/",
+        "author": [
+            {
+                "family": "Piironen",
+                "given": "Juho"
+            },
+            {
+                "family": "Paasiniemi",
+                "given": "Markus"
+            },
+            {
+                "family": "Catalina",
+                "given": "Alejandro"
+            },
+            {
+                "family": "Weber",
+                "given": "Frank"
+            },
+            {
+                "family": "Vehtari",
+                "given": "Aki"
+            }
+        ],
+        "id": "projpred",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "providerkey": "Packages",
+        "title": "{{projpred}}: {{Projection}} Predictive Feature Selection",
+        "type": "article"
     }
 ]
