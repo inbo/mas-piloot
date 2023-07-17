@@ -38,6 +38,7 @@ library(tidyverse)
 library(INBOtheme)
 library(sf)
 library(brms)
+library(projpred)
 ```
 
 # Inlezen data
@@ -1226,16 +1227,13 @@ Appendix B onder andere
 
 ### Referentiemodel
 
-```{r}
-library(projpred)
-```
-
 Eerst moeten we een referentiemodel construeren voor de selectie van verklarende variabelen via 'projection predive variable selection' (PPVS).
 Het doel van PPVS is het vinden van een zo klein mogelijke subset van kandidaat-variabelen met een voorspellende kracht die zo dicht mogelijk ligt bij die van het referentiemodel.
 Het referentiemodel bevat alle variabelen in kwestie en is het best presterende model (in termen van voorspellende prestaties) dat we tot onze beschikking hebben [@mclatchie2023].
 
 We selecteren de data van de Oostelijke leemstreek van 2022.
-Voor de regressiecoëfficienten ($\beta$-parameters) gebruiken we de 'R2-D2 shrinkage prior' [@zhang2016; @yanchenko2021]. Voor het intercept gebruiken we de basis priors van **brms**.
+Voor de regressiecoëfficienten ($\beta$-parameters) gebruiken we de 'R2-D2 shrinkage prior' [@zhang2016; @yanchenko2021].
+Voor het intercept gebruiken we de basis priors van **brms**.
 Deze prior specificeert een verdeling voor $R^2$ en induceert dan een prior op de individuele $\beta$'s.
 Het idee achter 'shrinkage priors' is om de geschatte parameters van een model naar een centrale waarde te trekken of ze naar nul te laten krimpen.
 Deze regularisatie moedigt zo simpelere modellen aan en kunnen dus gebruikt worden in variabelenselectie.
@@ -1310,7 +1308,8 @@ plot(ref_model1)
 Keuze van priors lijkt ok.
 
 ```{r}
-posterior_sample_b0 <- as_draws_df(test, "b_Intercept")
+prior_check_samples <- prior_draws(ref_model1)
+posterior_sample_b0 <- as_draws_df(ref_model1, "b_Intercept")
 df_b0 <- data.frame(posterior = posterior_sample_b0$b_Intercept,
                     prior = prior_check_samples$Intercept) %>%
   pivot_longer(c("posterior", "prior"), 
@@ -1321,8 +1320,7 @@ ggplot(df_b0, aes(x = intercept, colour = var)) +
 ```
 
 ```{r}
-prior_check_samples <- prior_draws(test)
-posterior_sample_r2 <- bayes_R2(test, summary = FALSE)
+posterior_sample_r2 <- bayes_R2(ref_model1, summary = FALSE)
 df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
                     prior = prior_check_samples$R2D2_R2) %>%
   pivot_longer(c("posterior", "prior"), 
@@ -1332,7 +1330,9 @@ ggplot(df_r2, aes(x = R2, colour = var)) +
   geom_density()
 ```
 
-## Posterior predictive check
+#### Posterior predictive check
+
+Model fit ok.
 
 ```{r}
 pp_check(ref_model1, type = "bars", ndraws = 200)
@@ -1340,29 +1340,42 @@ pp_check(ref_model1, type = "bars", ndraws = 200)
 
 ### Selectie variabelen
 
+PPVS kunnen we doen met de **projpred** package [@projpred].
+Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten).
+
 ```{r}
-# fast varsel for finding a suitable value for argument nterms_max
+# Fast varsel for finding a suitable value for argument nterms_max
 cvvs_fast <- cv_varsel(ref_model1,
                        # for speed, better is "forward"
                        method = "L1",
                        nclusters_pred = 20, # speed
                        cv_method = "LOO",
                        nterms_max = length(predictor_names),
-                       # Only for the sake of speed
+                       # only for the sake of speed
                        validate_search = FALSE)
 plot(cvvs_fast, stats = "mlpd", ranking_nterms_max = NA)
 ```
 
-8 of 19?
+We zien dat de "mean log predictive density" (MLPD) van de submodellen niet hard meer verandert vanaf modellen groter met meer dan acht predictors.
+Nu doen we een grondige forward search die meer tijd nodig heeft met `validate_search = TRUE` (beschermt tegen overfitting).
+Om op veilig te spelen zetten we  `nterms_max = 16`.
+We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel (`deltas = TRUE`).
 
 ```{r}
 cvvs <- cv_varsel(ref_model1,
                   method = "forward",
                   cv_method = "LOO",
-                  nterms_max = 19,
+                  nterms_max = 16,
                   validate_search = TRUE)
-plot(cvvs, stats = "mlpd", deltas = TRUE, ranking_nterms_max = NA)
+plot(cvvs, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE, ranking_abbreviate_args = list(minlength = 4))
 ```
+
+Op basis van deze plot bepalen we submodelgrootte. 
+Meestal is het de bedoeling om de kleinste submodelgrootte te vinden waarbij de voorspellende prestaties van de submodellen afvlakken en dicht genoeg in de buurt komen van de voorspellende prestaties van het referentiemodel (de gestippelde rode horizontale lijn).
+Dit blijft min of meer een subjectieve beslissing.
+Er moet er een geschikte afweging worden gemaakt tussen voorspellende prestaties (nauwkeurigheid) en modelgrootte.
+We zien na de vierde predictor geen sterke stijgingen meer. 
+Wel is er nog een kleine stijging tot en met 7 à 8.
 
 ```{r}
 smmry <- summary(cvvs, stats = "mlpd", type = c("mean", "lower", "upper"),
@@ -1370,13 +1383,17 @@ smmry <- summary(cvvs, stats = "mlpd", type = c("mean", "lower", "upper"),
 print(smmry, digits = 1)
 ```
 
+De eerste vier zijn dezelfde als de eerste vier in de snelle analyse. Dit geld ook voor de eerste acht (wel in andere volgorde).
+We zien bovendien dat voor de eerste acht predictors dat er weinig variabiliteit is in de rangschikking van de variabelen
+
 ```{r}
 rk <- ranking(cvvs)
 pr_rk <- cv_proportions(rk)
 plot(pr_rk)
+plot(cv_proportions(rk, cumulate = TRUE))
 ```
 
-4 of 8?
+4 of 8? 8 is goed zie ook snelle methode zelfde resultaat ...
 
 ```{r}
 suggest_size(cvvs, stat = "mlpd")
@@ -1399,6 +1416,6 @@ predictors_final
 plot(cv_proportions(rk, cumulate = TRUE))
 ```
 
-### discussie
+
 
 # Referenties
