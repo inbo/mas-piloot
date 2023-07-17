@@ -480,5 +480,109 @@
         "source": "Zotero",
         "title": "Evaluatie van de effecten van het agrarisch natuurbeheer op voorkomen en trends van akkervogels in de provincie Groningen 2015 - 2020",
         "type": "report"
+    },
+    {
+        "DOI": "10.48550/ARXIV.2306.15581",
+        "URL": "https://arxiv.org/abs/2306.15581",
+        "author": [
+            {
+                "family": "McLatchie",
+                "given": "Yann"
+            },
+            {
+                "family": "Rögnvaldsson",
+                "given": "Sölvi"
+            },
+            {
+                "family": "Weber",
+                "given": "Frank"
+            },
+            {
+                "family": "Vehtari",
+                "given": "Aki"
+            }
+        ],
+        "copyright": "Creative Commons Attribution 4.0 International",
+        "id": "mclatchie2023",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "providerkey": "doi",
+        "publisher": "arXiv",
+        "title": "Robust and efficient projection predictive inference",
+        "type": "article",
+        "version": "1"
+    },
+    {
+        "DOI": "10.48550/ARXIV.1609.00046",
+        "URL": "https://arxiv.org/abs/1609.00046",
+        "author": [
+            {
+                "family": "Zhang",
+                "given": "Yan Dora"
+            },
+            {
+                "family": "Naughton",
+                "given": "Brian P."
+            },
+            {
+                "family": "Bondell",
+                "given": "Howard D."
+            },
+            {
+                "family": "Reich",
+                "given": "Brian J."
+            }
+        ],
+        "copyright": "arXiv.org perpetual, non-exclusive license",
+        "id": "zhang2016",
+        "issued": {
+            "date-parts": [
+                [
+                    2016
+                ]
+            ]
+        },
+        "providerkey": "doi",
+        "publisher": "arXiv",
+        "title": "Bayesian Regression Using a Prior on the Model Fit: The R2-D2 Shrinkage Prior",
+        "type": "article",
+        "version": "3"
+    },
+    {
+        "DOI": "10.48550/ARXIV.2111.10718",
+        "URL": "https://arxiv.org/abs/2111.10718",
+        "author": [
+            {
+                "family": "Yanchenko",
+                "given": "Eric"
+            },
+            {
+                "family": "Bondell",
+                "given": "Howard D."
+            },
+            {
+                "family": "Reich",
+                "given": "Brian J."
+            }
+        ],
+        "copyright": "arXiv.org perpetual, non-exclusive license",
+        "id": "yanchenko2021",
+        "issued": {
+            "date-parts": [
+                [
+                    2021
+                ]
+            ]
+        },
+        "providerkey": "doi",
+        "publisher": "arXiv",
+        "title": "The R2D2 Prior for Generalized Linear Mixed Models",
+        "type": "article",
+        "version": "2"
     }
 ]

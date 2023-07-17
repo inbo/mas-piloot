@@ -667,12 +667,15 @@ Zowel per design als via k-fold validation lijkt het random intercept onze voork
 -   Er is een vrij groot verschil tussen beide regio's waardoor we quasi voor elke variabele een interactieterm zouden moeten toevoegen. We zouden best de analyses opsplitsen per gebied.
 -   We willen nagaan of er een positief effect is van beschermingsmaatregelen. Zowel ter interpretatie als eenvoud van het model kan de `sbp` variabele misschien handiger zijn dan de `area_opp_sb` variabele.
 -   De variabele `periode_in_jaar` vermoeilijkt de analyses (toevoegen van random effects). Het is allicht slimmer de aantallen per telcirkel per jaar te aggregeren. @klaassen2022 gebruiken voor gelijkaardige analyses *"het maximumaantal waargenomen broedparen (het hoogste aantal territoriale individuen van een soort tijdens één van de tellingen)"*.
--  We vermoeden ook dat er een duidelijker signaal zal vormen als we enkel de data van 2022 en 2023 bekijken.
+-   We vermoeden ook dat er een duidelijker signaal zal vormen als we enkel de data van 2022 en 2023 bekijken.
 
 ## Model specificatie test 2
+
 ### Data preparatie
 
-We nemen per telpunt per jaar het maximum aantal broedvogels over de telperiodes heen. Enkel de variabele `n_predators` is afhankelijk per telperiode. Hiervan nemen we het gemiddelde.
+We nemen per telpunt per jaar het maximum aantal broedvogels over de telperiodes heen.
+Enkel de variabele `n_predators` is afhankelijk per telperiode.
+Hiervan nemen we het gemiddelde.
 
 ```{r}
 gele_kwik_df_mod2 <- gele_kwik_df %>%
@@ -754,7 +757,6 @@ gele_kwik_df2_2022 %>%
     facet_wrap(~regio, scales = "free_x") +
     labs(y = "aantal broedparen")
 ```
-
 
 ### Modellen sbp
 
@@ -1156,7 +1158,12 @@ hyp_est_df2 %>%
 
 ### Conclusie
 
-De analyses en interpretatie zijn eenvoudiger dan voordien en de modellen lijken goed te fitten. Ook zijn de resultaten min of meer in lijn met de verwachtingen. Voor `area_prop_sb` in de Oostelijke leemstreek gaf de gam in de data-exploratie een meer flexibele curve aan. We kunnen die variabele ook kunnen opdelen in klassen (bv. < 0.1, 0.1 - 0.2, > 0.2). Er zijn wellicht ook minder data > 0.2 (waardoor je ook minder zeker bent van het niet lineaire verband). Nog een optie is de variabele sqrt transformeren.
+De analyses en interpretatie zijn eenvoudiger dan voordien en de modellen lijken goed te fitten.
+Ook zijn de resultaten min of meer in lijn met de verwachtingen.
+Voor `area_prop_sb` in de Oostelijke leemstreek gaf de gam in de data-exploratie een meer flexibele curve aan.
+We kunnen die variabele ook kunnen opdelen in klassen (bv. \< 0.1, 0.1 - 0.2, \> 0.2).
+Er zijn wellicht ook minder data \> 0.2 (waardoor je ook minder zeker bent van het niet lineaire verband).
+Nog een optie is de variabele sqrt transformeren.
 
 ```{r}
 gele_kwik_df2_2022 %>%
@@ -1214,8 +1221,8 @@ Dit ziet er waardevoller uit.
 <https://github.com/stan-dev/projpred/issues/67>\
 <https://paul-buerkner.github.io/brms/reference/R2D2.html>
 
-Zie de McLatchie et al paper die ik onlangs doorstuurde. Appendix B onder andere
-
+Zie de McLatchie et al paper die ik onlangs doorstuurde.
+Appendix B onder andere
 
 ### Referentiemodel
 
@@ -1223,6 +1230,16 @@ Zie de McLatchie et al paper die ik onlangs doorstuurde. Appendix B onder andere
 library(projpred)
 ```
 
+Eerst moeten we een referentiemodel construeren voor de selectie van verklarende variabelen via 'projection predive variable selection' (PPVS).
+Het doel van PPVS is het vinden van een zo klein mogelijke subset van kandidaat-variabelen met een voorspellende kracht die zo dicht mogelijk ligt bij die van het referentiemodel.
+Het referentiemodel bevat alle variabelen in kwestie en is het best presterende model (in termen van voorspellende prestaties) dat we tot onze beschikking hebben [@mclatchie2023].
+
+We selecteren de data van de Oostelijke leemstreek van 2022.
+Voor de regressiecoëfficienten ($\beta$-parameters) gebruiken we de 'R2-D2 shrinkage prior' [@zhang2016; @yanchenko2021]. Voor het intercept gebruiken we de basis priors van **brms**.
+Deze prior specificeert een verdeling voor $R^2$ en induceert dan een prior op de individuele $\beta$'s.
+Het idee achter 'shrinkage priors' is om de geschatte parameters van een model naar een centrale waarde te trekken of ze naar nul te laten krimpen.
+Deze regularisatie moedigt zo simpelere modellen aan en kunnen dus gebruikt worden in variabelenselectie.
+Voor de hyperparameters gebruiken we de instellingen voor "laag-relevante variabelen" uit Appendix B van @mclatchie2023.
 
 ```{r}
 # Data
@@ -1237,10 +1254,10 @@ data_projpred <- gele_kwik_df2_2022 %>%
 
 # MCMC parameters
 nchains <- 3           # number of chains
-niter <- 10000         # number of iterations (incl. burn-in)
-burnin <- niter / 5    # number of initial samples to discard (burn-in)
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
 nparallel <- nchains   # number of cores used for parallel computing
-thinning <- 4
+thinning <- 2
 
 # Priors
 beta_prior_projpred <- set_prior(R2D2(mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 10, 
@@ -1252,12 +1269,14 @@ indices <- which(names(data_projpred) %in% c("id", "aantal", "plotnaam",
                                              "area_prop_sb", 
                                              "area_prop_bo_overig",
                                              "area_prop_sb_cat",
-                                             "is_sbp"))
+                                             "is_sbp", "openheid_klasse_300"))
 predictor_names <- names(data_projpred)[-indices]
 form_projpred <- bf(paste("aantal", "~", paste(predictor_names, 
                                                collapse = " + ")))
+form_projpred
 ```
 
+We centreren en schalen alle continue variabelen.
 
 ```{r}
 ref_model1 <- 
@@ -1265,16 +1284,61 @@ ref_model1 <-
       data = data_projpred %>%
         mutate(across(.cols = c(where(is.numeric), -aantal), 
                       .fns = ~ as.numeric(scale(.x)))), 
-      family = negbinomial(),
+      family = poisson(),
       prior = beta_prior_projpred,
       chains = nchains, 
       warmup = burnin, 
       iter = niter,
       cores = nparallel,
+      thin = thinning,
+      sample_prior = TRUE,
       backend = "cmdstanr",
       file = paste0(model_path, "ref_model1"),
       file_refit = "on_change")
 ```
+
+#### MCMC convergentie
+
+Convergentie ok.
+
+```{r}
+plot(ref_model1)
+```
+
+#### Prior check
+
+Keuze van priors lijkt ok.
+
+```{r}
+posterior_sample_b0 <- as_draws_df(test, "b_Intercept")
+df_b0 <- data.frame(posterior = posterior_sample_b0$b_Intercept,
+                    prior = prior_check_samples$Intercept) %>%
+  pivot_longer(c("posterior", "prior"), 
+               names_to = "var", values_to = "intercept")
+
+ggplot(df_b0, aes(x = intercept, colour = var)) +
+  geom_density()
+```
+
+```{r}
+prior_check_samples <- prior_draws(test)
+posterior_sample_r2 <- bayes_R2(test, summary = FALSE)
+df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
+                    prior = prior_check_samples$R2D2_R2) %>%
+  pivot_longer(c("posterior", "prior"), 
+               names_to = "var", values_to = "R2")
+
+ggplot(df_r2, aes(x = R2, colour = var)) +
+  geom_density()
+```
+
+## Posterior predictive check
+
+```{r}
+pp_check(ref_model1, type = "bars", ndraws = 200)
+```
+
+### Selectie variabelen
 
 ```{r}
 # fast varsel for finding a suitable value for argument nterms_max
@@ -1289,16 +1353,52 @@ cvvs_fast <- cv_varsel(ref_model1,
 plot(cvvs_fast, stats = "mlpd", ranking_nterms_max = NA)
 ```
 
-9 of 20?
+8 of 19?
 
 ```{r}
 cvvs <- cv_varsel(ref_model1,
                   method = "forward",
                   cv_method = "LOO",
-                  nterms_max = 20,
+                  nterms_max = 19,
                   validate_search = TRUE)
-plot(cvvs, stats = "mlpd", deltas = TRUE)
+plot(cvvs, stats = "mlpd", deltas = TRUE, ranking_nterms_max = NA)
 ```
 
+```{r}
+smmry <- summary(cvvs, stats = "mlpd", type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+print(smmry, digits = 1)
+```
+
+```{r}
+rk <- ranking(cvvs)
+pr_rk <- cv_proportions(rk)
+plot(pr_rk)
+```
+
+4 of 8?
+
+```{r}
+suggest_size(cvvs, stat = "mlpd")
+size_decided <- suggest_size(cvvs, stat = "mlpd")
+predictors_final <- head(rk[["fulldata"]], size_decided)
+predictors_final
+```
+
+```{r}
+plot(cv_proportions(rk, cumulate = TRUE))
+```
+
+```{r}
+size_decided <- 8
+predictors_final <- head(rk[["fulldata"]], size_decided)
+predictors_final
+```
+
+```{r}
+plot(cv_proportions(rk, cumulate = TRUE))
+```
+
+### discussie
 
 # Referenties
