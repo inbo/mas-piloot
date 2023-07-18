@@ -1339,6 +1339,7 @@ Ok. Wel forward nodig ipv L1 search.
 
 Wat met smoothers?
 geen R2D2 of horshoe prior mogelijk?
+Support for additive models is still experimental.
 
 ```{r}
 # Formula
@@ -1369,11 +1370,11 @@ test_model2 <-
       backend = "cmdstanr")
 
 cvvs_fast_test2 <- cv_varsel(test_model2,
-                       # L1 not possible with interactions
+                       # L1 not possible with smoothing terms
                        method = "forward",
                        nclusters_pred = 20, # speed
                        cv_method = "LOO",
-                       nterms_max = length(predictor_names)*2,
+                       nterms_max = length(predictor_names),
                        # only for the sake of speed
                        validate_search = FALSE)
 plot(cvvs_fast_test2, stats = "mlpd", ranking_nterms_max = NA)
@@ -1395,6 +1396,24 @@ tau0 <- p0 / (D - p0) / sqrt(mu_prior) / sqrt(N)
 test <- set_prior(horseshoe(df = 100, scale_global = tau0, scale_slab = 1))
 ```
 
+```{r}
+match_variables <- predictor_names
+
+# We maken formules uit combinaties van alle variabelen
+combos <- sapply(seq(length(match_variables)), function(i) {
+    as.list(as.data.frame(combn(x = match_variables, m = i)))
+})
+combos <- unlist(combos, recursive = FALSE)
+
+# Combinaties zonder interacties
+forms1 <- sapply(combos, function(x) {
+    paste0("~", paste(x, collapse = "+"))
+})
+names(forms1) <- NULL
+
+# Behoud enkel de combinaties die sbp bevatten
+forms1 <- forms1[grep("sbp", forms1)]
+```
 
 
 #### MCMC convergentie
