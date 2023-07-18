@@ -97,7 +97,7 @@ Selectie fysicochemische data:
 - Zomerjaar en Winterhalfjaar (uitspoeling van overschot)
 - Geen calamiteit of sluiklozing, uitzonderlijk hoog water, specifiek onderzoek, uitzonderlijk beïnvloed
 - Locatiegegevens bekend
-- minstens 4 metingen beschikbaar (per meetpunt, variabele, winterjaar)
+- minstens 3 metingen beschikbaar (per meetpunt, variabele, winterjaar)
 - gemiddelde en maximum waarde wordt berekend
 
 Verder opgekuist tot een dataset met enkel zomerjaar en winterjaar gegevens voor NO3- (meest complete gegevens).
@@ -142,7 +142,7 @@ fc_data <- fc_metingen %>%
                values_drop_na = TRUE) %>%
   group_by(WinterJaar, ZomerJaar, MeetpuntCode, Lambert72_X, Lambert72_Y,
            variabele) %>%
-  filter(n() >= 4) %>%
+  filter(n() >= 3) %>%
   summarise(gemiddelde = mean(waarde),
             max = max(waarde),
             .groups = "drop") %>%
