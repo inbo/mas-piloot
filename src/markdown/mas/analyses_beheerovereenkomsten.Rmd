@@ -1367,7 +1367,8 @@ cvvs <- cv_varsel(ref_model1,
                   cv_method = "LOO",
                   nterms_max = 16,
                   validate_search = TRUE)
-plot(cvvs, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE, ranking_abbreviate_args = list(minlength = 4))
+plot(cvvs, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE, 
+     ranking_abbreviate_args = list(minlength = 4))
 ```
 
 Op basis van deze plot bepalen we submodelgrootte. 
