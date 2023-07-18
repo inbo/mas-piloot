@@ -256,6 +256,11 @@ De regressielijnen zijn slechts een benadering (niet het correcte statistische m
 Er zijn duidelijk bekkens waar minder macro-invertebraten data beschikbaar zijn.
 Bovendien zijn er slechts een beperkt aantal meetplaatsen waar recente meetgegevens beschikbaar zijn of langlopende tijdreeksen van bestaan.
 
+Plaatsen waar er recente macro-invertebratenmetingen van zijn liggen eerder geconcentreerd in oostelijk deel van Vlaanderen.
+De reden is dat hier relatief veel rivieren liggen waar er een evolutie is naar een goede toestand (KRW) en men wil hier de vinger aan de pols houden / de laatste resterende knelpunten wegwerken.
+
+
+
 ```{r}
 vmm_meetnet %>%
   select(jaar, meetplaats, bekken) %>%
