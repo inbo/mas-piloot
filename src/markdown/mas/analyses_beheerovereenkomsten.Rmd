@@ -39,6 +39,11 @@ library(INBOtheme)
 library(sf)
 library(brms)
 library(projpred)
+
+# Cache
+model_path <- "./src/markdown/mas/brms_models/"
+cache_path <- "./src/markdown/mas/analyses_cache/"
+projpred_path <- "./src/markdown/mas/projpred_cache/"
 ```
 
 # Inlezen data
@@ -46,7 +51,6 @@ library(projpred)
 ```{r}
 data_path <- here("data", "processed")
 mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
-
 ```
 
 ```{r}
@@ -280,9 +284,6 @@ g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{
 $$
 
 ```{r}
-# Save brms models to this path
-model_path <- "./src/markdown/mas/brms_models/"
-
 # MCMC parameters
 nchains <- 3           # number of chains
 niter <- 4000          # number of iterations (incl. burn-in)
@@ -1408,9 +1409,10 @@ pp_check(ref_gelekwik_model1, type = "bars", ndraws = 200)
 ### Selectie variabelen
 
 PPVS kunnen we doen met de **projpred** package [@projpred].
-Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten).
-
-https://github.com/stan-dev/projpred/issues/346
+Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten). 
+Default neemt de functie 19 als maximum. Wij schatten dat meer dan 10 predictors overbodig zal zijn.
+Omdat we de variabele `sbp` in elk model willen, maken we een vector met alle mogelijke combinaties van predictors met deze variabele en maximum aan 10 predictors.
+Het duurt vrij lang om deze combinaties te berekenen (zie [deze issue](https://github.com/stan-dev/projpred/issues/346) voor toekomstige verbetering in **projpred**).
 
 ```{r}
 combm_predictors <- function(m, predictors) {
@@ -1426,26 +1428,27 @@ get_search_terms <- function(n_predictors_max, predictors, keep_var) {
   out <- c(keep_var, paste(keep_var, search_terms, sep = " + "))
   return(out)
 }
-
-indices <- which(names(data_projpred) %in% c("id", "aantal", "plotnaam", 
-                                             "regio", "jaar", "jaar.f", 
-                                             "area_prop_sb", 
-                                             "area_prop_bo_overig",
-                                             "area_prop_sb_cat", 
-                                             "sbp", "is_sbp",
-                                             "x_plot", "y_plot",
-                                             "openheid_klasse_300"))
-predictors_refmodel1 <- names(data_projpred)[-indices]
-
-forms <- get_search_terms(n_predictors_max = 3, predictors = predictors_refmodel1, 
-                          keep_var = "sbp")
 ```
 
 ```{r}
-# Fast varsel for finding a suitable value for argument nterms_max
-cvvs_fast <- cv_varsel(ref_gelekwik_model1,
-                       # for speed, better is "forward"
-                       method = "L1",
+search_terms_file <- paste0(cache_path, "search_terms_refmodel1.rds")
+if (!file.exists(search_terms_file)) {
+  search_terms_refmodel1 <- get_search_terms(
+    n_predictors_max = 10, 
+    predictors = predictors_refmodel1[-match("sbp", predictors_refmodel1)],
+    keep_var = "sbp")
+  saveRDS(search_terms_refmodel1, search_terms_file)
+} else {
+  search_terms_refmodel1 <- readRDS(search_terms_file)
+}
+```
+
+Ook kan het interessant zijn dit te doen voor zowel het model met als zonder shrinkage prior.
+
+```{r}
+# Fast varsel for first exploration
+cvvs_fast <- cv_varsel(ref_gelekwik_model3,
+                       method = "forward",
                        nclusters_pred = 20, # speed
                        cv_method = "LOO",
                        nterms_max = length(predictors_refmodel1),
@@ -1460,12 +1463,20 @@ Om op veilig te spelen zetten we  `nterms_max = 16`.
 We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel (`deltas = TRUE`).
 
 ```{r}
-cvvs <- cv_varsel(ref_gelekwik_model1,
-                  method = "forward",
-                  cv_method = "LOO",
-                  nterms_max = 16,
-                  validate_search = TRUE)
-plot(cvvs, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE, 
+cvvs_file <- paste0(projpred_path, "cvvs_refmodel1.rds")
+if (!file.exists(cvvs_file)) {
+  cvvs_refmodel1 <- cv_varsel(
+    object          = ref_gelekwik_model3,
+    method          = "forward",
+    cv_method       = "LOO",
+    nterms_max      = 16,
+    validate_search = TRUE)
+  saveRDS(cvvs_refmodel1, cvvs_file)
+} else {
+  cvvs_refmodel1 <- readRDS(cvvs_file)
+}
+
+plot(cvvs_file, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE, 
      ranking_abbreviate_args = list(minlength = 4))
 ```
 
@@ -1477,7 +1488,7 @@ We zien na de vierde predictor geen sterke stijgingen meer.
 Wel is er nog een kleine stijging tot en met 7 à 8.
 
 ```{r}
-smmry <- summary(cvvs, stats = "mlpd", type = c("mean", "lower", "upper"),
+smmry <- summary(cvvs_file, stats = "mlpd", type = c("mean", "lower", "upper"),
                  deltas = TRUE)
 print(smmry, digits = 1)
 ```
@@ -1486,7 +1497,7 @@ De eerste vier zijn dezelfde als de eerste vier in de snelle analyse. Dit geld o
 We zien bovendien dat voor de eerste acht predictors dat er weinig variabiliteit is in de rangschikking van de variabelen
 
 ```{r}
-rk <- ranking(cvvs)
+rk <- ranking(cvvs_file)
 pr_rk <- cv_proportions(rk)
 plot(pr_rk)
 plot(cv_proportions(rk, cumulate = TRUE))
@@ -1495,8 +1506,8 @@ plot(cv_proportions(rk, cumulate = TRUE))
 4 of 8? 8 is goed zie ook snelle methode zelfde resultaat ...
 
 ```{r}
-suggest_size(cvvs, stat = "mlpd")
-size_decided <- suggest_size(cvvs, stat = "mlpd")
+suggest_size(cvvs_file, stat = "mlpd")
+size_decided <- suggest_size(cvvs_file, stat = "mlpd")
 predictors_final <- head(rk[["fulldata"]], size_decided)
 predictors_final
 ```
