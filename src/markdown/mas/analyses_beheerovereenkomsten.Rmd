@@ -1295,6 +1295,108 @@ ref_model1 <-
       file_refit = "on_change")
 ```
 
+Wat met interacties?
+
+```{r}
+# Formula
+indices <- which(names(data_projpred) %in% c("id", "aantal", "plotnaam", 
+                                             "regio", "jaar", "jaar.f", 
+                                             "area_prop_sb", 
+                                             "area_prop_bo_overig",
+                                             "area_prop_sb_cat",
+                                             "is_sbp", "sbp",
+                                             "openheid_klasse_300"))
+predictor_names <- names(data_projpred)[-indices]
+form_projpred2 <- bf(paste("aantal", "~", paste(predictor_names, 
+                                               collapse = "*sbp + ")))
+test_model1 <- 
+  brm(formula = form_projpred2,
+      data = data_projpred %>%
+        mutate(across(.cols = c(where(is.numeric), -aantal), 
+                      .fns = ~ as.numeric(scale(.x)))), 
+      family = poisson(),
+      prior = beta_prior_projpred,
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter,
+      cores = nparallel,
+      thin = thinning,
+      sample_prior = TRUE,
+      backend = "cmdstanr")
+
+cvvs_fast_test1 <- cv_varsel(test_model1,
+                       # L1 not possible with interactions
+                       method = "forward",
+                       nclusters_pred = 20, # speed
+                       cv_method = "LOO",
+                       nterms_max = length(predictor_names)*2,
+                       # only for the sake of speed
+                       validate_search = FALSE)
+plot(cvvs_fast_test1, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+Ok. Wel forward nodig ipv L1 search.
+
+Wat met smoothers?
+geen R2D2 of horshoe prior mogelijk?
+
+```{r}
+# Formula
+indices <- which(names(data_projpred) %in% c("id", "aantal", "plotnaam", 
+                                             "regio", "jaar", "jaar.f", 
+                                             "area_prop_sb", 
+                                             "area_prop_bo_overig",
+                                             "area_prop_sb_cat",
+                                             "is_sbp", "openheid_klasse_300"))
+predictor_names <- names(data_projpred)[-indices]
+form_projpred3 <- bf(gsub("((x|y)_plot)", "s(\\1)", 
+                         paste("aantal", "~", paste(predictor_names, 
+                               collapse = " + "))))
+
+test_model2 <- 
+  brm(formula = form_projpred3,
+      data = data_projpred %>%
+        mutate(across(.cols = c(where(is.numeric), -aantal), 
+                      .fns = ~ as.numeric(scale(.x)))), 
+      family = poisson(),
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter*2,
+      cores = nparallel,
+      thin = thinning*2,
+      control = list(adapt_delta = 0.95),
+      sample_prior = FALSE,
+      backend = "cmdstanr")
+
+cvvs_fast_test2 <- cv_varsel(test_model2,
+                       # L1 not possible with interactions
+                       method = "forward",
+                       nclusters_pred = 20, # speed
+                       cv_method = "LOO",
+                       nterms_max = length(predictor_names)*2,
+                       # only for the sake of speed
+                       validate_search = FALSE)
+plot(cvvs_fast_test2, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+
+```{r}
+D <- length(predictor_names)
+N <- nrow(data_projpred)
+# Prior guess for the number of relevant (i.e., non-zero) regression
+# coefficients:
+p0 <- 10
+# Prior guess for the overall magnitude of the response values, see Table 1 of
+# Piironen and Vehtari (2017, DOI: 10.1214/17-EJS1337SI):
+mu_prior <- 100
+# Hyperprior scale for tau, the global shrinkage parameter:
+tau0 <- p0 / (D - p0) / sqrt(mu_prior) / sqrt(N)
+
+test <- set_prior(horseshoe(df = 100, scale_global = tau0, scale_slab = 1))
+```
+
+
+
 #### MCMC convergentie
 
 Convergentie ok.
