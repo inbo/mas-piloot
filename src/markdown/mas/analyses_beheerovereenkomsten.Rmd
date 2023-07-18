@@ -1456,6 +1456,10 @@ Model fit ok.
 pp_check(ref_gelekwik_model1, type = "bars", ndraws = 200)
 ```
 
+```{r}
+pp_check(ref_gelekwik_model3, type = "bars", ndraws = 200)
+```
+
 ### Selectie variabelen
 
 PPVS kunnen we doen met de **projpred** package [@projpred].
