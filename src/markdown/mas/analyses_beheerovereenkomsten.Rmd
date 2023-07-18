@@ -1346,6 +1346,7 @@ We fitten de modellen met de Poisson verdeling m.b.v. **brms**.
 ```{r}
 for (i in seq_along(priors_refmodel1)) {
   name <- paste0("ref_gelekwik_model", i)
+  print(paste("Busy fitting", name, "..."))
   assign(name,
          brm(formula = form_refmodel1,
              data = data_projpred_scaled, 
@@ -1388,7 +1389,56 @@ ggplot(df_b0, aes(x = intercept, colour = var)) +
 ```
 
 ```{r}
-posterior_sample_r2 <- bayes_R2(ref_gelekwik_model1, summary = FALSE)
+prior_check_samples <- prior_draws(ref_gelekwik_model2)
+posterior_sample_r2 <- bayes_R2(ref_gelekwik_model2, summary = FALSE)
+df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
+                    prior = prior_check_samples$R2D2_R2) %>%
+  pivot_longer(c("posterior", "prior"), 
+               names_to = "var", values_to = "R2")
+
+ggplot(df_r2, aes(x = R2, colour = var)) +
+  geom_density()
+```
+
+```{r}
+prior_check_samples <- prior_draws(ref_gelekwik_model3)
+posterior_sample_r2 <- bayes_R2(ref_gelekwik_model3, summary = FALSE)
+df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
+                    prior = prior_check_samples$R2D2_R2) %>%
+  pivot_longer(c("posterior", "prior"), 
+               names_to = "var", values_to = "R2")
+
+ggplot(df_r2, aes(x = R2, colour = var)) +
+  geom_density()
+```
+
+```{r}
+prior_check_samples <- prior_draws(ref_gelekwik_model4)
+posterior_sample_r2 <- bayes_R2(ref_gelekwik_model4, summary = FALSE)
+df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
+                    prior = prior_check_samples$R2D2_R2) %>%
+  pivot_longer(c("posterior", "prior"), 
+               names_to = "var", values_to = "R2")
+
+ggplot(df_r2, aes(x = R2, colour = var)) +
+  geom_density()
+```
+
+```{r}
+prior_check_samples <- prior_draws(ref_gelekwik_model5)
+posterior_sample_r2 <- bayes_R2(ref_gelekwik_model5, summary = FALSE)
+df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
+                    prior = prior_check_samples$R2D2_R2) %>%
+  pivot_longer(c("posterior", "prior"), 
+               names_to = "var", values_to = "R2")
+
+ggplot(df_r2, aes(x = R2, colour = var)) +
+  geom_density()
+```
+
+```{r}
+prior_check_samples <- prior_draws(ref_gelekwik_model4)
+posterior_sample_r2 <- bayes_R2(ref_gelekwik_model4, summary = FALSE)
 df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
                     prior = prior_check_samples$R2D2_R2) %>%
   pivot_longer(c("posterior", "prior"), 
@@ -1410,8 +1460,9 @@ pp_check(ref_gelekwik_model1, type = "bars", ndraws = 200)
 
 PPVS kunnen we doen met de **projpred** package [@projpred].
 Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten). 
-Default neemt de functie 19 als maximum. Wij schatten dat meer dan 10 predictors overbodig zal zijn.
+Default neemt de functie 19 als maximum, maar wij schatten dat meer dan 10 predictors overbodig zal zijn.
 Omdat we de variabele `sbp` in elk model willen, maken we een vector met alle mogelijke combinaties van predictors met deze variabele en maximum aan 10 predictors.
+`nterms_max` zal dan automatisch 10 zijn.
 Het duurt vrij lang om deze combinaties te berekenen (zie [deze issue](https://github.com/stan-dev/projpred/issues/346) voor toekomstige verbetering in **projpred**).
 
 ```{r}
@@ -1447,11 +1498,23 @@ Ook kan het interessant zijn dit te doen voor zowel het model met als zonder shr
 
 ```{r}
 # Fast varsel for first exploration
-cvvs_fast <- cv_varsel(ref_gelekwik_model3,
+cvvs_fast_test <- cv_varsel(ref_gelekwik_model1,
+                            method = "forward",
+                            nclusters_pred = 20, # speed
+                            cv_method = "LOO",
+                            search_terms = search_terms_refmodel1,
+                            # only for the sake of speed
+                            validate_search = FALSE)
+plot(cvvs_fast_test, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+```{r}
+# Fast varsel for first exploration
+cvvs_fast <- cv_varsel(ref_gelekwik_model2,
                        method = "forward",
                        nclusters_pred = 20, # speed
                        cv_method = "LOO",
-                       nterms_max = length(predictors_refmodel1),
+                       search_terms = search_terms_refmodel1,
                        # only for the sake of speed
                        validate_search = FALSE)
 plot(cvvs_fast, stats = "mlpd", ranking_nterms_max = NA)
@@ -1466,10 +1529,10 @@ We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel
 cvvs_file <- paste0(projpred_path, "cvvs_refmodel1.rds")
 if (!file.exists(cvvs_file)) {
   cvvs_refmodel1 <- cv_varsel(
-    object          = ref_gelekwik_model3,
+    object          = ref_gelekwik_model2,
     method          = "forward",
     cv_method       = "LOO",
-    nterms_max      = 16,
+    search_terms    = search_terms_refmodel1,
     validate_search = TRUE)
   saveRDS(cvvs_refmodel1, cvvs_file)
 } else {
