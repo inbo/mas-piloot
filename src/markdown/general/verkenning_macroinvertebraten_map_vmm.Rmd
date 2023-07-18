@@ -102,6 +102,14 @@ Selectie fysicochemische data:
 
 Verder opgekuist tot een dataset met enkel zomerjaar en winterjaar gegevens voor NO3- (meest complete gegevens).
 
+Er zijn actieve en slapende locaties:
+
+-   Actieve locaties = vorige jaar overschrijding gedetecteerd in winterhalfjaar
+    -   Worden maandelijks opgevolgd en stalen genomen
+-   Slapende locaties = vorig jaar geen overschrijding gedetecteerd 
+    -   Worden enkel 3 maal bemeten in het winterhalfjaar
+-   Actieve locaties kunnen slapend worden en omgekeerd
+
 
 ```{r vmm-fysicochemie}
 # https://sites.google.com/a/inbo.be/intranet/home/ondersteuning/IT-en-data/datasystemen/vmm-oppervlaktewaters
