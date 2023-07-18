@@ -1035,6 +1035,10 @@ Het voorstel is 20 meetplaatsen per jaar (2023 en 2024), dus is een verdere keuz
 Voorstel: Groepen 3 en 4 selecteren (n = 40)?
 Daarmee selecteren we twee typische, maar contrasterende, intensieve landbouw types (één op de zwaardere gronden - granen; en een ander op de zandgronden - maïs).
 
+Naast nitraten, kan ook pesticidenuitspoeling belangrijk zijn.
+VMM wil eventueel overwegen om op de 2x 20 geselecteerde plaatsen ook pesticiden op te volgen.
+
+
 ```{r}
 groepen <- c(3, 4)
 
@@ -1064,5 +1068,41 @@ Andere, niet beschouwde relevante factoren in afstroomgebied:
 
 Zie ook http://geoloket.vmm.be/Geoviews/
 
+## Wegschrijven van de geselecteerde meetplaatsen
+
+```{r}
+checkpath <- here::here(
+             "data", "vmm",
+             "selectie_meetplaatsen_mbag_macroinvertebraten.geojson")
+```
+
+
+```{r eval=!file.exists(checkpath)}
+locs <- mi_fc %>%
+  group_by(meetplaats, bekken, waterloop, categorie) %>%
+  summarise(.groups = "drop") 
+
+export_voor_vmm_geojson <- locs %>%
+  inner_join(
+    watersheds_selectie %>%
+      st_drop_geometry() %>%
+      filter(group %in% groepen) %>%
+      select(meetplaats, fgroup),
+    by = "meetplaats") 
+
+export_voor_vmm_csv <- export_voor_vmm_geojson %>%
+  bind_cols(st_coordinates(.)) %>%
+  st_drop_geometry() 
+
+write_csv2(export_voor_vmm_csv,
+           here::here(
+             "data", "vmm",
+             "selectie_meetplaatsen_mbag_macroinvertebraten.csv"))
+
+st_write(export_voor_vmm_geojson,
+          here::here(
+             "data", "vmm",
+             "selectie_meetplaatsen_mbag_macroinvertebraten.geojson"))
+```
 
 
