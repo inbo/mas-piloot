@@ -33,6 +33,8 @@ conflicted::conflicts_prefer(dplyr::lag)
 conflicted::conflicts_prefer(brms::ar)
 conflicted::conflicts_prefer(brms::do_call)
 conflicted::conflicts_prefer(stats::sd)
+conflicted::conflicts_prefer(posterior::rhat)
+conflicted::conflicts_prefer(base::match)
 
 # Packages
 library(tidyverse)
