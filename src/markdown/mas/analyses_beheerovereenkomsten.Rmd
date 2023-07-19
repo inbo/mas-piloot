@@ -32,6 +32,7 @@ conflicted::conflicts_prefer(dplyr::select)
 conflicted::conflicts_prefer(dplyr::lag)
 conflicted::conflicts_prefer(brms::ar)
 conflicted::conflicts_prefer(brms::do_call)
+conflicted::conflicts_prefer(stats::sd)
 
 # Packages
 library(tidyverse)
@@ -40,6 +41,8 @@ library(gridExtra)
 library(sf)
 library(brms)
 library(projpred)
+library(posterior)
+library(bayesplot)
 
 # Cache
 model_path <- "./src/markdown/mas/brms_models/"
@@ -1749,7 +1752,7 @@ predictors_final2_refmodel1 <- c("sbp", "haag", "houtkant",
                                  "wintergranen_hfdtlt", 
                                  "openheid_waarde_1000")
 prj_refmodel1 <- project(ref_gelekwik_model2,
-               solution_terms = predictors_final2_refmodel1)
+                         solution_terms = predictors_final2_refmodel1)
 prj_refmodel1_mat <- as.matrix(prj)
 prj_refmodel1_expmat <- exp(as.matrix(prj))
 colnames(prj_refmodel1_expmat) <- paste0("exp(", 
@@ -1758,8 +1761,6 @@ colnames(prj_refmodel1_expmat) <- paste0("exp(",
 ```
 
 ```{r}
-library(posterior)
-conflicted::conflicts_prefer(stats::sd)
 prj_drws <- as_draws_matrix(prj_refmodel1_mat)
 prj_smmry <- summarize_draws(
   prj_drws,
@@ -1768,6 +1769,14 @@ prj_smmry <- summarize_draws(
   as_tibble()
 prj_smmry %>%
   kable(digits = 5)
+```
+
+```{r}
+bayesplot_theme_set(ggplot2::theme_bw())
+mcmc_intervals(prj_refmodel1_mat, point_est = "mean", prob = 0.8, 
+               prob_outer = 0.95, point_size = 3) +
+  geom_vline(xintercept = 0, colour = alpha("firebrick", 0.5), 
+             linetype = "dashed")
 ```
 
 ```{r}
@@ -1782,16 +1791,18 @@ prj_smmry_exp %>%
 ```
 
 ```{r}
-library(bayesplot)
-bayesplot_theme_set(ggplot2::theme_bw())
-mcmc_intervals(prj_refmodel1_mat, point_est = "mean", prob = 0.8, 
-               prob_outer = 0.95, point_size = 3) +
-  geom_vline(xintercept = 0, colour = alpha("firebrick", 0.5), 
-             linetype = "dashed")
 mcmc_intervals(prj_refmodel1_expmat, point_est = "mean", prob = 0.8, 
                prob_outer = 0.95, point_size = 3) +
   geom_vline(xintercept = 1, colour = alpha("firebrick", 0.5), 
              linetype = "dashed")
 ```
+
+De posterior-projection predictive check (PPPC) laat zien dat onze uiteindelijke projectie in staat is om voorspellingen te genereren die vergelijkbaar zijn met de waargenomen responswaarden, wat aangeeft dat dit model redelijk is, tenminste in dit opzicht.
+
+```{r}
+prj_predict <- proj_predict(prj)
+ppc_bars(y = data_projpred_scaled$aantal, yrep = prj_predict)
+```
+
 
 # Referenties
