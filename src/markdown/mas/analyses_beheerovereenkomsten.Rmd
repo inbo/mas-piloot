@@ -37,12 +37,14 @@ conflicted::conflicts_prefer(stats::sd)
 # Packages
 library(tidyverse)
 library(INBOtheme)
-library(gridExtra)
+library(ggpubr)
 library(sf)
 library(brms)
 library(projpred)
 library(posterior)
 library(bayesplot)
+library(tidybayes)
+library(modelr)
 
 # Cache
 model_path <- "./src/markdown/mas/brms_models/"
@@ -1461,7 +1463,7 @@ show_prior <- function(model, parameter, title = "") {
 ```
 
 ```{r}
-grid.arrange(show_prior(ref_gelekwik_model2, "R2D2", 
+ggarrange(show_prior(ref_gelekwik_model2, "R2D2", 
                         "mean_R2 = 0.5, prec_R2 = 2, cons_D2 = 1"),
              show_prior(ref_gelekwik_model3, "R2D2", 
                         "mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 10"),
@@ -1514,7 +1516,7 @@ p8 <- prior_check_samples9 %>%
     geom_density() +
     ggtitle("ref_gelekwik_model9")
 
-grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, ncol = 2)
+ggarrange(p1, p2, p3, p4, p5, p6, p7, p8, ncol = 2)
 ```
 
 #### Posterior predictive check
@@ -1753,8 +1755,8 @@ predictors_final2_refmodel1 <- c("sbp", "haag", "houtkant",
                                  "openheid_waarde_1000")
 prj_refmodel1 <- project(ref_gelekwik_model2,
                          solution_terms = predictors_final2_refmodel1)
-prj_refmodel1_mat <- as.matrix(prj)
-prj_refmodel1_expmat <- exp(as.matrix(prj))
+prj_refmodel1_mat <- as.matrix(prj_refmodel1)
+prj_refmodel1_expmat <- exp(as.matrix(prj_refmodel1))
 colnames(prj_refmodel1_expmat) <- paste0("exp(", 
                                          colnames(prj_refmodel1_mat), 
                                          ")")
@@ -1768,7 +1770,7 @@ prj_smmry <- summarize_draws(
   ) %>%
   as_tibble()
 prj_smmry %>%
-  kable(digits = 5)
+  kable(digits = 3)
 ```
 
 ```{r}
@@ -1787,7 +1789,7 @@ prj_smmry_exp <- summarize_draws(
   as_tibble() %>%
   mutate(variable = paste0("exp(", variable, ")"))
 prj_smmry_exp %>%
-  kable(digits = 5)
+  kable(digits = 3)
 ```
 
 ```{r}
@@ -1804,5 +1806,153 @@ prj_predict <- proj_predict(prj)
 ppc_bars(y = data_projpred_scaled$aantal, yrep = prj_predict)
 ```
 
+
+```{r}
+formula_final1 <- bf(paste("aantal ~", paste0(predictors_final2_refmodel1, 
+                                              collapse = " + ")))
+
+data_projpred_centered <- data_projpred %>%
+  mutate(across(.cols = c(where(is.numeric), -aantal), 
+                .fns = ~ as.numeric(scale(.x, scale = FALSE))))
+
+final <- brm(formula = formula_final1,
+             data = data_projpred, 
+             family = poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr")
+```
+
+```{r}
+plot_brms_fit <- function(model, x, axis_label = "",
+                          factor = 1, n = 100, show_data = TRUE) {
+  if (x == "sbp") {
+    plot_df <- data_projpred %>%
+      select(all_of(predictors_final2_refmodel1)) %>%
+      mutate(across(where(is.numeric), mean)) %>%
+      distinct() %>%
+      add_epred_draws(model)
+    
+    
+    out <- plot_df %>%
+      ggplot(aes(x = paste(.data[[x]], x), y = aantal, fill = .data[[x]]))
+    
+    if (isTRUE(show_data)) {
+      out <- out +
+        geom_jitter(data = data_projpred, colour = "firebrick", alpha = 0.3,
+                    width = 0.2, height = 0)
+    } else {
+      out <- out +
+        scale_y_continuous(limits = c(0, NA))
+    }
+    
+    out <- out +
+      stat_halfeye(aes(y = .epred), alpha = 0.5) +
+      labs(x = axis_label,
+           y = "aantal broedparen gele kwikstaart") +
+      theme(legend.position = "")
+  } else {
+    plot_df <- data_projpred %>%
+      data_grid(sbp = c(unique(data_projpred$sbp)),
+                haag = ifelse(rep(x == "haag", n), 
+                              seq_range(haag,
+                                        n = n),
+                              mean(haag)),
+                houtkant = ifelse(rep(x == "houtkant", n), 
+                                  seq_range(houtkant,
+                                            n = n), 
+                                  mean(houtkant)),
+                wintergranen_hfdtlt = ifelse(rep(x == "wintergranen_hfdtlt", 
+                                                 n), 
+                                             seq_range(wintergranen_hfdtlt,
+                                                       n = n), 
+                                             mean(wintergranen_hfdtlt)),
+                openheid_waarde_1000 = ifelse(rep(x == "openheid_waarde_1000", 
+                                                  n), 
+                                              seq_range(openheid_waarde_1000, 
+                                                        n = n), 
+                                              mean(openheid_waarde_1000))) %>%
+        add_epred_draws(model)
+    
+    out <- plot_df %>%
+      ggplot(aes(x = .data[[x]]*factor, y = aantal))
+    
+    if (isTRUE(show_data)) {
+      out <- out +
+        geom_point(data = data_projpred, colour = "firebrick", alpha = 0.3) 
+    } else {
+      out <- out +
+        scale_y_continuous(limits = c(0, NA))
+    }
+    
+    out <- out +
+      stat_lineribbon(aes(y = .epred), alpha = 0.5) +
+      labs(x = axis_label,
+           y = "aantal broedparen Gele kwikstaart",
+           fill = "credible\nlevel")
+  }
+  return(out)
+}
+```
+
+```{r}
+plot_brms_fit(final, x = "sbp", show_data = FALSE)
+```
+
+```{r}
+p1 <- plot_brms_fit(final, x = "haag", factor = 100, show_data = FALSE,
+                    axis_label = "proportie hagen (%)") +
+  theme(axis.title = element_text(size = 12)) +
+  coord_cartesian(ylim = c(0, 1.6))
+p2 <- plot_brms_fit(final, x = "houtkant", factor = 100, show_data = FALSE,
+                    axis_label = "proportie houtkanten (%)") +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.title = element_text(size = 12)) +
+  coord_cartesian(ylim = c(0, 1.6))
+p3 <- plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, show_data = FALSE,
+                    axis_label = "proportie hoofdteelt wintergranen (%)") +
+  theme(axis.title = element_text(size = 12)) +
+  coord_cartesian(ylim = c(0, 1.6))
+p4 <- plot_brms_fit(final, x = "openheid_waarde_1000", show_data = FALSE,
+                    axis_label = "openheid landschap (1000 m)") + 
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.title = element_text(size = 12)) +
+  coord_cartesian(ylim = c(0, 1.6))
+
+ggarrange(p1, p2, p3, p4, common.legend = TRUE, legend = "right")
+```
+
+```{r}
+p5 <- plot_brms_fit(final, x = "haag", factor = 100,
+                    axis_label = "proportie hagen (%)") +
+  theme(axis.title = element_text(size = 12)) +
+  coord_cartesian(ylim = c(0, 6))
+p6 <- plot_brms_fit(final, x = "houtkant", factor = 100,
+                    axis_label = "proportie houtkanten (%)") +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.title = element_text(size = 12)) +
+  coord_cartesian(ylim = c(0, 6))
+p7 <- plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100,
+                    axis_label = "proportie hoofdteelt wintergranen (%)") +
+  theme(axis.title = element_text(size = 12)) +
+  coord_cartesian(ylim = c(0, 6))
+p8 <- plot_brms_fit(final, x = "openheid_waarde_1000", 
+                    axis_label = "openheid landschap (1000 m)") +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.title = element_text(size = 12)) +
+  coord_cartesian(ylim = c(0, 6))
+ggarrange(p5, p6, p7, p8, common.legend = TRUE, legend = "right")
+```
 
 # Referenties
