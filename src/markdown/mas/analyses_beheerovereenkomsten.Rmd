@@ -1322,9 +1322,9 @@ N <- nrow(data_projpred)
 p0 <- 10
 # Prior guess for the overall magnitude of the response values, see Table 1 of
 # Piironen and Vehtari (2017, DOI: 10.1214/17-EJS1337SI):
-mu_prior <- 100
+mu_prior <- 1
 # Hyperprior scale for tau, the global shrinkage parameter:
-tau0 <- p0 / (D - p0) / sqrt(mu_prior) / sqrt(N)
+tau0 <- (p0 / (D - p0)) * (sqrt(mu_prior) / sqrt(N))
 
 hs_prior2 <- set_prior(horseshoe(
   df = 1,
@@ -1336,10 +1336,30 @@ hs_prior2 <- set_prior(horseshoe(
   autoscale = TRUE
   ))
 
+hs_prior3 <- set_prior(horseshoe(
+  df = 1,
+  scale_global = tau0,
+  df_global = 1,
+  scale_slab = 2,
+  df_slab = 4,
+  par_ratio = NULL,
+  autoscale = TRUE
+  ))
+
+hs_prior4 <- set_prior(horseshoe(
+  df = 1,
+  scale_global = 10,
+  df_global = 10,
+  scale_slab = 2,
+  df_slab = 100,
+  par_ratio = NULL,
+  autoscale = TRUE
+  ))
+
 priors_refmodel1 <- list(
   NULL,
   R2D2_prior1, R2D2_prior2, R2D2_prior3, R2D2_prior4,
-  hs_prior1, hs_prior2)
+  hs_prior1, hs_prior2, hs_prior3, hs_prior4)
 ```
 
 We fitten de modellen met de Poisson verdeling m.b.v. **brms**.
@@ -1402,17 +1422,22 @@ show_rhat(list(ref_gelekwik_model1,
                ref_gelekwik_model4,
                ref_gelekwik_model5,
                ref_gelekwik_model6,
-               ref_gelekwik_model7))
+               ref_gelekwik_model7,
+               ref_gelekwik_model8))
 ```
+
+Hoewel de verschillende chains overeenkomen in alle modellen, zien de posterior distributions er toch vreemd uit voor de modellen met de horseshoe priors. Het lijkt erop dat er sterke shrinkage naar 0 is maar dat dit voor een vreemde vorm in de posterior zorgt. Bovendien werden er verschillende warnings geuit tijdens het fitten van deze modellen.
+
+Mogelijks is dit het gevolg van de keuzes van de hyperparameters. "Different levels of sparsity can be accommodated by changing the value of $\tau$: with large $\tau$ all the variables have very diffuse priors with very little shrinkage towards zero, but letting $\tau \rightarrow 0$ will shrink all the weights $\beta_j$ to zero." .
 
 ```{r}
-plot(ref_gelekwik_model7)
+plot(ref_gelekwik_model6)
+plot(ref_gelekwik_model9)
 ```
-
 
 #### Prior check
 
-Hoe ziet de R2D2 prior eruit?
+Hoe zien de R2D2 priors eruit?
 
 ```{r}
 show_prior <- function(model, parameter, title = "") {
@@ -1443,19 +1468,51 @@ grid.arrange(show_prior(ref_gelekwik_model2, "R2D2",
                         "mean_R2 = 0.5, prec_R2 = 5, cons_D2 = 5"))
 ```
 
+Hoe zien de horseshoe priors eruit?
+
 ```{r}
-prior_check_samples <- prior_draws(ref_gelekwik_model1)
-posterior_sample_b0 <- as_draws_df(ref_gelekwik_model1, "b_Intercept")
-df_b0 <- data.frame(posterior = posterior_sample_b0$b_Intercept,
-                    prior = prior_check_samples$Intercept) %>%
-  pivot_longer(c("posterior", "prior"), 
-               names_to = "var", values_to = "intercept")
+prior_check_samples6 <- prior_draws(ref_gelekwik_model6)
+p1 <- prior_check_samples6 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model6")
+p2 <- prior_check_samples6 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model6")
 
-ggplot(df_b0, aes(x = intercept, colour = var)) +
-  geom_density()
+prior_check_samples7 <- prior_draws(ref_gelekwik_model7)
+p3 <- prior_check_samples7 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model7")
+p4 <- prior_check_samples7 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model7")
+
+prior_check_samples8 <- prior_draws(ref_gelekwik_model8)
+p5 <- prior_check_samples8 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model8")
+p6 <- prior_check_samples8 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model8")
+
+prior_check_samples9 <- prior_draws(ref_gelekwik_model9)
+p7 <- prior_check_samples9 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model9")
+p8 <- prior_check_samples9 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model9")
+
+grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, ncol = 2)
 ```
-
-
 
 #### Posterior predictive check
 
@@ -1466,7 +1523,11 @@ pp_check(ref_gelekwik_model1, type = "bars", ndraws = 200)
 ```
 
 ```{r}
-pp_check(ref_gelekwik_model3, type = "bars", ndraws = 200)
+pp_check(ref_gelekwik_model2, type = "bars", ndraws = 200)
+```
+
+```{r}
+pp_check(ref_gelekwik_model6, type = "bars", ndraws = 200)
 ```
 
 ### Selectie variabelen
