@@ -1530,7 +1530,7 @@ pp_check(ref_gelekwik_model2, type = "bars", ndraws = 200)
 pp_check(ref_gelekwik_model6, type = "bars", ndraws = 200)
 ```
 
-### Selectie variabelen
+### PPVS
 
 PPVS kunnen we doen met de **projpred** package [@projpred].
 Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten). 
@@ -1695,7 +1695,7 @@ if (!file.exists(cvvs_file)) {
   cvvs_refmodel1 <- readRDS(cvvs_file)
 }
 
-plot(cvvs_file, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE, 
+plot(cvvs_refmodel1, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE, 
      ranking_abbreviate_args = list(minlength = 4))
 ```
 
@@ -1707,42 +1707,38 @@ We zien na de vierde predictor geen sterke stijgingen meer.
 Wel is er nog een kleine stijging tot en met 7 à 8.
 
 ```{r}
-smmry <- summary(cvvs_file, stats = "mlpd", type = c("mean", "lower", "upper"),
+smmry_refmodel1 <- summary(cvvs_refmodel1, stats = "mlpd", type = c("mean", "lower", "upper"),
                  deltas = TRUE)
-print(smmry, digits = 1)
+print(smmry_refmodel1, digits = 1)
 ```
 
 De eerste vier zijn dezelfde als de eerste vier in de snelle analyse. Dit geld ook voor de eerste acht (wel in andere volgorde).
 We zien bovendien dat voor de eerste acht predictors dat er weinig variabiliteit is in de rangschikking van de variabelen
 
 ```{r}
-rk <- ranking(cvvs_file)
-pr_rk <- cv_proportions(rk)
-plot(pr_rk)
-plot(cv_proportions(rk, cumulate = TRUE))
+rk_refmodel1 <- ranking(cvvs_refmodel1)
+pr_rk_refmodel1 <- cv_proportions(rk_refmodel1)
+plot(pr_rk_refmodel1)
+plot(cv_proportions(rk_refmodel1, cumulate = TRUE))
 ```
 
 4 of 8? 8 is goed zie ook snelle methode zelfde resultaat ...
 
-```{r}
-suggest_size(cvvs_file, stat = "mlpd")
-size_decided <- suggest_size(cvvs_file, stat = "mlpd")
-predictors_final <- head(rk[["fulldata"]], size_decided)
-predictors_final
-```
+De aangeraden grootte door het **projpred** package is `r suggest_size(cvvs_refmodel1, stat = "mlpd")` verklarende variabelen. Het gaat dan om de volgende variabelen:
 
 ```{r}
-plot(cv_proportions(rk, cumulate = TRUE))
+size_decided1_refmodel1 <- suggest_size(cvvs_refmodel1, stat = "mlpd")
+predictors_final1_refmodel1 <- head(rk_refmodel1[["fulldata"]], 
+                                   size_decided1_refmodel1)
+predictors_final1_refmodel1
 ```
 
-```{r}
-size_decided <- 8
-predictors_final <- head(rk[["fulldata"]], size_decided)
-predictors_final
-```
 
 ```{r}
-plot(cv_proportions(rk, cumulate = TRUE))
+size_decided2_refmodel1 <- 8
+predictors_final2_refmodel1 <- head(rk_refmodel1[["fulldata"]], 
+                                   size_decided2_refmodel1)
+predictors_final2_refmodel1
 ```
 
 
