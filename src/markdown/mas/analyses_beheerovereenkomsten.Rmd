@@ -1741,6 +1741,57 @@ predictors_final2_refmodel1 <- head(rk_refmodel1[["fulldata"]],
 predictors_final2_refmodel1
 ```
 
+### Post-processen van resultaten
 
+```{r}
+# voorlopig
+predictors_final2_refmodel1 <- c("sbp", "haag", "houtkant", 
+                                 "wintergranen_hfdtlt", 
+                                 "openheid_waarde_1000")
+prj_refmodel1 <- project(ref_gelekwik_model2,
+               solution_terms = predictors_final2_refmodel1)
+prj_refmodel1_mat <- as.matrix(prj)
+prj_refmodel1_expmat <- exp(as.matrix(prj))
+colnames(prj_refmodel1_expmat) <- paste0("exp(", 
+                                         colnames(prj_refmodel1_mat), 
+                                         ")")
+```
+
+```{r}
+library(posterior)
+conflicted::conflicts_prefer(stats::sd)
+prj_drws <- as_draws_matrix(prj_refmodel1_mat)
+prj_smmry <- summarize_draws(
+  prj_drws,
+  "median", "mean", "sd", function(x) quantile(x, probs = c(0.025, 0.975))
+  ) %>%
+  as_tibble()
+prj_smmry %>%
+  kable(digits = 5)
+```
+
+```{r}
+prj_smmry_exp <- summarize_draws(
+  exp(prj_drws),
+  "median", "mean", "sd", function(x) quantile(x, probs = c(0.025, 0.975))
+  ) %>%
+  as_tibble() %>%
+  mutate(variable = paste0("exp(", variable, ")"))
+prj_smmry_exp %>%
+  kable(digits = 5)
+```
+
+```{r}
+library(bayesplot)
+bayesplot_theme_set(ggplot2::theme_bw())
+mcmc_intervals(prj_refmodel1_mat, point_est = "mean", prob = 0.8, 
+               prob_outer = 0.95, point_size = 3) +
+  geom_vline(xintercept = 0, colour = alpha("firebrick", 0.5), 
+             linetype = "dashed")
+mcmc_intervals(prj_refmodel1_expmat, point_est = "mean", prob = 0.8, 
+               prob_outer = 0.95, point_size = 3) +
+  geom_vline(xintercept = 1, colour = alpha("firebrick", 0.5), 
+             linetype = "dashed")
+```
 
 # Referenties
