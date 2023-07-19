@@ -36,6 +36,7 @@ conflicted::conflicts_prefer(brms::do_call)
 # Packages
 library(tidyverse)
 library(INBOtheme)
+library(gridExtra)
 library(sf)
 library(brms)
 library(projpred)
@@ -1366,15 +1367,81 @@ for (i in seq_along(priors_refmodel1)) {
 
 #### MCMC convergentie
 
-Convergentie ok.
+De Gelman-Rubin statistieken zijn dicht bij 1.
 
 ```{r}
-plot(ref_gelekwik_model1)
+show_rhat <- function(models) {
+  # get rhats and make dataframe
+  rhat_list <- lapply(seq_along(models), function(i) {
+    model <- models[[i]]
+    rhats <- rhat(model)
+    as.data.frame(rhats) %>%
+      rownames_to_column("variable") %>%
+      rename_with(~paste0("rhat"), .cols = starts_with("rhat")) %>%
+      mutate(model = paste0("model", i))
+    })
+  rhat_df <- do.call(rbind.data.frame, rhat_list)
+  
+  # visualise
+  palette <- colorRampPalette(RColorBrewer::brewer.pal(9, name = 'Set1'))(length(unique(rhat_df$variable)))
+  rhat_df %>%
+    ggplot(aes(y = rhat, x = model, colour = variable)) +
+      geom_hline(yintercept = c(1, 1.1), colour = "grey", linetype = "dashed") +
+      geom_jitter(width = 0.2, height = 0) +
+      scale_colour_manual(values = palette) +
+      theme(legend.position = "") +
+      labs(x = "")
+}
+
 ```
+
+```{r}
+show_rhat(list(ref_gelekwik_model1,
+               ref_gelekwik_model2,
+               ref_gelekwik_model3,
+               ref_gelekwik_model4,
+               ref_gelekwik_model5,
+               ref_gelekwik_model6,
+               ref_gelekwik_model7))
+```
+
+```{r}
+plot(ref_gelekwik_model7)
+```
+
 
 #### Prior check
 
-Keuze van priors lijkt ok.
+Hoe ziet de R2D2 prior eruit?
+
+```{r}
+show_prior <- function(model, parameter, title = "") {
+  if (parameter == "R2D2") {
+    prior_check_samples <- prior_draws(model)
+    posterior_sample_r2 <- bayes_R2(model, summary = FALSE)
+    df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
+                        prior = prior_check_samples$R2D2_R2) %>%
+      pivot_longer(c("posterior", "prior"), 
+                   names_to = "distribution", values_to = "R2")
+    
+    ggplot(df_r2, aes(x = R2, colour = distribution)) +
+      geom_density() +
+      ggtitle(title) +
+      theme(plot.title = element_text(size = 10))
+    }
+  }
+```
+
+```{r}
+grid.arrange(show_prior(ref_gelekwik_model2, "R2D2", 
+                        "mean_R2 = 0.5, prec_R2 = 2, cons_D2 = 1"),
+             show_prior(ref_gelekwik_model3, "R2D2", 
+                        "mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 10"),
+             show_prior(ref_gelekwik_model4, "R2D2", 
+                        "mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 1"),
+             show_prior(ref_gelekwik_model5, "R2D2", 
+                        "mean_R2 = 0.5, prec_R2 = 5, cons_D2 = 5"))
+```
 
 ```{r}
 prior_check_samples <- prior_draws(ref_gelekwik_model1)
@@ -1388,65 +1455,7 @@ ggplot(df_b0, aes(x = intercept, colour = var)) +
   geom_density()
 ```
 
-```{r}
-prior_check_samples <- prior_draws(ref_gelekwik_model2)
-posterior_sample_r2 <- bayes_R2(ref_gelekwik_model2, summary = FALSE)
-df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
-                    prior = prior_check_samples$R2D2_R2) %>%
-  pivot_longer(c("posterior", "prior"), 
-               names_to = "var", values_to = "R2")
 
-ggplot(df_r2, aes(x = R2, colour = var)) +
-  geom_density()
-```
-
-```{r}
-prior_check_samples <- prior_draws(ref_gelekwik_model3)
-posterior_sample_r2 <- bayes_R2(ref_gelekwik_model3, summary = FALSE)
-df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
-                    prior = prior_check_samples$R2D2_R2) %>%
-  pivot_longer(c("posterior", "prior"), 
-               names_to = "var", values_to = "R2")
-
-ggplot(df_r2, aes(x = R2, colour = var)) +
-  geom_density()
-```
-
-```{r}
-prior_check_samples <- prior_draws(ref_gelekwik_model4)
-posterior_sample_r2 <- bayes_R2(ref_gelekwik_model4, summary = FALSE)
-df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
-                    prior = prior_check_samples$R2D2_R2) %>%
-  pivot_longer(c("posterior", "prior"), 
-               names_to = "var", values_to = "R2")
-
-ggplot(df_r2, aes(x = R2, colour = var)) +
-  geom_density()
-```
-
-```{r}
-prior_check_samples <- prior_draws(ref_gelekwik_model5)
-posterior_sample_r2 <- bayes_R2(ref_gelekwik_model5, summary = FALSE)
-df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
-                    prior = prior_check_samples$R2D2_R2) %>%
-  pivot_longer(c("posterior", "prior"), 
-               names_to = "var", values_to = "R2")
-
-ggplot(df_r2, aes(x = R2, colour = var)) +
-  geom_density()
-```
-
-```{r}
-prior_check_samples <- prior_draws(ref_gelekwik_model4)
-posterior_sample_r2 <- bayes_R2(ref_gelekwik_model4, summary = FALSE)
-df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
-                    prior = prior_check_samples$R2D2_R2) %>%
-  pivot_longer(c("posterior", "prior"), 
-               names_to = "var", values_to = "R2")
-
-ggplot(df_r2, aes(x = R2, colour = var)) +
-  geom_density()
-```
 
 #### Posterior predictive check
 
