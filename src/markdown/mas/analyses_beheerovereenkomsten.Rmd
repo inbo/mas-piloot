@@ -1486,45 +1486,98 @@ get_search_terms <- function(n_predictors_max, predictors, keep_var) {
 ```
 
 ```{r}
-search_terms_file <- paste0(cache_path, "search_terms_refmodel1.rds")
-if (!file.exists(search_terms_file)) {
-  search_terms_refmodel1 <- get_search_terms(
-    n_predictors_max = 10, 
-    predictors = predictors_refmodel1[-match("sbp", predictors_refmodel1)],
-    keep_var = "sbp")
-  saveRDS(search_terms_refmodel1, search_terms_file)
-} else {
-  search_terms_refmodel1 <- readRDS(search_terms_file)
-}
+search_terms_refmodel1 <- get_search_terms(
+  n_predictors_max = 2, 
+  predictors = predictors_refmodel1[-match("sbp", predictors_refmodel1)],
+  keep_var = "sbp")
 ```
 
 Ook kan het interessant zijn dit te doen voor zowel het model met als zonder shrinkage prior.
 
+Zonder shrinkage prior:
+
 ```{r}
 # Fast varsel for first exploration
-cvvs_fast_test <- cv_varsel(ref_gelekwik_model1,
+start_cvvs_fast1 <- Sys.time()
+cvvs_fast1 <- cv_varsel(ref_gelekwik_model1,
                             method = "forward",
                             nclusters_pred = 20, # speed
                             cv_method = "LOO",
                             search_terms = search_terms_refmodel1,
                             # only for the sake of speed
                             validate_search = FALSE)
-plot(cvvs_fast_test, stats = "mlpd", ranking_nterms_max = NA)
+end_cvvs_fast1 <- Sys.time()
+end_cvvs_fast1 - start_cvvs_fast1
 ```
 
 ```{r}
+cvvs_fast1
+plot(cvvs_fast1, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast1)
+```
+
+Met shrinkage prior (1):
+
+```{r}
 # Fast varsel for first exploration
-cvvs_fast <- cv_varsel(ref_gelekwik_model2,
+start_cvvs_fast2 <- Sys.time()
+cvvs_fast2 <- cv_varsel(ref_gelekwik_model2,
                        method = "forward",
                        nclusters_pred = 20, # speed
                        cv_method = "LOO",
                        search_terms = search_terms_refmodel1,
                        # only for the sake of speed
                        validate_search = FALSE)
-plot(cvvs_fast, stats = "mlpd", ranking_nterms_max = NA)
+end_cvvs_fast2 <- Sys.time()
+end_cvvs_fast2 - start_cvvs_fast2
 ```
 
-We zien dat de "mean log predictive density" (MLPD) van de submodellen niet hard meer verandert vanaf modellen groter met meer dan acht predictors.
+```{r}
+cvvs_fast2
+plot(cvvs_fast2, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast2)
+```
+
+Met shrinkage prior (2):
+
+```{r}
+# Fast varsel for first exploration
+start_cvvs_fast3 <- Sys.time()
+cvvs_fast3 <- cv_varsel(ref_gelekwik_model3,
+                       method = "forward",
+                       nclusters_pred = 20, # speed
+                       cv_method = "LOO",
+                       search_terms = search_terms_refmodel1,
+                       # only for the sake of speed
+                       validate_search = FALSE)
+end_cvvs_fast3 <- Sys.time()
+end_cvvs_fast3 - start_cvvs_fast3
+```
+
+```{r}
+cvvs_fast3
+plot(cvvs_fast3, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast3)
+```
+
+PPVS met de default R2D2 prior is het snelst. Zonder shrinkage prior gaat het trager en de resultaten verschillen ook van deze met de R2D2 prior.
+
+We zien dat de "mean log predictive density" (MLPD) van de R2D2 submodellen vooral hard toeneemt bij de eerste vier predictors. Daarna zijn er slechts kleine verschillen.
 Nu doen we een grondige forward search die meer tijd nodig heeft met `validate_search = TRUE` (beschermt tegen overfitting).
 Om op veilig te spelen zetten we  `nterms_max = 16`.
 We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel (`deltas = TRUE`).
