@@ -1591,7 +1591,7 @@ De aangeraden modelgrootte is:
 suggest_size(cvvs_fast1)
 ```
 
-Met shrinkage prior (1):
+Met R2D2 prior (1):
 
 ```{r}
 # Fast varsel for first exploration
@@ -1618,7 +1618,7 @@ De aangeraden modelgrootte is:
 suggest_size(cvvs_fast2)
 ```
 
-Met shrinkage prior (2):
+Met R2D2 prior (2):
 
 ```{r}
 # Fast varsel for first exploration
@@ -1645,11 +1645,39 @@ De aangeraden modelgrootte is:
 suggest_size(cvvs_fast3)
 ```
 
-PPVS met de default R2D2 prior is het snelst. Zonder shrinkage prior gaat het trager en de resultaten verschillen ook van deze met de R2D2 prior.
+Met horseshoe prior (4):
 
-We zien dat de "mean log predictive density" (MLPD) van de R2D2 submodellen vooral hard toeneemt bij de eerste vier predictors. Daarna zijn er slechts kleine verschillen.
+```{r}
+# Fast varsel for first exploration
+start_cvvs_fast4 <- Sys.time()
+cvvs_fast4 <- cv_varsel(ref_gelekwik_model9,
+                       method = "forward",
+                       nclusters_pred = 20, # speed
+                       cv_method = "LOO",
+                       search_terms = search_terms_refmodel1,
+                       # only for the sake of speed
+                       validate_search = FALSE)
+end_cvvs_fast4 <- Sys.time()
+end_cvvs_fast4 - start_cvvs_fast4
+```
+
+```{r}
+cvvs_fast4
+plot(cvvs_fast4, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast4)
+```
+
+Hoe sterker de shrinkage, hoe sneller PPVS. De horseshoe had de sterkste shrinkage, daarna de R2D2 en daarna zonder shrinkage. Zonder shrinkage prior gaat het trager en de resultaten verschillen ook van deze met de shrinkage priors.
+Omwille van de model fit problemen, lijkt het best om verder te gaan met het model met de default R2D2 shrinkage prior.
+
+We zien dat de "mean log predictive density" (MLPD) van de shrinkage submodellen vooral hard toeneemt bij de eerste vier predictors. Daarna zijn er slechts kleine verschillen.
 Nu doen we een grondige forward search die meer tijd nodig heeft met `validate_search = TRUE` (beschermt tegen overfitting).
-Om op veilig te spelen zetten we  `nterms_max = 16`.
+Om op veilig te spelen zetten we  `nterms_max = 10`.
 We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel (`deltas = TRUE`).
 
 ```{r}
@@ -1660,6 +1688,7 @@ if (!file.exists(cvvs_file)) {
     method          = "forward",
     cv_method       = "LOO",
     search_terms    = search_terms_refmodel1,
+    nterms_max = 10,
     validate_search = TRUE)
   saveRDS(cvvs_refmodel1, cvvs_file)
 } else {
