@@ -36,9 +36,15 @@ conflicted::conflicts_prefer(brms::do_call)
 # Packages
 library(tidyverse)
 library(INBOtheme)
+library(gridExtra)
 library(sf)
 library(brms)
 library(projpred)
+
+# Cache
+model_path <- "./src/markdown/mas/brms_models/"
+cache_path <- "./src/markdown/mas/analyses_cache/"
+projpred_path <- "./src/markdown/mas/projpred_cache/"
 ```
 
 # Inlezen data
@@ -46,7 +52,6 @@ library(projpred)
 ```{r}
 data_path <- here("data", "processed")
 mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
-
 ```
 
 ```{r}
@@ -280,9 +285,6 @@ g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{
 $$
 
 ```{r}
-# Save brms models to this path
-model_path <- "./src/markdown/mas/brms_models/"
-
 # MCMC parameters
 nchains <- 3           # number of chains
 niter <- 4000          # number of iterations (incl. burn-in)
@@ -1231,13 +1233,8 @@ Eerst moeten we een referentiemodel construeren voor de selectie van verklarende
 Het doel van PPVS is het vinden van een zo klein mogelijke subset van kandidaat-variabelen met een voorspellende kracht die zo dicht mogelijk ligt bij die van het referentiemodel.
 Het referentiemodel bevat alle variabelen in kwestie en is het best presterende model (in termen van voorspellende prestaties) dat we tot onze beschikking hebben [@mclatchie2023].
 
-We selecteren de data van de Oostelijke leemstreek van 2022.
-Voor de regressiecoëfficienten ($\beta$-parameters) gebruiken we de 'R2-D2 shrinkage prior' [@zhang2016; @yanchenko2021].
-Voor het intercept gebruiken we de basis priors van **brms**.
-Deze prior specificeert een verdeling voor $R^2$ en induceert dan een prior op de individuele $\beta$'s.
-Het idee achter 'shrinkage priors' is om de geschatte parameters van een model naar een centrale waarde te trekken of ze naar nul te laten krimpen.
-Deze regularisatie moedigt zo simpelere modellen aan en kunnen dus gebruikt worden in variabelenselectie.
-Voor de hyperparameters gebruiken we de instellingen voor "laag-relevante variabelen" uit Appendix B van @mclatchie2023.
+We selecteren de data van de Oostelijke leemstreek van 2022. 
+We centreren en schalen alle continue variabelen door te delen door de standaard deviatie.
 
 ```{r}
 # Data
@@ -1250,6 +1247,10 @@ data_projpred <- gele_kwik_df2_2022 %>%
     TRUE ~ "area_>0.2"
   ))
 
+data_projpred_scaled <- data_projpred %>%
+  mutate(across(.cols = c(where(is.numeric), -aantal), 
+                .fns = ~ as.numeric(scale(.x))))
+
 # MCMC parameters
 nchains <- 3           # number of chains
 niter <- 8000         # number of iterations (incl. burn-in)
@@ -1257,77 +1258,260 @@ burnin <- niter / 4    # number of initial samples to discard (burn-in)
 nparallel <- nchains   # number of cores used for parallel computing
 thinning <- 2
 
-# Priors
-beta_prior_projpred <- set_prior(R2D2(mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 10, 
-                                      autoscale = TRUE))
-
 # Formula
-indices <- which(names(data_projpred) %in% c("id", "aantal", "plotnaam", 
-                                             "regio", "jaar", "jaar.f", 
-                                             "area_prop_sb", 
-                                             "area_prop_bo_overig",
-                                             "area_prop_sb_cat",
-                                             "is_sbp", "openheid_klasse_300"))
-predictor_names <- names(data_projpred)[-indices]
-form_projpred <- bf(paste("aantal", "~", paste(predictor_names, 
-                                               collapse = " + ")))
-form_projpred
+indices_refmodel1 <- which(names(data_projpred) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "jaar.f",
+  "area_prop_sb", 
+  "area_prop_bo_overig",
+  "area_prop_sb_cat",
+  "x_plot",
+  "y_plot",
+  "is_sbp",
+  "openheid_klasse_300"))
+predictors_refmodel1 <- names(data_projpred)[-indices_refmodel1]
+
+form_refmodel1 <- bf(paste("aantal", "~", paste(predictors_refmodel1, 
+                                                collapse = " + ")))
+form_refmodel1
 ```
 
-We centreren en schalen alle continue variabelen.
+Voor de regressiecoëfficienten ($\beta$-parameters) gebruiken we de 'R2-D2 shrinkage prior' [@zhang2016; @yanchenko2021].
+Voor het intercept gebruiken we de basis priors van **brms**.
+Deze prior specificeert een verdeling voor $R^2$ en induceert dan een prior op de individuele $\beta$'s.
+Het idee achter 'shrinkage priors' is om de geschatte parameters van een model naar een centrale waarde te trekken of ze naar nul te laten krimpen.
+Deze regularisatie moedigt zo simpelere modellen aan en kunnen dus gebruikt worden in variabelenselectie.
+Voor de hyperparameters gebruiken we de instellingen voor "laag-relevante variabelen" uit Appendix B van @mclatchie2023.
 
 ```{r}
-ref_model1 <- 
-  brm(formula = form_projpred,
-      data = data_projpred %>%
-        mutate(across(.cols = c(where(is.numeric), -aantal), 
-                      .fns = ~ as.numeric(scale(.x)))), 
-      family = poisson(),
-      prior = beta_prior_projpred,
-      chains = nchains, 
-      warmup = burnin, 
-      iter = niter,
-      cores = nparallel,
-      thin = thinning,
-      sample_prior = TRUE,
-      backend = "cmdstanr",
-      file = paste0(model_path, "ref_model1"),
-      file_refit = "on_change")
+# PRIORS
+## R2D2
+## default
+R2D2_prior1 <- set_prior(R2D2(mean_R2 = 0.5, prec_R2 = 2, cons_D2 = 1, 
+                              autoscale = TRUE))
+## weakly-relevant predictors(McLatchie et al., 2023)
+R2D2_prior2 <- set_prior(R2D2(mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 10, 
+                              autoscale = TRUE))
+## random combinations
+R2D2_prior3 <- set_prior(R2D2(mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 1, 
+                              autoscale = TRUE))
+R2D2_prior4 <- set_prior(R2D2(mean_R2 = 0.5, prec_R2 = 5, cons_D2 = 5, 
+                              autoscale = TRUE))
+
+## Horseshoe
+## default
+hs_prior1 <- set_prior(horseshoe(
+  df = 1,
+  scale_global = 1,
+  df_global = 1,
+  scale_slab = 2,
+  df_slab = 4,
+  par_ratio = NULL,
+  autoscale = TRUE
+  ))
+
+## https://mc-stan.org/projpred/articles/latent.html#example-poisson-distribution
+D <- length(predictors_refmodel1)
+N <- nrow(data_projpred)
+# Prior guess for the number of relevant (i.e., non-zero) regression
+# coefficients:
+p0 <- 10
+# Prior guess for the overall magnitude of the response values, see Table 1 of
+# Piironen and Vehtari (2017, DOI: 10.1214/17-EJS1337SI):
+mu_prior <- 1
+# Hyperprior scale for tau, the global shrinkage parameter:
+tau0 <- (p0 / (D - p0)) * (sqrt(mu_prior) / sqrt(N))
+
+hs_prior2 <- set_prior(horseshoe(
+  df = 1,
+  scale_global = tau0,
+  df_global = 1,
+  scale_slab = 1,
+  df_slab = 100,
+  par_ratio = NULL,
+  autoscale = TRUE
+  ))
+
+hs_prior3 <- set_prior(horseshoe(
+  df = 1,
+  scale_global = tau0,
+  df_global = 1,
+  scale_slab = 2,
+  df_slab = 4,
+  par_ratio = NULL,
+  autoscale = TRUE
+  ))
+
+hs_prior4 <- set_prior(horseshoe(
+  df = 1,
+  scale_global = 10,
+  df_global = 10,
+  scale_slab = 2,
+  df_slab = 100,
+  par_ratio = NULL,
+  autoscale = TRUE
+  ))
+
+priors_refmodel1 <- list(
+  NULL,
+  R2D2_prior1, R2D2_prior2, R2D2_prior3, R2D2_prior4,
+  hs_prior1, hs_prior2, hs_prior3, hs_prior4)
+```
+
+We fitten de modellen met de Poisson verdeling m.b.v. **brms**.
+
+```{r}
+for (i in seq_along(priors_refmodel1)) {
+  name <- paste0("ref_gelekwik_model", i)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmodel1,
+             data = data_projpred_scaled, 
+               family = poisson(),
+               prior = priors_refmodel1[[i]],
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+}
 ```
 
 #### MCMC convergentie
 
-Convergentie ok.
+De Gelman-Rubin statistieken zijn dicht bij 1.
 
 ```{r}
-plot(ref_model1)
+show_rhat <- function(models) {
+  # get rhats and make dataframe
+  rhat_list <- lapply(seq_along(models), function(i) {
+    model <- models[[i]]
+    rhats <- rhat(model)
+    as.data.frame(rhats) %>%
+      rownames_to_column("variable") %>%
+      rename_with(~paste0("rhat"), .cols = starts_with("rhat")) %>%
+      mutate(model = paste0("model", i))
+    })
+  rhat_df <- do.call(rbind.data.frame, rhat_list)
+  
+  # visualise
+  palette <- colorRampPalette(RColorBrewer::brewer.pal(9, name = 'Set1'))(length(unique(rhat_df$variable)))
+  rhat_df %>%
+    ggplot(aes(y = rhat, x = model, colour = variable)) +
+      geom_hline(yintercept = c(1, 1.1), colour = "grey", linetype = "dashed") +
+      geom_jitter(width = 0.2, height = 0) +
+      scale_colour_manual(values = palette) +
+      theme(legend.position = "") +
+      labs(x = "")
+}
+
+```
+
+```{r}
+show_rhat(list(ref_gelekwik_model1,
+               ref_gelekwik_model2,
+               ref_gelekwik_model3,
+               ref_gelekwik_model4,
+               ref_gelekwik_model5,
+               ref_gelekwik_model6,
+               ref_gelekwik_model7,
+               ref_gelekwik_model8))
+```
+
+Hoewel de verschillende chains overeenkomen in alle modellen, zien de posterior distributions er toch vreemd uit voor de modellen met de horseshoe priors. Het lijkt erop dat er sterke shrinkage naar 0 is maar dat dit voor een vreemde vorm in de posterior zorgt. Bovendien werden er verschillende warnings geuit tijdens het fitten van deze modellen.
+
+Mogelijks is dit het gevolg van de keuzes van de hyperparameters. "Different levels of sparsity can be accommodated by changing the value of $\tau$: with large $\tau$ all the variables have very diffuse priors with very little shrinkage towards zero, but letting $\tau \rightarrow 0$ will shrink all the weights $\beta_j$ to zero." .
+
+```{r}
+plot(ref_gelekwik_model6)
+plot(ref_gelekwik_model9)
 ```
 
 #### Prior check
 
-Keuze van priors lijkt ok.
+Hoe zien de R2D2 priors eruit?
 
 ```{r}
-prior_check_samples <- prior_draws(ref_model1)
-posterior_sample_b0 <- as_draws_df(ref_model1, "b_Intercept")
-df_b0 <- data.frame(posterior = posterior_sample_b0$b_Intercept,
-                    prior = prior_check_samples$Intercept) %>%
-  pivot_longer(c("posterior", "prior"), 
-               names_to = "var", values_to = "intercept")
-
-ggplot(df_b0, aes(x = intercept, colour = var)) +
-  geom_density()
+show_prior <- function(model, parameter, title = "") {
+  if (parameter == "R2D2") {
+    prior_check_samples <- prior_draws(model)
+    posterior_sample_r2 <- bayes_R2(model, summary = FALSE)
+    df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
+                        prior = prior_check_samples$R2D2_R2) %>%
+      pivot_longer(c("posterior", "prior"), 
+                   names_to = "distribution", values_to = "R2")
+    
+    ggplot(df_r2, aes(x = R2, colour = distribution)) +
+      geom_density() +
+      ggtitle(title) +
+      theme(plot.title = element_text(size = 10))
+    }
+  }
 ```
 
 ```{r}
-posterior_sample_r2 <- bayes_R2(ref_model1, summary = FALSE)
-df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
-                    prior = prior_check_samples$R2D2_R2) %>%
-  pivot_longer(c("posterior", "prior"), 
-               names_to = "var", values_to = "R2")
+grid.arrange(show_prior(ref_gelekwik_model2, "R2D2", 
+                        "mean_R2 = 0.5, prec_R2 = 2, cons_D2 = 1"),
+             show_prior(ref_gelekwik_model3, "R2D2", 
+                        "mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 10"),
+             show_prior(ref_gelekwik_model4, "R2D2", 
+                        "mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 1"),
+             show_prior(ref_gelekwik_model5, "R2D2", 
+                        "mean_R2 = 0.5, prec_R2 = 5, cons_D2 = 5"))
+```
 
-ggplot(df_r2, aes(x = R2, colour = var)) +
-  geom_density()
+Hoe zien de horseshoe priors eruit?
+
+```{r}
+prior_check_samples6 <- prior_draws(ref_gelekwik_model6)
+p1 <- prior_check_samples6 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model6")
+p2 <- prior_check_samples6 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model6")
+
+prior_check_samples7 <- prior_draws(ref_gelekwik_model7)
+p3 <- prior_check_samples7 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model7")
+p4 <- prior_check_samples7 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model7")
+
+prior_check_samples8 <- prior_draws(ref_gelekwik_model8)
+p5 <- prior_check_samples8 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model8")
+p6 <- prior_check_samples8 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model8")
+
+prior_check_samples9 <- prior_draws(ref_gelekwik_model9)
+p7 <- prior_check_samples9 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model9")
+p8 <- prior_check_samples9 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model9")
+
+grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, ncol = 2)
 ```
 
 #### Posterior predictive check
@@ -1335,39 +1519,183 @@ ggplot(df_r2, aes(x = R2, colour = var)) +
 Model fit ok.
 
 ```{r}
-pp_check(ref_model1, type = "bars", ndraws = 200)
+pp_check(ref_gelekwik_model1, type = "bars", ndraws = 200)
 ```
-
-### Selectie variabelen
-
-PPVS kunnen we doen met de **projpred** package [@projpred].
-Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten).
 
 ```{r}
-# Fast varsel for finding a suitable value for argument nterms_max
-cvvs_fast <- cv_varsel(ref_model1,
-                       # for speed, better is "forward"
-                       method = "L1",
-                       nclusters_pred = 20, # speed
-                       cv_method = "LOO",
-                       nterms_max = length(predictor_names),
-                       # only for the sake of speed
-                       validate_search = FALSE)
-plot(cvvs_fast, stats = "mlpd", ranking_nterms_max = NA)
+pp_check(ref_gelekwik_model2, type = "bars", ndraws = 200)
 ```
 
-We zien dat de "mean log predictive density" (MLPD) van de submodellen niet hard meer verandert vanaf modellen groter met meer dan acht predictors.
+```{r}
+pp_check(ref_gelekwik_model6, type = "bars", ndraws = 200)
+```
+
+### PPVS
+
+PPVS kunnen we doen met de **projpred** package [@projpred].
+Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten). 
+Default neemt de functie 19 als maximum, maar wij schatten dat meer dan 10 predictors overbodig zal zijn.
+Omdat we de variabele `sbp` in elk model willen, maken we een vector met alle mogelijke combinaties van predictors met deze variabele en maximum aan 10 predictors.
+`nterms_max` zal dan automatisch 10 zijn.
+Het duurt vrij lang om deze combinaties te berekenen (zie [deze issue](https://github.com/stan-dev/projpred/issues/346) voor toekomstige verbetering in **projpred**).
+
+```{r}
+combm_predictors <- function(m, predictors) {
+  lapply(combn(predictors, m = m, simplify = FALSE), 
+         function(vars) paste(vars, collapse = " + ")
+         )
+  }
+
+get_search_terms <- function(n_predictors_max, predictors, keep_var) {
+  n_predictors <- n_predictors_max - length(keep_var)
+  search_terms <- unlist(lapply(seq_len(n_predictors), 
+                                function(m) combm_predictors(m, predictors)))
+  out <- c(keep_var, paste(keep_var, search_terms, sep = " + "))
+  return(out)
+}
+```
+
+```{r}
+search_terms_refmodel1 <- get_search_terms(
+  n_predictors_max = 2, 
+  predictors = predictors_refmodel1[-match("sbp", predictors_refmodel1)],
+  keep_var = "sbp")
+```
+
+Ook kan het interessant zijn dit te doen voor zowel het model met als zonder shrinkage prior.
+
+Zonder shrinkage prior:
+
+```{r}
+# Fast varsel for first exploration
+start_cvvs_fast1 <- Sys.time()
+cvvs_fast1 <- cv_varsel(ref_gelekwik_model1,
+                            method = "forward",
+                            nclusters_pred = 20, # speed
+                            cv_method = "LOO",
+                            search_terms = search_terms_refmodel1,
+                            # only for the sake of speed
+                            validate_search = FALSE)
+end_cvvs_fast1 <- Sys.time()
+end_cvvs_fast1 - start_cvvs_fast1
+```
+
+```{r}
+cvvs_fast1
+plot(cvvs_fast1, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast1)
+```
+
+Met R2D2 prior (1):
+
+```{r}
+# Fast varsel for first exploration
+start_cvvs_fast2 <- Sys.time()
+cvvs_fast2 <- cv_varsel(ref_gelekwik_model2,
+                       method = "forward",
+                       nclusters_pred = 20, # speed
+                       cv_method = "LOO",
+                       search_terms = search_terms_refmodel1,
+                       # only for the sake of speed
+                       validate_search = FALSE)
+end_cvvs_fast2 <- Sys.time()
+end_cvvs_fast2 - start_cvvs_fast2
+```
+
+```{r}
+cvvs_fast2
+plot(cvvs_fast2, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast2)
+```
+
+Met R2D2 prior (2):
+
+```{r}
+# Fast varsel for first exploration
+start_cvvs_fast3 <- Sys.time()
+cvvs_fast3 <- cv_varsel(ref_gelekwik_model3,
+                       method = "forward",
+                       nclusters_pred = 20, # speed
+                       cv_method = "LOO",
+                       search_terms = search_terms_refmodel1,
+                       # only for the sake of speed
+                       validate_search = FALSE)
+end_cvvs_fast3 <- Sys.time()
+end_cvvs_fast3 - start_cvvs_fast3
+```
+
+```{r}
+cvvs_fast3
+plot(cvvs_fast3, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast3)
+```
+
+Met horseshoe prior (4):
+
+```{r}
+# Fast varsel for first exploration
+start_cvvs_fast4 <- Sys.time()
+cvvs_fast4 <- cv_varsel(ref_gelekwik_model9,
+                       method = "forward",
+                       nclusters_pred = 20, # speed
+                       cv_method = "LOO",
+                       search_terms = search_terms_refmodel1,
+                       # only for the sake of speed
+                       validate_search = FALSE)
+end_cvvs_fast4 <- Sys.time()
+end_cvvs_fast4 - start_cvvs_fast4
+```
+
+```{r}
+cvvs_fast4
+plot(cvvs_fast4, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast4)
+```
+
+Hoe sterker de shrinkage, hoe sneller PPVS. De horseshoe had de sterkste shrinkage, daarna de R2D2 en daarna zonder shrinkage. Zonder shrinkage prior gaat het trager en de resultaten verschillen ook van deze met de shrinkage priors.
+Omwille van de model fit problemen, lijkt het best om verder te gaan met het model met de default R2D2 shrinkage prior.
+
+We zien dat de "mean log predictive density" (MLPD) van de shrinkage submodellen vooral hard toeneemt bij de eerste vier predictors. Daarna zijn er slechts kleine verschillen.
 Nu doen we een grondige forward search die meer tijd nodig heeft met `validate_search = TRUE` (beschermt tegen overfitting).
-Om op veilig te spelen zetten we  `nterms_max = 16`.
+Om op veilig te spelen zetten we  `nterms_max = 10`.
 We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel (`deltas = TRUE`).
 
 ```{r}
-cvvs <- cv_varsel(ref_model1,
-                  method = "forward",
-                  cv_method = "LOO",
-                  nterms_max = 16,
-                  validate_search = TRUE)
-plot(cvvs, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE, 
+cvvs_file <- paste0(projpred_path, "cvvs_refmodel1.rds")
+if (!file.exists(cvvs_file)) {
+  cvvs_refmodel1 <- cv_varsel(
+    object          = ref_gelekwik_model2,
+    method          = "forward",
+    cv_method       = "LOO",
+    search_terms    = search_terms_refmodel1,
+    nterms_max = 10,
+    validate_search = TRUE)
+  saveRDS(cvvs_refmodel1, cvvs_file)
+} else {
+  cvvs_refmodel1 <- readRDS(cvvs_file)
+}
+
+plot(cvvs_refmodel1, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE, 
      ranking_abbreviate_args = list(minlength = 4))
 ```
 
@@ -1379,42 +1707,38 @@ We zien na de vierde predictor geen sterke stijgingen meer.
 Wel is er nog een kleine stijging tot en met 7 à 8.
 
 ```{r}
-smmry <- summary(cvvs, stats = "mlpd", type = c("mean", "lower", "upper"),
+smmry_refmodel1 <- summary(cvvs_refmodel1, stats = "mlpd", type = c("mean", "lower", "upper"),
                  deltas = TRUE)
-print(smmry, digits = 1)
+print(smmry_refmodel1, digits = 1)
 ```
 
 De eerste vier zijn dezelfde als de eerste vier in de snelle analyse. Dit geld ook voor de eerste acht (wel in andere volgorde).
 We zien bovendien dat voor de eerste acht predictors dat er weinig variabiliteit is in de rangschikking van de variabelen
 
 ```{r}
-rk <- ranking(cvvs)
-pr_rk <- cv_proportions(rk)
-plot(pr_rk)
-plot(cv_proportions(rk, cumulate = TRUE))
+rk_refmodel1 <- ranking(cvvs_refmodel1)
+pr_rk_refmodel1 <- cv_proportions(rk_refmodel1)
+plot(pr_rk_refmodel1)
+plot(cv_proportions(rk_refmodel1, cumulate = TRUE))
 ```
 
 4 of 8? 8 is goed zie ook snelle methode zelfde resultaat ...
 
-```{r}
-suggest_size(cvvs, stat = "mlpd")
-size_decided <- suggest_size(cvvs, stat = "mlpd")
-predictors_final <- head(rk[["fulldata"]], size_decided)
-predictors_final
-```
+De aangeraden grootte door het **projpred** package is `r suggest_size(cvvs_refmodel1, stat = "mlpd")` verklarende variabelen. Het gaat dan om de volgende variabelen:
 
 ```{r}
-plot(cv_proportions(rk, cumulate = TRUE))
+size_decided1_refmodel1 <- suggest_size(cvvs_refmodel1, stat = "mlpd")
+predictors_final1_refmodel1 <- head(rk_refmodel1[["fulldata"]], 
+                                   size_decided1_refmodel1)
+predictors_final1_refmodel1
 ```
 
-```{r}
-size_decided <- 8
-predictors_final <- head(rk[["fulldata"]], size_decided)
-predictors_final
-```
 
 ```{r}
-plot(cv_proportions(rk, cumulate = TRUE))
+size_decided2_refmodel1 <- 8
+predictors_final2_refmodel1 <- head(rk_refmodel1[["fulldata"]], 
+                                   size_decided2_refmodel1)
+predictors_final2_refmodel1
 ```
 
 
