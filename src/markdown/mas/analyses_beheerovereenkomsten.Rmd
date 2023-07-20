@@ -1276,6 +1276,8 @@ indices_refmodel1 <- which(names(data_projpred) %in% c(
   "area_prop_sb", 
   "area_prop_bo_overig",
   "area_prop_sb_cat",
+  "inertie_sb",
+  "inertie_overig",
   "x_plot",
   "y_plot",
   "is_sbp",
@@ -1740,7 +1742,6 @@ predictors_final1_refmodel1 <- head(rk_refmodel1[["fulldata"]],
 predictors_final1_refmodel1
 ```
 
-
 ```{r}
 size_decided2_refmodel1 <- 5
 predictors_final2_refmodel1 <- head(rk_refmodel1[["fulldata"]], 
@@ -1752,7 +1753,7 @@ predictors_final2_refmodel1
 
 ```{r}
 prj_refmodel1 <- project(ref_gelekwik_model2,
-                         solution_terms = predictors_final2_refmodel1)
+                         solution_terms = predictors_final1_refmodel1)
 prj_refmodel1_mat <- as.matrix(prj_refmodel1)
 prj_refmodel1_expmat <- exp(as.matrix(prj_refmodel1))
 colnames(prj_refmodel1_expmat) <- paste0("exp(", 
