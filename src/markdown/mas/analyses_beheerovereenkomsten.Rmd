@@ -1684,7 +1684,6 @@ Omwille van de model fit problemen, lijkt het best om verder te gaan met het mod
 
 We zien dat de "mean log predictive density" (MLPD) van de shrinkage submodellen vooral hard toeneemt bij de eerste vier predictors. Daarna zijn er slechts kleine verschillen.
 Nu doen we een grondige forward search die meer tijd nodig heeft met `validate_search = TRUE` (beschermt tegen overfitting).
-Om op veilig te spelen zetten we  `nterms_max = 10`.
 We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel (`deltas = TRUE`).
 
 ```{r}
@@ -1695,7 +1694,7 @@ if (!file.exists(cvvs_file)) {
     method          = "forward",
     cv_method       = "LOO",
     search_terms    = search_terms_refmodel1,
-    nterms_max = 10,
+    #nterms_max      = 20,
     validate_search = TRUE)
   saveRDS(cvvs_refmodel1, cvvs_file)
 } else {
@@ -1714,8 +1713,9 @@ We zien na de vierde predictor geen sterke stijgingen meer.
 Wel is er nog een kleine stijging tot en met 7 à 8.
 
 ```{r}
-smmry_refmodel1 <- summary(cvvs_refmodel1, stats = "mlpd", type = c("mean", "lower", "upper"),
-                 deltas = TRUE)
+smmry_refmodel1 <- summary(cvvs_refmodel1, stats = "mlpd", 
+                           type = c("mean", "lower", "upper"),
+                           deltas = TRUE)
 print(smmry_refmodel1, digits = 1)
 ```
 
@@ -1742,7 +1742,7 @@ predictors_final1_refmodel1
 
 
 ```{r}
-size_decided2_refmodel1 <- 8
+size_decided2_refmodel1 <- 5
 predictors_final2_refmodel1 <- head(rk_refmodel1[["fulldata"]], 
                                    size_decided2_refmodel1)
 predictors_final2_refmodel1
@@ -1751,10 +1751,6 @@ predictors_final2_refmodel1
 ### Post-processen van resultaten
 
 ```{r}
-# voorlopig
-predictors_final2_refmodel1 <- c("sbp", "haag", "houtkant", 
-                                 "wintergranen_hfdtlt", 
-                                 "openheid_waarde_1000")
 prj_refmodel1 <- project(ref_gelekwik_model2,
                          solution_terms = predictors_final2_refmodel1)
 prj_refmodel1_mat <- as.matrix(prj_refmodel1)
@@ -1916,7 +1912,8 @@ p2 <- plot_brms_fit(final, x = "houtkant", factor = 100, show_data = FALSE,
         axis.title.y = element_blank(),
         axis.title = element_text(size = 12)) +
   coord_cartesian(ylim = c(0, 1.6))
-p3 <- plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, show_data = FALSE,
+p3 <- plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
+                    show_data = FALSE,
                     axis_label = "proportie hoofdteelt wintergranen (%)") +
   theme(axis.title = element_text(size = 12)) +
   coord_cartesian(ylim = c(0, 1.6))
