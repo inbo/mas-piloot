@@ -1742,13 +1742,6 @@ predictors_final1_refmodel1 <- head(rk_refmodel1[["fulldata"]],
 predictors_final1_refmodel1
 ```
 
-```{r}
-size_decided2_refmodel1 <- 5
-predictors_final2_refmodel1 <- head(rk_refmodel1[["fulldata"]], 
-                                   size_decided2_refmodel1)
-predictors_final2_refmodel1
-```
-
 ### Post-processen van resultaten
 
 ```{r}
@@ -1801,13 +1794,13 @@ mcmc_intervals(prj_refmodel1_expmat, point_est = "mean", prob = 0.8,
 De posterior-projection predictive check (PPPC) laat zien dat onze uiteindelijke projectie in staat is om voorspellingen te genereren die vergelijkbaar zijn met de waargenomen responswaarden, wat aangeeft dat dit model redelijk is, tenminste in dit opzicht.
 
 ```{r}
-prj_predict <- proj_predict(prj)
+prj_predict <- proj_predict(prj_refmodel1)
 ppc_bars(y = data_projpred_scaled$aantal, yrep = prj_predict)
 ```
 
 
 ```{r}
-formula_final1 <- bf(paste("aantal ~", paste0(predictors_final2_refmodel1, 
+formula_final1 <- bf(paste("aantal ~", paste0(predictors_final1_refmodel1, 
                                               collapse = " + ")))
 
 data_projpred_centered <- data_projpred %>%
