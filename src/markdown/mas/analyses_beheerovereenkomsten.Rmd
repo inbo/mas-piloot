@@ -1803,10 +1803,6 @@ ppc_bars(y = data_projpred_scaled$aantal, yrep = prj_predict)
 formula_final1 <- bf(paste("aantal ~", paste0(predictors_final1_refmodel1, 
                                               collapse = " + ")))
 
-data_projpred_centered <- data_projpred %>%
-  mutate(across(.cols = c(where(is.numeric), -aantal), 
-                .fns = ~ as.numeric(scale(.x, scale = FALSE))))
-
 final <- brm(formula = formula_final1,
              data = data_projpred, 
              family = poisson(),
@@ -1947,5 +1943,12 @@ p8 <- plot_brms_fit(final, x = "openheid_waarde_1000",
   coord_cartesian(ylim = c(0, 6))
 ggarrange(p5, p6, p7, p8, common.legend = TRUE, legend = "right")
 ```
+
+
+Conclusie:
+- geef dataframe door aan functie wegens onzekerheid welke variabelen
+- projpred met sbp, met area_prop_sb_cat en met alles (algemeen effect)
+  - voor OL en DM
+  - voor bepaalde soorten
 
 # Referenties
