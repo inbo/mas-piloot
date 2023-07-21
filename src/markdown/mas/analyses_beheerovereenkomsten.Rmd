@@ -1951,4 +1951,103 @@ Conclusie:
   - voor OL en DM
   - voor bepaalde soorten
 
+# Oostelijke leemstreek 2022: SBP
+
+Veldleeuwerik, Gele kwikstaart, Geelgors, Kievit, Grasmus, Ringmus, Witte kwikstaart, Patrijs, Haas
+
+```{r}
+doel_soorten <- c("Veldleeuwerik", 
+                  "Gele Kwikstaart", 
+                  "Geelgors", 
+                  "Kievit", 
+                  "Grasmus",
+                  "Ringmus",
+                  "Witte Kwikstaart",
+                  "Patrijs",
+                  "Haas")
+```
+
+```{r}
+df_count_list <- vector("list", length = length(doel_soorten))
+df_count_names <- vector(length = length(doel_soorten))
+
+for (i in seq_along(doel_soorten)) {
+  spec <- sort(doel_soorten)[i]
+    
+  # Presence data
+  if (spec == "Haas") { # geen broedcode
+    mas_data_presences <- mas_data_df %>%
+      filter(naam == spec) %>%
+      group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
+      summarise(aantal = sum(aantal),
+                .groups = "drop")
+  } else {
+    mas_data_presences <- mas_data_df %>%
+      filter(naam == spec,
+             wrntype > 0) %>%
+      group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
+      summarise(aantal = sum(aantal),
+                .groups = "drop")
+  }
+  
+  # Add absences
+  mas_data_total <- design %>%
+    left_join(mas_data_presences, 
+              by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
+    replace(is.na(.), 0) %>%
+    arrange(plotnaam, periode_in_jaar, jaar)
+  
+  # Add variables
+  mas_data_df_full <- mas_data_total %>%
+    left_join(
+      select(mas_data_df, plotnaam, regio, periode_in_jaar, jaar, status_teller,
+      which(names(mas_data_df) == "n_predators"):length(names(mas_data_df))),
+      by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
+    distinct() %>%
+    mutate(jaar.f = factor(jaar),
+           zomergranen_hfdtlt2 = rowSums(across(c(graangewassen_hfdtlt, 
+                                                  zomergranen_hfdtlt)))) %>%
+    select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt))
+  
+  # Aggregate counts by plot and year
+  mas_data_df_agg <- mas_data_df_full %>%
+    select(all_of(c(response_vars, strat_vars, pred_vars))) %>%
+    group_by(group_by(across(c(-periode_in_jaar, -aantal, -n_predators)))) %>%
+    summarise(aantal = max(aantal),
+              n_predators2 = mean(n_predators),
+              .groups = "drop") %>%
+    select(aantal, everything()) %>%
+    rowid_to_column("id")
+  
+  # Filter data and categorise area_prop_sb
+  mas_data_df_out <- mas_data_df_agg %>%
+    filter(jaar == 2022,
+           regio == "Oostelijke leemstreek") %>%
+    mutate(area_prop_sb_cat = case_when(
+      area_prop_sb == 0 ~ "area_0",
+      area_prop_sb < 0.1 ~ "area_<0.1",
+      area_prop_sb <= 0.2 ~ "area_0.1-0.2",
+      TRUE ~ "area_>0.2"
+    ))
+  
+  naam_obs <- gsub(" ", "", spec)
+  
+  df_count_list[[i]] <- mas_data_df_out
+  df_count_names[i] <- naam_obs
+}
+
+names(df_count_list) <- df_count_names
+```
+
+Scale continuous variables.
+
+```{r}
+df_count_list_scaled <- lapply(df_count_list, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -aantal), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+
 # Referenties
