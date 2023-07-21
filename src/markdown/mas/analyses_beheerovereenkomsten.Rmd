@@ -2049,5 +2049,67 @@ df_count_list_scaled <- lapply(df_count_list, function(df) {
   })
 ```
 
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+```
+
+```{r}
+# Formula
+indices_to_remove <- which(names(df_count_list$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "jaar.f",
+  "area_prop_sb", 
+  "area_prop_bo_overig",
+  "area_prop_sb_cat",
+  "inertie_sb",
+  "inertie_overig",
+  "x_plot",
+  "y_plot",
+  "is_sbp",
+  "openheid_klasse_300"))
+
+predictors_olsbp <- names(df_count_list$GeleKwikstaart)[-indices_to_remove]
+
+form_refmod_olsbp <- bf(paste("aantal", "~", paste(predictors_olsbp, 
+                                                   collapse = " + ")))
+form_refmod_olsbp
+```
+
+```{r}
+R2D2_prior <- set_prior(R2D2(mean_R2 = 0.5, prec_R2 = 2, cons_D2 = 1, 
+                             autoscale = TRUE))
+```
+
+```{r}
+for (i in seq_along(df_count_list_scaled)) {
+  spec <- names(df_count_list_scaled)[i]
+  name <- paste0("refmod_olsbp_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_olsbp,
+             data = df_count_list_scaled[[i]], 
+               family = poisson(),
+               prior = R2D2_prior,
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+}
+```
+
 
 # Referenties
