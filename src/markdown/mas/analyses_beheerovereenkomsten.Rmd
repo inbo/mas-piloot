@@ -2090,6 +2090,9 @@ R2D2_prior <- set_prior(R2D2(mean_R2 = 0.5, prec_R2 = 2, cons_D2 = 1,
 ```
 
 ```{r}
+refmod_olsbp_list <- vector("list", length = length(df_count_list_scaled))
+refmod_olsbp_names <- vector(length = length(df_count_list_scaled))
+
 for (i in seq_along(df_count_list_scaled)) {
   spec <- names(df_count_list_scaled)[i]
   name <- paste0("refmod_olsbp_", spec)
@@ -2108,7 +2111,60 @@ for (i in seq_along(df_count_list_scaled)) {
                backend = "cmdstanr",
                file = paste0(model_path, name),
                file_refit = "on_change"))
+  
+  refmod_olsbp_list[[i]] <- get(name)
+  refmod_olsbp_names[i] <- spec
 }
+
+names(refmod_olsbp_list) <- refmod_olsbp_names
+```
+
+Niet altijd een goede fit:
+
+```{r}
+for (i in seq_along(refmod_olsbp_list)) {
+  title <- paste("Fit referentiemodel", names(refmod_olsbp_list)[i])
+  ref_mod <- refmod_olsbp_list[[i]]
+  print(pp_check(ref_mod, type = "bars", ndraws = 200) +
+          ggtitle(title))
+}
+```
+
+```{r}
+search_terms_olsbp <- get_search_terms(
+  n_predictors_max = 2, 
+  predictors = predictors_olsbp[-match("sbp", predictors_olsbp)],
+  keep_var = "sbp")
+```
+
+```{r}
+cvvs_olsbp_list <- vector("list", length = length(refmod_olsbp_list))
+cvvs_olsbp_names <- vector(length = length(refmod_olsbp_list))
+
+for (i in seq_along(refmod_olsbp_list)) {
+  spec <- names(refmod_olsbp_list)[i]
+  name <- paste0("cvvs_olsbp_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_olsbp_list[[i]],
+             method          = "forward",
+             cv_method       = "LOO",
+             search_terms    = search_terms_olsbp,
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_olsbp_list[[i]] <- get(name)
+  cvvs_olsbp_names[i] <- spec
+}
+
+names(cvvs_olsbp_list) <- cvvs_olsbp_names
 ```
 
 
