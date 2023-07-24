@@ -2167,5 +2167,28 @@ for (i in seq_along(refmod_olsbp_list)) {
 names(cvvs_olsbp_list) <- cvvs_olsbp_names
 ```
 
+```{r}
+for (i in seq_along(cvvs_olsbp_list)) {
+  title <- names(cvvs_olsbp_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_olsbp_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_olsbp_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_olsbp_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk))
+    print(plot(cv_proportions(rk, cumulate = TRUE)))
+  }
+}
+```
+
 
 # Referenties
