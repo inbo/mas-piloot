@@ -2044,7 +2044,7 @@ Scale continuous variables.
 ```{r}
 df_count_list_scaled <- lapply(df_count_list, function(df) {
     df %>%
-      mutate(across(.cols = c(where(is.numeric), -aantal), 
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
                     .fns = ~ as.numeric(scale(.x))))
   })
 ```
@@ -2184,10 +2184,37 @@ for (i in seq_along(cvvs_olsbp_list)) {
     rk <- ranking(cvvs_olsbp_list[[i]])
     pr_rk <- cv_proportions(rk)
     
-    print(plot(pr_rk))
-    print(plot(cv_proportions(rk, cumulate = TRUE)))
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
   }
 }
+```
+
+
+```{r}
+test_geelgors <- brm(formula = bf(aantal ~ sbp + 
+                       meerjarige_fruitteelt_hfdtlt + 
+                       houtkant + 
+                       n_predators2 + 
+                       landbouwinfrastructuur_hfdtlt + 
+                       groententeelt_hfdtlt +
+                       bomengroep +
+                       bosrand),
+                    data = df_count_list[["Geelgors"]], 
+                    family = zero_inflated_poisson(),
+                    chains = nchains, 
+                    warmup = burnin, 
+                    iter = niter,
+                    cores = nparallel,
+                    thin = thinning,
+                    backend = "cmdstanr")
+
+pp_check(test_geelgors, type = "bars", ndraws = 100)
+
+test_geelgors
+conditional_effects(test_geelgors)
 ```
 
 
