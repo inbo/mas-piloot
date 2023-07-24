@@ -1951,9 +1951,11 @@ Conclusie:
   - voor OL en DM
   - voor bepaalde soorten
 
-# Oostelijke leemstreek 2022: SBP
+# Oostelijke leemstreek 2022: sbp
 
-Veldleeuwerik, Gele kwikstaart, Geelgors, Kievit, Grasmus, Ringmus, Witte kwikstaart, Patrijs, Haas
+We bekijken eerst het effect van `sbp`.
+
+Onze doelsoorten zijn Veldleeuwerik, Gele kwikstaart, Geelgors, Kievit, Grasmus, Ringmus, Witte kwikstaart, Patrijs, Haas.
 
 ```{r}
 doel_soorten <- c("Veldleeuwerik", 
@@ -2227,6 +2229,8 @@ conditional_effects(test_geelgors)
 
 # Oostelijke leemstreek 2022: area_prop_sb
 
+We doen hetzelfde, maar nu beschouwen we `area_prop_sb` in plaats van de `sbp` variabele.
+
 ```{r}
 # Formula
 indices_to_remove2 <- which(names(df_count_list$GeleKwikstaart) %in% c(
@@ -2352,6 +2356,128 @@ for (i in seq_along(cvvs_olpropsb_list)) {
 }
 ```
 
+# Oostelijke leemstreek 2022: totaal
+
+Nu fitten we alle predictors zonder bepaalde restricties.
+
+```{r}
+# Formula
+indices_to_remove3 <- which(names(df_count_list$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "jaar.f",
+  "area_prop_sb",
+  "x_plot",
+  "y_plot",
+  "is_sbp",
+  "openheid_klasse_300"))
+
+predictors_oltotal <- names(df_count_list$GeleKwikstaart)[-indices_to_remove3]
+
+form_refmod_oltotal <- bf(paste("aantal", "~", paste(predictors_oltotal, 
+                                                   collapse = " + ")))
+form_refmod_oltotal
+```
+
+```{r}
+refmod_oltotal_list <- vector("list", length = length(df_count_list_scaled))
+refmod_oltotal_names <- vector(length = length(df_count_list_scaled))
+
+for (i in seq_along(df_count_list_scaled)) {
+  spec <- names(df_count_list_scaled)[i]
+  name <- paste0("refmod_oltotal_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_oltotal,
+             data = df_count_list_scaled[[i]], 
+               family = poisson(),
+               prior = R2D2_prior,
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+  
+  refmod_oltotal_list[[i]] <- get(name)
+  refmod_oltotal_names[i] <- spec
+}
+
+names(refmod_oltotal_list) <- refmod_oltotal_names
+```
+
+Niet altijd een goede fit:
+
+```{r}
+for (i in seq_along(refmod_oltotal_list)) {
+  title <- paste("Fit referentiemodel", names(refmod_oltotal_list)[i])
+  ref_mod <- refmod_oltotal_list[[i]]
+  print(pp_check(ref_mod, type = "bars", ndraws = 200) +
+          ggtitle(title))
+}
+```
+
+Deze keer specificeren we niet dat bepaalde variabelen zeker in het model moeten aanwezig zijn.
+
+```{r}
+cvvs_oltotal_list <- vector("list", length = length(refmod_oltotal_list))
+cvvs_oltotal_names <- vector(length = length(refmod_oltotal_list))
+
+for (i in seq_along(refmod_oltotal_list)) {
+  spec <- names(refmod_oltotal_list)[i]
+  name <- paste0("cvvs_oltotal_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_oltotal_list[[i]],
+             method          = "forward",
+             cv_method       = "LOO",
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_oltotal_list[[i]] <- get(name)
+  cvvs_oltotal_names[i] <- spec
+}
+
+names(cvvs_oltotal_list) <- cvvs_oltotal_names
+```
+
+```{r}
+for (i in seq_along(cvvs_oltotal_list)) {
+  title <- names(cvvs_oltotal_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_oltotal_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_oltotal_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_oltotal_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
 
 
 # Referenties
