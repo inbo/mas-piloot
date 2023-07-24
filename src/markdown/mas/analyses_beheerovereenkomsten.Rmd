@@ -1956,6 +1956,8 @@ Conclusie:
 We bekijken eerst het effect van `sbp`.
 
 Onze doelsoorten zijn Veldleeuwerik, Gele kwikstaart, Geelgors, Kievit, Grasmus, Ringmus, Witte kwikstaart, Patrijs, Haas.
+Voor Patrijs en Ringmus hebben we bijna geen data.
+We zullen deze soorten voorlopig niet opnemen in de analyses.
 
 ```{r}
 doel_soorten <- c("Veldleeuwerik", 
@@ -1963,9 +1965,7 @@ doel_soorten <- c("Veldleeuwerik",
                   "Geelgors", 
                   "Kievit", 
                   "Grasmus",
-                  "Ringmus",
                   "Witte Kwikstaart",
-                  "Patrijs",
                   "Haas")
 ```
 
