@@ -2358,7 +2358,7 @@ for (i in seq_along(cvvs_olpropsb_list)) {
 
 # Oostelijke leemstreek 2022: totaal
 
-Nu fitten we alle predictors zonder bepaalde restricties.
+Nu fitten we alle predictors zonder bepaalde restricties. We gebruiken de default priors.
 
 ```{r}
 # Formula
@@ -2394,13 +2394,11 @@ for (i in seq_along(df_count_list_scaled)) {
          brm(formula = form_refmod_oltotal,
              data = df_count_list_scaled[[i]], 
                family = poisson(),
-               prior = R2D2_prior,
                chains = nchains, 
                warmup = burnin, 
                iter = niter,
                cores = nparallel,
                thin = thinning,
-               sample_prior = TRUE,
                backend = "cmdstanr",
                file = paste0(model_path, name),
                file_refit = "on_change"))
