@@ -1968,75 +1968,83 @@ doel_soorten <- c("Veldleeuwerik",
 ```
 
 ```{r}
-df_count_list <- vector("list", length = length(doel_soorten))
-df_count_names <- vector(length = length(doel_soorten))
+create_data_list <- function(doel_soorten, region) {
+  df_count_list <- vector("list", length = length(doel_soorten))
+  df_count_names <- vector(length = length(doel_soorten))
 
-for (i in seq_along(doel_soorten)) {
-  spec <- sort(doel_soorten)[i]
+  for (i in seq_along(doel_soorten)) {
+    spec <- sort(doel_soorten)[i]
+      
+    # Presence data
+    if (spec == "Haas") { # geen broedcode
+      mas_data_presences <- mas_data_df %>%
+        filter(naam == spec) %>%
+        group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
+        summarise(aantal = sum(aantal),
+                  .groups = "drop")
+    } else {
+      mas_data_presences <- mas_data_df %>%
+        filter(naam == spec,
+               wrntype > 0) %>%
+        group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
+        summarise(aantal = sum(aantal),
+                  .groups = "drop")
+    }
     
-  # Presence data
-  if (spec == "Haas") { # geen broedcode
-    mas_data_presences <- mas_data_df %>%
-      filter(naam == spec) %>%
-      group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
-      summarise(aantal = sum(aantal),
-                .groups = "drop")
-  } else {
-    mas_data_presences <- mas_data_df %>%
-      filter(naam == spec,
-             wrntype > 0) %>%
-      group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
-      summarise(aantal = sum(aantal),
-                .groups = "drop")
+    # Add absences
+    mas_data_total <- design %>%
+      left_join(mas_data_presences, 
+                by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
+      replace(is.na(.), 0) %>%
+      arrange(plotnaam, periode_in_jaar, jaar)
+    
+    # Add variables
+    mas_data_df_full <- mas_data_total %>%
+      left_join(
+        select(mas_data_df, plotnaam, regio, periode_in_jaar, jaar, status_teller,
+        which(names(mas_data_df) == "n_predators"):length(names(mas_data_df))),
+        by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
+      distinct() %>%
+      mutate(jaar.f = factor(jaar),
+             zomergranen_hfdtlt2 = rowSums(across(c(graangewassen_hfdtlt, 
+                                                    zomergranen_hfdtlt)))) %>%
+      select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt))
+    
+    # Aggregate counts by plot and year
+    mas_data_df_agg <- mas_data_df_full %>%
+      select(all_of(c(response_vars, strat_vars, pred_vars))) %>%
+      group_by(group_by(across(c(-periode_in_jaar, -aantal, -n_predators)))) %>%
+      summarise(aantal = max(aantal),
+                n_predators2 = mean(n_predators),
+                .groups = "drop") %>%
+      select(aantal, everything()) %>%
+      rowid_to_column("id")
+    
+    # Filter data and categorise area_prop_sb
+    mas_data_df_out <- mas_data_df_agg %>%
+      filter(jaar == 2022,
+             regio == region) %>%
+      mutate(area_prop_sb_cat = case_when(
+        area_prop_sb == 0 ~ "area_0",
+        area_prop_sb < 0.1 ~ "area_<0.1",
+        area_prop_sb <= 0.2 ~ "area_0.1-0.2",
+        TRUE ~ "area_>0.2"
+      ))
+    
+    naam_obs <- gsub(" ", "", spec)
+    
+    df_count_list[[i]] <- mas_data_df_out
+    df_count_names[i] <- naam_obs
   }
   
-  # Add absences
-  mas_data_total <- design %>%
-    left_join(mas_data_presences, 
-              by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
-    replace(is.na(.), 0) %>%
-    arrange(plotnaam, periode_in_jaar, jaar)
+  names(df_count_list) <- df_count_names
   
-  # Add variables
-  mas_data_df_full <- mas_data_total %>%
-    left_join(
-      select(mas_data_df, plotnaam, regio, periode_in_jaar, jaar, status_teller,
-      which(names(mas_data_df) == "n_predators"):length(names(mas_data_df))),
-      by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
-    distinct() %>%
-    mutate(jaar.f = factor(jaar),
-           zomergranen_hfdtlt2 = rowSums(across(c(graangewassen_hfdtlt, 
-                                                  zomergranen_hfdtlt)))) %>%
-    select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt))
-  
-  # Aggregate counts by plot and year
-  mas_data_df_agg <- mas_data_df_full %>%
-    select(all_of(c(response_vars, strat_vars, pred_vars))) %>%
-    group_by(group_by(across(c(-periode_in_jaar, -aantal, -n_predators)))) %>%
-    summarise(aantal = max(aantal),
-              n_predators2 = mean(n_predators),
-              .groups = "drop") %>%
-    select(aantal, everything()) %>%
-    rowid_to_column("id")
-  
-  # Filter data and categorise area_prop_sb
-  mas_data_df_out <- mas_data_df_agg %>%
-    filter(jaar == 2022,
-           regio == "Oostelijke leemstreek") %>%
-    mutate(area_prop_sb_cat = case_when(
-      area_prop_sb == 0 ~ "area_0",
-      area_prop_sb < 0.1 ~ "area_<0.1",
-      area_prop_sb <= 0.2 ~ "area_0.1-0.2",
-      TRUE ~ "area_>0.2"
-    ))
-  
-  naam_obs <- gsub(" ", "", spec)
-  
-  df_count_list[[i]] <- mas_data_df_out
-  df_count_names[i] <- naam_obs
+  return(df_count_list)
 }
+```
 
-names(df_count_list) <- df_count_names
+```{r}
+df_count_list <- create_data_list(doel_soorten, "Oostelijke leemstreek")
 ```
 
 Scale continuous variables.
@@ -2216,6 +2224,134 @@ pp_check(test_geelgors, type = "bars", ndraws = 100)
 test_geelgors
 conditional_effects(test_geelgors)
 ```
+
+# Oostelijke leemstreek 2022: area_prop_sb
+
+```{r}
+# Formula
+indices_to_remove2 <- which(names(df_count_list$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "jaar.f",
+  "area_prop_sb",
+  "x_plot",
+  "y_plot",
+  "is_sbp", "sbp",
+  "openheid_klasse_300"))
+
+predictors_olpropsb <- names(df_count_list$GeleKwikstaart)[-indices_to_remove2]
+
+form_refmod_olpropsb <- bf(paste("aantal", "~", paste(predictors_olpropsb, 
+                                                   collapse = " + ")))
+form_refmod_olpropsb
+```
+
+```{r}
+refmod_olpropsb_list <- vector("list", length = length(df_count_list_scaled))
+refmod_olpropsb_names <- vector(length = length(df_count_list_scaled))
+
+for (i in seq_along(df_count_list_scaled)) {
+  spec <- names(df_count_list_scaled)[i]
+  name <- paste0("refmod_olpropsb_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_olpropsb,
+             data = df_count_list_scaled[[i]], 
+               family = poisson(),
+               prior = R2D2_prior,
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+  
+  refmod_olpropsb_list[[i]] <- get(name)
+  refmod_olpropsb_names[i] <- spec
+}
+
+names(refmod_olpropsb_list) <- refmod_olpropsb_names
+```
+
+Niet altijd een goede fit:
+
+```{r}
+for (i in seq_along(refmod_olpropsb_list)) {
+  title <- paste("Fit referentiemodel", names(refmod_olpropsb_list)[i])
+  ref_mod <- refmod_olpropsb_list[[i]]
+  print(pp_check(ref_mod, type = "bars", ndraws = 200) +
+          ggtitle(title))
+}
+```
+
+```{r}
+search_terms_olpropsb <- get_search_terms(
+  n_predictors_max = 2, 
+  predictors = predictors_olpropsb[-match("area_prop_sb_cat", predictors_olpropsb)],
+  keep_var = "area_prop_sb_cat")
+```
+
+```{r}
+cvvs_olpropsb_list <- vector("list", length = length(refmod_olpropsb_list))
+cvvs_olpropsb_names <- vector(length = length(refmod_olpropsb_list))
+
+for (i in seq_along(refmod_olpropsb_list)) {
+  spec <- names(refmod_olpropsb_list)[i]
+  name <- paste0("cvvs_olpropsb_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_olpropsb_list[[i]],
+             method          = "forward",
+             cv_method       = "LOO",
+             search_terms    = search_terms_olpropsb,
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_olpropsb_list[[i]] <- get(name)
+  cvvs_olpropsb_names[i] <- spec
+}
+
+names(cvvs_olpropsb_list) <- cvvs_olpropsb_names
+```
+
+```{r}
+for (i in seq_along(cvvs_olpropsb_list)) {
+  title <- names(cvvs_olpropsb_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_olpropsb_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_olpropsb_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_olpropsb_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
 
 
 # Referenties
