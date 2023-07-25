@@ -1817,12 +1817,12 @@ final <- brm(formula = formula_final1,
 We maken een simpel model met 
 
 ```{r}
-plot_brms_fit <- function(model, x, species = "", axis_label = "",
+plot_brms_fit <- function(model, x, species = "", axis_label = "", FUN = mean,
                           factor = 1, n = 100, show_data = TRUE) {
   if (x == "sbp") {
     plot_df <- model$data %>%
       select(-aantal) %>%
-      mutate(across(where(is.numeric), mean)) %>%
+      mutate(across(where(is.numeric), FUN)) %>%
       distinct() %>%
       add_epred_draws(model)
     
@@ -1847,7 +1847,7 @@ plot_brms_fit <- function(model, x, species = "", axis_label = "",
   } else {
     plot_df <- model$data %>%
       select_at(vars(-"aantal", -x)) %>%
-      mutate(across(where(is.numeric), ~mean(.x))) %>%
+      mutate(across(where(is.numeric), ~FUN(.x))) %>%
       distinct() %>%
       expand_grid(range = seq_range(model$data[[x]], n = n)) %>%
       `colnames<-`(c(names(model$data)[-match(c("aantal", x), names(model$data))], x)) %>%
