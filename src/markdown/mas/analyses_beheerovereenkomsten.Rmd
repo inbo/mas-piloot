@@ -1846,27 +1846,12 @@ plot_brms_fit <- function(model, x, species = "", axis_label = "",
       theme(legend.position = "")
   } else {
     plot_df <- model$data %>%
-      select(-aantal) %>%
-      data_grid(sbp = c(unique(model$data$sbp)),
-                haag = ifelse(rep(x == "haag", n), 
-                              seq_range(haag,
-                                        n = n),
-                              mean(haag)),
-                houtkant = ifelse(rep(x == "houtkant", n), 
-                                  seq_range(houtkant,
-                                            n = n), 
-                                  mean(houtkant)),
-                wintergranen_hfdtlt = ifelse(rep(x == "wintergranen_hfdtlt", 
-                                                 n), 
-                                             seq_range(wintergranen_hfdtlt,
-                                                       n = n), 
-                                             mean(wintergranen_hfdtlt)),
-                openheid_waarde_1000 = ifelse(rep(x == "openheid_waarde_1000", 
-                                                  n), 
-                                              seq_range(openheid_waarde_1000, 
-                                                        n = n), 
-                                              mean(openheid_waarde_1000))) %>%
-        add_epred_draws(model)
+      select_at(vars(-"aantal", -x)) %>%
+      mutate(across(where(is.numeric), ~mean(.x))) %>%
+      distinct() %>%
+      expand_grid(range = seq_range(model$data[[x]], n = n)) %>%
+      `colnames<-`(c(names(model$data)[-match(c("aantal", x), names(model$data))], x)) %>%
+      add_epred_draws(model)
     
     out <- plot_df %>%
       ggplot(aes(x = .data[[x]]*factor, y = aantal))
