@@ -1800,7 +1800,7 @@ ppc_bars(y = data_projpred_scaled$aantal, yrep = prj_predict)
 
 
 ```{r}
-formula_final1 <- bf(paste("aantal ~", paste0(predictors_final1_refmodel1, 
+formula_final1 <- bf(paste("aantal ~", paste0(predictors_final1_refmodel1[1:5], 
                                               collapse = " + ")))
 
 final <- brm(formula = formula_final1,
@@ -1814,12 +1814,14 @@ final <- brm(formula = formula_final1,
              backend = "cmdstanr")
 ```
 
+We maken een simpel model met 
+
 ```{r}
-plot_brms_fit <- function(model, x, axis_label = "",
+plot_brms_fit <- function(model, x, species = "", axis_label = "",
                           factor = 1, n = 100, show_data = TRUE) {
   if (x == "sbp") {
-    plot_df <- data_projpred %>%
-      select(all_of(predictors_final2_refmodel1)) %>%
+    plot_df <- model$data %>%
+      select(-aantal) %>%
       mutate(across(where(is.numeric), mean)) %>%
       distinct() %>%
       add_epred_draws(model)
@@ -1830,7 +1832,7 @@ plot_brms_fit <- function(model, x, axis_label = "",
     
     if (isTRUE(show_data)) {
       out <- out +
-        geom_jitter(data = data_projpred, colour = "firebrick", alpha = 0.3,
+        geom_jitter(data = model$data, colour = "firebrick", alpha = 0.3,
                     width = 0.2, height = 0)
     } else {
       out <- out +
@@ -1840,11 +1842,12 @@ plot_brms_fit <- function(model, x, axis_label = "",
     out <- out +
       stat_halfeye(aes(y = .epred), alpha = 0.5) +
       labs(x = axis_label,
-           y = "aantal broedparen gele kwikstaart") +
+           y = paste("aantal broedparen", species)) +
       theme(legend.position = "")
   } else {
-    plot_df <- data_projpred %>%
-      data_grid(sbp = c(unique(data_projpred$sbp)),
+    plot_df <- model$data %>%
+      select(-aantal) %>%
+      data_grid(sbp = c(unique(model$data$sbp)),
                 haag = ifelse(rep(x == "haag", n), 
                               seq_range(haag,
                                         n = n),
@@ -1870,7 +1873,7 @@ plot_brms_fit <- function(model, x, axis_label = "",
     
     if (isTRUE(show_data)) {
       out <- out +
-        geom_point(data = data_projpred, colour = "firebrick", alpha = 0.3) 
+        geom_point(data = model$data, colour = "firebrick", alpha = 0.3) 
     } else {
       out <- out +
         scale_y_continuous(limits = c(0, NA))
@@ -1879,7 +1882,7 @@ plot_brms_fit <- function(model, x, axis_label = "",
     out <- out +
       stat_lineribbon(aes(y = .epred), alpha = 0.5) +
       labs(x = axis_label,
-           y = "aantal broedparen Gele kwikstaart",
+           y = paste("aantal broedparen", species),
            fill = "credible\nlevel")
   }
   return(out)
@@ -2202,6 +2205,30 @@ for (i in seq_along(cvvs_olsbp_list)) {
 }
 ```
 
+
+```{r}
+test_geelgors <- brm(formula = bf(aantal ~ sbp + 
+                       meerjarige_fruitteelt_hfdtlt + 
+                       houtkant + 
+                       n_predators2 + 
+                       landbouwinfrastructuur_hfdtlt + 
+                       groententeelt_hfdtlt +
+                       bomengroep +
+                       bosrand),
+                    data = df_count_list[["Geelgors"]], 
+                    family = zero_inflated_poisson(),
+                    chains = nchains, 
+                    warmup = burnin, 
+                    iter = niter,
+                    cores = nparallel,
+                    thin = thinning,
+                    backend = "cmdstanr")
+
+pp_check(test_geelgors, type = "bars", ndraws = 100)
+
+test_geelgors
+conditional_effects(test_geelgors)
+```
 
 ```{r}
 test_geelgors <- brm(formula = bf(aantal ~ sbp + 
