@@ -1231,8 +1231,6 @@ Dit ziet er waardevoller uit.
 <https://github.com/stan-dev/projpred/issues/67>\
 <https://paul-buerkner.github.io/brms/reference/R2D2.html>
 
-Zie de McLatchie et al paper die ik onlangs doorstuurde.
-Appendix B onder andere
 
 ### Referentiemodel
 
@@ -1985,7 +1983,7 @@ doel_soorten <- c("Veldleeuwerik",
 ## Lijst van datasets
 
 ```{r}
-create_data_list <- function(doel_soorten, region) {
+create_data_list <- function(doel_soorten, region, year = 2022) {
   df_count_list <- vector("list", length = length(doel_soorten))
   df_count_names <- vector(length = length(doel_soorten))
 
@@ -2039,7 +2037,7 @@ create_data_list <- function(doel_soorten, region) {
     
     # Filter data and categorise area_prop_sb
     mas_data_df_out <- mas_data_df_agg %>%
-      filter(jaar == 2022,
+      filter(jaar %in% year,
              regio == region) %>%
       mutate(area_prop_sb_cat = case_when(
         area_prop_sb == 0 ~ "area_0",
@@ -2251,7 +2249,7 @@ for (i in seq_along(cvvs_olsbp_list)) {
 names(predictors_olsbp_list) <- predictors_olsbp_names
 ```
 
-## Geelgors
+### Geelgors
 
 ```{r}
 fit_olsbp_geelgors <- brm(
@@ -2286,7 +2284,7 @@ for (pred in predictors_olsbp_list$Geelgors$predictors) {
 }
 ```
 
-## Gele kwikstaart
+### Gele kwikstaart
 
 ```{r}
 fit_olsbp_gelekwikstaart <- brm(
@@ -2321,7 +2319,7 @@ for (pred in predictors_olsbp_list$GeleKwikstaart$predictors) {
 }
 ```
 
-## Grasmus
+### Grasmus
 
 ```{r}
 fit_olsbp_grasmus <- brm(
@@ -2356,7 +2354,7 @@ for (pred in predictors_olsbp_list$Grasmus$predictors) {
 }
 ```
 
-## Haas
+### Haas
 
 ```{r}
 fit_olsbp_haas <- brm(
@@ -2391,7 +2389,7 @@ for (pred in predictors_olsbp_list$Haas$predictors) {
 }
 ```
 
-## Kievit
+### Kievit
 
 ```{r}
 fit_olsbp_kievit <- brm(
@@ -2426,7 +2424,7 @@ for (pred in predictors_olsbp_list$Kievit$predictors) {
 }
 ```
 
-## Veldleeuwerik
+### Veldleeuwerik
 
 ```{r}
 fit_olsbp_veldleeuwerik <- brm(
@@ -2461,7 +2459,7 @@ for (pred in predictors_olsbp_list$Veldleeuwerik$predictors) {
 }
 ```
 
-## Witte kwikstaart
+### Witte kwikstaart
 
 ```{r}
 fit_olsbp_wittekwikstaart <- brm(
@@ -2626,5 +2624,54 @@ for (i in seq_along(cvvs_olpropsb_list)) {
 }
 ```
 
+# Oostelijke leemstreek totaalanalyse
+
+Voor de totaalanalyse beschouwen we alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren (cf. distance sampling analyses). `jaar` zal een extra variabele zijn (als factor). We voeren de PPVS uit zonder restricties.
+
+```{r}
+# Get presence absences for region and year span
+df_count_list_oltotal_raw <- create_data_list(
+  doel_soorten, 
+  "Oostelijke leemstreek", 
+  2018:2022)
+
+plots_old <- bezoekenlijst_2018_2022 %>%
+  filter(jaar != 2022) %>%
+  distinct(plotnaam) %>%
+  pull()
+
+df_count_list_oltotal_raw$Geelgors %>% 
+  distinct(jaar, plotnaam) %>%
+  nrow()
+
+df_count_list_oltotal_raw$GeleKwikstaart %>%
+  count(jaar, plotnaam) %>%
+  arrange(desc(n), plotnaam)
+
+df_count_list_oltotal_raw$Geelgors %>% View()
+
+design %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  distinct(jaar, plotnaam)
+
+veldleeuwerik_2018_2022_reduced <- veldleeuwerik_presences %>%
+  filter(plotnaam %in% plots_old)
+
+df_count_list_oltotal <- 
+```
+
+
+> testcase Veldleeuwerik
+
+```{r}
+
+```
+
+
+# De Moeren 2022: sbp
+
+# De Moeren 2023: area_prop_sb
+
+# De Moeren totaalanalyse
 
 # Referenties
