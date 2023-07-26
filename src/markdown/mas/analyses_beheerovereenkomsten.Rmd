@@ -35,6 +35,12 @@ conflicted::conflicts_prefer(brms::do_call)
 conflicted::conflicts_prefer(stats::sd)
 conflicted::conflicts_prefer(posterior::rhat)
 conflicted::conflicts_prefer(base::match)
+conflicted::conflicts_prefer(brms::dstudent_t)
+conflicted::conflicts_prefer(stats::mad)
+conflicted::conflicts_prefer(brms::pstudent_t)
+conflicted::conflicts_prefer(brms::qstudent_t)
+conflicted::conflicts_prefer(brms::rstudent_t)
+conflicted::conflicts_prefer(stats::var)
 
 # Packages
 library(tidyverse)
@@ -1020,7 +1026,7 @@ sbp_gelekwik_ZINB13 <-
   brm(formula = form3,
       data = gele_kwik_df2_2022, 
       family = zero_inflated_negbinomial(), 
-      chains = nchains, 
+      chains = nchains,
       warmup = burnin, 
       iter = niter, 
       cores = nparallel, 
@@ -2081,7 +2087,7 @@ df_count_list_scaled <- lapply(df_count_list, function(df) {
   })
 ```
 
-## Fit referenctiemodellen
+## Fit referentiemodellen
 
 ```{r}
 # MCMC parameters
@@ -2665,10 +2671,87 @@ df_count_list_oltotal$Geelgors %>%
   kable()
 ```
 
-> testcase Veldleeuwerik
+Scale continuous variables.
 
 ```{r}
+df_count_list_oltotal_scaled <- lapply(df_count_list_oltotal, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
 
+
+> testcase Veldleeuwerik
+
+
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+```
+
+```{r}
+# Formula
+indices_to_remove_oltotal <- which(names(df_count_list_oltotal$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "area_prop_sb",
+  "x_plot",
+  "y_plot",
+  "is_sbp",
+  "openheid_klasse_300"))
+
+predictors_oltotal <- names(df_count_list_oltotal$GeleKwikstaart)[-indices_to_remove_oltotal]
+
+form_refmod_oltotal <- bf(paste("aantal", "~", paste(predictors_oltotal, 
+                                                   collapse = " + "),
+                                "+", "(1 | plotnaam)"))
+form_refmod_oltotal
+```
+
+```{r}
+refmod_oltotal_veldleeuwerik <- brm(
+  formula = form_refmod_oltotal,
+  data = df_count_list_oltotal_scaled[["Veldleeuwerik"]], 
+  family = poisson(),
+  prior = R2D2_prior,
+  chains = nchains, 
+  warmup = burnin, 
+  iter = niter,
+  cores = nparallel,
+  thin = thinning,
+  sample_prior = TRUE,
+  backend = "cmdstanr")
+```
+
+```{r}
+pp_check(refmod_oltotal_veldleeuwerik, type = "bars", ndraws = 200)
+```
+
+```{r}
+cvvs_olsbp_veldleeuwerik_fast <- cv_varsel(
+  refmod_oltotal_veldleeuwerik,
+  ### Only for the sake of speed (not recommended in general):
+  nclusters_pred = 20,
+  validate_search = FALSE)
+```
+
+
+```{r}
+cvvs_olsbp_veldleeuwerik <- cv_varsel(
+  object          = refmod_oltotal_veldleeuwerik,
+  method          = "forward",
+  cv_method       = "LOO",
+  nterms_max      = 19,
+  validate_search = TRUE)
 ```
 
 
