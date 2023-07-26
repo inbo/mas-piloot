@@ -1818,8 +1818,12 @@ final
 ```
 
 ```{r}
-plot_brms_fit <- function(model, x, species = "", axis_label = "", FUN = mean,
-                          factor = 1, n = 100, show_data = TRUE) {
+plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
+                          factor = 1, n = 100, show_data = FALSE) {
+  
+  if (is.null(axis_label)) {
+    axis_label <- x
+  }
   
   cat_vars <- model$data %>%
     select(!where(is.numeric)) %>%
@@ -1978,6 +1982,8 @@ doel_soorten <- c("Veldleeuwerik",
                   "Haas")
 ```
 
+## Lijst van datasets
+
 ```{r}
 create_data_list <- function(doel_soorten, region) {
   df_count_list <- vector("list", length = length(doel_soorten))
@@ -2068,6 +2074,8 @@ df_count_list_scaled <- lapply(df_count_list, function(df) {
   })
 ```
 
+## Fit referenctiemodellen
+
 ```{r}
 # MCMC parameters
 nchains <- 3           # number of chains
@@ -2149,6 +2157,8 @@ for (i in seq_along(refmod_olsbp_list)) {
 }
 ```
 
+## PPVS
+
 ```{r}
 search_terms_olsbp <- get_search_terms(
   n_predictors_max = 2, 
@@ -2211,54 +2221,60 @@ for (i in seq_along(cvvs_olsbp_list)) {
 }
 ```
 
+Choose model sizes.
 
 ```{r}
-test_geelgors <- brm(formula = bf(aantal ~ sbp + 
-                       meerjarige_fruitteelt_hfdtlt + 
-                       houtkant + 
-                       n_predators2 + 
-                       landbouwinfrastructuur_hfdtlt + 
-                       groententeelt_hfdtlt +
-                       bomengroep +
-                       bosrand),
-                    data = df_count_list[["Geelgors"]], 
-                    family = zero_inflated_poisson(),
-                    chains = nchains, 
-                    warmup = burnin, 
-                    iter = niter,
-                    cores = nparallel,
-                    thin = thinning,
-                    backend = "cmdstanr")
+size_decided_olsbp_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_olsbp_list
+```
 
-pp_check(test_geelgors, type = "bars", ndraws = 100)
+## Fit finale modellen
 
-test_geelgors
-conditional_effects(test_geelgors)
+```{r}
+predictors_olsbp_list <- vector("list", length = length(cvvs_olsbp_list))
+predictors_olsbp_names <- vector(length = length(cvvs_olsbp_list))
+
+for (i in seq_along(cvvs_olsbp_list)) {
+  cvvs <- cvvs_olsbp_list[[i]]
+  spec <- names(cvvs_olsbp_list)[i]
+  
+  rk <- ranking(cvvs)
+  preds <- head(rk[["fulldata"]], size_decided_olsbp_list[[i]])
+  
+  predictors_olsbp_list[[i]]$predictors <- preds
+  predictors_olsbp_list[[i]]$formula <- bf(paste("aantal", "~", 
+                                                 paste(preds, 
+                                                       collapse = " + ")))
+  predictors_olsbp_names[i] <- spec
+}
+names(predictors_olsbp_list) <- predictors_olsbp_names
+```
+
+## Geelgors
+
+```{r}
+fit_olsbp_geelgors <- brm(
+  formula = predictors_olsbp_list$Geelgors$formula,
+  data = df_count_list[["Geelgors"]], 
+  family = zero_inflated_poisson(),
+  chains = nchains, 
+  warmup = burnin, 
+  iter = niter,
+  cores = nparallel,
+  thin = thinning,
+  backend = "cmdstanr",
+  file = paste0(model_path, "fit_olsbp_geelgors"),
+  file_refit = "on_change")
 ```
 
 ```{r}
-test_geelgors <- brm(formula = bf(aantal ~ sbp + 
-                       meerjarige_fruitteelt_hfdtlt + 
-                       houtkant + 
-                       n_predators2 + 
-                       landbouwinfrastructuur_hfdtlt + 
-                       groententeelt_hfdtlt +
-                       bomengroep +
-                       bosrand),
-                    data = df_count_list[["Geelgors"]], 
-                    family = zero_inflated_poisson(),
-                    chains = nchains, 
-                    warmup = burnin, 
-                    iter = niter,
-                    cores = nparallel,
-                    thin = thinning,
-                    backend = "cmdstanr")
-
-pp_check(test_geelgors, type = "bars", ndraws = 100)
-
-test_geelgors
-conditional_effects(test_geelgors)
+plot(fit_olsbp_geelgors)
 ```
+
+```{r}
+pp_check(test_geelgors, type = "bars", ndraws = 100)
+```
+
 
 # Oostelijke leemstreek 2022: area_prop_sb
 
