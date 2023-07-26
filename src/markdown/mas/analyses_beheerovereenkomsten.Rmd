@@ -1798,9 +1798,10 @@ prj_predict <- proj_predict(prj_refmodel1)
 ppc_bars(y = data_projpred_scaled$aantal, yrep = prj_predict)
 ```
 
+We fitten het model opnieuw met de gekozen variabelen.
 
 ```{r}
-formula_final1 <- bf(paste("aantal ~", paste0(predictors_final1_refmodel1[1:5], 
+formula_final1 <- bf(paste("aantal ~", paste0(predictors_final1_refmodel1, 
                                               collapse = " + ")))
 
 final <- brm(formula = formula_final1,
@@ -1812,23 +1813,31 @@ final <- brm(formula = formula_final1,
              cores = nparallel,
              thin = thinning,
              backend = "cmdstanr")
+
+final
 ```
 
-We maken een simpel model met 
-
 ```{r}
-plot_brms_fit <- function(model, x, species = "", axis_label = "",
-                          factor = 1, n = 100, show_data = TRUE) {
-  if (x == "sbp") {
+plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
+                          factor = 1, n = 100, show_data = FALSE) {
+  
+  if (is.null(axis_label)) {
+    axis_label <- x
+  }
+  
+  cat_vars <- model$data %>%
+    select(!where(is.numeric)) %>%
+    names()
+  
+  if (x %in% cat_vars) {
     plot_df <- model$data %>%
       select(-aantal) %>%
-      mutate(across(where(is.numeric), mean)) %>%
+      mutate(across(where(is.numeric), FUN)) %>%
       distinct() %>%
       add_epred_draws(model)
     
-    
     out <- plot_df %>%
-      ggplot(aes(x = paste(.data[[x]], x), y = aantal, fill = .data[[x]]))
+      ggplot(aes(x = .data[[x]], y = aantal, fill = .data[[x]]))
     
     if (isTRUE(show_data)) {
       out <- out +
@@ -1844,29 +1853,24 @@ plot_brms_fit <- function(model, x, species = "", axis_label = "",
       labs(x = axis_label,
            y = paste("aantal broedparen", species)) +
       theme(legend.position = "")
+    
+    if (length(cat_vars)  == 2) {
+      facet_var <- setdiff(cat_vars, x)
+      out <- out +
+        facet_wrap(vars(!!sym(facet_var)))
+    } else if (length(cat_vars) > 2) {
+      stop("Not implemented for more than 3 categorical predictors!", .call = FALSE)
+    }
+      
   } else {
     plot_df <- model$data %>%
-      select(-aantal) %>%
-      data_grid(sbp = c(unique(model$data$sbp)),
-                haag = ifelse(rep(x == "haag", n), 
-                              seq_range(haag,
-                                        n = n),
-                              mean(haag)),
-                houtkant = ifelse(rep(x == "houtkant", n), 
-                                  seq_range(houtkant,
-                                            n = n), 
-                                  mean(houtkant)),
-                wintergranen_hfdtlt = ifelse(rep(x == "wintergranen_hfdtlt", 
-                                                 n), 
-                                             seq_range(wintergranen_hfdtlt,
-                                                       n = n), 
-                                             mean(wintergranen_hfdtlt)),
-                openheid_waarde_1000 = ifelse(rep(x == "openheid_waarde_1000", 
-                                                  n), 
-                                              seq_range(openheid_waarde_1000, 
-                                                        n = n), 
-                                              mean(openheid_waarde_1000))) %>%
-        add_epred_draws(model)
+      select_at(vars(-"aantal", -x)) %>%
+      mutate(across(where(is.numeric), ~FUN(.x))) %>%
+      distinct() %>%
+      expand_grid(range = seq_range(model$data[[x]], n = n)) %>%
+      `colnames<-`(c(names(model$data)[-match(c("aantal", x), 
+                                              names(model$data))], x)) %>%
+      add_epred_draws(model)
     
     out <- plot_df %>%
       ggplot(aes(x = .data[[x]]*factor, y = aantal))
@@ -1884,75 +1888,81 @@ plot_brms_fit <- function(model, x, species = "", axis_label = "",
       labs(x = axis_label,
            y = paste("aantal broedparen", species),
            fill = "credible\nlevel")
+    
+    if (length(cat_vars) == 1) {
+      out <- out +
+        facet_wrap(vars(!!sym(cat_vars)))
+    } else if (length(cat_vars) == 2) {
+      out <- out +
+        facet_grid(vars(!!sym(cat_vars[1])), vars(!!sym(cat_vars[2])))
+    } else if (length(cat_vars) > 2) {
+      stop("Not implemented for more than 2 categorical predictors!", .call = FALSE)
+    }
   }
   return(out)
 }
 ```
 
 ```{r}
-plot_brms_fit(final, x = "sbp", show_data = FALSE)
+plot_brms_fit(final, x = "sbp", show_data = FALSE,
+              axis_label = "soortbeschermingsplan")
+
+plot_brms_fit(final, x = "status_teller", show_data = FALSE,
+              axis_label = "teller status")
 ```
 
 ```{r}
-p1 <- plot_brms_fit(final, x = "haag", factor = 100, show_data = FALSE,
-                    axis_label = "proportie hagen (%)") +
-  theme(axis.title = element_text(size = 12)) +
-  coord_cartesian(ylim = c(0, 1.6))
-p2 <- plot_brms_fit(final, x = "houtkant", factor = 100, show_data = FALSE,
-                    axis_label = "proportie houtkanten (%)") +
-  theme(axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        axis.title.y = element_blank(),
-        axis.title = element_text(size = 12)) +
-  coord_cartesian(ylim = c(0, 1.6))
-p3 <- plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
-                    show_data = FALSE,
-                    axis_label = "proportie hoofdteelt wintergranen (%)") +
-  theme(axis.title = element_text(size = 12)) +
-  coord_cartesian(ylim = c(0, 1.6))
-p4 <- plot_brms_fit(final, x = "openheid_waarde_1000", show_data = FALSE,
-                    axis_label = "openheid landschap (1000 m)") + 
-  theme(axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        axis.title.y = element_blank(),
-        axis.title = element_text(size = 12)) +
-  coord_cartesian(ylim = c(0, 1.6))
-
-ggarrange(p1, p2, p3, p4, common.legend = TRUE, legend = "right")
+plot_brms_fit(final, x = "houtkant", factor = 100, show_data = FALSE,
+              axis_label = "proportie houtkanten (%)")
+plot_brms_fit(final, x = "haag", factor = 100, show_data = FALSE,
+              axis_label = "proportie hagen (%)")
+plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie hoofdteelt wintergranen (%)")
+plot_brms_fit(final, x = "openheid_waarde_1000", show_data = FALSE,
+              axis_label = "openheid landschap (1000 m)")
+plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100, show_data = FALSE,
+                    axis_label = "proportie hoofdteelt groententeelt (%)")
+plot_brms_fit(final, x = "zomergranen_hfdtlt2", factor = 100, show_data = FALSE,
+              axis_label = "proportie hoofdteelt zomergranen (%)")
+plot_brms_fit(final, x = "boom", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie bomen (%)")
+plot_brms_fit(final, x = "aardappelen_hfdtlt", show_data = FALSE,
+              axis_label = "proportie hoofdteelt aardappelen (%)")
 ```
 
 ```{r}
-p5 <- plot_brms_fit(final, x = "haag", factor = 100,
-                    axis_label = "proportie hagen (%)") +
-  theme(axis.title = element_text(size = 12)) +
-  coord_cartesian(ylim = c(0, 6))
-p6 <- plot_brms_fit(final, x = "houtkant", factor = 100,
-                    axis_label = "proportie houtkanten (%)") +
-  theme(axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        axis.title.y = element_blank(),
-        axis.title = element_text(size = 12)) +
-  coord_cartesian(ylim = c(0, 6))
-p7 <- plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100,
-                    axis_label = "proportie hoofdteelt wintergranen (%)") +
-  theme(axis.title = element_text(size = 12)) +
-  coord_cartesian(ylim = c(0, 6))
-p8 <- plot_brms_fit(final, x = "openheid_waarde_1000", 
-                    axis_label = "openheid landschap (1000 m)") +
-  theme(axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        axis.title.y = element_blank(),
-        axis.title = element_text(size = 12)) +
-  coord_cartesian(ylim = c(0, 6))
-ggarrange(p5, p6, p7, p8, common.legend = TRUE, legend = "right")
+plot_brms_fit(final, x = "houtkant", factor = 100, show_data = TRUE,
+              axis_label = "proportie houtkanten (%)")
+plot_brms_fit(final, x = "haag", factor = 100, show_data = TRUE,
+              axis_label = "proportie hagen (%)")
+plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie hoofdteelt wintergranen (%)")
+plot_brms_fit(final, x = "openheid_waarde_1000", show_data = TRUE,
+              axis_label = "openheid landschap (1000 m)")
+plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100, show_data = TRUE,
+                    axis_label = "proportie hoofdteelt groententeelt (%)")
+plot_brms_fit(final, x = "zomergranen_hfdtlt2", factor = 100, show_data = TRUE,
+              axis_label = "proportie hoofdteelt zomergranen (%)")
+plot_brms_fit(final, x = "boom", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie bomen (%)")
+plot_brms_fit(final, x = "aardappelen_hfdtlt", show_data = TRUE,
+              axis_label = "proportie hoofdteelt aardappelen (%)")
 ```
 
 
-Conclusie:
-- geef dataframe door aan functie wegens onzekerheid welke variabelen
-- projpred met sbp, met area_prop_sb_cat en met alles (algemeen effect)
-  - voor OL en DM
-  - voor bepaalde soorten
+## Conclusie
+
+-  PPVS lijkt een goede methode voor selectie van variabelen
+-  We voeren dit uit voor sbp, met area_prop_sb_cat en met alle variabelen (geen restricties)
+  -  voor OL en DM apart
+  -  voor specifieke doelsoorten apart
+  -  enkel voor 2022 of ook al 2023?
+  -  alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
+
 
 # Oostelijke leemstreek 2022: sbp
 
@@ -1971,6 +1981,8 @@ doel_soorten <- c("Veldleeuwerik",
                   "Witte Kwikstaart",
                   "Haas")
 ```
+
+## Lijst van datasets
 
 ```{r}
 create_data_list <- function(doel_soorten, region) {
@@ -2062,6 +2074,8 @@ df_count_list_scaled <- lapply(df_count_list, function(df) {
   })
 ```
 
+## Fit referenctiemodellen
+
 ```{r}
 # MCMC parameters
 nchains <- 3           # number of chains
@@ -2143,6 +2157,8 @@ for (i in seq_along(refmod_olsbp_list)) {
 }
 ```
 
+## PPVS
+
 ```{r}
 search_terms_olsbp <- get_search_terms(
   n_predictors_max = 2, 
@@ -2205,54 +2221,60 @@ for (i in seq_along(cvvs_olsbp_list)) {
 }
 ```
 
+Choose model sizes.
 
 ```{r}
-test_geelgors <- brm(formula = bf(aantal ~ sbp + 
-                       meerjarige_fruitteelt_hfdtlt + 
-                       houtkant + 
-                       n_predators2 + 
-                       landbouwinfrastructuur_hfdtlt + 
-                       groententeelt_hfdtlt +
-                       bomengroep +
-                       bosrand),
-                    data = df_count_list[["Geelgors"]], 
-                    family = zero_inflated_poisson(),
-                    chains = nchains, 
-                    warmup = burnin, 
-                    iter = niter,
-                    cores = nparallel,
-                    thin = thinning,
-                    backend = "cmdstanr")
+size_decided_olsbp_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_olsbp_list
+```
 
-pp_check(test_geelgors, type = "bars", ndraws = 100)
+## Fit finale modellen
 
-test_geelgors
-conditional_effects(test_geelgors)
+```{r}
+predictors_olsbp_list <- vector("list", length = length(cvvs_olsbp_list))
+predictors_olsbp_names <- vector(length = length(cvvs_olsbp_list))
+
+for (i in seq_along(cvvs_olsbp_list)) {
+  cvvs <- cvvs_olsbp_list[[i]]
+  spec <- names(cvvs_olsbp_list)[i]
+  
+  rk <- ranking(cvvs)
+  preds <- head(rk[["fulldata"]], size_decided_olsbp_list[[i]])
+  
+  predictors_olsbp_list[[i]]$predictors <- preds
+  predictors_olsbp_list[[i]]$formula <- bf(paste("aantal", "~", 
+                                                 paste(preds, 
+                                                       collapse = " + ")))
+  predictors_olsbp_names[i] <- spec
+}
+names(predictors_olsbp_list) <- predictors_olsbp_names
+```
+
+## Geelgors
+
+```{r}
+fit_olsbp_geelgors <- brm(
+  formula = predictors_olsbp_list$Geelgors$formula,
+  data = df_count_list[["Geelgors"]], 
+  family = zero_inflated_poisson(),
+  chains = nchains, 
+  warmup = burnin, 
+  iter = niter,
+  cores = nparallel,
+  thin = thinning,
+  backend = "cmdstanr",
+  file = paste0(model_path, "fit_olsbp_geelgors"),
+  file_refit = "on_change")
 ```
 
 ```{r}
-test_geelgors <- brm(formula = bf(aantal ~ sbp + 
-                       meerjarige_fruitteelt_hfdtlt + 
-                       houtkant + 
-                       n_predators2 + 
-                       landbouwinfrastructuur_hfdtlt + 
-                       groententeelt_hfdtlt +
-                       bomengroep +
-                       bosrand),
-                    data = df_count_list[["Geelgors"]], 
-                    family = zero_inflated_poisson(),
-                    chains = nchains, 
-                    warmup = burnin, 
-                    iter = niter,
-                    cores = nparallel,
-                    thin = thinning,
-                    backend = "cmdstanr")
-
-pp_check(test_geelgors, type = "bars", ndraws = 100)
-
-test_geelgors
-conditional_effects(test_geelgors)
+plot(fit_olsbp_geelgors)
 ```
+
+```{r}
+pp_check(test_geelgors, type = "bars", ndraws = 100)
+```
+
 
 # Oostelijke leemstreek 2022: area_prop_sb
 
