@@ -1977,29 +1977,32 @@ plot_brms_fit(final, x = "aardappelen_hfdtlt", show_data = TRUE,
 
 We bekijken eerst het effect van `sbp`.
 
-Onze doelsoorten zijn Veldleeuwerik, Gele kwikstaart, Geelgors, Kievit, Grasmus, Ringmus, Witte kwikstaart, Patrijs, Haas.
-Voor Patrijs en Ringmus hebben we bijna geen data.
-We zullen deze soorten voorlopig niet opnemen in de analyses.
-
 ```{r}
-doel_soorten <- c("Veldleeuwerik", 
-                  "Gele Kwikstaart", 
-                  "Geelgors", 
-                  "Kievit", 
-                  "Grasmus",
-                  "Witte Kwikstaart",
-                  "Haas")
+doel_soorten_ol_pre <- c(
+  "Veldleeuwerik", 
+  "Gele Kwikstaart", 
+  "Geelgors", 
+  "Kievit", 
+  "Grasmus",
+  "Witte Kwikstaart",
+  "Ringmus",
+  "Torenvalk",
+  "Kwartel",
+  "Kneu",
+  "Haas")
 ```
+
+Onze doelsoorten zijn `r doel_soorten_ol_pre`.
 
 ## Lijst van datasets
 
 ```{r}
-create_data_list <- function(doel_soorten, region, year = 2022) {
-  df_count_list <- vector("list", length = length(doel_soorten))
-  df_count_names <- vector(length = length(doel_soorten))
+create_data_list <- function(doel_soorten_ol_pre, region, year = 2022) {
+  df_count_list <- vector("list", length = length(doel_soorten_ol_pre))
+  df_count_names <- vector(length = length(doel_soorten_ol_pre))
 
-  for (i in seq_along(doel_soorten)) {
-    spec <- sort(doel_soorten)[i]
+  for (i in seq_along(doel_soorten_ol_pre)) {
+    spec <- sort(doel_soorten_ol_pre)[i]
       
     # Presence data
     if (spec == "Haas") { # geen broedcode
@@ -2074,10 +2077,36 @@ create_data_list <- function(doel_soorten, region, year = 2022) {
 ```
 
 ```{r}
-df_count_list <- create_data_list(doel_soorten, "Oostelijke leemstreek")
+df_count_list <- create_data_list(doel_soorten_ol_pre, "Oostelijke leemstreek")
 ```
 
-Scale continuous variables.
+Voor Ringmus hebben we bijna geen data.
+We zullen deze soort niet opnemen in de analyses van de Oostelijke leemstreek.
+
+```{r}
+for (i in seq_along(df_count_list)) {
+  df <- df_count_list[[i]]
+  spec <- names(df_count_list)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list[["Ringmus"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
 
 ```{r}
 df_count_list_scaled <- lapply(df_count_list, function(df) {
@@ -2100,7 +2129,7 @@ thinning <- 2
 
 ```{r}
 # Formula
-indices_to_remove <- which(names(df_count_list$GeleKwikstaart) %in% c(
+indices_to_remove_olsbp <- which(names(df_count_list$GeleKwikstaart) %in% c(
   "id", 
   "aantal", 
   "plotnaam", 
@@ -2117,7 +2146,7 @@ indices_to_remove <- which(names(df_count_list$GeleKwikstaart) %in% c(
   "is_sbp",
   "openheid_klasse_300"))
 
-predictors_olsbp <- names(df_count_list$GeleKwikstaart)[-indices_to_remove]
+predictors_olsbp <- names(df_count_list$GeleKwikstaart)[-indices_to_remove_olsbp]
 
 form_refmod_olsbp <- bf(paste("aantal", "~", paste(predictors_olsbp, 
                                                    collapse = " + ")))
@@ -2645,7 +2674,7 @@ Voor de totaalanalyse beschouwen we alle plots van 2018-2021 en voegen enkel plo
 ```{r}
 # Get presence-absences for region and year span
 df_count_list_oltotal_raw <- create_data_list(
-  doel_soorten, 
+  doel_soorten_ol, 
   "Oostelijke leemstreek", 
   2018:2022)
 
