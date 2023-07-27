@@ -324,7 +324,7 @@ sbp_gelekwik_pois1 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_pois1)
-plot(sbp_gelekwik_pois1)
+plot(sbp_gelekwik_pois1, ask = FALSE)
 
 # 2. Negative binomial
 sbp_gelekwik_negbin1 <- 
@@ -340,7 +340,7 @@ sbp_gelekwik_negbin1 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_negbin1)
-plot(sbp_gelekwik_negbin1)
+plot(sbp_gelekwik_negbin1, ask = FALSE)
 
 # 3. Zero-inflated Poisson
 sbp_gelekwik_ZIP1 <- 
@@ -356,7 +356,7 @@ sbp_gelekwik_ZIP1 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_ZIP1)
-plot(sbp_gelekwik_ZIP1)
+plot(sbp_gelekwik_ZIP1, ask = FALSE)
 
 # 4. Zero-inflated Negative binomial
 sbp_gelekwik_ZINB1 <- 
@@ -372,7 +372,7 @@ sbp_gelekwik_ZINB1 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_ZINB1)
-plot(sbp_gelekwik_ZINB1)
+plot(sbp_gelekwik_ZINB1, ask = FALSE)
 ```
 
 Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
@@ -589,7 +589,7 @@ sbp_gelekwik_pois0 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_pois0)
-plot(sbp_gelekwik_pois0)
+plot(sbp_gelekwik_pois0, ask = FALSE)
 
 # 3. Autoregressive per jaar
 sbp_gelekwik_pois2 <- 
@@ -606,7 +606,7 @@ sbp_gelekwik_pois2 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_pois2)
-plot(sbp_gelekwik_pois2)
+plot(sbp_gelekwik_pois2, ask = FALSE)
 ```
 
 Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
@@ -800,7 +800,7 @@ sbp_gelekwik_pois12 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_pois12)
-plot(sbp_gelekwik_pois12)
+plot(sbp_gelekwik_pois12, ask = FALSE)
 
 # 2. Negative binomial
 sbp_gelekwik_negbin12 <- 
@@ -816,7 +816,7 @@ sbp_gelekwik_negbin12 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_negbin12)
-plot(sbp_gelekwik_negbin12)
+plot(sbp_gelekwik_negbin12, ask = FALSE)
 
 # 3. Zero-inflated Poisson
 sbp_gelekwik_ZIP12 <- 
@@ -832,7 +832,7 @@ sbp_gelekwik_ZIP12 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_ZIP12)
-plot(sbp_gelekwik_ZIP12)
+plot(sbp_gelekwik_ZIP12, ask = FALSE)
 
 # 4. Zero-inflated Negative binomial
 sbp_gelekwik_ZINB12 <- 
@@ -848,7 +848,7 @@ sbp_gelekwik_ZINB12 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_ZINB12)
-plot(sbp_gelekwik_ZINB12)
+plot(sbp_gelekwik_ZINB12, ask = FALSE)
 ```
 
 Vergelijk modellen.
@@ -987,7 +987,7 @@ sbp_gelekwik_pois13 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_pois13)
-plot(sbp_gelekwik_pois13)
+plot(sbp_gelekwik_pois13, ask = FALSE)
 
 # 2. Negative binomial
 sbp_gelekwik_negbin13 <- 
@@ -1003,7 +1003,7 @@ sbp_gelekwik_negbin13 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_negbin13)
-plot(sbp_gelekwik_negbin13)
+plot(sbp_gelekwik_negbin13, ask = FALSE)
 
 # 3. Zero-inflated Poisson
 sbp_gelekwik_ZIP13 <- 
@@ -1019,7 +1019,7 @@ sbp_gelekwik_ZIP13 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_ZIP13)
-plot(sbp_gelekwik_ZIP13)
+plot(sbp_gelekwik_ZIP13, ask = FALSE)
 
 # 4. Zero-inflated Negative binomial
 sbp_gelekwik_ZINB13 <- 
@@ -1035,7 +1035,7 @@ sbp_gelekwik_ZINB13 <-
       file_refit = "on_change")
 
 summary(sbp_gelekwik_ZINB13)
-plot(sbp_gelekwik_ZINB13)
+plot(sbp_gelekwik_ZINB13, ask = FALSE)
 ```
 
 Vergelijk modellen.
@@ -1449,8 +1449,8 @@ Hoewel de verschillende chains overeenkomen in alle modellen, zien de posterior 
 Mogelijks is dit het gevolg van de keuzes van de hyperparameters. "Different levels of sparsity can be accommodated by changing the value of $\tau$: with large $\tau$ all the variables have very diffuse priors with very little shrinkage towards zero, but letting $\tau \rightarrow 0$ will shrink all the weights $\beta_j$ to zero." .
 
 ```{r}
-plot(ref_gelekwik_model6)
-plot(ref_gelekwik_model9)
+plot(ref_gelekwik_model6, ask = FALSE)
+plot(ref_gelekwik_model9, ask = FALSE)
 ```
 
 #### Prior check
@@ -2283,7 +2283,7 @@ fit_olsbp_geelgors
 ```
 
 ```{r}
-plot(fit_olsbp_geelgors)
+plot(fit_olsbp_geelgors, ask = FALSE)
 ```
 
 ```{r}
@@ -2318,7 +2318,7 @@ fit_olsbp_gelekwikstaart
 ```
 
 ```{r}
-plot(fit_olsbp_gelekwikstaart)
+plot(fit_olsbp_gelekwikstaart, ask = FALSE)
 ```
 
 ```{r}
@@ -2353,7 +2353,7 @@ fit_olsbp_grasmus
 ```
 
 ```{r}
-plot(fit_olsbp_grasmus)
+plot(fit_olsbp_grasmus, ask = FALSE)
 ```
 
 ```{r}
@@ -2388,7 +2388,7 @@ fit_olsbp_haas
 ```
 
 ```{r}
-plot(fit_olsbp_haas)
+plot(fit_olsbp_haas, ask = FALSE)
 ```
 
 ```{r}
@@ -2423,7 +2423,7 @@ fit_olsbp_kievit
 ```
 
 ```{r}
-plot(fit_olsbp_kievit)
+plot(fit_olsbp_kievit, ask = FALSE)
 ```
 
 ```{r}
@@ -2458,7 +2458,7 @@ fit_olsbp_veldleeuwerik
 ```
 
 ```{r}
-plot(fit_olsbp_veldleeuwerik)
+plot(fit_olsbp_veldleeuwerik, ask = FALSE)
 ```
 
 ```{r}
@@ -2493,7 +2493,7 @@ fit_olsbp_wittekwikstaart
 ```
 
 ```{r}
-plot(fit_olsbp_wittekwikstaart)
+plot(fit_olsbp_wittekwikstaart, ask = FALSE)
 ```
 
 ```{r}
