@@ -1186,6 +1186,14 @@ We kunnen die variabele ook kunnen opdelen in klassen (bv. \< 0.1, 0.1 - 0.2, \>
 Er zijn wellicht ook minder data \> 0.2 (waardoor je ook minder zeker bent van het niet lineaire verband).
 Nog een optie is de variabele sqrt transformeren.
 
+We besluiten op te delen volgens de agri-environment schemes (AES) classificatie besproken in @sharps2023.
+
+```{r}
+tibble(beleid = c("nul", "laag", "middel", "hoog"),
+       prop_area_sb = c("0", "<0.04", "0.04-0.1", ">0.1")) %>%
+  kable()
+```
+
 ```{r}
 gele_kwik_df2_2022 %>%
   ggplot(aes(x = area_prop_sb)) +
@@ -1198,10 +1206,10 @@ test <-
   brm(formula = bf(aantal ~ regio*area_prop_sb_cat),
       data = gele_kwik_df2_2022 %>%
         mutate(area_prop_sb_cat = case_when(
-          area_prop_sb == 0 ~ "area_0",
-          area_prop_sb < 0.1 ~ "area_<0.1",
-          area_prop_sb <= 0.2 ~ "area_0.1-0.2",
-          TRUE ~ "area_>0.2"
+          area_prop_sb == 0 ~ "nulbeleid",
+          area_prop_sb < 0.04 ~ "laagbeleid",
+          area_prop_sb <= 0.1 ~ "middelbeleid",
+          TRUE ~ "hoogbeleid"
         )), 
       family = negbinomial(), 
       chains = nchains, 
@@ -1217,9 +1225,11 @@ effects_df <- effects$`area_prop_sb_cat:regio` %>%
   as_tibble()
 
 effects_df %>%
-  mutate(area_prop_sb_cat = factor(gsub("^area_", "", area_prop_sb_cat),
-                                   levels = c("0", "<0.1", "0.1-0.2",
-                                              ">0.2"),
+  mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
+                                   levels = c("nulbeleid",
+                                              "laagbeleid",
+                                              "middelbeleid",
+                                              "hoogbeleid"),
                                    ordered = TRUE)) %>%
   ggplot(aes(x = area_prop_sb_cat, y = estimate__, colour = regio)) +
     geom_point(position = position_dodge(width = 0.4),
@@ -1242,14 +1252,13 @@ Dit ziet er waardevoller uit.
 <https://github.com/stan-dev/projpred/issues/67>\
 <https://paul-buerkner.github.io/brms/reference/R2D2.html>
 
-
 ### Referentiemodel
 
 Eerst moeten we een referentiemodel construeren voor de selectie van verklarende variabelen via 'projection predive variable selection' (PPVS).
 Het doel van PPVS is het vinden van een zo klein mogelijke subset van kandidaat-variabelen met een voorspellende kracht die zo dicht mogelijk ligt bij die van het referentiemodel.
 Het referentiemodel bevat alle variabelen in kwestie en is het best presterende model (in termen van voorspellende prestaties) dat we tot onze beschikking hebben [@mclatchie2023].
 
-We selecteren de data van de Oostelijke leemstreek van 2022. 
+We selecteren de data van de Oostelijke leemstreek van 2022.
 We centreren en schalen alle continue variabelen door te delen door de standaard deviatie.
 
 ```{r}
@@ -1257,10 +1266,10 @@ We centreren en schalen alle continue variabelen door te delen door de standaard
 data_projpred <- gele_kwik_df2_2022 %>%
   filter(regio == "Oostelijke leemstreek") %>%
   mutate(area_prop_sb_cat = case_when(
-    area_prop_sb == 0 ~ "area_0",
-    area_prop_sb < 0.1 ~ "area_<0.1",
-    area_prop_sb <= 0.2 ~ "area_0.1-0.2",
-    TRUE ~ "area_>0.2"
+    area_prop_sb == 0 ~ "nulbeleid",
+    area_prop_sb < 0.04 ~ "laagbeleid",
+    area_prop_sb <= 0.1 ~ "middelbeleid",
+    TRUE ~ "hoogbeleid"
   ))
 
 data_projpred_scaled <- data_projpred %>%
@@ -1444,9 +1453,12 @@ show_rhat(list(ref_gelekwik_model1,
                ref_gelekwik_model8))
 ```
 
-Hoewel de verschillende chains overeenkomen in alle modellen, zien de posterior distributions er toch vreemd uit voor de modellen met de horseshoe priors. Het lijkt erop dat er sterke shrinkage naar 0 is maar dat dit voor een vreemde vorm in de posterior zorgt. Bovendien werden er verschillende warnings geuit tijdens het fitten van deze modellen.
+Hoewel de verschillende chains overeenkomen in alle modellen, zien de posterior distributions er toch vreemd uit voor de modellen met de horseshoe priors.
+Het lijkt erop dat er sterke shrinkage naar 0 is maar dat dit voor een vreemde vorm in de posterior zorgt.
+Bovendien werden er verschillende warnings geuit tijdens het fitten van deze modellen.
 
-Mogelijks is dit het gevolg van de keuzes van de hyperparameters. "Different levels of sparsity can be accommodated by changing the value of $\tau$: with large $\tau$ all the variables have very diffuse priors with very little shrinkage towards zero, but letting $\tau \rightarrow 0$ will shrink all the weights $\beta_j$ to zero." .
+Mogelijks is dit het gevolg van de keuzes van de hyperparameters.
+"Different levels of sparsity can be accommodated by changing the value of $\tau$: with large $\tau$ all the variables have very diffuse priors with very little shrinkage towards zero, but letting $\tau \rightarrow 0$ will shrink all the weights $\beta_j$ to zero." .
 
 ```{r}
 plot(ref_gelekwik_model6, ask = FALSE)
@@ -1551,7 +1563,7 @@ pp_check(ref_gelekwik_model6, type = "bars", ndraws = 200)
 ### PPVS
 
 PPVS kunnen we doen met de **projpred** package [@projpred].
-Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten). 
+Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten).
 Default neemt de functie 19 als maximum, maar wij schatten dat meer dan 10 predictors overbodig zal zijn.
 Omdat we de variabele `sbp` in elk model willen, maken we een vector met alle mogelijke combinaties van predictors met deze variabele en maximum aan 10 predictors.
 `nterms_max` zal dan automatisch 10 zijn.
@@ -1690,10 +1702,13 @@ De aangeraden modelgrootte is:
 suggest_size(cvvs_fast4)
 ```
 
-Hoe sterker de shrinkage, hoe sneller PPVS. De horseshoe had de sterkste shrinkage, daarna de R2D2 en daarna zonder shrinkage. Zonder shrinkage prior gaat het trager en de resultaten verschillen ook van deze met de shrinkage priors.
+Hoe sterker de shrinkage, hoe sneller PPVS.
+De horseshoe had de sterkste shrinkage, daarna de R2D2 en daarna zonder shrinkage.
+Zonder shrinkage prior gaat het trager en de resultaten verschillen ook van deze met de shrinkage priors.
 Omwille van de model fit problemen, lijkt het best om verder te gaan met het model met de default R2D2 shrinkage prior.
 
-We zien dat de "mean log predictive density" (MLPD) van de shrinkage submodellen vooral hard toeneemt bij de eerste vier predictors. Daarna zijn er slechts kleine verschillen.
+We zien dat de "mean log predictive density" (MLPD) van de shrinkage submodellen vooral hard toeneemt bij de eerste vier predictors.
+Daarna zijn er slechts kleine verschillen.
 Nu doen we een grondige forward search die meer tijd nodig heeft met `validate_search = TRUE` (beschermt tegen overfitting).
 We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel (`deltas = TRUE`).
 
@@ -1716,11 +1731,11 @@ plot(cvvs_refmodel1, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE,
      ranking_abbreviate_args = list(minlength = 4))
 ```
 
-Op basis van deze plot bepalen we submodelgrootte. 
+Op basis van deze plot bepalen we submodelgrootte.
 Meestal is het de bedoeling om de kleinste submodelgrootte te vinden waarbij de voorspellende prestaties van de submodellen afvlakken en dicht genoeg in de buurt komen van de voorspellende prestaties van het referentiemodel (de gestippelde rode horizontale lijn).
 Dit blijft min of meer een subjectieve beslissing.
 Er moet er een geschikte afweging worden gemaakt tussen voorspellende prestaties (nauwkeurigheid) en modelgrootte.
-We zien na de vierde predictor geen sterke stijgingen meer. 
+We zien na de vierde predictor geen sterke stijgingen meer.
 Wel is er nog een kleine stijging tot en met 7 à 8.
 
 ```{r}
@@ -1730,7 +1745,8 @@ smmry_refmodel1 <- summary(cvvs_refmodel1, stats = "mlpd",
 print(smmry_refmodel1, digits = 1)
 ```
 
-De eerste vier zijn dezelfde als de eerste vier in de snelle analyse. Dit geld ook voor de eerste acht (wel in andere volgorde).
+De eerste vier zijn dezelfde als de eerste vier in de snelle analyse.
+Dit geld ook voor de eerste acht (wel in andere volgorde).
 We zien bovendien dat voor de eerste acht predictors dat er weinig variabiliteit is in de rangschikking van de variabelen
 
 ```{r}
@@ -1740,9 +1756,11 @@ plot(pr_rk_refmodel1)
 plot(cv_proportions(rk_refmodel1, cumulate = TRUE))
 ```
 
-4 of 8? 8 is goed zie ook snelle methode zelfde resultaat ...
+4 of 8?
+8 is goed zie ook snelle methode zelfde resultaat ...
 
-De aangeraden grootte door het **projpred** package is `r suggest_size(cvvs_refmodel1, stat = "mlpd")` verklarende variabelen. Het gaat dan om de volgende variabelen:
+De aangeraden grootte door het **projpred** package is `r suggest_size(cvvs_refmodel1, stat = "mlpd")` verklarende variabelen.
+Het gaat dan om de volgende variabelen:
 
 ```{r}
 size_decided1_refmodel1 <- suggest_size(cvvs_refmodel1, stat = "mlpd")
@@ -1962,16 +1980,14 @@ plot_brms_fit(final, x = "aardappelen_hfdtlt", show_data = TRUE,
               axis_label = "proportie hoofdteelt aardappelen (%)")
 ```
 
-
 ## Conclusie
 
--  PPVS lijkt een goede methode voor selectie van variabelen
--  We voeren dit uit voor sbp, met area_prop_sb_cat en met alle variabelen (geen restricties)
-  -  voor OL en DM apart
-  -  voor specifieke doelsoorten apart
-  -  enkel voor 2022 of ook al 2023?
-  -  alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
-
+-   PPVS lijkt een goede methode voor selectie van variabelen
+-   We voeren dit uit voor sbp, met area_prop_sb_cat en met alle variabelen (geen restricties)
+-   voor OL en DM apart
+-   voor specifieke doelsoorten apart
+-   enkel voor 2022 of ook al 2023?
+-   alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
 
 # Oostelijke leemstreek 2022: sbp
 
@@ -2057,12 +2073,12 @@ create_data_list <- function(doel_soorten_ol_pre, region, year = 2022) {
       filter(jaar %in% year,
              regio == region) %>%
       mutate(area_prop_sb_cat = case_when(
-        area_prop_sb == 0 ~ "area_0",
-        area_prop_sb < 0.1 ~ "area_<0.1",
-        area_prop_sb <= 0.2 ~ "area_0.1-0.2",
-        TRUE ~ "area_>0.2"
+        area_prop_sb == 0 ~ "nulbeleid",
+        area_prop_sb < 0.04 ~ "laagbeleid",
+        area_prop_sb <= 0.1 ~ "middelbeleid",
+        TRUE ~ "hoogbeleid"
         ),
-        area_prop_sb_cat = relevel(factor(area_prop_sb_cat), "area_0"))
+        area_prop_sb_cat = relevel(factor(area_prop_sb_cat), "nulbeleid"))
     
     naam_obs <- gsub(" ", "", spec)
     
@@ -2537,7 +2553,6 @@ for (pred in predictors_olsbp_list$WitteKwikstaart$predictors) {
 }
 ```
 
-
 # Oostelijke leemstreek 2022: area_prop_sb
 
 We doen hetzelfde, maar nu beschouwen we `area_prop_sb` in plaats van de `sbp` variabele.
@@ -2669,7 +2684,9 @@ for (i in seq_along(cvvs_olpropsb_list)) {
 
 # Oostelijke leemstreek totaalanalyse
 
-Voor de totaalanalyse beschouwen we alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren (cf. distance sampling analyses). `jaar` zal een extra variabele zijn (als factor). We voeren de PPVS uit zonder restricties.
+Voor de totaalanalyse beschouwen we alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren (cf. distance sampling analyses).
+`jaar` zal een extra variabele zijn (als factor).
+We voeren de PPVS uit zonder restricties.
 
 ```{r}
 # Get presence-absences for region and year span
@@ -2710,10 +2727,7 @@ df_count_list_oltotal_scaled <- lapply(df_count_list_oltotal, function(df) {
   })
 ```
 
-
 > testcase Veldleeuwerik
-
-
 
 ```{r}
 # MCMC parameters
@@ -2773,7 +2787,6 @@ cvvs_olsbp_veldleeuwerik_fast <- cv_varsel(
   validate_search = FALSE)
 ```
 
-
 ```{r}
 cvvs_olsbp_veldleeuwerik <- cv_varsel(
   object          = refmod_oltotal_veldleeuwerik,
@@ -2782,7 +2795,6 @@ cvvs_olsbp_veldleeuwerik <- cv_varsel(
   nterms_max      = 19,
   validate_search = TRUE)
 ```
-
 
 # De Moeren 2022: sbp
 
