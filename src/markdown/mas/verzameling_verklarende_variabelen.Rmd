@@ -27,6 +27,7 @@ opts_knit$set(root.dir = here())
 
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(base::`%in%`)
 
 Sys.setenv("PROJ_NETWORK" = "ON")
 
@@ -337,17 +338,16 @@ Belangrijkste teelten 2018-2021:\
 <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2020>\
 <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2021>
 
-Belangrijkste teelten in 2022:\
+Belangrijkste teelten in 2022-2023:\
 <https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>\
-Voorlopige kaart.
-Finale kaart wordt eind april gepubliceerd (?).
+Voor 2023 voorlopige kaart.
 
 ### Hoe verzameld?
 
 Download van url's.
 
 Omzetten naar .parquet file.
-Bijvoorbeeld voor 2019:
+Bijvoorbeeld voor 2019 (2017-2021):
 
     file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
                                   "Lbgbrprc19.shp"), query = NA)
@@ -355,6 +355,24 @@ Bijvoorbeeld voor 2019:
     sfarrow::st_write_parquet(obj = file, 
                               dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
                                               "lbgbrprc2019.parquet"), chunk_size = 10000)
+                                             
+Bijvoorbeeld voor 2022 (2022-2023):
+
+```
+file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
+                              "Lbgbrprc22.shp"), query = NA)
+  	
+temp <- file %>%
+  	  mutate(OIDN = NA, 
+  	         UIDN = NA,
+  	         LENGTE = NA,
+  	         OPPERVL = NA) %>%
+  	  select(OIDN, UIDN, ALVID = REF_ID, HFDTLT = GWSCOD_H, LBLHFDTLT = GWSNAM_H, 
+  	         GEWASGROEP = GWSGRPH_LB, PM = GESP_PM, LBLPM = GESP_PM_LB, LENGTE, OPPERVL)
+  	
+sfarrow::st_write_parquet(obj = temp, dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
+                                                      "lbgbrprc2022.parquet"), chunk_size = 10000)
+```
 
 ### Hoe berekend?
 
