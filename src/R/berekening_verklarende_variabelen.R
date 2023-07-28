@@ -52,7 +52,7 @@ calc_lbg_by_year <- function(punten_df) {
 
 path_to_vzml <- function(jaar) {
   string <- paste("Landbouwgebruikspercelen", jaar, sep = "_")
-  if (jaar == 2022) extension = ".gpkg" else extension = ".shp"
+  extension <- ".shp"
 
   file.path(mbag_dir, "data", "verzamelaanvraag", string,
             paste0(string, extension))

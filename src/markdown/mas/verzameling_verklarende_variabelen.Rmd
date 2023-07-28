@@ -772,7 +772,7 @@ vrtlt_groepen %>%
 ```{r}
 telpunten_2018_2023_vrtlt_long_tot <- calc_vzml_by_year(telpunten_2018_2023_df)
 telpunten_2018_2023_vrtlt_long <- telpunten_2018_2023_vrtlt_long_tot %>%
-  full_join(vrtlt_groepen, by = join_by(GWSNAM_V))
+  left_join(vrtlt_groepen, by = join_by(GWSNAM_V))
 
 telpunten_2018_2023_vrtlt <- telpunten_2018_2023_vrtlt_long %>%
   pivot_wider(id_cols = c(pointid, jaar), 
