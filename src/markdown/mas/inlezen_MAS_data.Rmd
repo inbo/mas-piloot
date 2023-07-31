@@ -179,6 +179,22 @@ We zien vaak al waarnemingen voor de punten in de oude export. In de nieuwe expo
 
 Zouden er nieuwe waarnemingen ingevoerd zijn na de laatste export?
 
+# Voeg data 2023 toe
+
+> nog niet finaal! wacht op Johannes week van 31 juli
+
+We lezen de data van 2023 in en voegen ze toe aan de eerdere nieuwe export.
+
+```{r}
+file_geojson_2023 <- file.path(data_path, 
+                               "20230731_qgis_export_sovon_wfs_2023.geojson")
+mas_geojson_2023 <- read_sf(file_geojson_2023)
+
+mas_geojson_2018_2023 <- bind_rows(mas_geojson_new,
+                                   mas_geojson_2023)
+```
+
+
 # Data preparatie
 ## CRS
 
@@ -196,9 +212,9 @@ chosen_pipeline_definition <- pipelines %>%
   pull(definition)
 
 mas_31370_pipeline <- 
-  st_transform(st_geometry(mas_geojson_new), "EPSG:31370",
+  st_transform(st_geometry(mas_geojson_2018_2023), "EPSG:31370",
                pipeline = chosen_pipeline_definition) %>% 
-  st_sf(st_drop_geometry(mas_geojson_new), geometry = .) %>% 
+  st_sf(st_drop_geometry(mas_geojson_2018_2023), geometry = .) %>% 
   as_tibble() %>% 
   st_as_sf() %>%
   rename(x_amersfoord = x_coord,
