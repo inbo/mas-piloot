@@ -448,6 +448,10 @@ mas_no_dubbel <- mas_soortgrp %>%
   select(-c(prof_in_period, max_doy, keep))
 ```
 
+Ol_2008.5 testje
+maak extra variabele van persoon meest geteld in jaar in plot
+als die een dubbeltelling geeft toewijzen, anders prof, anders laatste teldag
+
 ## Soortnamen
 
 We controleren de soortnamen.
