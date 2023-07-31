@@ -1264,7 +1264,7 @@ Download van url's.
 We selecteren alle landbouwgebruikspercelen die overlappen met de telcirkels. We aggregeren aaneenliggende percelen indien ze dezelfde hoofdteelt hebben. Per telcirkel berekenen we de oppervlaktes van bijbehorende percelen. We nemen finaal de mediaan en interkwartielafstand van de oppervlaktes.  
 Zoals voordien zijn er enkele `NA`'s in de `LBLHFDTLT` kolom van de laag van 2019 die effectief niet met landbouwpercelen lijken overeen te komen (vaak smalle stroken tussenin). Deze worden weggefilterd.
 
-> Voorlopig niet berekenen voor 2022. Code loopt vast, maar hopelijk snel finale kaartlaag.
+> Doordat de lagen van 2022 en 2023 van een andere bron komen zit er een if statement in de functie `calc_perceelsgrootte_by_year()` die hiermee reking houdt, maar dit is geen mooie code
 
 ```{r}
 telpunten_2018_2023_prcl <- calc_perceelsgrootte_by_year(telpunten_2018_2023_df)

@@ -145,7 +145,7 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
                                                          ".shp"))) %>%
       st_transform(crs = 31370)
 
-    if (year == 2022) {
+    if (year %in% 2022:2023) {
       lbg_binding <- lbg_binding %>%
         rename(LBLHFDTLT = GWSNAM_H,
                perc_id = REF_ID)
