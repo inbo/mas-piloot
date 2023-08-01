@@ -448,10 +448,6 @@ mas_no_dubbel <- mas_soortgrp %>%
   select(-c(prof_in_period, max_doy, keep))
 ```
 
-Ol_2008.5 testje
-maak extra variabele van persoon meest geteld in jaar in plot
-als die een dubbeltelling geeft toewijzen, anders prof, anders laatste teldag
-
 ## Soortnamen
 
 We controleren de soortnamen.
@@ -519,8 +515,8 @@ mas_profs <- mas_clean %>%
 roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bosuil", "Bruine Kiekendief",
                 "Buizerd", "Grauwe Kiekendief", "Havik", "Ransuil", "Rode Wouw",
                 "Slechtvalk", "Smelleken", "Sperwer", "Steenuil", 
-                "Steppekiekendief", "Torenvalk", "Velduil", "Wespendief",
-                "Zwarte Wouw")
+                "Steppekiekendief", "Torenvalk", "Vale Gier", "Velduil",
+                "Wespendief", "Zwarte Wouw")
 kraaiachtigen <- c("Ekster", "Gaai", "Kauw", "Raaf", "Roek", "Zwarte Kraai")
 predatoren <- c(roofvogels, kraaiachtigen)
 ```
@@ -548,7 +544,7 @@ Dit zijn variabelen op plot- en jaarniveau.
 
 ```{r}
 verklarende_variabelen_plotjaar <- read_csv(
-  file.path("data", "processed", "verklarende_variabelen_2018_2022.csv")
+  file.path("data", "processed", "verklarende_variabelen_2018_2023.csv")
   )
 
 mas_finaal_df <- mas_predators %>%
@@ -678,5 +674,5 @@ mas_finaal_df %>%
 
 ```{r}
 write_csv(st_drop_geometry(mas_finaal_df), 
-          file.path("data", "processed", "MAS_data_full_2018_2022.csv"))
+          file.path("data", "processed", "MAS_data_full_2018_2023.csv"))
 ```
