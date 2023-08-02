@@ -390,7 +390,8 @@ We groeperen per gewasgroep.
 
 ```{r}
 hftlt_groepen <- hftlt_groepen_raw %>%
-  select(LBLHFDTLT, GEWASGROEP = nieuwe_groep)
+  select(LBLHFDTLT, GEWASGROEP = nieuwe_groep) %>%
+  drop_na(GEWASGROEP)
 
 hftlt_groepen %>%
   kable()
@@ -763,7 +764,8 @@ We groeperen per gewasgroep.
 
 ```{r}
 vrtlt_groepen <- vrtlt_groepen_raw %>%
-  select(GWSNAM_V, GEWASGROEP = nieuwe_groep)
+  select(GWSNAM_V, GEWASGROEP = nieuwe_groep) %>%
+  drop_na(GEWASGROEP)
 
 vrtlt_groepen %>%
   kable()
