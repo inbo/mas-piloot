@@ -70,3 +70,21 @@ mas_31370_pipeline <-
   select(oid:y_amersfoord, x_lambert, y_lambert, everything())
 ```
 
+```{r}
+source(here("src", "R", "wfs_wcs.R"))
+vlaanderen <- get_feature_wfs(
+  wfs = "https://eservices.minfin.fgov.be/arcgis/services/R2C/Regions/MapServer/WFSServer",
+  layername = "regions",
+  crs = "EPSG:31370",
+  filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
+  select(NameDUT)
+
+ggplot() +
+  geom_sf(data = vlaanderen) +
+  geom_sf(data = mas_31370_pipeline, aes(colour = factor(maand)), size = 0.5) +
+  theme(legend.position = "bottom") +
+  labs(colour = "maand")
+```
+
+# 1) Binnen telperiodes
+
