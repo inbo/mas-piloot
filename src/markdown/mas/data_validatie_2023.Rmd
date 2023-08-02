@@ -88,3 +88,58 @@ ggplot() +
 
 # 1) Binnen telperiodes
 
+```{r}
+r1_start <- "04-01"
+r1_stop  <- "04-20"
+r2_start <- "04-21"
+r2_stop  <- "05-10"
+r3_start <- "05-11"
+r3_stop  <- "06-10"
+r4_start <- "06-21"
+r4_stop  <- "07-15"
+
+mas_telperiodes <- mas_31370_pipeline %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    ))
+
+buiten_telperiodes <- mas_telperiodes %>%
+  filter(is.na(periode_in_jaar)) %>%
+  select(plotnaam, waarnemer = waarneme, datum, maand)
+```
+
+Waar zijn tellingen gebeurt buiten telperiodes gebeurd?
+
+```{r}
+ggplot() +
+  geom_sf(data = vlaanderen) +
+  geom_sf(data = buiten_telperiodes, aes(colour = factor(maand)), size = 0.8) +
+  theme(legend.position = "bottom") +
+  labs(colour = "maand")
+```
+
+Info buiten telperiodes:
+
+```{r}
+buiten_telperiodes %>%
+  st_drop_geometry() %>%
+  select(-maand) %>%
+  arrange(datum, plotnaam, waarnemer) %>%
+  distinct() %>%
+  kable()
+```
+
+Dit zijn punten die niet binnen het MAS pilootproject lijken te vallen.
