@@ -149,6 +149,7 @@ Dit zijn punten die niet binnen het MAS pilootproject lijken te vallen.
 
 De data bevat geen info over precieze tijdstippen van tellingen, enkel datums.
 
+
 # Typfouten in aantallen
 
 ```{r}
@@ -175,10 +176,37 @@ We zien veel soorten die wel in grote groepen kunnen voorkomen zoals ganzen, spr
 In de hoogste gevallen worden wel veel Vinken (eens 180, 200, 500) gezien en ook veel holenduiven (600, 1600).
 Is dit geloofwaardig?
 
+
+# Soortnamen
+
+Welke soorten zijn gezien?
+Zijn er typfoutenin de soortnamen?
+
+```{r}
+mas_telperiodes %>%
+  st_drop_geometry() %>%
+  count(naam, name =  "aantal waarnemingen") %>%
+  arrange(naam) %>%
+  kable()
+```
+
+Soorten die minder dan 10 keer gezien zijn:
+
+```{r}
+mas_telperiodes %>%
+  st_drop_geometry() %>%
+  group_by(naam) %>%
+  mutate( `aantal waarnemingen` = n()) %>%
+  filter( `aantal waarnemingen` < 10) %>%
+  select( `aantal waarnemingen`, naam, plotnaam, waarnemer = waarneme, datum) %>%
+  arrange( `aantal waarnemingen`) %>%
+  kable()
+```
+
+
 # Schrijf de data weg
 
 ```{r}
 write_csv(mas_telperiodes,
           file.path(data_path, "20230802_qgis_export_sovon_wfs_2023.csv"))
 ```
-
