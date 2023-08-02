@@ -86,7 +86,7 @@ ggplot() +
   labs(colour = "maand")
 ```
 
-# 1) Binnen telperiodes
+# Binnen telperiodes
 
 ```{r}
 r1_start <- "04-01"
@@ -145,11 +145,11 @@ buiten_telperiodes %>%
 Dit zijn punten die niet binnen het MAS pilootproject lijken te vallen.
 
 
-# 2) Binnen tijdsspanne zonsopgang
+# Binnen tijdsspanne zonsopgang
 
 De data bevat geen info over precieze tijdstippen van tellingen, enkel datums.
 
-# 3) Typfouten in aantallen
+# Typfouten in aantallen
 
 ```{r}
 mas_telperiodes %>%
@@ -174,3 +174,11 @@ mas_telperiodes %>%
 We zien veel soorten die wel in grote groepen kunnen voorkomen zoals ganzen, spreeuwen, roeken, meeuwen ...
 In de hoogste gevallen worden wel veel Vinken (eens 180, 200, 500) gezien en ook veel holenduiven (600, 1600).
 Is dit geloofwaardig?
+
+# Schrijf de data weg
+
+```{r}
+write_csv(mas_telperiodes,
+          file.path(data_path, "20230802_qgis_export_sovon_wfs_2023.csv"))
+```
+
