@@ -1767,9 +1767,6 @@ plot(pr_rk_refmodel1)
 plot(cv_proportions(rk_refmodel1, cumulate = TRUE))
 ```
 
-4 of 8?
-8 is goed zie ook snelle methode zelfde resultaat ...
-
 De aangeraden grootte door het **projpred** package is `r suggest_size(cvvs_refmodel1, stat = "mlpd")` verklarende variabelen.
 Het gaat dan om de volgende variabelen:
 
