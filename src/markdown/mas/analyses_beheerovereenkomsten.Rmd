@@ -2048,13 +2048,17 @@ create_data_list <- function(doel_soorten_ol_pre, region, year = 2022) {
         which(names(mas_data_df) == "n_predators"):length(names(mas_data_df))),
         by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
       distinct() %>%
-      mutate(jaar.f = factor(jaar),
-             zomergranen_hfdtlt2 = rowSums(across(c(graangewassen_hfdtlt, 
-                                                    zomergranen_hfdtlt)))) %>%
-      select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt))
+      mutate(jaar = factor(jaar),
+         zomergranen_hfdtlt2 = rowSums(across(
+           c(graangewassen_hfdtlt, zomergranen_hfdtlt))),
+         zomergranen_hfdtlt_pre2 = rowSums(across(
+           c(graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
+      select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt,
+                graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre))
     
     # Aggregate counts by plot and year
     mas_data_df_agg <- mas_data_df_full %>%
+      mutate(jaar.f = factor(jaar)) %>%
       select(all_of(c(response_vars, strat_vars, pred_vars))) %>%
       group_by(plotnaam, jaar) %>%
       mutate(status_teller = names(which.max(table(status_teller)))) %>%
