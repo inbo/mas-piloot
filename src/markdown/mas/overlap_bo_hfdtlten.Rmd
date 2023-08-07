@@ -98,7 +98,7 @@ df <- bind_rows(
               .groups = "drop") 
 ```
 
-We beschouwen overlap met alle hoofdteelten en kijken naar de 20 hoofdteelten die meest overlappen met elke beheerdoelstelling (`r sort(unique(df$BH_DOELST)))`).
+We beschouwen overlap met alle hoofdteelten en kijken naar de 20 hoofdteelten die meest overlappen met elke beheerdoelstelling (`r sort(unique(df$BH_DOELST))`).
 
 ```{r}
 for (doelst in sort(unique(df$BH_DOELST))) {
