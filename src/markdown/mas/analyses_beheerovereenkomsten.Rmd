@@ -64,7 +64,7 @@ projpred_path <- "./src/markdown/mas/projpred_cache/"
 
 ```{r}
 data_path <- here("data", "processed")
-mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
+mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
 ```
 
 ```{r}
@@ -166,10 +166,7 @@ gele_kwik_df1 %>%
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank()) + 
     facet_wrap(jaar~regio, scales = "free") +
-    labs(y = "", x = "Aantal broedparen Gele kwikstaart per plot") +
-    theme(legend.position = c(1, 0),
-          legend.justification = c(1, 0),
-          legend.direction = "horizontal")
+    labs(y = "", x = "Aantal broedparen Gele kwikstaart per plot")
 ```
 
 ```{r}
@@ -179,8 +176,9 @@ gele_kwik_df1 %>%
   stat_summary(fun.data = mean_cl_boot,
                position = position_dodge(width = 0.5),
                fatten = 4, shape = "square") +
+  scale_x_continuous(breaks = sort(unique(gele_kwik_df1$jaar))) +
   facet_wrap(~regio, scales = "free") +
-  labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "Telperiode") +
+  labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "") +
   theme(legend.position = "bottom")
 ```
 
@@ -188,9 +186,13 @@ gele_kwik_df1 %>%
 # Calculate zomergranen_hfdtlt2 as specified in 
 # exploratie_verklarende_variabelen.rmd
 gele_kwik_df <- gele_kwik_df1 %>%
-  mutate(zomergranen_hfdtlt2 = rowSums(across(c(graangewassen_hfdtlt, 
-                                               zomergranen_hfdtlt)))) %>%
-  select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt))
+  mutate(jaar = factor(jaar),
+         zomergranen_hfdtlt2 = rowSums(across(
+           c(graangewassen_hfdtlt, zomergranen_hfdtlt))),
+         zomergranen_hfdtlt_pre2 = rowSums(across(
+           c(graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
+  select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt,
+            graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre))
 
 strat_vars <- c("plotnaam", "regio", "periode_in_jaar", "jaar", "jaar.f")
 response_vars <- c("aantal")
@@ -209,7 +211,21 @@ pred_vars <- c("area_prop_sb",
                "meerjarige_fruitteelt_hfdtlt",
                "groenbemester_hfdtlt",
                "zomergranen_hfdtlt2",
-               "zaden_hfdtlt", 
+               "zaden_hfdtlt",
+               "landbouwinfrastructuur_hfdtlt_pre",
+               "grasland_hfdtlt_pre",
+               "aardappelen_hfdtlt_pre",
+               "wintergranen_hfdtlt_pre",
+               "bieten_hfdtlt_pre",
+               "mais_hfdtlt_pre",
+               "wortelgewassen_hfdtlt_pre",
+               "vlas_en_hennep_hfdtlt_pre",
+               "groententeelt_hfdtlt_pre",
+               "peulvruchten_hfdtlt_pre",
+               "meerjarige_fruitteelt_hfdtlt_pre",
+               "groenbemester_hfdtlt_pre",
+               "zomergranen_hfdtlt_pre2",
+               "zaden_hfdtlt_pre",
                "gewas_div_shannon",
                "perceel_cv_area",
                "inertie_sb",
@@ -250,9 +266,7 @@ plot_scatter <- function(x, y = "aantal", df = gele_kwik_df_mod) {
         geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
         geom_smooth(method = "gam", colour = "firebrick") +
         facet_wrap(~jaar, scales = "free") +
-        ggtitle(reg) +
-        theme(legend.position = c(0.8, 0.2),
-              legend.direction = "vertical")
+        ggtitle(reg)
     print(p)
   }
 }
@@ -1258,12 +1272,14 @@ Eerst moeten we een referentiemodel construeren voor de selectie van verklarende
 Het doel van PPVS is het vinden van een zo klein mogelijke subset van kandidaat-variabelen met een voorspellende kracht die zo dicht mogelijk ligt bij die van het referentiemodel.
 Het referentiemodel bevat alle variabelen in kwestie en is het best presterende model (in termen van voorspellende prestaties) dat we tot onze beschikking hebben [@mclatchie2023].
 
-We selecteren de data van de Oostelijke leemstreek van 2022.
+We selecteren de data van de Oostelijke leemstreek van 2022 en 2023.
+We voegen de jaarvariabele toe als factor.
 We centreren en schalen alle continue variabelen door te delen door de standaard deviatie.
 
 ```{r}
 # Data
-data_projpred <- gele_kwik_df2_2022 %>%
+data_projpred <- gele_kwik_df_mod2 %>%
+  filter(jaar %in% 2022:2023) %>%
   filter(regio == "Oostelijke leemstreek") %>%
   mutate(area_prop_sb_cat = case_when(
     area_prop_sb == 0 ~ "nulbeleid",
@@ -1290,7 +1306,6 @@ indices_refmodel1 <- which(names(data_projpred) %in% c(
   "plotnaam", 
   "regio",
   "jaar",
-  "jaar.f",
   "area_prop_sb_cat",
   "x_plot",
   "y_plot",
@@ -1752,9 +1767,6 @@ plot(pr_rk_refmodel1)
 plot(cv_proportions(rk_refmodel1, cumulate = TRUE))
 ```
 
-4 of 8?
-8 is goed zie ook snelle methode zelfde resultaat ...
-
 De aangeraden grootte door het **projpred** package is `r suggest_size(cvvs_refmodel1, stat = "mlpd")` verklarende variabelen.
 Het gaat dan om de volgende variabelen:
 
@@ -1930,50 +1942,40 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
 plot_brms_fit(final, x = "sbp", show_data = FALSE,
               axis_label = "soortbeschermingsplan")
 
-plot_brms_fit(final, x = "status_teller", show_data = FALSE,
-              axis_label = "teller status")
 ```
 
 ```{r}
-plot_brms_fit(final, x = "houtkant", factor = 100, show_data = FALSE,
-              axis_label = "proportie houtkanten (%)")
 plot_brms_fit(final, x = "haag", factor = 100, show_data = FALSE,
               axis_label = "proportie hagen (%)")
+plot_brms_fit(final, x = "houtkant", factor = 100, show_data = FALSE,
+              axis_label = "proportie houtkanten (%)")
 plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
               show_data = FALSE,
               axis_label = "proportie hoofdteelt wintergranen (%)")
 plot_brms_fit(final, x = "openheid_waarde_1000", show_data = FALSE,
               axis_label = "openheid landschap (1000 m)")
-plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100, show_data = FALSE,
-                    axis_label = "proportie hoofdteelt groententeelt (%)")
-plot_brms_fit(final, x = "zomergranen_hfdtlt2", factor = 100, show_data = FALSE,
-              axis_label = "proportie hoofdteelt zomergranen (%)")
-plot_brms_fit(final, x = "boom", factor = 100, 
-              show_data = FALSE,
-              axis_label = "proportie bomen (%)")
 plot_brms_fit(final, x = "aardappelen_hfdtlt", show_data = FALSE,
               axis_label = "proportie hoofdteelt aardappelen (%)")
+plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100,
+              show_data = FALSE,
+              axis_label = "proportie hoofdteelt groententeelt (%)")
 ```
 
 ```{r}
-plot_brms_fit(final, x = "houtkant", factor = 100, show_data = TRUE,
-              axis_label = "proportie houtkanten (%)")
 plot_brms_fit(final, x = "haag", factor = 100, show_data = TRUE,
               axis_label = "proportie hagen (%)")
+plot_brms_fit(final, x = "houtkant", factor = 100, show_data = TRUE,
+              axis_label = "proportie houtkanten (%)")
 plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
               show_data = TRUE,
               axis_label = "proportie hoofdteelt wintergranen (%)")
 plot_brms_fit(final, x = "openheid_waarde_1000", show_data = TRUE,
               axis_label = "openheid landschap (1000 m)")
-plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100, show_data = TRUE,
-                    axis_label = "proportie hoofdteelt groententeelt (%)")
-plot_brms_fit(final, x = "zomergranen_hfdtlt2", factor = 100, show_data = TRUE,
-              axis_label = "proportie hoofdteelt zomergranen (%)")
-plot_brms_fit(final, x = "boom", factor = 100, 
-              show_data = TRUE,
-              axis_label = "proportie bomen (%)")
 plot_brms_fit(final, x = "aardappelen_hfdtlt", show_data = TRUE,
               axis_label = "proportie hoofdteelt aardappelen (%)")
+plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100,
+              show_data = TRUE,
+              axis_label = "proportie hoofdteelt groententeelt (%)")
 ```
 
 ## Conclusie

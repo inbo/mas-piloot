@@ -27,6 +27,7 @@ opts_knit$set(root.dir = here())
 
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(base::`%in%`)
 
 Sys.setenv("PROJ_NETWORK" = "ON")
 
@@ -160,8 +161,8 @@ Ook gaan we er voorlopig van uit dat elke plot in elk jaar geteld is.
 Beter voorlopig te veel variabelen berekenen en achteraf filteren dan te weinig.
 
 ```{r}
-jaar <- 2018:2022
-telpunten_2018_2022_df <- merge(telpunten_2018_2022, as.data.frame(jaar))
+jaar <- 2018:2023
+telpunten_2018_2023_df <- merge(telpunten_2018_2022, as.data.frame(jaar))
 ```
 
 # Verklarende variabelen van prioritair belang
@@ -206,7 +207,7 @@ Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirke
 bo_file_2022 <- path_to_bo(jaar = 2022)
 
 # Add proportion bo per year
-telpunten_2018_2022_bo_soort <- add_bo_by_year(telpunten_2018_2022_df, bo_file_2022)
+telpunten_2018_2023_bo_soort <- add_bo_by_year(telpunten_2018_2023_df, bo_file_2022)
 ```
 
 ```{r}
@@ -220,7 +221,7 @@ summary_df <- tibble(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_bo_soort %>%
+telpunten_2018_2023_bo_soort %>%
   ggplot() +
     geom_histogram(aes(x = area_prop_sb)) +
     labs(
@@ -231,8 +232,8 @@ telpunten_2018_2022_bo_soort %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_bo_soort$area_prop_sb, 
-          by = list(telpunten_2018_2022_bo_soort$jaar), FUN = summary)
+aggregate(telpunten_2018_2023_bo_soort$area_prop_sb, 
+          by = list(telpunten_2018_2023_bo_soort$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -276,13 +277,13 @@ Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirke
 
 ```{r}
 # Add proportion bo per year
-telpunten_2018_2022_bo_rest <- add_bo_by_year(
-  telpunten_2018_2022_df, 
+telpunten_2018_2023_bo_rest <- add_bo_by_year(
+  telpunten_2018_2023_df, 
   bo_file_2022,
   bh_doel = c("erosiebestrijding (ER)",
               "perceelsrandenbeheer (PR)"))
 
-telpunten_2018_2022_bo_rest <- telpunten_2018_2022_bo_rest %>%
+telpunten_2018_2023_bo_rest <- telpunten_2018_2023_bo_rest %>%
   st_drop_geometry() %>%
   rename(area_prop_bo_overig = area_prop_sb)
 ```
@@ -298,7 +299,7 @@ summary_df <- tibble(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_bo_rest %>%
+telpunten_2018_2023_bo_rest %>%
   ggplot() +
     geom_histogram(aes(x = area_prop_bo_overig)) +
     labs(
@@ -309,8 +310,8 @@ telpunten_2018_2022_bo_rest %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_bo_rest$area_prop_bo_overig, 
-          by = list(telpunten_2018_2022_bo_rest$jaar), FUN = summary)
+aggregate(telpunten_2018_2023_bo_rest$area_prop_bo_overig, 
+          by = list(telpunten_2018_2023_bo_rest$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -331,23 +332,23 @@ Continue variabelen tussen 0 en 1. Proporties.
 
 ### Waar verzameld?
 
-Belangrijkste teelten 2018-2021:\
+Belangrijkste teelten 2017-2021:\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2017>\
 <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2018>\
 <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2019>\
 <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2020>\
 <https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2021>
 
-Belangrijkste teelten in 2022:\
+Belangrijkste teelten in 2022-2023:\
 <https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>\
-Voorlopige kaart.
-Finale kaart wordt eind april gepubliceerd (?).
+Voor 2023 voorlopige kaart.
 
 ### Hoe verzameld?
 
 Download van url's.
 
 Omzetten naar .parquet file.
-Bijvoorbeeld voor 2019:
+Bijvoorbeeld voor 2019 (2017-2021):
 
     file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
                                   "Lbgbrprc19.shp"), query = NA)
@@ -355,6 +356,24 @@ Bijvoorbeeld voor 2019:
     sfarrow::st_write_parquet(obj = file, 
                               dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
                                               "lbgbrprc2019.parquet"), chunk_size = 10000)
+                                             
+Bijvoorbeeld voor 2022 (2022-2023):
+
+```
+file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
+                              "Lbgbrprc22.shp"), query = NA)
+  	
+temp <- file %>%
+  	  mutate(OIDN = NA, 
+  	         UIDN = NA,
+  	         LENGTE = NA,
+  	         OPPERVL = NA) %>%
+  	  select(OIDN, UIDN, ALVID = REF_ID, HFDTLT = GWSCOD_H, LBLHFDTLT = GWSNAM_H, 
+  	         GEWASGROEP = GWSGRPH_LB, PM = GESP_PM, LBLPM = GESP_PM_LB, LENGTE, OPPERVL)
+  	
+sfarrow::st_write_parquet(obj = temp, dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
+                                                      "lbgbrprc2022.parquet"), chunk_size = 10000)
+```
 
 ### Hoe berekend?
 
@@ -371,7 +390,8 @@ We groeperen per gewasgroep.
 
 ```{r}
 hftlt_groepen <- hftlt_groepen_raw %>%
-  select(LBLHFDTLT, GEWASGROEP = nieuwe_groep)
+  select(LBLHFDTLT, GEWASGROEP = nieuwe_groep) %>%
+  drop_na(GEWASGROEP)
 
 hftlt_groepen %>%
   kable()
@@ -379,13 +399,13 @@ hftlt_groepen %>%
 
 ```{r}
 # Add proportion main crop per year
-telpunten_2018_2022_hfdtlt_long_tot <- calc_lbg_by_year(telpunten_2018_2022_df)
-telpunten_2018_2022_hfdtlt_long <- telpunten_2018_2022_hfdtlt_long_tot %>%
+telpunten_2018_2023_hfdtlt_long_tot <- calc_lbg_by_year(telpunten_2018_2023_df)
+telpunten_2018_2023_hfdtlt_long <- telpunten_2018_2023_hfdtlt_long_tot %>%
   filter(!is.na(LBLHFDTLT)) %>%
   select(-GEWASGROEP) %>%
-  full_join(hftlt_groepen, by = join_by(LBLHFDTLT))
+  left_join(hftlt_groepen, by = join_by(LBLHFDTLT))
 
-telpunten_2018_2022_hfdtlt <- telpunten_2018_2022_hfdtlt_long %>%
+telpunten_2018_2023_hfdtlt <- telpunten_2018_2023_hfdtlt_long %>%
   pivot_wider(id_cols = c(pointid, jaar), 
               names_from = GEWASGROEP, 
               values_from = area_prop, 
@@ -397,7 +417,7 @@ telpunten_2018_2022_hfdtlt <- telpunten_2018_2022_hfdtlt_long %>%
 ```{r}
 summary_df <- rbind(summary_df, tibble(
   categorie = "prioritair", 
-  variabele = tolower(unique(telpunten_2018_2022_hfdtlt_long$GEWASGROEP)), 
+  variabele = tolower(unique(telpunten_2018_2023_hfdtlt_long$GEWASGROEP)), 
   eenheid = "proportie", 
   bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
 ```
@@ -405,7 +425,7 @@ summary_df <- rbind(summary_df, tibble(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_hfdtlt_long %>%
+telpunten_2018_2023_hfdtlt_long %>%
   group_by(jaar, GEWASGROEP) %>%
   summarise(area_prop_hfdtlt = median(area_prop), .groups = "drop") %>%
   mutate(GEWASGROEP = reorder(factor(GEWASGROEP), area_prop_hfdtlt, sum,
@@ -420,7 +440,7 @@ telpunten_2018_2022_hfdtlt_long %>%
 ```
 
 ```{r}
-telpunten_2018_2022_hfdtlt_long %>%
+telpunten_2018_2023_hfdtlt_long %>%
   group_by(jaar, GEWASGROEP) %>%
   summarise(mediaan = median(area_prop), 
             gemiddelde = mean(area_prop),
@@ -436,6 +456,94 @@ telpunten_2018_2022_hfdtlt_long %>%
 ### Opmerkingen
 
 -   Compositionele variabele somt niet to 1 $\rightarrow$ gebruiken als proporties
+
+## Oppervlakte-aandeel hoofdteelten vorig jaar
+
+### Beschrijving
+
+Het aandeel oppervlakte aan verschillende hoofdteelten binnen de telcirkel in het jaar ervoor.
+Gegroepeerd volgens gewasgroep.
+Kan van belang zijn voor bepaalde soorten, bv. Kievit die broed op maïsstoppels van teelt vorig jaar.
+
+### Welk datatype?
+
+Continue variabelen tussen 0 en 1. Proporties.
+
+### Waar verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+### Hoe verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+### Hoe berekend?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+Voor 2019-2023 kunnen we de waardes gebruiken van de vorige jaren.
+Voor 2018 moeten we de berekingen van hierboven opniew doen o.b.v. de kaartlaag van 2017.
+
+```{r}
+# Add proportion main crop of the year before 2018
+telpunten_2017 <- telpunten_2018_2023_df %>%
+  filter(jaar == 2018) %>%
+  mutate(jaar = jaar - 1)
+telpunten_2017_hfdtlt_pre_long_tot <- calc_lbg_by_year(telpunten_2017)
+telpunten_2017_hfdtlt_pre_long <- telpunten_2017_hfdtlt_pre_long_tot %>%
+  filter(!is.na(LBLHFDTLT)) %>%
+  select(-GEWASGROEP) %>%
+  left_join(hftlt_groepen, by = join_by(LBLHFDTLT))
+
+# Combine proportions of all years
+telpunten_2018_2023_hfdtlt_pre_long <- bind_rows(
+  telpunten_2017_hfdtlt_pre_long, telpunten_2018_2023_hfdtlt_long) %>%
+  mutate(jaar = jaar + 1) %>%
+  filter(jaar <= max(telpunten_2018_2023_hfdtlt$jaar)) # Filter year too much
+  
+telpunten_2018_2023_hfdtlt_pre <- telpunten_2018_2023_hfdtlt_pre_long %>%
+  pivot_wider(id_cols = c(pointid, jaar), 
+              names_from = GEWASGROEP, 
+              values_from = area_prop, 
+              values_fill = 0,
+              values_fn = sum,
+              names_glue  = "{GEWASGROEP}_hfdtlt_pre")
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_hfdtlt_pre_long %>%
+  group_by(jaar, GEWASGROEP) %>%
+  summarise(area_prop_hfdtlt = median(area_prop), .groups = "drop") %>%
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), area_prop_hfdtlt, sum,
+                              decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = GEWASGROEP, y = area_prop_hfdtlt, 
+                 fill = factor(jaar, ordered = TRUE)), 
+             stat = "identity") +
+    labs(title = "Oppervlakte-aandeel gewasgroepen vorig jaar", fill = "Jaar",
+         x = "", y = "Mediaan proportie over telcirkels") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+```{r}
+telpunten_2018_2023_hfdtlt_pre_long %>%
+  group_by(jaar, GEWASGROEP) %>%
+  summarise(mediaan = median(area_prop), 
+            gemiddelde = mean(area_prop),
+            min = min(area_prop),
+            max =  max(area_prop), 
+            .groups = "drop") %>%
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), mediaan, sum,
+                              decreasing = TRUE)) %>%
+  arrange(jaar, GEWASGROEP) %>%
+  kable()
+```
+
+### Opmerkingen
+
+-   Compositionele variabele somt niet to 1 $\rightarrow$ gebruiken als proporties
+
 
 ## Effectief aantal hoofdteelten
 
@@ -470,7 +578,7 @@ Daarna nemen we de exponent zodat dit getal te interpreteren is als het aantal t
 Voor berekening zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
 
 ```{r}
-telpunten_2018_2022_hfdtlt_div1 <- telpunten_2018_2022_hfdtlt_long_tot %>%
+telpunten_2018_2023_hfdtlt_div1 <- telpunten_2018_2023_hfdtlt_long_tot %>%
   mutate(calc = area_prop * log(area_prop)) %>%
   group_by(pointid, jaar) %>%
   summarise(gewas_div_shannon = exp(-sum(calc)), .groups = "drop")
@@ -487,7 +595,7 @@ summary_df <- rbind(summary_df, c(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_hfdtlt_div1 %>%
+telpunten_2018_2023_hfdtlt_div1 %>%
   ggplot() +
     geom_histogram(aes(x = gewas_div_shannon)) +
     labs(title = "Effectief aantal hoofdteelten",
@@ -497,8 +605,8 @@ telpunten_2018_2022_hfdtlt_div1 %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_hfdtlt_div1$gewas_div_shannon, 
-          by = list(telpunten_2018_2022_hfdtlt_div1$jaar), FUN = summary)
+aggregate(telpunten_2018_2023_hfdtlt_div1$gewas_div_shannon, 
+          by = list(telpunten_2018_2023_hfdtlt_div1$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -531,14 +639,14 @@ Tel het aantal verschillende hoofdteelten per plot per jaar.
 Op basis van dataframe oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
 
 ```{r}
-telpunten_2018_2022_hfdtlt_div2 <- telpunten_2018_2022_hfdtlt_long_tot %>%
+telpunten_2018_2023_hfdtlt_div2 <- telpunten_2018_2023_hfdtlt_long_tot %>%
   count(pointid, jaar, name = "gewas_div_n")
 ```
 
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_hfdtlt_div2 %>%
+telpunten_2018_2023_hfdtlt_div2 %>%
   ggplot() +
     geom_bar(aes(x = gewas_div_n)) +
     scale_x_continuous(breaks = seq(0, 20, 2),
@@ -550,8 +658,8 @@ telpunten_2018_2022_hfdtlt_div2 %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_hfdtlt_div2$gewas_div_n, 
-          by = list(telpunten_2018_2022_hfdtlt_div2$jaar), FUN = summary)
+aggregate(telpunten_2018_2023_hfdtlt_div2$gewas_div_n, 
+          by = list(telpunten_2018_2023_hfdtlt_div2$jaar), FUN = summary)
 ```
 
 ```{r}
@@ -589,8 +697,8 @@ n.v.t.
 We delen het effectief aantal hoofdteelten (als alle proporties gelijk zouden zijn) door het absoluut aantal hoofdteelten. Deze maat is dus 1 als alle hoofteelten binnen de telcirkel in eenzelfde proportie voorkomen.
 
 ```{r}
-telpunten_2018_2022_hfdtlt_evenness <- telpunten_2018_2022_hfdtlt_div2 %>%
-  full_join(telpunten_2018_2022_hfdtlt_div1, by = join_by(pointid, jaar)) %>%
+telpunten_2018_2023_hfdtlt_evenness <- telpunten_2018_2023_hfdtlt_div2 %>%
+  full_join(telpunten_2018_2023_hfdtlt_div1, by = join_by(pointid, jaar)) %>%
   mutate(gewas_evenness = gewas_div_shannon / gewas_div_n) %>%
   select(-c(gewas_div_shannon, gewas_div_n))
 ```
@@ -598,7 +706,7 @@ telpunten_2018_2022_hfdtlt_evenness <- telpunten_2018_2022_hfdtlt_div2 %>%
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_hfdtlt_evenness %>%
+telpunten_2018_2023_hfdtlt_evenness %>%
   ggplot() +
     geom_histogram(aes(x = gewas_evenness)) +
     labs(title = "Evenness hoofdteelten",
@@ -608,8 +716,8 @@ telpunten_2018_2022_hfdtlt_evenness %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_hfdtlt_evenness$gewas_evenness, 
-          by = list(telpunten_2018_2022_hfdtlt_evenness$jaar), FUN = summary)
+aggregate(telpunten_2018_2023_hfdtlt_evenness$gewas_evenness, 
+          by = list(telpunten_2018_2023_hfdtlt_evenness$jaar), FUN = summary)
 ```
 
 ```{r}
@@ -656,18 +764,19 @@ We groeperen per gewasgroep.
 
 ```{r}
 vrtlt_groepen <- vrtlt_groepen_raw %>%
-  select(GWSNAM_V, GEWASGROEP = nieuwe_groep)
+  select(GWSNAM_V, GEWASGROEP = nieuwe_groep) %>%
+  drop_na(GEWASGROEP)
 
 vrtlt_groepen %>%
   kable()
 ```
 
 ```{r}
-telpunten_2018_2022_vrtlt_long_tot <- calc_vzml_by_year(telpunten_2018_2022_df)
-telpunten_2018_2022_vrtlt_long <- telpunten_2018_2022_vrtlt_long_tot %>%
-  full_join(vrtlt_groepen, by = join_by(GWSNAM_V))
+telpunten_2018_2023_vrtlt_long_tot <- calc_vzml_by_year(telpunten_2018_2023_df)
+telpunten_2018_2023_vrtlt_long <- telpunten_2018_2023_vrtlt_long_tot %>%
+  left_join(vrtlt_groepen, by = join_by(GWSNAM_V))
 
-telpunten_2018_2022_vrtlt <- telpunten_2018_2022_vrtlt_long %>%
+telpunten_2018_2023_vrtlt <- telpunten_2018_2023_vrtlt_long %>%
   pivot_wider(id_cols = c(pointid, jaar), 
               names_from = GEWASGROEP, 
               values_from = area_prop,
@@ -679,7 +788,7 @@ telpunten_2018_2022_vrtlt <- telpunten_2018_2022_vrtlt_long %>%
 ```{r}
 summary_df <- rbind(summary_df, tibble(
   categorie = "prioritair", 
-  variabele = tolower(unique(telpunten_2018_2022_vrtlt_long$GEWASGROEP)), 
+  variabele = tolower(unique(telpunten_2018_2023_vrtlt_long$GEWASGROEP)), 
   eenheid = "proportie",
   bron = "verzamelaanvraag (Bron: Dept. LV)"))
 ```
@@ -687,7 +796,7 @@ summary_df <- rbind(summary_df, tibble(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_vrtlt_long %>%
+telpunten_2018_2023_vrtlt_long %>%
   group_by(jaar, GEWASGROEP) %>%
   summarise(area_prop_vrtlt = median(area_prop), .groups = "drop") %>%
   mutate(GEWASGROEP = reorder(factor(GEWASGROEP), area_prop_vrtlt, sum,
@@ -702,7 +811,7 @@ telpunten_2018_2022_vrtlt_long %>%
 ```
 
 ```{r}
-telpunten_2018_2022_vrtlt_long %>%
+telpunten_2018_2023_vrtlt_long %>%
   group_by(jaar, GEWASGROEP) %>%
   summarise(mediaan = median(area_prop), 
             gemiddelde = mean(area_prop),
@@ -826,22 +935,22 @@ Per punt is openheid landschap berekend in een straal van 300 vanuit het centrum
 openheid_landschap_file <- path_to_openheid_landschap(
   "openness1000m_chm_res25_c1000_mean_vlaanderen.tif"
 )
-telpunten_2018_2022_openheid_1000 <- add_openheid_landschap_to_frame(
+telpunten_2018_2023_openheid_1000 <- add_openheid_landschap_to_frame(
     path = openheid_landschap_file,
     punten_sf = telpunten_2018_2022,
     gebied = perimeters) %>%
   rename(openheid_waarde_1000 = openheid_waarde) %>%
   select(-openheid_klasse)
 
-telpunten_2018_2022_openheid_300 <- add_openheid_landschap_to_frame(
+telpunten_2018_2023_openheid_300 <- add_openheid_landschap_to_frame(
     path = path_to_openheid_landschap(),
     punten_sf = telpunten_2018_2022,
     gebied = perimeters) %>%
   rename(openheid_klasse_300 = openheid_klasse) %>%
   select(-openheid_waarde)
 
-telpunten_2018_2022_openheid <- telpunten_2018_2022_openheid_1000 %>%
-  full_join(st_drop_geometry(telpunten_2018_2022_openheid_300),
+telpunten_2018_2023_openheid <- telpunten_2018_2023_openheid_1000 %>%
+  full_join(st_drop_geometry(telpunten_2018_2023_openheid_300),
             by = join_by(pointid, regio))
 ```
 
@@ -857,7 +966,7 @@ summary_df <- rbind(summary_df, tibble(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_openheid %>%
+telpunten_2018_2023_openheid %>%
   ggplot() +
     geom_histogram(aes(x = openheid_waarde_1000)) +
     facet_wrap(~regio) +
@@ -866,8 +975,8 @@ telpunten_2018_2022_openheid %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_openheid$openheid_waarde_1000, 
-          by = list(telpunten_2018_2022_openheid$regio), FUN = summary)
+aggregate(telpunten_2018_2023_openheid$openheid_waarde_1000, 
+          by = list(telpunten_2018_2023_openheid$regio), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -897,7 +1006,7 @@ url
 ### Hoe berekend?
 
 ```{r}
-telpunten_2018_2022_sbp <- add_sbp_per_regio(telpunten_2018_2022, perimeters)
+telpunten_2018_2023_sbp <- add_sbp_per_regio(telpunten_2018_2022, perimeters)
 ```
 
 ```{r}
@@ -922,7 +1031,7 @@ perimeters %>%
                 gebied = perimeters %>% 
                   filter(Naam == "De Moeren")),
             fill = alpha("green", 0.2)) +
-    geom_sf(data = telpunten_2018_2022_sbp %>% 
+    geom_sf(data = telpunten_2018_2023_sbp %>% 
               filter(regio == "De Moeren"),
             aes(colour = sbp)) +
 
@@ -940,7 +1049,7 @@ perimeters %>%
                   gebied = perimeters %>% 
                     filter(Naam == "Oostelijke leemstreek")),
               fill = alpha("green", 0.2)) +
-    geom_sf(data = telpunten_2018_2022_sbp %>% 
+    geom_sf(data = telpunten_2018_2023_sbp %>% 
               filter(regio == "Oostelijke leemstreek"),
             aes(colour = sbp)) +
     facet_wrap(~regio)
@@ -1037,14 +1146,14 @@ prop_kle <- landusemetrics_grid_cell(
 design_kle <- expand.grid(pointid = unique(telpunten_2018_2022$pointid), 
                           subklasse = unique(kle_layer$subklasse))
 
-telpunten_2018_2022_kle_long <- telpunten_2018_2022 %>%
+telpunten_2018_2023_kle_long <- telpunten_2018_2022 %>%
   full_join(design_kle, by = c("pointid")) %>%
   full_join(prop_kle, by = c("pointid", "subklasse")) %>%
   mutate(area_prop_kle = area_prop) %>%
   select(-c(cell_area, area_m2, area_prop)) %>%
   replace(is.na(.), 0)
 
-telpunten_2018_2022_kle <- telpunten_2018_2022_kle_long %>%
+telpunten_2018_2023_kle <- telpunten_2018_2023_kle_long %>%
   st_drop_geometry() %>%
   pivot_wider(id_cols = c("pointid", "regio"), 
               names_from = "subklasse", 
@@ -1054,7 +1163,7 @@ telpunten_2018_2022_kle <- telpunten_2018_2022_kle_long %>%
 ```{r}
 summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
-  variabele = tolower(unique(telpunten_2018_2022_kle_long$subklasse)), 
+  variabele = tolower(unique(telpunten_2018_2023_kle_long$subklasse)), 
   eenheid = "proportie", 
   bron = "kaart landschapselementen (Bron: Dept. LV)"))
 ```
@@ -1062,7 +1171,7 @@ summary_df <- rbind(summary_df, tibble(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_kle_long %>%
+telpunten_2018_2023_kle_long %>%
   ggplot() +
     geom_histogram(aes(x = area_prop_kle)) +
     labs(
@@ -1073,7 +1182,7 @@ telpunten_2018_2022_kle_long %>%
 ```
 
 ```{r}
-telpunten_2018_2022_kle_long %>%
+telpunten_2018_2023_kle_long %>%
   st_drop_geometry() %>%
   group_by(subklasse) %>%
   summarise(mediaan = median(area_prop_kle), 
@@ -1157,17 +1266,17 @@ Download van url's.
 We selecteren alle landbouwgebruikspercelen die overlappen met de telcirkels. We aggregeren aaneenliggende percelen indien ze dezelfde hoofdteelt hebben. Per telcirkel berekenen we de oppervlaktes van bijbehorende percelen. We nemen finaal de mediaan en interkwartielafstand van de oppervlaktes.  
 Zoals voordien zijn er enkele `NA`'s in de `LBLHFDTLT` kolom van de laag van 2019 die effectief niet met landbouwpercelen lijken overeen te komen (vaak smalle stroken tussenin). Deze worden weggefilterd.
 
-> Voorlopig niet berekenen voor 2022. Code loopt vast, maar hopelijk snel finale kaartlaag.
+> Doordat de lagen van 2022 en 2023 van een andere bron komen zit er een if statement in de functie `calc_perceelsgrootte_by_year()` die hiermee reking houdt, maar dit is geen mooie code
 
 ```{r}
-telpunten_2018_2022_prcl <- calc_perceelsgrootte_by_year(telpunten_2018_2022_df)
+telpunten_2018_2023_prcl <- calc_perceelsgrootte_by_year(telpunten_2018_2023_df)
 ```
 
 Een voorbeeld:
 
 ```{r testcase-perceelsgroottes, cache=TRUE}
 # Filter and load
-testcase <- telpunten_2018_2022_df %>%
+testcase <- telpunten_2018_2023_df %>%
   filter(pointid %in% c("DM_386.7", "DM_44.45"),
          jaar == 2021)
 lbg_binding <- st_read(file.path("data", "landbouwgebruikspercelen", 
@@ -1212,7 +1321,7 @@ summary_df <- rbind(summary_df, tibble(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_prcl %>%
+telpunten_2018_2023_prcl %>%
   ggplot() +
     geom_histogram(aes(x = perceel_median_area)) +
     labs(title = "Perceelsgroottes (mediaan)",
@@ -1222,12 +1331,12 @@ telpunten_2018_2022_prcl %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_prcl$perceel_median_area, 
-          by = list(telpunten_2018_2022_prcl$jaar), FUN = summary)
+aggregate(telpunten_2018_2023_prcl$perceel_median_area, 
+          by = list(telpunten_2018_2023_prcl$jaar), FUN = summary)
 ```
 
 ```{r}
-telpunten_2018_2022_prcl %>%
+telpunten_2018_2023_prcl %>%
   ggplot() +
     geom_histogram(aes(x = perceel_iqr_area)) +
     labs(title = "Perceelsgroottes (IQR)",
@@ -1237,12 +1346,12 @@ telpunten_2018_2022_prcl %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_prcl$perceel_iqr_area, 
-          by = list(telpunten_2018_2022_prcl$jaar), FUN = summary)
+aggregate(telpunten_2018_2023_prcl$perceel_iqr_area, 
+          by = list(telpunten_2018_2023_prcl$jaar), FUN = summary)
 ```
 
 ```{r}
-telpunten_2018_2022_prcl %>%
+telpunten_2018_2023_prcl %>%
   ggplot() +
     geom_histogram(aes(x = perceel_cv_area)) +
     labs(title = "Perceelsgroottes (CV)",
@@ -1252,8 +1361,8 @@ telpunten_2018_2022_prcl %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_prcl$perceel_cv_area, 
-          by = list(telpunten_2018_2022_prcl$jaar), FUN = summary)
+aggregate(telpunten_2018_2023_prcl$perceel_cv_area, 
+          by = list(telpunten_2018_2023_prcl$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -1334,8 +1443,8 @@ Aangevraagd.
 bo_file_2022 <- path_to_bo(jaar = 2022)
 
 # Add proportion bo per year
-telpunten_2018_2022_inertia_sb <- add_bo_inertia(
-    punten_df = telpunten_2018_2022_df, 
+telpunten_2018_2023_inertia_sb <- add_bo_inertia(
+    punten_df = telpunten_2018_2023_df, 
     path_bo = bo_file_2022, 
     bh_doel = "soortenbescherming (SB)") %>%
   rename(inertie_sb = inertia)
@@ -1352,11 +1461,11 @@ summary_df <- rbind(summary_df, c(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_inertia_sb %>%
+telpunten_2018_2023_inertia_sb %>%
   ggplot() +
     geom_bar(aes(x = inertie_sb)) +
     scale_x_continuous(breaks = 
-                         unique(telpunten_2018_2022_inertia_sb$inertie_sb)) +
+                         unique(telpunten_2018_2023_inertia_sb$inertie_sb)) +
     labs(
       title = "Implementatie soortbeschermingsmaatregelen",
       x = "Gemiddeld jaar sinds soortbeschermingsmaatregelen (gecategoriseerd)",
@@ -1365,7 +1474,7 @@ telpunten_2018_2022_inertia_sb %>%
 ```
 
 ```{r}
-telpunten_2018_2022_inertia_sb %>% 
+telpunten_2018_2023_inertia_sb %>% 
   st_drop_geometry() %>% 
   mutate(cat = ifelse(inertie_sb == 0, "0", ">0")) %>% 
   count(jaar, cat) %>%
@@ -1374,8 +1483,8 @@ telpunten_2018_2022_inertia_sb %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_inertia_sb$inertie_sb, 
-          by = list(telpunten_2018_2022_inertia_sb$jaar), FUN = summary)
+aggregate(telpunten_2018_2023_inertia_sb$inertie_sb, 
+          by = list(telpunten_2018_2023_inertia_sb$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -1413,8 +1522,8 @@ Aangevraagd.
 
 ```{r}
 # Add proportion bo per year
-telpunten_2018_2022_inertia_overig <- add_bo_inertia(
-    telpunten_2018_2022_df, 
+telpunten_2018_2023_inertia_overig <- add_bo_inertia(
+    telpunten_2018_2023_df, 
     path_bo = bo_file_2022, 
     bh_doel = c("erosiebestrijding (ER)", "perceelsrandenbeheer (PR)")) %>%
   rename(inertie_overig = inertia)
@@ -1431,11 +1540,11 @@ summary_df <- rbind(summary_df, c(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_inertia_overig %>%
+telpunten_2018_2023_inertia_overig %>%
   ggplot() +
     geom_bar(aes(x = inertie_overig)) +
     scale_x_continuous(breaks = 
-                         unique(telpunten_2018_2022_inertia_overig$inertie_overig)) +
+                         unique(telpunten_2018_2023_inertia_overig$inertie_overig)) +
     labs(
       title = "Implementatie erosiebeheer en bufferstroken",
       x = "Gemiddeld jaar sinds erosiebeheer en bufferstroken (gecategoriseerd)",
@@ -1444,7 +1553,7 @@ telpunten_2018_2022_inertia_overig %>%
 ```
 
 ```{r}
-telpunten_2018_2022_inertia_overig %>% 
+telpunten_2018_2023_inertia_overig %>% 
   st_drop_geometry() %>% 
   mutate(cat = ifelse(inertie_overig == 0, "0", ">0")) %>% 
   count(jaar, cat) %>%
@@ -1453,8 +1562,8 @@ telpunten_2018_2022_inertia_overig %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_inertia_overig$inertie_overig, 
-          by = list(telpunten_2018_2022_inertia_overig$jaar), FUN = summary)
+aggregate(telpunten_2018_2023_inertia_overig$inertie_overig, 
+          by = list(telpunten_2018_2023_inertia_overig$jaar), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -1805,7 +1914,7 @@ distance_weights <- distance_long %>%
          wA_exp = w_exp * oppervlakte_km2)
 
 # Sommeer gewichten per telpunt
-telpunten_2018_2022_natuurgebieden <- distance_weights %>%
+telpunten_2018_2023_natuurgebieden <- distance_weights %>%
   group_by(pointid) %>%
   summarise(natuur_exp = sum(wA_exp), .groups = "drop") %>%
   full_join(telpunten_2018_2022, by = "pointid") %>%
@@ -1824,7 +1933,7 @@ summary_df <- rbind(summary_df, tibble(
 ### Visualisatie
 
 ```{r}
-telpunten_2018_2022_natuurgebieden %>%
+telpunten_2018_2023_natuurgebieden %>%
   ggplot(aes(x = natuur_exp, fill = regio)) +
     geom_histogram() +
     facet_grid(~regio, scales = "free") +
@@ -1834,8 +1943,8 @@ telpunten_2018_2022_natuurgebieden %>%
 ```
 
 ```{r}
-aggregate(telpunten_2018_2022_natuurgebieden$natuur_exp, 
-          by = list(telpunten_2018_2022_natuurgebieden$regio), FUN = summary)
+aggregate(telpunten_2018_2023_natuurgebieden$natuur_exp, 
+          by = list(telpunten_2018_2023_natuurgebieden$regio), FUN = summary)
 ```
 
 ### Opmerkingen
@@ -1877,30 +1986,31 @@ summary_df %>%
 
 ```{r}
 # Variables that vary by year
-variables_df_per_year <- telpunten_2018_2022_bo_soort %>%
-  full_join(telpunten_2018_2022_bo_rest) %>%
-  full_join(telpunten_2018_2022_hfdtlt, by = c("pointid", "jaar")) %>%
-  full_join(telpunten_2018_2022_hfdtlt_div1, by = c("pointid", "jaar")) %>%
-  full_join(telpunten_2018_2022_hfdtlt_div2, by = c("pointid", "jaar")) %>%
-  full_join(telpunten_2018_2022_hfdtlt_evenness, by = c("pointid", "jaar")) %>%
-  full_join(telpunten_2018_2022_vrtlt, by = c("pointid", "jaar")) %>%
-  full_join(telpunten_2018_2022_prcl, by = c("pointid", "regio", "jaar", 
+variables_df_per_year <- telpunten_2018_2023_bo_soort %>%
+  full_join(telpunten_2018_2023_bo_rest) %>%
+  full_join(telpunten_2018_2023_hfdtlt, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_hfdtlt_pre, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_hfdtlt_div1, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_hfdtlt_div2, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_hfdtlt_evenness, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_vrtlt, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_prcl, by = c("pointid", "regio", "jaar", 
                                              "geometry")) %>%
-  full_join(telpunten_2018_2022_inertia_sb, by = c("pointid", "regio", "jaar", 
+  full_join(telpunten_2018_2023_inertia_sb, by = c("pointid", "regio", "jaar", 
                                                    "geometry")) %>%
-  full_join(telpunten_2018_2022_inertia_overig, by = c("pointid", "regio", "jaar", 
+  full_join(telpunten_2018_2023_inertia_overig, by = c("pointid", "regio", "jaar", 
                                                      "geometry"))
 
 # Variables that do not vary by year
-variables_df <- cbind(telpunten_2018_2022_openheid, 
-                      st_coordinates(telpunten_2018_2022_openheid)) %>%
-  full_join(st_drop_geometry(telpunten_2018_2022_sbp), 
+variables_df <- cbind(telpunten_2018_2023_openheid, 
+                      st_coordinates(telpunten_2018_2023_openheid)) %>%
+  full_join(st_drop_geometry(telpunten_2018_2023_sbp), 
             by = c("pointid", "regio")) %>%
-  full_join(st_drop_geometry(telpunten_2018_2022_kle), 
+  full_join(st_drop_geometry(telpunten_2018_2023_kle), 
             by = c("pointid", "regio")) %>%
-  full_join(st_drop_geometry(telpunten_2018_2022_natuurgebieden), 
+  full_join(st_drop_geometry(telpunten_2018_2023_natuurgebieden), 
             by = c("pointid", "regio")) %>%
-  expand_grid(jaar = unique(telpunten_2018_2022_df$jaar))
+  expand_grid(jaar = unique(telpunten_2018_2023_df$jaar))
 
 # column names lower case
 names(variables_df_per_year) <- tolower(names(variables_df_per_year))
@@ -1925,7 +2035,7 @@ final_variables_df <- variables_df_per_year %>%
 
 ```{r}
 write_csv(final_variables_df, file.path("data", "processed", 
-                                        "verklarende_variabelen_2018_2022.csv"))
+                                        "verklarende_variabelen_2018_2023.csv"))
 ```
 
 # Referenties
