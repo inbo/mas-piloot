@@ -1221,8 +1221,9 @@ test <-
       data = gele_kwik_df2_2022 %>%
         mutate(area_prop_sb_cat = case_when(
           area_prop_sb == 0 ~ "nulbeleid",
-          area_prop_sb < 0.04 ~ "laagbeleid",
-          area_prop_sb <= 0.1 ~ "middelbeleid",
+          area_prop_sb <= 0.04 ~ "laagbeleid",
+          area_prop_sb <= 0.07 ~ "middellaagbeleid",
+          area_prop_sb <= 0.1 ~ "middelhoogbeleid",
           TRUE ~ "hoogbeleid"
         )), 
       family = negbinomial(), 
@@ -1242,7 +1243,8 @@ effects_df %>%
   mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
                                    levels = c("nulbeleid",
                                               "laagbeleid",
-                                              "middelbeleid",
+                                              "middellaagbeleid",
+                                              "middelhoogbeleid",
                                               "hoogbeleid"),
                                    ordered = TRUE)) %>%
   ggplot(aes(x = area_prop_sb_cat, y = estimate__, colour = regio)) +
@@ -1282,11 +1284,12 @@ data_projpred <- gele_kwik_df_mod2 %>%
   filter(jaar %in% 2022:2023) %>%
   filter(regio == "Oostelijke leemstreek") %>%
   mutate(area_prop_sb_cat = case_when(
-    area_prop_sb == 0 ~ "nulbeleid",
-    area_prop_sb < 0.04 ~ "laagbeleid",
-    area_prop_sb <= 0.1 ~ "middelbeleid",
-    TRUE ~ "hoogbeleid"
-  ))
+         area_prop_sb == 0 ~ "nulbeleid",
+         area_prop_sb <= 0.04 ~ "laagbeleid",
+         area_prop_sb <= 0.07 ~ "middellaagbeleid",
+         area_prop_sb <= 0.1 ~ "middelhoogbeleid",
+         TRUE ~ "hoogbeleid"
+         ))
 
 data_projpred_scaled <- data_projpred %>%
   mutate(across(.cols = c(where(is.numeric), -aantal), 
@@ -2074,13 +2077,20 @@ create_data_list <- function(doel_soorten_ol_pre, region, year = 2022) {
     mas_data_df_out <- mas_data_df_agg %>%
       filter(jaar %in% year,
              regio == region) %>%
-      mutate(area_prop_sb_cat = case_when(
-        area_prop_sb == 0 ~ "nulbeleid",
-        area_prop_sb < 0.04 ~ "laagbeleid",
-        area_prop_sb <= 0.1 ~ "middelbeleid",
-        TRUE ~ "hoogbeleid"
-        ),
-        area_prop_sb_cat = relevel(factor(area_prop_sb_cat), "nulbeleid"))
+      mutate(
+        area_prop_sb_cat = case_when(
+          area_prop_sb == 0 ~ "nulbeleid",
+          area_prop_sb <= 0.04 ~ "laagbeleid",
+          area_prop_sb <= 0.07 ~ "middellaagbeleid",
+          area_prop_sb <= 0.1 ~ "middelhoogbeleid",
+          TRUE ~ "hoogbeleid"
+          ),
+        area_prop_sb_cat = factor(area_prop_sb_cat,
+                                  levels = c("nulbeleid",
+                                             "laagbeleid",
+                                             "middellaagbeleid",
+                                             "middelhoogbeleid",
+                                             "hoogbeleid")))
     
     naam_obs <- gsub(" ", "", spec)
     
