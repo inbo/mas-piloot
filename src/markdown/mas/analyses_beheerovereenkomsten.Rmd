@@ -1987,7 +1987,7 @@ plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100,
 -   enkel voor 2022-2023
 -   alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
 
-# Oostelijke leemstreek 2022: sbp
+# Oostelijke leemstreek 2022-2023: sbp
 
 We bekijken eerst het effect van `sbp`.
 
@@ -2091,7 +2091,9 @@ create_data_list <- function(doel_soorten_ol_pre, region, year = 2022) {
 ```
 
 ```{r}
-df_count_list <- create_data_list(doel_soorten_ol_pre, "Oostelijke leemstreek")
+df_count_list <- create_data_list(doel_soorten_ol_pre,
+                                  "Oostelijke leemstreek",
+                                  2022:2023)
 ```
 
 Voor Ringmus hebben we bijna geen data.
@@ -2149,12 +2151,7 @@ indices_to_remove_olsbp <- which(names(df_count_list$GeleKwikstaart) %in% c(
   "plotnaam", 
   "regio",
   "jaar",
-  "jaar.f",
-  "area_prop_sb", 
-  "area_prop_bo_overig",
   "area_prop_sb_cat",
-  "inertie_sb",
-  "inertie_overig",
   "x_plot",
   "y_plot",
   "is_sbp",
@@ -2551,7 +2548,7 @@ for (pred in predictors_olsbp_list$WitteKwikstaart$predictors) {
 }
 ```
 
-# Oostelijke leemstreek 2022: area_prop_sb
+# Oostelijke leemstreek 2022-2023: area_prop_sb
 
 We doen hetzelfde, maar nu beschouwen we `area_prop_sb` in plaats van de `sbp` variabele.
 
@@ -2563,7 +2560,6 @@ indices_to_remove2 <- which(names(df_count_list$GeleKwikstaart) %in% c(
   "plotnaam", 
   "regio",
   "jaar",
-  "jaar.f",
   "area_prop_sb",
   "x_plot",
   "y_plot",
@@ -2682,8 +2678,7 @@ for (i in seq_along(cvvs_olpropsb_list)) {
 
 # Oostelijke leemstreek totaalanalyse
 
-Voor de totaalanalyse beschouwen we alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren (cf. distance sampling analyses).
-`jaar` zal een extra variabele zijn (als factor).
+Voor de totaalanalyse beschouwen we alle plots van 2018-2021 en voegen enkel plots van 2022 en 2023 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren (cf. distance sampling analyses).
 We voeren de PPVS uit zonder restricties.
 
 ```{r}
@@ -2691,12 +2686,12 @@ We voeren de PPVS uit zonder restricties.
 df_count_list_oltotal_raw <- create_data_list(
   doel_soorten_ol, 
   "Oostelijke leemstreek", 
-  2018:2022)
+  2018:2023)
 
 # Get plots from 2018-2021
 plots_old <- design %>%
   filter(regio == "Oostelijke leemstreek",
-         jaar != 2022) %>%
+         !jaar %in% 2022:2023) %>%
   distinct(plotnaam) %>%
   pull()
 
