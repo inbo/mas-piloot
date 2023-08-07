@@ -40,13 +40,16 @@ source(here("src", "R", "berekening_verklarende_variabelen.R"))
 
 ```{r}
 # Read in bo file
-bo_2022 <- read_sf(path_to_bo(jaar = 2022)) %>%
-  st_transform(31370)
+bo_sf <- read_sf(path_to_bo(jaar = 2022))
+bo_2022 <- bo_sf %>%
+  st_transform(31370) %>%
+  mutate(startjaar = year(START),
+         stopjaar = year(STOP))
 
 # Read in verzamelaanvragen
 for (y in 2017:2023) {
   sf_obj <- read_sf(path_to_vzml(y))
-  if (is.na(st_crs(verzamelaanvraag_2021))) {
+  if (is.na(st_crs(sf_obj))) {
     sf_obj <- sf_obj %>%
       st_set_crs(31370)
   } else {
@@ -60,12 +63,16 @@ for (y in 2017:2023) {
 # Overlappen
 
 Voor de verzamelaanvragen van 2017 tot 2023 kijken we welke hoofdteelten overlappen met de kaartlaag met beheerovereenkomsten van VLM.
-Per groep berekenen we de oppervlakte van de polygoon.
+We houden er rekening mee dat een beheerovereenkomst van 2018-2019 enkel zal overlappen met met verzamelaanvragen van die jaren en niet van de andere jaren.
+Per groep berekenen we de oppervlakte van de overlappende polygoon.
 
-```{r}
+```{r, cache=TRUE}
 for (y in 2017:2023) {
-  intersect_df <- st_intersection(bo_2022, get(paste("verzamelaanvraag", y,
-                                                     sep = "_")))
+  bo_filtered <- bo_2022 %>%
+      filter(startjaar <= y & stopjaar >= y)
+  
+  intersect_df <- st_intersection(bo_filtered,
+                                  get(paste("verzamelaanvraag", y, sep = "_")))
   out <- intersect_df %>%
     mutate(oppervlakte = units::drop_units(st_area(geometry))) %>%
     st_drop_geometry() %>%
@@ -136,3 +143,9 @@ for (doelst in sort(unique(df$BH_DOELST))) {
 print(p)
 }
 ```
+
+# Conclusie 
+
+We zien geen eenduidig verband tussen de verzamelaanvragen en de beheerovereenkomsten.
+
+We zien 
