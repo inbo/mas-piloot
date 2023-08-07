@@ -78,14 +78,23 @@ for (y in 2017:2023) {
 }
 
 df <- bind_rows(
-  get(paste("df", 2017:2023, sep = "_"))
-)
+    df_2017,
+    df_2018,
+    df_2019,
+    df_2020,
+    df_2021,
+    df_2022,
+    df_2023
+  ) %>%
+  group_by(BH_DOELST, GWSNAM_H) %>%
+    summarise(oppervlakte = sum(oppervlakte),
+              .groups = "drop") 
 ```
 
-We beschouwen overlap met alle hoofdteelten en kijken naar de 20 hoofdteelten die meest overlappen met elke beheerdoelstelling.
+We beschouwen overlap met alle hoofdteelten en kijken naar de 20 hoofdteelten die meest overlappen met elke beheerdoelstelling (`r sort(unique(df$BH_DOELST)))`).
 
 ```{r}
-for (doelst in unique(df$BH_DOELST)) {
+for (doelst in sort(unique(df$BH_DOELST))) {
   p <- df %>%
     filter(BH_DOELST == doelst) %>%
     mutate(GWSNAM_H = reorder(GWSNAM_H, -oppervlakte)) %>%
@@ -112,7 +121,7 @@ beheerovereenkomsten <- c("Bloemenmengsel",
                           "Braakliggend land zonder onderhoud",
                           "Braakliggend land met onderhoud")
 
-for (doelst in unique(df$BH_DOELST)) {
+for (doelst in sort(unique(df$BH_DOELST))) {
   p <- df %>%
     filter(BH_DOELST == doelst,
            GWSNAM_H %in% beheerovereenkomsten) %>%
@@ -127,5 +136,3 @@ for (doelst in unique(df$BH_DOELST)) {
 print(p)
 }
 ```
-
-
