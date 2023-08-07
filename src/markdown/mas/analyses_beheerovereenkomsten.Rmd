@@ -1984,7 +1984,7 @@ plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100,
 -   We voeren dit uit voor sbp, met area_prop_sb_cat en met alle variabelen (geen restricties)
 -   voor OL en DM apart
 -   voor specifieke doelsoorten apart
--   enkel voor 2022 of ook al 2023?
+-   enkel voor 2022-2023
 -   alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
 
 # Oostelijke leemstreek 2022: sbp
