@@ -146,6 +146,7 @@ print(p)
 
 # Conclusie 
 
-We zien geen eenduidig verband tussen de verzamelaanvragen en de beheerovereenkomsten.
-
-We zien 
+De beheerovereenkomsten van de VLM komen meestal overeen met graslanden.
+De teelten die we beschouwen als 'Beheerovereenkomst' in de indeling van de hoofdteelten komen minder vaak in overlap.
+Faunamengsel en bloemenmengsel komen duidelijk vaak samen voor met beheerovereenkomsten.
+Braakliggend land minder vaak.
