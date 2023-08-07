@@ -1,0 +1,128 @@
+---
+title: "Overlap beheerovereenkomsten- en landbouwgebruikspercelen-kaartlagen"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+bibliography: references.json
+---
+
+```{r setup, include=FALSE}
+# renv
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here())
+
+# Packages
+library(tidyverse)
+library(sf)
+
+# Source
+mbag_dir <- here()
+source(here("src", "R", "berekening_hulpvariabelen.R"))
+source(here("src", "R", "berekening_verklarende_variabelen.R"))
+```
+
+# Inlezen data
+
+```{r}
+# Read in bo file
+bo_2022 <- read_sf(path_to_bo(jaar = 2022)) %>%
+  st_transform(31370)
+
+# Read in verzamelaanvragen
+for (y in 2017:2023) {
+  sf_obj <- read_sf(path_to_vzml(y))
+  if (is.na(st_crs(verzamelaanvraag_2021))) {
+    sf_obj <- sf_obj %>%
+      st_set_crs(31370)
+  } else {
+    sf_obj <- sf_obj %>%
+     st_transform(31370)
+  }
+  assign(paste("verzamelaanvraag", y, sep = "_"), sf_obj)
+}
+```
+
+# Overlappen
+
+```{r}
+for (y in 2017:2023) {
+  intersect_df <- st_intersection(bo_2022, get(paste("verzamelaanvraag", y,
+                                                     sep = "_")))
+  out <- intersect_df %>%
+    mutate(area = units::drop_units(st_area(geometry))) %>%
+    st_drop_geometry() %>%
+    select(BH_DOELST, GWSNAM_H, area) %>%
+    group_by(BH_DOELST, GWSNAM_H) %>%
+    summarise(area = sum(area),
+              .groups = "drop") 
+  
+  assign(paste("df", y, sep = "_"), out)
+}
+
+df <- bind_rows(
+  get(paste("df", 2017:2023, sep = "_"))
+)
+```
+
+Alle hoofdteelten.
+
+```{r}
+for (doelst in unique(df$BH_DOELST)) {
+  p <- df %>%
+    filter(BH_DOELST == doelst) %>%
+    mutate(GWSNAM_H = reorder(GWSNAM_H, -area)) %>%
+    arrange(GWSNAM_H) %>%
+    head(20) %>%
+    ungroup() %>%
+    ggplot(aes(x = GWSNAM_H, y = area)) +
+      geom_bar(stat = "identity") +
+      labs(x = "", title = doelst) +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  print(p)
+}
+```
+
+Hoofdteelten die iets met beheer te maken hebben.
+
+```{r}
+beheerovereenkomsten <- c("Bloemenmengsel",
+                          "Faunamengsel",
+                          "Bloemenmengsel voor EAG Braak",
+                          "Braakliggend land met minimale activiteit met EAG",
+                          "Braakliggend land met minimale activiteit zonder EAG",
+                          "Braakliggend land zonder minimale activiteit",
+                          "Braakliggend land zonder onderhoud",
+                          "Braakliggend land met onderhoud")
+
+for (doelst in unique(df$BH_DOELST)) {
+  p <- df %>%
+    filter(BH_DOELST == doelst,
+           GWSNAM_H %in% beheerovereenkomsten) %>%
+    mutate(GWSNAM_H = factor(GWSNAM_H,
+                             levels = beheerovereenkomsten),
+           GWSNAM_H = reorder(GWSNAM_H, -area)) %>%
+    ggplot(aes(x = GWSNAM_H, y = area)) +
+      geom_bar(stat = "identity") +
+      scale_x_discrete(drop = FALSE) +
+      labs(x = "", title = doelst) +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+print(p)
+}
+```
+
+
