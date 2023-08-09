@@ -1013,22 +1013,24 @@ cbind(veldleeuwerik_dist_2018_2022_model$ddf$data,
 ```
 
 ```{r}
-design_plot <- matrix(rep(0, 10 * 6), ncol = 6, byrow = TRUE)
+design_plot <- matrix(rep(0, 12 * 7), ncol = 7, byrow = TRUE)
 design_plot[, 1] <- 1
 design_plot[2, 2] <- 1
 design_plot[3, 3] <- 1
 design_plot[4, 4] <- 1
 design_plot[5, 5] <- 1
 design_plot[6, 6] <- 1
-design_plot[7:10, 2] <- 1
-design_plot[7, 3] <- 1
-design_plot[8, 4] <- 1
-design_plot[9, 5] <- 1
-design_plot[10, 6] <- 1
+design_plot[7, 7] <- 1
+design_plot[8:12, 2] <- 1
+design_plot[8, 3] <- 1
+design_plot[9, 4] <- 1
+design_plot[10, 5] <- 1
+design_plot[11, 6] <- 1
+design_plot[12, 7] <- 1
 
 labels_plot <- paste(c("De Moeren", "Oostelijke leemstreek", 
-                       rep(c("De Moeren", "Oostelijke leemstreek"), each = 4)),
-                     c(2018, 2018, rep(2019:2022, 2)), sep = " - ")
+                       rep(c("De Moeren", "Oostelijke leemstreek"), each = 5)),
+                     c(2018, 2018, rep(2019:2023, 2)), sep = " - ")
 
 design_plot %>%
   data.frame() %>%
@@ -1037,9 +1039,11 @@ design_plot %>%
     veldleeuwerik_dist_2018_2022_model$ddf$ds$aux$ddfobj$scale$parameters)) %>%
   kable()
 
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(labels_plot))
+
 plot_detection_curve(veldleeuwerik_dist_2018_2022_model, design_mat = design_plot, 
                      labels = labels_plot) +
-  scale_colour_manual(values = c(inbo_palette(), "red"))
+  scale_colour_manual(values = palette)
 ```
 
 De gemiddelde detectiekans $\hat{P}_a$ is gelijk aan `r round(veldleeuwerik_dist_2018_2022_model$dht$individuals$average.p, digits = 3)`.
