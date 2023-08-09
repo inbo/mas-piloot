@@ -1180,6 +1180,8 @@ veldleeuwerik_df %>%
 
 # Densiteitsschattingen 2022 {#dens-2022}
 
+Later kunnen we dezelfde analyses doen voor 2023.
+
 ## Data selectie en preparatie {#preparatie-distance2022}
 
 We beschouwen alle plots van 2022.
