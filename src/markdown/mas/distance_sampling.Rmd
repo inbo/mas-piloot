@@ -78,15 +78,15 @@ knitr::write_bib(c("base", "Distance"), here("src", "markdown", "mas",
 # Doel {#doel}
 
 Een robuuste en reproduceerbare workflow creëren om de densiteit van akkervogels te schatten rekening houdend met de detectiekans.
-Omwille van het verschil in design tussen 2022 en de voorgaande jaren, zullen we densiteiten schatten voor twee datasets:
+Omwille van het verschil in design tussen 2022-2023 en de voorgaande jaren, zullen we densiteiten schatten voor twee datasets:
 
-1.  2018-2022:
+1.  2018-2023:
     -   schatting per stratum: jaar, regio
     -   zou allemaal (grotendeels) OL en binnen sbp moeten zijn
-    -   voeg enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren
-2.  2022
+    -   voeg enkel plots van 2022-2023 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren
+2.  2022-2023
     -   schatting per stratum: regio, sbp, openheid
-    -   volledige dataset 2022
+    -   volledige dataset 2022-2023
 
 Eerst voor Veldleeuwerik.
 Later generalisatie.
@@ -95,7 +95,7 @@ Later generalisatie.
 
 ```{r}
 data_path <- here("data", "processed")
-mas_data_df_raw <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
+mas_data_df_raw <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
 mas_data_df <- mas_data_df_raw %>%
   rename(openheid  = openheid_klasse_300) %>%
   mutate(stratum = paste0(openheid, "\n", sbp, " plan"))
@@ -185,7 +185,7 @@ datumgrenzen_mas <- datumgrenzen_df2 %>%
 ```
 
 ```{r}
-# Selecteer tellingen van Veldleeuwerik in 2018-2022 in de twee regio's
+# Selecteer tellingen van Veldleeuwerik in 2018-2023 in de twee regio's
 # met broedcode > 0, op minder dan 300 m en binnen telrondes
 veldleeuwerik_presences <- mas_data_sf %>%
   filter(naam == "Veldleeuwerik", 
@@ -226,7 +226,7 @@ Slechts één plot bevind zich in half-gesloten landschap en in De Moeren maar 2
 We verwijderen deze plots voor verdere analyses.
 
 ```{r}
-# Totale lijst van bezochte plots in 2018-2022
+# Totale lijst van bezochte plots in 2018-2023
 bezoekenlijst_2018_2022 <- mas_data_sf %>%
   distinct(plotnaam, regio, openheid, sbp, jaar, periode_in_jaar) %>%
   # selectie telperiodes Veldleeuwerik
@@ -298,7 +298,7 @@ veldleeuwerik_df <- veldleeuwerik_presences %>%
 
 ## Tellingen {#exploratie-tellingen}
 
-We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2022 waarbij er in elk jaar `r length(telperiodes)` telperiodes waren.
+We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2023 waarbij er in elk jaar `r length(telperiodes)` telperiodes waren.
 Het aantal bezochte plots neemt over het algemeen toe over de jaren, behalve in De Moeren tussen 2019 en 2020.
 Het aantal waarnemingen niet altijd toe met het aantal bezochte plots.
 Het aantal waargenomen broedparen is steeds gelijkaardig aan het aantal waarnemingen wat wil zeggen dat de meeste waarnemingen meestal om een enkel broedpaar (of een individu dat broedgedrag vertoont) gaat.
@@ -340,7 +340,7 @@ aantal_tabel %>%
 ## Aantallen {#exploratie-aantallen}
 
 Wanneer we naar de aantallen kijken, zien we veel afwezigheden in de dataset.
-Vooral in De Moeren, minder in de Oostelijke leemstreek behalve voor 2022.
+Vooral in De Moeren, minder in de Oostelijke leemstreek behalve voor 2022-2023.
 
 ```{r}
 veldleeuwerik_df %>%
@@ -364,15 +364,12 @@ veldleeuwerik_df %>%
           panel.grid.major.x = element_blank()) + 
     facet_wrap(jaar~regio, scales = "free") +
     labs(y = "", x = "Aantal broedparen Veldleeuwerik per plot",
-         fill = "telperiode") +
-    theme(legend.position = c(1, 0),
-          legend.justification = c(1, 0),
-          legend.direction = "horizontal")
+         fill = "telperiode")
 ```
 
 De volgende figuur toont het aantal getelde broedparen Veldleeuwerik per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval.
 Vooral in De Moeren zien we variatie in het gemiddelde aantal broedparen over de telperiodes.
-Zowel in De Moeren als in de Oostelijke leemstreek lijkt het gemiddelde min of meer constant over de jaren met een daling in 2022.
+Zowel in De Moeren als in de Oostelijke leemstreek lijkt het gemiddelde min of meer constant over de jaren met een daling in 2022-2023.
 
 ```{r}
 veldleeuwerik_df %>%
@@ -387,7 +384,7 @@ veldleeuwerik_df %>%
   theme(legend.position = "bottom")
 ```
 
-Deze daling heeft te maken met een aanpassing van het design in 2022 waarbij veel meer plots in controlegebieden (buiten sbp) zijn toegevoegd (zie verder).
+Deze daling heeft te maken met een aanpassing van het design in 2022-2023 waarbij veel meer plots in controlegebieden (buiten sbp) zijn toegevoegd (zie verder).
 
 ```{r}
 veldleeuwerik_df %>%
@@ -439,10 +436,7 @@ bezoekenlijst_2018_2022 %>%
           panel.grid.major.x = element_blank()) + 
     facet_wrap(jaar~regio, scales = "free_y") +
     labs(y = "", x = "Aantal plots per categorie openheid landschap",
-         fill = "jaar") +
-    theme(legend.position = c(1, 0),
-          legend.justification = c(1, 0),
-          legend.direction = "horizontal")
+         fill = "jaar")
 ```
 
 Het gemiddeld aantal broedparen is steeds hoger in open landschap.
@@ -457,16 +451,13 @@ veldleeuwerik_df %>%
                fatten = 4, shape = "square") +
   facet_wrap(jaar~regio, scales = "free_y") +
   labs(y = "Aantal broedparen Veldleeuwerik per plot", 
-       x = "Openheid landschap") +
-  theme(legend.position = c(1, 0),
-        legend.justification = c(1, 0),
-        legend.direction = "horizontal")
+       x = "Openheid landschap")
 ```
 
 ### Soortbeschermingsplan
 
-De plots bevinden zich in beide regio's mestal binnen het soorbeschermingsplan.
-In 2022 is dit verschil kleiner.
+De plots bevinden zich in beide regio's meestal binnen het soorbeschermingsplan.
+In 2022-2023 is dit verschil kleiner.
 
 ```{r}
 design_sbp <- bezoekenlijst_2018_2022 %>%
@@ -497,10 +488,7 @@ bezoekenlijst_2018_2022 %>%
           panel.grid.major.x = element_blank()) + 
     facet_wrap(jaar~regio, scales = "free_y") +
     labs(y = "", x = "Aantal plots binnen en buiten soortbeschermingsplan",
-         fill = "jaar") +
-    theme(legend.position = c(1, 0),
-          legend.justification = c(1, 0),
-          legend.direction = "horizontal")
+         fill = "jaar")
 ```
 
 Het gemiddeld aantal broedparen lijkt niet te veel te verschillen binnen of buiten het soortbeschermingsplan.
@@ -514,10 +502,7 @@ veldleeuwerik_df %>%
                fatten = 4, shape = "square") +
   facet_wrap(jaar~regio, scales = "free_y") +
   labs(y = "Aantal broedparen Veldleeuwerik per plot", 
-       x = "Soortbeschermingsplan") +
-  theme(legend.position = c(1, 0),
-        legend.justification = c(1, 0),
-        legend.direction = "horizontal")
+       x = "Soortbeschermingsplan")
 ```
 
 ### Interactie openheid en soortbeschermingsplan
@@ -551,10 +536,7 @@ bezoekenlijst_2018_2022 %>%
           panel.grid.major.x = element_blank()) + 
     facet_wrap(jaar~regio, scales = "free_y") +
     labs(y = "", x = "Aantal plots per categorie",
-         fill = "sbp") +
-    theme(legend.position = c(1, 0),
-          legend.justification = c(1, 0),
-          legend.direction = "horizontal")
+         fill = "sbp")
 ```
 
 ## Afstanden {#exploratie-afstanden}
@@ -597,7 +579,7 @@ veldleeuwerik_presences2 %>%
           legend.direction = "horizontal")
 ```
 
-# Densiteitsschattingen 2018-2022 {#dens-2018-2022}
+# Densiteitsschattingen 2018-2023 {#dens-2018-2023}
 
 ## Inleiding tot distance sampling {#inleiding-distance}
 
@@ -658,11 +640,11 @@ ggplot(data = circle_fun()) +
 
 ## Data selectie en preparatie {#preparatie-distance}
 
-We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
+We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022-2023 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
 
 ```{r}
 plots_old <- bezoekenlijst_2018_2022 %>%
-  filter(jaar != 2022) %>%
+  filter(!jaar %in% 2022:2023) %>%
   distinct(plotnaam) %>%
   pull()
 
