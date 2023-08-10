@@ -345,7 +345,7 @@ Download van url's.
 
 Voor elk jaar hebben we een aparte file.
 We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
-Daarna gebruiken we de `calc_lbg()` functie om de proporties per telcirkel te berekenen.
+We verwijderen de polygonen die tot de beheerovereenkomstenlaag horen.
 
 ```{r}
 hftlt_groepen_raw <- read_csv2(file.path(mbag_dir, "data", "gewasgroepen", 
@@ -367,7 +367,8 @@ hftlt_groepen %>%
 ```{r}
 telpunten_2018_2023_hfdtlt_long_tot <- calc_vzml_by_year(
   telpunten_2018_2023_df,
-  group_by_col = "GWSNAM_H")
+  group_by_col = "GWSNAM_H",
+  clip_bo = path_to_bo(2022))
 
 telpunten_2018_2023_hfdtlt_long <- telpunten_2018_2023_hfdtlt_long_tot %>%
   left_join(hftlt_groepen, by = join_by(GWSNAM_H)) %>%
@@ -461,7 +462,8 @@ telpunten_2017 <- telpunten_2018_2023_df %>%
   mutate(jaar = jaar - 1)
 telpunten_2017_hfdtlt_pre_long_tot <- calc_vzml_by_year(
   telpunten_2017,
-  group_by_col = "GWSNAM_H")
+  group_by_col = "GWSNAM_H",
+  clip_bo = path_to_bo(2022))
 telpunten_2017_hfdtlt_pre_long <- telpunten_2017_hfdtlt_pre_long_tot %>%
   left_join(hftlt_groepen, by = join_by(GWSNAM_H))
 
@@ -725,6 +727,10 @@ Verzamelaanvraag:
 Download van url.
 
 ### Hoe berekend?
+
+Voor elk jaar hebben we een aparte file.
+We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
+We verwijderen de polygonen die tot de beheerovereenkomstenlaag horen.
 
 ```{r}
 vrtlt_groepen_raw <- read_csv2(file.path(mbag_dir, "data", "gewasgroepen", 

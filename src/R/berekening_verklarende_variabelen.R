@@ -58,19 +58,45 @@ path_to_vzml <- function(jaar) {
             paste0(string, extension))
 }
 
-calc_vzml <- function(path, punten_sf, group_by_col) {
-  layer_sf <- st_read(path)
+calc_vzml <- function(path, punten_sf, group_by_col, clip_bo = NULL) {
+  layer_sf_raw <- st_read(path)
 
-  if (!"geometry" %in% names(layer_sf)) {
-    layer_sf <- layer_sf %>%
+  if (!"geometry" %in% names(layer_sf_raw)) {
+    layer_sf_raw <- layer_sf_raw %>%
       rename(geometry = geom)
+  }
+
+  if (!is.null(clip_bo)) {
+    clip_sf <- st_read(clip_bo) %>%
+      st_transform(31370)
+
+    y <- unique(punten_sf$jaar)
+
+    clip_sf_filtered <- clip_sf %>%
+      mutate(startjaar = year(START),
+             stopjaar = year(STOP)) %>%
+      filter(startjaar <= y & stopjaar >= y)
+
+    layer_sf_cropped <- layer_sf_raw %>%
+      st_set_crs(31370) %>%
+      st_intersection(punten_sf %>%
+                        st_buffer(dist = 300))
+
+    bo_int <- st_intersection(layer_sf_cropped, clip_sf_filtered)
+    bo_int <- clip_sf_filtered %>%
+      summarise(st_union(st_buffer(geometry, 0.01)))
+
+    layer_sf <- st_difference(layer_sf_cropped, bo_int)
+
+  } else {
+    layer_sf <- layer_sf_raw %>%
+      st_set_crs(31370)
   }
 
   points_vzml <- landusemetrics_grid_cell(
     grid_cell = punten_sf %>%
       st_buffer(dist = 300),
-    layer = layer_sf %>%
-      st_set_crs(31370),
+    layer = layer_sf,
     grid_group_by_col = "pointid",
     layer_group_by_col = group_by_col)
 
