@@ -388,17 +388,6 @@ corrplot(cormat_pearson, method =  "circle",
          tl.col =  "black", tl.srt = 45, tl.cex = 0.6)
 ```
 
-Alle uitspraken voor `..hfdtlt` gelden ook voor `..hfdtlt_pre`.
-Hun overeenkomstige correlaties zijn hier niet van belang.
-We zien dat de oppervlakte aan soortbeschermingsplannen sterk positief gecorreleerd is met de oppervlakte aan beheerovereenkomsten in de hoofdteeltenlaag.
-Dit is logisch want het gaat om dezelfde informatie.
-De variabele `beheerovereenkomst_hfdtlt` kunnen we dus beter weglaten.
-De positieve correlaties tussen oppervlakte beheerovereenkomsten (soortbescherming en overige) met de inertie toont gewoon aan dat de oppervlakte aan beheerovereenkomsten zijn toegenomen over de jaren heen.
-
-```{r}
-plot_corr("beheerovereenkomst_hfdtlt", "area_prop_sb")
-```
-
 We zien dat de openheidsvariabele negatief gecorreleerd is met de variabelen van de kleine landschapselementen. 
 Dit is logisch aangezien bomen, hagen etc. het landschap minder open maken. Zo zien we ook een negatieve correlatie met fruitteelten. Een positieve correlatie zien we dan weer met afwezigheid van voorteelten en groottes van percelen. 
 Dan zal het landschap inderdaad meer open zijn. 
@@ -429,6 +418,8 @@ plot_corr("gewas_div_shannon", "gewas_evenness")
 plot_corr("gewas_div_n", "gewas_evenness")
 ```
 
+Alle uitspraken voor `..hfdtlt` gelden ook voor `..hfdtlt_pre`.
+Hun overeenkomstige correlaties zijn hier niet van belang.
 Proportie hagen en meerjarige fruitteelt zijn blijkbaar ook vrij sterk positief gecorreleerd.
 
 ```{r}
@@ -472,7 +463,6 @@ De Spearman correlatie geeft gelijkaardige resultaten, maar alle correlaties zij
 We kunnen verschillende conclusies maken.
 Alle uitspraken voor `..hfdtlt` gelden ook voor `..hfdtlt_pre`.
 
--  `beheerovereenkomst_hfdtlt` weglaten: voorrang aan `area_prop_sb`
 -  `perceel_median_area` en `perceel_iqr_area` weglaten: `perceel_cv_area` gebruiken als maat voor perceelsgrootte
 -  keuze maken over gewasdiversiteitsvariabele: `gewas_div_shannon` over `gewas_div_n` omdat proportie in rekening wordt gebracht, `gewas_evenness` minder van belang
 -  sommige KLE variabelen tonen sterke correlaties met andere variabelen en bovendien zijn sommige van deze variabelen heel zeldzaam, toch zijn ze allemaal belangrijk voor de vogels. Tijdens het modelleren kan het toch blijken dat het beter is om alles te sommeren tot 1 KLE proportie variabele
@@ -484,9 +474,7 @@ Alle uitspraken voor `..hfdtlt` gelden ook voor `..hfdtlt_pre`.
       "Voor ons onderzoek is vooral de hoofdteelt belangrijk eigenlijk, en bijkomstig of er een verschillende voorteelt is."
 
 ```{r}
-exclude_continue_bivars <- c("beheerovereenkomst_hfdtlt",
-                             "beheerovereenkomst_hfdtlt_pre",
-                             "afwezig_vrtlt",
+exclude_continue_bivars <- c("afwezig_vrtlt",
                              "perceel_median_area", "perceel_iqr_area", 
                              "gewas_div_n", "gewas_evenness",
                              "n_predators_spec")
@@ -507,21 +495,10 @@ corrplot(cormat_pearson2, method =  "circle",
          tl.col =  "black", tl.srt = 45, tl.cex = 0.6)
 ```
 
-Er blijven nog altijd een aantal correlaties over die we in het achterhoofd zullen moeten houden tijdens het modelleren:
-
-Hoe meer groenbemester hoe groter de oppervlakte soortbeschermingsplannen.
-
-```{r}
-plot_corr("groenbemester_hfdtlt", "area_prop_sb")
-```
-
-Hoe groter de gewasdiversiteit hoe groter het oppervlakte soortbeschermingsplannen.
-
-```{r}
-plot_corr("gewas_div_shannon", "area_prop_sb")
-```
+Er blijven nog altijd een aantal correlaties over.
 
 Visualisatie via PCA.
+We verwijderen de variabelen hoofdteelt van het jaar ervoor.
 
 ```{r}
 # Functie om proportie variatie te berekenen van PC's
@@ -581,6 +558,7 @@ plot_rotation <- function(pca_obj, x = 1, y = 2, pca_obj2 = NULL, label1, label2
 pca_moeren <- bivariate_df %>%
   select(regio, all_of(names(continue_bivariate2))) %>%
   select(!starts_with("inertie")) %>%
+  select(!contains("hfdtlt_pre")) %>%
   filter(regio == "De Moeren") %>%
   select(-regio) %>%
   prcomp(scale. = TRUE)
@@ -588,6 +566,7 @@ pca_moeren <- bivariate_df %>%
 pca_leemstreek <- bivariate_df %>%
   select(regio, all_of(names(continue_bivariate2))) %>%
   select(!starts_with("inertie")) %>%
+  select(!contains("hfdtlt_pre")) %>%
   filter(regio != "De Moeren") %>%
   select(-regio) %>%
   prcomp(scale. = TRUE)
