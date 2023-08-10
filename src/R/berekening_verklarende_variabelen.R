@@ -58,7 +58,7 @@ path_to_vzml <- function(jaar) {
             paste0(string, extension))
 }
 
-calc_vzml <- function(path, punten_sf, group_by_col = "GWSNAM_V") {
+calc_vzml <- function(path, punten_sf, group_by_col) {
   layer_sf <- st_read(path)
 
   if (!"geometry" %in% names(layer_sf)) {
