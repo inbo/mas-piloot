@@ -332,48 +332,14 @@ Continue variabelen tussen 0 en 1. Proporties.
 
 ### Waar verzameld?
 
-Belangrijkste teelten 2017-2021:\
-<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2017>\
-<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2018>\
-<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2019>\
-<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2020>\
-<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2021>
+Verzamelaanvraag:
+<https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>
 
-Belangrijkste teelten in 2022-2023:\
-<https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>\
-Voor 2023 voorlopige kaart.
+2023: voorlopige kaart.
 
 ### Hoe verzameld?
 
 Download van url's.
-
-Omzetten naar .parquet file.
-Bijvoorbeeld voor 2019 (2017-2021):
-
-    file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
-                                  "Lbgbrprc19.shp"), query = NA)
-
-    sfarrow::st_write_parquet(obj = file, 
-                              dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
-                                              "lbgbrprc2019.parquet"), chunk_size = 10000)
-                                             
-Bijvoorbeeld voor 2022 (2022-2023):
-
-```
-file <- sf::read_sf(file.path(mbag_dir, "data", "landbouwgebruikspercelen", "Shapefile",
-                              "Lbgbrprc22.shp"), query = NA)
-  	
-temp <- file %>%
-  	  mutate(OIDN = NA, 
-  	         UIDN = NA,
-  	         LENGTE = NA,
-  	         OPPERVL = NA) %>%
-  	  select(OIDN, UIDN, ALVID = REF_ID, HFDTLT = GWSCOD_H, LBLHFDTLT = GWSNAM_H, 
-  	         GEWASGROEP = GWSGRPH_LB, PM = GESP_PM, LBLPM = GESP_PM_LB, LENGTE, OPPERVL)
-  	
-sfarrow::st_write_parquet(obj = temp, dsn = file.path(mbag_dir, "data", "landbouwgebruikspercelen", "parquet",
-                                                      "lbgbrprc2022.parquet"), chunk_size = 10000)
-```
 
 ### Hoe berekend?
 
@@ -390,20 +356,25 @@ We groeperen per gewasgroep.
 
 ```{r}
 hftlt_groepen <- hftlt_groepen_raw %>%
-  select(LBLHFDTLT, GEWASGROEP = nieuwe_groep) %>%
+  select(GWSNAM_H = LBLHFDTLT, GEWASGROEP = nieuwe_groep) %>%
   drop_na(GEWASGROEP)
 
 hftlt_groepen %>%
+  arrange(GEWASGROEP, GWSNAM_H) %>%
   kable()
 ```
 
 ```{r}
-# Add proportion main crop per year
-telpunten_2018_2023_hfdtlt_long_tot <- calc_lbg_by_year(telpunten_2018_2023_df)
+telpunten_2018_2023_hfdtlt_long_tot <- calc_vzml_by_year(
+  telpunten_2018_2023_df,
+  group_by_col = "GWSNAM_H")
+
 telpunten_2018_2023_hfdtlt_long <- telpunten_2018_2023_hfdtlt_long_tot %>%
-  filter(!is.na(LBLHFDTLT)) %>%
-  select(-GEWASGROEP) %>%
-  left_join(hftlt_groepen, by = join_by(LBLHFDTLT))
+  left_join(hftlt_groepen, by = join_by(GWSNAM_H)) %>%
+  # necessary for weird unicode character
+  mutate(GEWASGROEP = ifelse(grepl("^Loods", GWSNAM_H),
+                             "Landbouwinfrastructuur",
+                             GEWASGROEP))
 
 telpunten_2018_2023_hfdtlt <- telpunten_2018_2023_hfdtlt_long %>%
   pivot_wider(id_cols = c(pointid, jaar), 
@@ -488,11 +459,11 @@ Voor 2018 moeten we de berekingen van hierboven opniew doen o.b.v. de kaartlaag 
 telpunten_2017 <- telpunten_2018_2023_df %>%
   filter(jaar == 2018) %>%
   mutate(jaar = jaar - 1)
-telpunten_2017_hfdtlt_pre_long_tot <- calc_lbg_by_year(telpunten_2017)
+telpunten_2017_hfdtlt_pre_long_tot <- calc_vzml_by_year(
+  telpunten_2017,
+  group_by_col = "GWSNAM_H")
 telpunten_2017_hfdtlt_pre_long <- telpunten_2017_hfdtlt_pre_long_tot %>%
-  filter(!is.na(LBLHFDTLT)) %>%
-  select(-GEWASGROEP) %>%
-  left_join(hftlt_groepen, by = join_by(LBLHFDTLT))
+  left_join(hftlt_groepen, by = join_by(GWSNAM_H))
 
 # Combine proportions of all years
 telpunten_2018_2023_hfdtlt_pre_long <- bind_rows(
@@ -744,10 +715,10 @@ Continue variabelen tussen 0 en 1. Proporties.
 
 ### Waar verzameld?
 
+Verzamelaanvraag:
 <https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>
 
-2022: voorlopige kaart.
-Finale kaart wordt eind april gepubliceerd (?).
+2023: voorlopige kaart.
 
 ### Hoe verzameld?
 
@@ -768,11 +739,14 @@ vrtlt_groepen <- vrtlt_groepen_raw %>%
   drop_na(GEWASGROEP)
 
 vrtlt_groepen %>%
+  arrange(GEWASGROEP, GWSNAM_V) %>%
   kable()
 ```
 
 ```{r}
-telpunten_2018_2023_vrtlt_long_tot <- calc_vzml_by_year(telpunten_2018_2023_df)
+telpunten_2018_2023_vrtlt_long_tot <- calc_vzml_by_year(
+  telpunten_2018_2023_df,
+  group_by_col = "GWSNAM_V")
 telpunten_2018_2023_vrtlt_long <- telpunten_2018_2023_vrtlt_long_tot %>%
   left_join(vrtlt_groepen, by = join_by(GWSNAM_V))
 
