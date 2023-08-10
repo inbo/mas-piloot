@@ -1599,7 +1599,7 @@ We hebben 3 belangrijke dataframes.
 
 ```{r}
 mas_data_sf <- mas_data_sf
-design_2018_2022_mas <- bezoekenlijst_2018_2022
+design_2018_2023_mas <- bezoekenlijst_2018_2022
 datumgrenzen_mas <- datumgrenzen_mas 
 ```
 
@@ -1613,21 +1613,21 @@ roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief", "Buizerd",
 ```
 
 We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0.
-We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
+We behouden ook enkel de plots die tot `design_2018_2023_mas` behoren.
 We voegen ook Haas toe en roofvogels (`r roofvogels`) zonder te filteren op broedcode.
 
 ```{r}
 mas_observations <- mas_data_sf %>%
   filter(wrntype > 0L,
          soortgrp == 2) %>%  
-  inner_join(design_2018_2022_mas, 
+  inner_join(design_2018_2023_mas, 
              by = join_by(plotnaam, jaar, periode_in_jaar, regio, openheid, 
                           sbp)) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "))
 
 haas_raptor_observations <- mas_data_sf %>%
   filter(naam == "Haas" | naam %in% roofvogels) %>%  
-  inner_join(design_2018_2022_mas, 
+  inner_join(design_2018_2023_mas, 
              by = join_by(plotnaam, jaar, periode_in_jaar, regio, openheid, 
                           sbp)) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "),
@@ -1677,14 +1677,14 @@ names(df_obs_list) <- df_obs_names
 
 ## Genereer dataframes voor distance sampling
 
-### 2018-2022
+### 2018-2023
 
-We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
+We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022-2023 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
 We zetten alle datasets om om de detectiecurve te fitten.
 
 ```{r}
-plots_old <- design_2018_2022_mas %>%
-  filter(jaar != 2022) %>%
+plots_old <- design_2018_2023_mas %>%
+  filter(!jaar %in% 2022:2023) %>%
   distinct(plotnaam) %>%
   pull()
 
@@ -1696,7 +1696,7 @@ distance_dfs_2018_2022 <- lapply(df_obs_list, function(df) {
       mutate(jaar = as.character(jaar))
   })
 
-design_2018_2022_mas_reduced <- design_2018_2022_mas %>%
+design_2018_2023_mas_reduced <- design_2018_2023_mas %>%
   filter(plotnaam %in% plots_old)
 ```
 
@@ -1711,7 +1711,7 @@ efforts_2018_2022 <- lapply(df_obs_list, function(df) {
   })
 
 sample_tables_2018_2022 <- lapply(efforts_2018_2022, function(effort) {
-    design_2018_2022_mas_reduced %>%
+    design_2018_2023_mas_reduced %>%
       distinct(plotnaam, regio, jaar) %>%
       mutate(Region.Label = paste(regio, jaar, sep = " - "),
              Effort = effort) %>%
@@ -1751,7 +1751,7 @@ areas <- perimeters_strata %>%
   select(regio = Naam, Area) %>%
   st_drop_geometry()
 
-region_table_2018_2022 <- design_2018_2022_mas_reduced %>%
+region_table_2018_2022 <- design_2018_2023_mas_reduced %>%
   distinct(regio, jaar) %>%
   full_join(areas, by = "regio") %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - ")) %>%
@@ -1774,7 +1774,7 @@ distance_dfs_2022 <- lapply(df_obs_list, function(df) {
              regio, sbp, openheid)
   })
 
-design_2022_mas <- design_2018_2022_mas %>%
+design_2022_mas <- design_2018_2023_mas %>%
   filter(jaar == 2022)
 ```
 
@@ -1843,9 +1843,93 @@ region_table_2022 <- design_2022_mas %>%
 conversion_factor_2022 <- convert_units("meter", NULL, "Square kilometer")
 ```
 
+
+### 2023
+
+We beschouwen alle plots van 2023.
+We filteren alle datasets om de detectiecurve te fitten.
+
+```{r}
+distance_dfs_2023 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2023) %>% 
+      select(object = oid, size = aantal, distance = distance2plot, 
+             regio, sbp, openheid)
+  })
+
+design_2023_mas <- design_2018_2023_mas %>%
+  filter(jaar == 2023)
+```
+
+`sample_table` geeft aan welke plots in welke regio's voorkomen en welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
+
+```{r}
+efforts_2023 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2023) %>% 
+      pull(periode_in_jaar) %>%
+      unique() %>%
+      length()
+  })
+
+sample_tables_2023 <- lapply(efforts_2023, function(effort) {
+    design_2023_mas %>%
+      distinct(plotnaam, regio, openheid, sbp) %>%
+      mutate(Region.Label = paste(regio, openheid, sbp, sep = " - "),
+             Effort = effort) %>%
+      select(Sample.Label = plotnaam, Region.Label, Effort)
+  })
+```
+
+`obs_table` geeft aan welke waarnemingen in welke plots en strata zitten.
+
+```{r}
+obs_tables_2023 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2023) %>%  
+      mutate(Region.Label = paste(regio, openheid, sbp, sep = " - ")) %>%
+      select(object = oid, Region.Label, Sample.Label = plotnaam)
+  })
+```
+
+De `region_table` en de conversiefactor voor de meeteenheden zijn gemeenschappelijk voor alle soorten.
+`region_table` bevat de oppervlaktes per stratum (regio-openheid-sbp).
+
+```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+# Selectie en buffer
+perimeters_strata_2023 <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  group_by(Naam, openheid_klasse, is_sbp) %>%
+  st_buffer(dist = 300) %>%
+  summarise(.groups = "drop") %>%
+  mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
+                         sep = " - "))
+
+# Bereken oppervlaktes van de strata
+areas_2023 <- perimeters_strata_2023 %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
+  select(regio = Naam, stratum, Area) %>%
+  st_drop_geometry()
+
+region_table_2023 <- design_2023_mas %>%
+  distinct(regio, openheid, sbp) %>%
+  mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
+  full_join(areas_2023, by = c("regio", "stratum")) %>%
+  mutate(Region.Label = paste(regio, openheid, sbp, sep = " - ")) %>%
+  select(Region.Label, Area)
+
+# Conversiefactor van meter naar 100 hectare
+conversion_factor_2023 <- convert_units("meter", NULL, "Square kilometer")
+```
+
+
 ## Data selectie voor model specificatie
 
-### 2018-2022
+### 2018-2023
 
 We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 
@@ -2175,9 +2259,191 @@ do.call(rbind, list_2022) %>%
   kable()
 ```
 
+
+### 2023
+
+We hebben bepaalde regels nodig om de modellen te kunnen fitten:
+
+We maken 2 datasets:
+
+1.  Simpele modellen (zonder covariaten)
+    -   behoud datasets als totaal aantal waarnemingen \>= 20
+
+2.  Complexere modellen (met covariaten)
+    -   behoud strata als aantal waarnemingen per stratum \>= 10
+    -   behoud datasets als totaal aantal waarnemingen \>= 30
+
+Eerst fitten we alle modellen met *2*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten.
+
+Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten.
+Een observatie van 2 individuen telt hier als 2 waarnemingen!
+
+> Als we deze regels aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
+
+```{r}
+filter_dist_df_2023 <- function(data, stratum_filter, dataset_filter) {
+  # Selectie strata
+  select_df <- lapply(data, function(i) {
+    i %>% 
+      group_by(regio, openheid, sbp) %>% 
+      mutate(n = sum(size)) %>%
+      filter(n >= stratum_filter) %>%
+      ungroup() %>%
+      select(-n)
+  })
+  
+  # Selectie datasets
+  n_obs <- sapply(select_df, function(i) {
+      if (nrow(i) == 0) {
+        return(0)
+      } else {
+        return(sum(i$size))
+      }
+    })
+  select_df <- select_df[n_obs >= dataset_filter]
+  
+  return(select_df)
+}
+
+distance_dfs_2023_simpel <- filter_dist_df_2023(distance_dfs_2023, 0, 20)
+distance_dfs_2023_final <- filter_dist_df_2023(distance_dfs_2023, 10, 30)
+```
+
+In de complexe dataset zijn de meeste soorten in meerdere openheidsklasses gezien.
+De meeste soorten hebben waarnemingen van slechts een enkele regio.
+De meeste soorten hebben waarnemingen zowel binnen als buiten sbp.
+Een interacties tussen regio en sbp en openheid en sbp zal meestal niet gefit kunnen worden.
+
+```{r}
+stratum_cijfers_lijst_2023 <- lapply(seq_along(distance_dfs_2023_final), 
+  function(i) {
+    out <- distance_dfs_2023_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2023_final[i])) %>%
+      mutate(n = sum(distance_dfs_2023_final[[i]]$size),
+             n_regio = n_distinct(regio) > 1,
+             n_openheid = n_distinct(openheid) > 1,
+             n_sbp = n_distinct(sbp) > 1) %>%
+      group_by(sbp) %>%
+      mutate(n_interactie_openheid = n_distinct(openheid),
+             n_interactie_regio = n_distinct(regio)) %>%
+      ungroup() %>%
+      mutate(n_int_openheid_sbp = !(min(n_interactie_openheid) == 1 | n_sbp == FALSE),
+             n_int_regio_sbp = !(min(n_interactie_regio) == 1 | n_sbp == FALSE)) %>%
+      distinct(soort, n, n_regio, n_openheid, n_sbp, n_int_openheid_sbp, 
+               n_int_regio_sbp)
+     
+   # Minimum 11 waarnemingen per stratum om interactie te fitten  
+   min_openheid_sbp <- distance_dfs_2023_final[[i]] %>% 
+     mutate(soort = names(distance_dfs_2023_final[i])) %>%
+     group_by(soort, openheid, sbp) %>% 
+     summarise(n = n(), .groups = "drop") %>%
+     pull(n) %>%
+     min()
+   
+   min_regio_sbp <- distance_dfs_2023_final[[i]] %>% 
+     mutate(soort = names(distance_dfs_2023_final[i])) %>%
+     group_by(soort, regio, sbp) %>% 
+     summarise(n = n(), .groups = "drop") %>%
+     pull(n) %>%
+     min()
+   
+   if (min_openheid_sbp <= 11){
+     out$n_int_openheid_sbp <- FALSE
+   }
+   
+   if (min_regio_sbp <= 11){
+     out$n_int_regio_sbp <- FALSE
+   }
+   
+  return(out)
+  })
+
+stratum_cijfers_df_2023 <- do.call(rbind, stratum_cijfers_lijst_2023)
+```
+
+```{r}
+stratum_cijfers_df_2023 %>% 
+  mutate(n = factor(n, levels = sort(unique(n)), ordered = TRUE)) %>%
+  ggplot() +
+   geom_bar(aes(x = n)) +
+   labs(x = "Aantal waarnemingen", y = "Aantal soorten") +
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, 
+                                    size = 6))
+```
+
+```{r}
+stratum_cijfers_df_2023 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_regio)) +
+   labs(x = "In meer dan 1 regio gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2023 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_openheid)) +
+   labs(x = "In meer dan 1 openheidsklasse gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2023 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_sbp)) +
+   labs(x = "Zowel binnen als buiten sbp gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2023 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_int_openheid_sbp)) +
+   labs(x = "In meerdere openheidsklasses binnen en buiten sbp gezien (interactie)", 
+        y = "Aantal soorten")
+
+stratum_cijfers_df_2023 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_int_regio_sbp)) +
+   labs(x = "In meerdere regio's binnen en buiten sbp gezien (interactie)",  
+        y = "Aantal soorten")
+```
+
+De volgende soorten blijven over voor de simpele dataset:
+
+```{r}
+list_2023_simpel <- lapply(seq_along(distance_dfs_2023_simpel), 
+  function(i) {
+    distance_dfs_2023_simpel[[i]] %>% 
+      mutate(soort = names(distance_dfs_2023_simpel[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2023_simpel[[i]]$size),
+             n_regios = n_distinct(regio),
+             n_openheid = n_distinct(openheid),
+             n_sbp = n_distinct(sbp),
+             strata = paste0(regio, openheid, sbp),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_regios, n_openheid, n_sbp, n_strata)
+  })
+
+do.call(rbind, list_2023_simpel) %>%
+  kable()
+```
+
+De volgende soorten blijven over voor de complexere dataset:
+
+```{r}
+list_2023 <- lapply(seq_along(distance_dfs_2023_final), 
+  function(i) {
+    distance_dfs_2023_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2023_final[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2023_final[[i]]$size),
+             n_regios = n_distinct(regio),
+             n_openheid = n_distinct(openheid),
+             n_sbp = n_distinct(sbp),
+             strata = paste0(regio, openheid, sbp),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_regios, n_openheid, n_sbp, n_strata)
+  })
+
+do.call(rbind, list_2023) %>%
+  kable()
+```
+
+
 ## Model specificatie distance sampling
 
-### 2018-2022
+### 2018-2023
 
 Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio en jaar. We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen ook tweewegsinteracties tussen de covariaten. In de modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data. Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken, beperken we het aantal aanpassingstermen tot maximaal 2. De modellen worden lokaal opgeslagen zodat ze maar eenmaal moeten gefit worden.
 
@@ -2986,7 +3252,7 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
   
   if ("jaar" %in% names(dsmodel$ddf$data)) {
     if (show_data) {
-      plots_old <- design_2018_2022_mas %>%
+      plots_old <- design_2018_2023_mas %>%
         filter(jaar != 2022) %>%
         distinct(plotnaam) %>%
         pull()
@@ -2995,7 +3261,7 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
         filter(plotnaam %in% plots_old)
       
       # Totale lijst van bezochte plots in 2018-2022
-      bezoekenlijst_2018_2022 <- design_2018_2022_mas_reduced  %>% 
+      bezoekenlijst_2018_2022 <- design_2018_2023_mas_reduced  %>% 
         expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
         arrange(plotnaam, jaar, periode_in_jaar)
       
