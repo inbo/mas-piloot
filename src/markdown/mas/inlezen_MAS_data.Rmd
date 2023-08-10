@@ -181,13 +181,11 @@ Zouden er nieuwe waarnemingen ingevoerd zijn na de laatste export?
 
 # Voeg data 2023 toe
 
-> nog niet finaal! wacht op Johannes week van 31 juli
-
 We lezen de data van 2023 in en voegen ze toe aan de eerdere nieuwe export.
 
 ```{r}
 file_geojson_2023 <- file.path(data_path, 
-                               "20230731_qgis_export_sovon_wfs_2023.geojson")
+                               "20230810_qgis_export_sovon_wfs_2023.geojson")
 mas_geojson_2023 <- read_sf(file_geojson_2023)
 
 mas_geojson_2018_2023 <- bind_rows(mas_geojson_new,
