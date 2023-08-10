@@ -58,7 +58,7 @@ path_to_vzml <- function(jaar) {
             paste0(string, extension))
 }
 
-calc_vzml <- function(path, punten_sf, group_by_col, clip_bo = NULL) {
+calc_vzml <- function(path, punten_sf, group_by_col, clip_bo) {
   layer_sf_raw <- st_read(path)
 
   if (!"geometry" %in% names(layer_sf_raw)) {
@@ -67,27 +67,12 @@ calc_vzml <- function(path, punten_sf, group_by_col, clip_bo = NULL) {
   }
 
   if (!is.null(clip_bo)) {
-    clip_sf <- st_read(clip_bo) %>%
-      st_transform(31370)
-
-    y <- unique(punten_sf$jaar)
-
-    clip_sf_filtered <- clip_sf %>%
-      mutate(startjaar = year(START),
-             stopjaar = year(STOP)) %>%
-      filter(startjaar <= y & stopjaar >= y)
-
     layer_sf_cropped <- layer_sf_raw %>%
       st_set_crs(31370) %>%
       st_intersection(punten_sf %>%
                         st_buffer(dist = 300))
 
-    bo_int <- st_intersection(layer_sf_cropped, clip_sf_filtered)
-    bo_int <- clip_sf_filtered %>%
-      summarise(st_union(st_buffer(geometry, 0.01)))
-
-    layer_sf <- st_difference(layer_sf_cropped, bo_int)
-
+    layer_sf <- st_difference(layer_sf_cropped, clip_bo)
   } else {
     layer_sf <- layer_sf_raw %>%
       st_set_crs(31370)
@@ -106,10 +91,15 @@ calc_vzml <- function(path, punten_sf, group_by_col, clip_bo = NULL) {
   return(points_vzml)
 }
 
-calc_vzml_by_year <- function(punten_df, ...) {
+calc_vzml_by_year <- function(punten_df, group_by_col, clip_bo) {
   # Loop over years
   years <- unique(punten_df$jaar)
   out_list <- vector(mode = "list", length = length(years))
+
+  if (!is.null(clip_bo)) {
+    clip_sf <- st_read(clip_bo) %>%
+      st_transform(31370)
+  }
 
   for (i in seq_along(years)) {
     year <- years[i]
@@ -118,9 +108,23 @@ calc_vzml_by_year <- function(punten_df, ...) {
     punten_df_year <- punten_df %>% filter(jaar == year)
     vzml_file_year <- path_to_vzml(jaar = year)
 
+    if (!is.null(clip_bo)) {
+      clip_sf_by_year <- clip_sf %>%
+        mutate(startjaar = year(START),
+               stopjaar = year(STOP)) %>%
+        filter(startjaar <= year & stopjaar >= year) %>%
+        st_intersection(punten_sf %>%
+                          st_buffer(dist = 300)) %>%
+        summarise(st_union(st_buffer(geometry, 0.01)))
+
+    } else {
+      clip_sf_by_year <- NULL
+    }
+
     out_df_year <- calc_vzml(path = vzml_file_year,
                              punten_sf = punten_df_year,
-                             ...)
+                             group_by_col = group_by_col,
+                             clip_bo = clip_sf_by_year)
 
     out_list[[i]] <- out_df_year %>% ungroup() %>% mutate(jaar = year)
   }

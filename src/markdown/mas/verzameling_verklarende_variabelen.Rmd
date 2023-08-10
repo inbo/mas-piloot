@@ -752,7 +752,9 @@ vrtlt_groepen %>%
 ```{r}
 telpunten_2018_2023_vrtlt_long_tot <- calc_vzml_by_year(
   telpunten_2018_2023_df,
-  group_by_col = "GWSNAM_V")
+  group_by_col = "GWSNAM_V",
+  clip_bo = path_to_bo(2022))
+
 telpunten_2018_2023_vrtlt_long <- telpunten_2018_2023_vrtlt_long_tot %>%
   left_join(vrtlt_groepen, by = join_by(GWSNAM_V))
 
