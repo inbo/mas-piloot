@@ -2608,10 +2608,8 @@ forms2 <- forms2[-match("~regio*openheid", forms2)]
 forms_2022 <- c("~1", forms1, forms2)
 ```
 
-Voor Bruine Kiekendief zonder broedcode kunnen we geen model fitten.
-Voor Huismus, Kauw, Turkse tortel, Winterkoning en Zwarte roodstaart lukt het niet om ~regio+openheid te fitten.
-Voor Huismus lukt het niet om ~sbp+openheid te fitten.
-Voor Winterkoning en Zwarte roodstaart lukt het niet om ~regio+sbp+openheid te fitten.
+Voor Buizerd_zonder_broedcode, Huismus, Kauw, Turkse tortel, Winterkoning, ZwarteRoodstaart lukt het niet om ~regio+openheid te fitten.
+Voor Huismus, TurkseTortel, Winterkoning lukt het niet om ~regio+sbp+openheid te fitten.
 
 ```{r}
 all_models_2022 <- list()
@@ -2622,9 +2620,6 @@ keys <- c("hn", "hr")
 
 # Sla de gefitte models op op deze locatie
 model_path <- "./src/markdown/mas/distance_models/"
-
-# Verwijder BruineKiekendief
-index_kiek_2022 <- which(names(distance_dfs_2022_final) == "BruineKiekendief_zonder_broedcode")
 
 # Loop over species
 for (spec in names(distance_dfs_2022_final)) {
@@ -2663,16 +2658,13 @@ for (spec in names(distance_dfs_2022_final)) {
     form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
   }
   
-  if (spec %in% c("Huismus", "Kauw", "TurkseTortel", "Winterkoning", 
-                  "ZwarteRoodstaart")) {
+  # manual removal
+  if (spec %in% c("Buizerd_zonder_broedcode", "Huismus", "Kauw", "TurkseTortel",
+                  "Winterkoning", "ZwarteRoodstaart")) {
     form_spec[sapply(form_spec, function(i) grepl("regio\\+openheid", i))] <- NULL
   }
   
-  if (spec %in% c("Huismus")) {
-    form_spec[sapply(form_spec, function(i) grepl("sbp\\+openheid", i))] <- NULL
-  }
-  
-  if (spec %in% c("Winterkoning", "ZwarteRoodstaart")) {
+  if (spec %in% c("Huismus", "TurkseTortel", "Winterkoning")) {
     form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
   }
 
@@ -2731,6 +2723,155 @@ for (spec in names(distance_dfs_2022_final)) {
 }
 names(all_models_2022) <- all_model_2022_names
 ```
+
+
+### 2023
+
+Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, openheid en sbp. We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen enkel tweewegsinteracties tussen de covariaten. In de modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data. Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken, beperken we het aantal aanpassingstermen tot maximaal 2. De modellen worden lokaal opgeslagen zodat ze maar eenmaal moeten gefit worden.
+
+```{r}
+match_variables_2023 <- c("regio", "sbp", "openheid")
+
+# We maken formules uit combinaties van alle variabelen
+combos <- sapply(seq(length(match_variables_2023)), function(i) {
+  as.list(as.data.frame(combn(x = match_variables_2023, m = i)))
+})
+combos <- unlist(combos, recursive = FALSE)
+
+# Combinaties zonder interacties
+forms1 <- sapply(combos, function(x) {
+    paste0("~", paste(x, collapse = "+"))
+  })
+
+# Combinaties interacties
+forms2 <- sapply(combos, function(x) {
+  if (length(x) == 2) {
+    paste0("~", paste(x, collapse = "*"))
+  }
+  })
+forms2[sapply(forms2, is.null)] <- NULL
+# remove interaction regio openheid
+forms2 <- forms2[-match("~regio*openheid", forms2)]
+
+# Voeg combinaties samen
+forms_2023 <- c("~1", forms1, forms2)
+```
+
+Voor Turkse tortel lukt het niet om ~regio+openheid te fitten.
+Voor Turkse tortel, ZwarteRoodstaart lukt het niet om ~regio+sbp+openheid te fitten.
+
+```{r}
+all_models_2023 <- list()
+all_model_2023_names <- c()
+
+# Key functions
+keys <- c("hn", "hr")
+
+# Sla de gefitte models op op deze locatie
+model_path <- "./src/markdown/mas/distance_models/"
+
+# Loop over species
+for (spec in names(distance_dfs_2023_final)) {
+  distance_data_2023 <- distance_dfs_2023_final[[spec]]
+  sample_table_2023 <- sample_tables_2023[[spec]]
+  obs_table_2023 <- obs_tables_2023[[spec]]
+  
+  out_models <- list()
+  model_names <- c()
+  
+  # Select possible formulas per species
+  form_spec <- forms_2023
+  form_df <- stratum_cijfers_df_2023 %>% filter(soort == spec)
+  if (!pull(form_df[,"n_regio"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_openheid"])) {
+    form_spec[sapply(form_spec, function(i) grepl("openheid", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("sbp", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_int_openheid_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("sbp\\*openheid", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_int_regio_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\*sbp", i))] <- NULL
+  }
+  
+  # Complete separation
+  sep_df <- distance_data_2023 %>% 
+    group_by(regio, openheid) %>% 
+    summarise(n = sum(size))
+  if (nrow(sep_df) == 2) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+openheid", i))] <- NULL
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
+  }
+  
+  # manual removal
+  if (spec %in% c("TurkseTortel")) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+openheid", i))] <- NULL
+  }
+  
+  if (spec %in% c("TurkseTortel", "ZwarteRoodstaart")) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
+  }
+
+  # Loop over formules en over key functions
+  for (i in seq_len(length(form_spec))) {
+    f <- as.character(form_spec[i]) # f is de formule
+    
+    for (k in keys) {
+      # Naam voor model
+      mod_name <- paste0(spec, "_distmod_2023_", k, i)
+      file <- paste0(model_path, mod_name, ".rds")
+      
+      # Sla model op als het nog niet bestaat en lees het in anderzijds
+      if (file.exists(file)) {
+        det_model <- readRDS(file)
+        assign(mod_name, det_model)
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+      } else {
+        if (f == "~1") {
+          det_model <- ds(data = distance_data_2023, key = k, 
+            formula = as.formula(f), max_adjustments = 2, 
+            monotonicity = "strict", 
+            truncation = 300, transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2023, 
+            region_table = region_table_2023, 
+            sample_table = sample_table_2023, 
+            obs_table = obs_table_2023)
+        } else {
+          det_model <- ds(data = distance_data_2023, key = k, 
+            formula = as.formula(f), adjustment = NULL, truncation = 300, 
+            transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2023, 
+            region_table = region_table_2023, 
+            sample_table = sample_table_2023, 
+            obs_table = obs_table_2023)
+        }
+        
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+        
+        # Sla gefitte model op
+        assign(mod_name, det_model)
+        saveRDS(det_model, file = file)
+      }
+      # Put models and model names in list 
+      out_models <- c(out_models, list(det_model))
+      model_names <- c(model_names, mod_name)
+    }
+  }
+  names(out_models) <- model_names
+  
+  # Put models and model names in list 
+  all_models_2023 <- c(all_models_2023, list(out_models))
+  all_model_2023_names <- c(all_model_2023_names, spec)
+}
+names(all_models_2023) <- all_model_2023_names
+```
+
 
 ## Densiteitschattingen 2018-2022
 
