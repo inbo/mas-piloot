@@ -52,25 +52,36 @@ calc_lbg_by_year <- function(punten_df) {
 
 path_to_vzml <- function(jaar) {
   string <- paste("Landbouwgebruikspercelen", jaar, sep = "_")
-  if (jaar == 2022) extension = ".gpkg" else extension = ".shp"
+  extension <- ".shp"
 
   file.path(mbag_dir, "data", "verzamelaanvraag", string,
             paste0(string, extension))
 }
 
-calc_vzml <- function(path, punten_sf, group_by_col = "GWSNAM_V") {
-  layer_sf <- st_read(path)
+calc_vzml <- function(path, punten_sf, group_by_col, clip_bo) {
+  layer_sf_raw <- st_read(path)
 
-  if (!"geometry" %in% names(layer_sf)) {
-    layer_sf <- layer_sf %>%
+  if (!"geometry" %in% names(layer_sf_raw)) {
+    layer_sf_raw <- layer_sf_raw %>%
       rename(geometry = geom)
+  }
+
+  if (!is.null(clip_bo)) {
+    layer_sf_cropped <- layer_sf_raw %>%
+      st_set_crs(31370) %>%
+      st_intersection(punten_sf %>%
+                        st_buffer(dist = 300))
+
+    layer_sf <- st_difference(layer_sf_cropped, clip_bo)
+  } else {
+    layer_sf <- layer_sf_raw %>%
+      st_set_crs(31370)
   }
 
   points_vzml <- landusemetrics_grid_cell(
     grid_cell = punten_sf %>%
       st_buffer(dist = 300),
-    layer = layer_sf %>%
-      st_set_crs(31370),
+    layer = layer_sf,
     grid_group_by_col = "pointid",
     layer_group_by_col = group_by_col)
 
@@ -80,10 +91,15 @@ calc_vzml <- function(path, punten_sf, group_by_col = "GWSNAM_V") {
   return(points_vzml)
 }
 
-calc_vzml_by_year <- function(punten_df, ...) {
+calc_vzml_by_year <- function(punten_df, group_by_col, clip_bo = NULL) {
   # Loop over years
   years <- unique(punten_df$jaar)
   out_list <- vector(mode = "list", length = length(years))
+
+  if (!is.null(clip_bo)) {
+    clip_sf <- st_read(clip_bo) %>%
+      st_transform(31370)
+  }
 
   for (i in seq_along(years)) {
     year <- years[i]
@@ -92,9 +108,27 @@ calc_vzml_by_year <- function(punten_df, ...) {
     punten_df_year <- punten_df %>% filter(jaar == year)
     vzml_file_year <- path_to_vzml(jaar = year)
 
+    if (!is.null(clip_bo)) {
+      clip_sf_by_year <- clip_sf %>%
+        mutate(startjaar = year(START),
+               stopjaar = year(STOP)) %>%
+        filter(startjaar <= year & stopjaar >= year)
+      if(nrow(clip_sf_by_year) == 0) {
+        clip_sf_by_year <- NULL
+      } else {
+        clip_sf_by_year <- clip_sf_by_year %>%
+          st_intersection(punten_df_year %>%
+                            st_buffer(dist = 300)) %>%
+          summarise(st_union(st_buffer(geometry, 0.01)))
+      }
+    } else {
+      clip_sf_by_year <- NULL
+    }
+
     out_df_year <- calc_vzml(path = vzml_file_year,
                              punten_sf = punten_df_year,
-                             ...)
+                             group_by_col = group_by_col,
+                             clip_bo = clip_sf_by_year)
 
     out_list[[i]] <- out_df_year %>% ungroup() %>% mutate(jaar = year)
   }
@@ -145,7 +179,7 @@ calc_perceelsgrootte_by_year <- function(punten_df) {
                                                          ".shp"))) %>%
       st_transform(crs = 31370)
 
-    if (year == 2022) {
+    if (year %in% 2022:2023) {
       lbg_binding <- lbg_binding %>%
         rename(LBLHFDTLT = GWSNAM_H,
                perc_id = REF_ID)

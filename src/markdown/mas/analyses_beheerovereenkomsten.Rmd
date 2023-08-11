@@ -64,7 +64,7 @@ projpred_path <- "./src/markdown/mas/projpred_cache/"
 
 ```{r}
 data_path <- here("data", "processed")
-mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2022.csv"))
+mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
 ```
 
 ```{r}
@@ -166,10 +166,7 @@ gele_kwik_df1 %>%
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank()) + 
     facet_wrap(jaar~regio, scales = "free") +
-    labs(y = "", x = "Aantal broedparen Gele kwikstaart per plot") +
-    theme(legend.position = c(1, 0),
-          legend.justification = c(1, 0),
-          legend.direction = "horizontal")
+    labs(y = "", x = "Aantal broedparen Gele kwikstaart per plot")
 ```
 
 ```{r}
@@ -179,8 +176,9 @@ gele_kwik_df1 %>%
   stat_summary(fun.data = mean_cl_boot,
                position = position_dodge(width = 0.5),
                fatten = 4, shape = "square") +
+  scale_x_continuous(breaks = sort(unique(gele_kwik_df1$jaar))) +
   facet_wrap(~regio, scales = "free") +
-  labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "Telperiode") +
+  labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "") +
   theme(legend.position = "bottom")
 ```
 
@@ -188,9 +186,13 @@ gele_kwik_df1 %>%
 # Calculate zomergranen_hfdtlt2 as specified in 
 # exploratie_verklarende_variabelen.rmd
 gele_kwik_df <- gele_kwik_df1 %>%
-  mutate(zomergranen_hfdtlt2 = rowSums(across(c(graangewassen_hfdtlt, 
-                                               zomergranen_hfdtlt)))) %>%
-  select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt))
+  mutate(jaar = factor(jaar),
+         zomergranen_hfdtlt2 = rowSums(across(
+           c(graangewassen_hfdtlt, zomergranen_hfdtlt))),
+         zomergranen_hfdtlt_pre2 = rowSums(across(
+           c(graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
+  select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt,
+            graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre))
 
 strat_vars <- c("plotnaam", "regio", "periode_in_jaar", "jaar", "jaar.f")
 response_vars <- c("aantal")
@@ -209,7 +211,23 @@ pred_vars <- c("area_prop_sb",
                "meerjarige_fruitteelt_hfdtlt",
                "groenbemester_hfdtlt",
                "zomergranen_hfdtlt2",
-               "zaden_hfdtlt", 
+               "vergroening_hfdtlt",
+               "zaden_hfdtlt",
+               "landbouwinfrastructuur_hfdtlt_pre",
+               "grasland_hfdtlt_pre",
+               "aardappelen_hfdtlt_pre",
+               "wintergranen_hfdtlt_pre",
+               "bieten_hfdtlt_pre",
+               "mais_hfdtlt_pre",
+               "wortelgewassen_hfdtlt_pre",
+               "vlas_en_hennep_hfdtlt_pre",
+               "groententeelt_hfdtlt_pre",
+               "peulvruchten_hfdtlt_pre",
+               "meerjarige_fruitteelt_hfdtlt_pre",
+               "groenbemester_hfdtlt_pre",
+               "zomergranen_hfdtlt_pre2",
+               "vergroening_hfdtlt_pre",
+               "zaden_hfdtlt_pre",
                "gewas_div_shannon",
                "perceel_cv_area",
                "inertie_sb",
@@ -250,9 +268,7 @@ plot_scatter <- function(x, y = "aantal", df = gele_kwik_df_mod) {
         geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
         geom_smooth(method = "gam", colour = "firebrick") +
         facet_wrap(~jaar, scales = "free") +
-        ggtitle(reg) +
-        theme(legend.position = c(0.8, 0.2),
-              legend.direction = "vertical")
+        ggtitle(reg)
     print(p)
   }
 }
@@ -1186,6 +1202,14 @@ We kunnen die variabele ook kunnen opdelen in klassen (bv. \< 0.1, 0.1 - 0.2, \>
 Er zijn wellicht ook minder data \> 0.2 (waardoor je ook minder zeker bent van het niet lineaire verband).
 Nog een optie is de variabele sqrt transformeren.
 
+We besluiten op te delen volgens de agri-environment schemes (AES) classificatie besproken in @sharps2023.
+
+```{r}
+tibble(beleid = c("nul", "laag", "middel", "hoog"),
+       prop_area_sb = c("0", "<0.04", "0.04-0.1", ">0.1")) %>%
+  kable()
+```
+
 ```{r}
 gele_kwik_df2_2022 %>%
   ggplot(aes(x = area_prop_sb)) +
@@ -1198,10 +1222,11 @@ test <-
   brm(formula = bf(aantal ~ regio*area_prop_sb_cat),
       data = gele_kwik_df2_2022 %>%
         mutate(area_prop_sb_cat = case_when(
-          area_prop_sb == 0 ~ "area_0",
-          area_prop_sb < 0.1 ~ "area_<0.1",
-          area_prop_sb <= 0.2 ~ "area_0.1-0.2",
-          TRUE ~ "area_>0.2"
+          area_prop_sb == 0 ~ "nulbeleid",
+          area_prop_sb <= 0.04 ~ "laagbeleid",
+          area_prop_sb <= 0.07 ~ "middellaagbeleid",
+          area_prop_sb <= 0.1 ~ "middelhoogbeleid",
+          TRUE ~ "hoogbeleid"
         )), 
       family = negbinomial(), 
       chains = nchains, 
@@ -1217,9 +1242,12 @@ effects_df <- effects$`area_prop_sb_cat:regio` %>%
   as_tibble()
 
 effects_df %>%
-  mutate(area_prop_sb_cat = factor(gsub("^area_", "", area_prop_sb_cat),
-                                   levels = c("0", "<0.1", "0.1-0.2",
-                                              ">0.2"),
+  mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
+                                   levels = c("nulbeleid",
+                                              "laagbeleid",
+                                              "middellaagbeleid",
+                                              "middelhoogbeleid",
+                                              "hoogbeleid"),
                                    ordered = TRUE)) %>%
   ggplot(aes(x = area_prop_sb_cat, y = estimate__, colour = regio)) +
     geom_point(position = position_dodge(width = 0.4),
@@ -1242,26 +1270,28 @@ Dit ziet er waardevoller uit.
 <https://github.com/stan-dev/projpred/issues/67>\
 <https://paul-buerkner.github.io/brms/reference/R2D2.html>
 
-
 ### Referentiemodel
 
 Eerst moeten we een referentiemodel construeren voor de selectie van verklarende variabelen via 'projection predive variable selection' (PPVS).
 Het doel van PPVS is het vinden van een zo klein mogelijke subset van kandidaat-variabelen met een voorspellende kracht die zo dicht mogelijk ligt bij die van het referentiemodel.
 Het referentiemodel bevat alle variabelen in kwestie en is het best presterende model (in termen van voorspellende prestaties) dat we tot onze beschikking hebben [@mclatchie2023].
 
-We selecteren de data van de Oostelijke leemstreek van 2022. 
+We selecteren de data van de Oostelijke leemstreek van 2022 en 2023.
+We voegen de jaarvariabele toe als factor.
 We centreren en schalen alle continue variabelen door te delen door de standaard deviatie.
 
 ```{r}
 # Data
-data_projpred <- gele_kwik_df2_2022 %>%
+data_projpred <- gele_kwik_df_mod2 %>%
+  filter(jaar %in% 2022:2023) %>%
   filter(regio == "Oostelijke leemstreek") %>%
   mutate(area_prop_sb_cat = case_when(
-    area_prop_sb == 0 ~ "area_0",
-    area_prop_sb < 0.1 ~ "area_<0.1",
-    area_prop_sb <= 0.2 ~ "area_0.1-0.2",
-    TRUE ~ "area_>0.2"
-  ))
+         area_prop_sb == 0 ~ "nulbeleid",
+         area_prop_sb <= 0.04 ~ "laagbeleid",
+         area_prop_sb <= 0.07 ~ "middellaagbeleid",
+         area_prop_sb <= 0.1 ~ "middelhoogbeleid",
+         TRUE ~ "hoogbeleid"
+         ))
 
 data_projpred_scaled <- data_projpred %>%
   mutate(across(.cols = c(where(is.numeric), -aantal), 
@@ -1281,12 +1311,7 @@ indices_refmodel1 <- which(names(data_projpred) %in% c(
   "plotnaam", 
   "regio",
   "jaar",
-  "jaar.f",
-  "area_prop_sb", 
-  "area_prop_bo_overig",
   "area_prop_sb_cat",
-  "inertie_sb",
-  "inertie_overig",
   "x_plot",
   "y_plot",
   "is_sbp",
@@ -1444,9 +1469,12 @@ show_rhat(list(ref_gelekwik_model1,
                ref_gelekwik_model8))
 ```
 
-Hoewel de verschillende chains overeenkomen in alle modellen, zien de posterior distributions er toch vreemd uit voor de modellen met de horseshoe priors. Het lijkt erop dat er sterke shrinkage naar 0 is maar dat dit voor een vreemde vorm in de posterior zorgt. Bovendien werden er verschillende warnings geuit tijdens het fitten van deze modellen.
+Hoewel de verschillende chains overeenkomen in alle modellen, zien de posterior distributions er toch vreemd uit voor de modellen met de horseshoe priors.
+Het lijkt erop dat er sterke shrinkage naar 0 is maar dat dit voor een vreemde vorm in de posterior zorgt.
+Bovendien werden er verschillende warnings geuit tijdens het fitten van deze modellen.
 
-Mogelijks is dit het gevolg van de keuzes van de hyperparameters. "Different levels of sparsity can be accommodated by changing the value of $\tau$: with large $\tau$ all the variables have very diffuse priors with very little shrinkage towards zero, but letting $\tau \rightarrow 0$ will shrink all the weights $\beta_j$ to zero." .
+Mogelijks is dit het gevolg van de keuzes van de hyperparameters.
+"Different levels of sparsity can be accommodated by changing the value of $\tau$: with large $\tau$ all the variables have very diffuse priors with very little shrinkage towards zero, but letting $\tau \rightarrow 0$ will shrink all the weights $\beta_j$ to zero." .
 
 ```{r}
 plot(ref_gelekwik_model6, ask = FALSE)
@@ -1551,7 +1579,7 @@ pp_check(ref_gelekwik_model6, type = "bars", ndraws = 200)
 ### PPVS
 
 PPVS kunnen we doen met de **projpred** package [@projpred].
-Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten). 
+Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten).
 Default neemt de functie 19 als maximum, maar wij schatten dat meer dan 10 predictors overbodig zal zijn.
 Omdat we de variabele `sbp` in elk model willen, maken we een vector met alle mogelijke combinaties van predictors met deze variabele en maximum aan 10 predictors.
 `nterms_max` zal dan automatisch 10 zijn.
@@ -1690,10 +1718,13 @@ De aangeraden modelgrootte is:
 suggest_size(cvvs_fast4)
 ```
 
-Hoe sterker de shrinkage, hoe sneller PPVS. De horseshoe had de sterkste shrinkage, daarna de R2D2 en daarna zonder shrinkage. Zonder shrinkage prior gaat het trager en de resultaten verschillen ook van deze met de shrinkage priors.
+Hoe sterker de shrinkage, hoe sneller PPVS.
+De horseshoe had de sterkste shrinkage, daarna de R2D2 en daarna zonder shrinkage.
+Zonder shrinkage prior gaat het trager en de resultaten verschillen ook van deze met de shrinkage priors.
 Omwille van de model fit problemen, lijkt het best om verder te gaan met het model met de default R2D2 shrinkage prior.
 
-We zien dat de "mean log predictive density" (MLPD) van de shrinkage submodellen vooral hard toeneemt bij de eerste vier predictors. Daarna zijn er slechts kleine verschillen.
+We zien dat de "mean log predictive density" (MLPD) van de shrinkage submodellen vooral hard toeneemt bij de eerste vier predictors.
+Daarna zijn er slechts kleine verschillen.
 Nu doen we een grondige forward search die meer tijd nodig heeft met `validate_search = TRUE` (beschermt tegen overfitting).
 We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel (`deltas = TRUE`).
 
@@ -1716,11 +1747,11 @@ plot(cvvs_refmodel1, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE,
      ranking_abbreviate_args = list(minlength = 4))
 ```
 
-Op basis van deze plot bepalen we submodelgrootte. 
+Op basis van deze plot bepalen we submodelgrootte.
 Meestal is het de bedoeling om de kleinste submodelgrootte te vinden waarbij de voorspellende prestaties van de submodellen afvlakken en dicht genoeg in de buurt komen van de voorspellende prestaties van het referentiemodel (de gestippelde rode horizontale lijn).
 Dit blijft min of meer een subjectieve beslissing.
 Er moet er een geschikte afweging worden gemaakt tussen voorspellende prestaties (nauwkeurigheid) en modelgrootte.
-We zien na de vierde predictor geen sterke stijgingen meer. 
+We zien na de vierde predictor geen sterke stijgingen meer.
 Wel is er nog een kleine stijging tot en met 7 à 8.
 
 ```{r}
@@ -1730,7 +1761,8 @@ smmry_refmodel1 <- summary(cvvs_refmodel1, stats = "mlpd",
 print(smmry_refmodel1, digits = 1)
 ```
 
-De eerste vier zijn dezelfde als de eerste vier in de snelle analyse. Dit geld ook voor de eerste acht (wel in andere volgorde).
+De eerste vier zijn dezelfde als de eerste vier in de snelle analyse.
+Dit geld ook voor de eerste acht (wel in andere volgorde).
 We zien bovendien dat voor de eerste acht predictors dat er weinig variabiliteit is in de rangschikking van de variabelen
 
 ```{r}
@@ -1740,9 +1772,8 @@ plot(pr_rk_refmodel1)
 plot(cv_proportions(rk_refmodel1, cumulate = TRUE))
 ```
 
-4 of 8? 8 is goed zie ook snelle methode zelfde resultaat ...
-
-De aangeraden grootte door het **projpred** package is `r suggest_size(cvvs_refmodel1, stat = "mlpd")` verklarende variabelen. Het gaat dan om de volgende variabelen:
+De aangeraden grootte door het **projpred** package is `r suggest_size(cvvs_refmodel1, stat = "mlpd")` verklarende variabelen.
+Het gaat dan om de volgende variabelen:
 
 ```{r}
 size_decided1_refmodel1 <- suggest_size(cvvs_refmodel1, stat = "mlpd")
@@ -1916,90 +1947,81 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
 plot_brms_fit(final, x = "sbp", show_data = FALSE,
               axis_label = "soortbeschermingsplan")
 
-plot_brms_fit(final, x = "status_teller", show_data = FALSE,
-              axis_label = "teller status")
 ```
 
 ```{r}
-plot_brms_fit(final, x = "houtkant", factor = 100, show_data = FALSE,
-              axis_label = "proportie houtkanten (%)")
 plot_brms_fit(final, x = "haag", factor = 100, show_data = FALSE,
               axis_label = "proportie hagen (%)")
+plot_brms_fit(final, x = "houtkant", factor = 100, show_data = FALSE,
+              axis_label = "proportie houtkanten (%)")
 plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
               show_data = FALSE,
               axis_label = "proportie hoofdteelt wintergranen (%)")
 plot_brms_fit(final, x = "openheid_waarde_1000", show_data = FALSE,
               axis_label = "openheid landschap (1000 m)")
-plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100, show_data = FALSE,
-                    axis_label = "proportie hoofdteelt groententeelt (%)")
-plot_brms_fit(final, x = "zomergranen_hfdtlt2", factor = 100, show_data = FALSE,
-              axis_label = "proportie hoofdteelt zomergranen (%)")
-plot_brms_fit(final, x = "boom", factor = 100, 
-              show_data = FALSE,
-              axis_label = "proportie bomen (%)")
 plot_brms_fit(final, x = "aardappelen_hfdtlt", show_data = FALSE,
               axis_label = "proportie hoofdteelt aardappelen (%)")
+plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100,
+              show_data = FALSE,
+              axis_label = "proportie hoofdteelt groententeelt (%)")
 ```
 
 ```{r}
-plot_brms_fit(final, x = "houtkant", factor = 100, show_data = TRUE,
-              axis_label = "proportie houtkanten (%)")
 plot_brms_fit(final, x = "haag", factor = 100, show_data = TRUE,
               axis_label = "proportie hagen (%)")
+plot_brms_fit(final, x = "houtkant", factor = 100, show_data = TRUE,
+              axis_label = "proportie houtkanten (%)")
 plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
               show_data = TRUE,
               axis_label = "proportie hoofdteelt wintergranen (%)")
 plot_brms_fit(final, x = "openheid_waarde_1000", show_data = TRUE,
               axis_label = "openheid landschap (1000 m)")
-plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100, show_data = TRUE,
-                    axis_label = "proportie hoofdteelt groententeelt (%)")
-plot_brms_fit(final, x = "zomergranen_hfdtlt2", factor = 100, show_data = TRUE,
-              axis_label = "proportie hoofdteelt zomergranen (%)")
-plot_brms_fit(final, x = "boom", factor = 100, 
-              show_data = TRUE,
-              axis_label = "proportie bomen (%)")
 plot_brms_fit(final, x = "aardappelen_hfdtlt", show_data = TRUE,
               axis_label = "proportie hoofdteelt aardappelen (%)")
+plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100,
+              show_data = TRUE,
+              axis_label = "proportie hoofdteelt groententeelt (%)")
 ```
-
 
 ## Conclusie
 
--  PPVS lijkt een goede methode voor selectie van variabelen
--  We voeren dit uit voor sbp, met area_prop_sb_cat en met alle variabelen (geen restricties)
-  -  voor OL en DM apart
-  -  voor specifieke doelsoorten apart
-  -  enkel voor 2022 of ook al 2023?
-  -  alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
+-   PPVS lijkt een goede methode voor selectie van variabelen
+-   We voeren dit uit voor sbp, met area_prop_sb_cat en met alle variabelen (geen restricties)
+-   voor OL en DM apart
+-   voor specifieke doelsoorten apart
+-   enkel voor 2022-2023
+-   alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
 
-
-# Oostelijke leemstreek 2022: sbp
+# Oostelijke leemstreek 2022-2023: sbp
 
 We bekijken eerst het effect van `sbp`.
 
-Onze doelsoorten zijn Veldleeuwerik, Gele kwikstaart, Geelgors, Kievit, Grasmus, Ringmus, Witte kwikstaart, Patrijs, Haas.
-Voor Patrijs en Ringmus hebben we bijna geen data.
-We zullen deze soorten voorlopig niet opnemen in de analyses.
-
 ```{r}
-doel_soorten <- c("Veldleeuwerik", 
-                  "Gele Kwikstaart", 
-                  "Geelgors", 
-                  "Kievit", 
-                  "Grasmus",
-                  "Witte Kwikstaart",
-                  "Haas")
+doel_soorten_ol_pre <- c(
+  "Veldleeuwerik", 
+  "Gele Kwikstaart", 
+  "Geelgors", 
+  "Kievit", 
+  "Grasmus",
+  "Witte Kwikstaart",
+  "Ringmus",
+  "Torenvalk",
+  "Kwartel",
+  "Kneu",
+  "Haas")
 ```
+
+Onze doelsoorten zijn `r doel_soorten_ol_pre`.
 
 ## Lijst van datasets
 
 ```{r}
-create_data_list <- function(doel_soorten, region, year = 2022) {
-  df_count_list <- vector("list", length = length(doel_soorten))
-  df_count_names <- vector(length = length(doel_soorten))
+create_data_list <- function(doel_soorten_ol_pre, region, year = 2022) {
+  df_count_list <- vector("list", length = length(doel_soorten_ol_pre))
+  df_count_names <- vector(length = length(doel_soorten_ol_pre))
 
-  for (i in seq_along(doel_soorten)) {
-    spec <- sort(doel_soorten)[i]
+  for (i in seq_along(doel_soorten_ol_pre)) {
+    spec <- sort(doel_soorten_ol_pre)[i]
       
     # Presence data
     if (spec == "Haas") { # geen broedcode
@@ -2031,13 +2053,17 @@ create_data_list <- function(doel_soorten, region, year = 2022) {
         which(names(mas_data_df) == "n_predators"):length(names(mas_data_df))),
         by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
       distinct() %>%
-      mutate(jaar.f = factor(jaar),
-             zomergranen_hfdtlt2 = rowSums(across(c(graangewassen_hfdtlt, 
-                                                    zomergranen_hfdtlt)))) %>%
-      select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt))
+      mutate(jaar = factor(jaar),
+         zomergranen_hfdtlt2 = rowSums(across(
+           c(graangewassen_hfdtlt, zomergranen_hfdtlt))),
+         zomergranen_hfdtlt_pre2 = rowSums(across(
+           c(graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
+      select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt,
+                graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre))
     
     # Aggregate counts by plot and year
     mas_data_df_agg <- mas_data_df_full %>%
+      mutate(jaar.f = factor(jaar)) %>%
       select(all_of(c(response_vars, strat_vars, pred_vars))) %>%
       group_by(plotnaam, jaar) %>%
       mutate(status_teller = names(which.max(table(status_teller)))) %>%
@@ -2053,13 +2079,20 @@ create_data_list <- function(doel_soorten, region, year = 2022) {
     mas_data_df_out <- mas_data_df_agg %>%
       filter(jaar %in% year,
              regio == region) %>%
-      mutate(area_prop_sb_cat = case_when(
-        area_prop_sb == 0 ~ "area_0",
-        area_prop_sb < 0.1 ~ "area_<0.1",
-        area_prop_sb <= 0.2 ~ "area_0.1-0.2",
-        TRUE ~ "area_>0.2"
-        ),
-        area_prop_sb_cat = relevel(factor(area_prop_sb_cat), "area_0"))
+      mutate(
+        area_prop_sb_cat = case_when(
+          area_prop_sb == 0 ~ "nulbeleid",
+          area_prop_sb <= 0.04 ~ "laagbeleid",
+          area_prop_sb <= 0.07 ~ "middellaagbeleid",
+          area_prop_sb <= 0.1 ~ "middelhoogbeleid",
+          TRUE ~ "hoogbeleid"
+          ),
+        area_prop_sb_cat = factor(area_prop_sb_cat,
+                                  levels = c("nulbeleid",
+                                             "laagbeleid",
+                                             "middellaagbeleid",
+                                             "middelhoogbeleid",
+                                             "hoogbeleid")))
     
     naam_obs <- gsub(" ", "", spec)
     
@@ -2074,10 +2107,38 @@ create_data_list <- function(doel_soorten, region, year = 2022) {
 ```
 
 ```{r}
-df_count_list <- create_data_list(doel_soorten, "Oostelijke leemstreek")
+df_count_list <- create_data_list(doel_soorten_ol_pre,
+                                  "Oostelijke leemstreek",
+                                  2022:2023)
 ```
 
-Scale continuous variables.
+Voor Ringmus hebben we bijna geen data.
+We zullen deze soort niet opnemen in de analyses van de Oostelijke leemstreek.
+
+```{r}
+for (i in seq_along(df_count_list)) {
+  df <- df_count_list[[i]]
+  spec <- names(df_count_list)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list[["Ringmus"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
 
 ```{r}
 df_count_list_scaled <- lapply(df_count_list, function(df) {
@@ -2100,24 +2161,19 @@ thinning <- 2
 
 ```{r}
 # Formula
-indices_to_remove <- which(names(df_count_list$GeleKwikstaart) %in% c(
+indices_to_remove_olsbp <- which(names(df_count_list$GeleKwikstaart) %in% c(
   "id", 
   "aantal", 
   "plotnaam", 
   "regio",
   "jaar",
-  "jaar.f",
-  "area_prop_sb", 
-  "area_prop_bo_overig",
   "area_prop_sb_cat",
-  "inertie_sb",
-  "inertie_overig",
   "x_plot",
   "y_plot",
   "is_sbp",
   "openheid_klasse_300"))
 
-predictors_olsbp <- names(df_count_list$GeleKwikstaart)[-indices_to_remove]
+predictors_olsbp <- names(df_count_list$GeleKwikstaart)[-indices_to_remove_olsbp]
 
 form_refmod_olsbp <- bf(paste("aantal", "~", paste(predictors_olsbp, 
                                                    collapse = " + ")))
@@ -2508,8 +2564,7 @@ for (pred in predictors_olsbp_list$WitteKwikstaart$predictors) {
 }
 ```
 
-
-# Oostelijke leemstreek 2022: area_prop_sb
+# Oostelijke leemstreek 2022-2023: area_prop_sb
 
 We doen hetzelfde, maar nu beschouwen we `area_prop_sb` in plaats van de `sbp` variabele.
 
@@ -2521,7 +2576,6 @@ indices_to_remove2 <- which(names(df_count_list$GeleKwikstaart) %in% c(
   "plotnaam", 
   "regio",
   "jaar",
-  "jaar.f",
   "area_prop_sb",
   "x_plot",
   "y_plot",
@@ -2640,19 +2694,20 @@ for (i in seq_along(cvvs_olpropsb_list)) {
 
 # Oostelijke leemstreek totaalanalyse
 
-Voor de totaalanalyse beschouwen we alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren (cf. distance sampling analyses). `jaar` zal een extra variabele zijn (als factor). We voeren de PPVS uit zonder restricties.
+Voor de totaalanalyse beschouwen we alle plots van 2018-2021 en voegen enkel plots van 2022 en 2023 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren (cf. distance sampling analyses).
+We voeren de PPVS uit zonder restricties.
 
 ```{r}
 # Get presence-absences for region and year span
 df_count_list_oltotal_raw <- create_data_list(
-  doel_soorten, 
+  doel_soorten_ol, 
   "Oostelijke leemstreek", 
-  2018:2022)
+  2018:2023)
 
 # Get plots from 2018-2021
 plots_old <- design %>%
   filter(regio == "Oostelijke leemstreek",
-         jaar != 2022) %>%
+         !jaar %in% 2022:2023) %>%
   distinct(plotnaam) %>%
   pull()
 
@@ -2681,10 +2736,7 @@ df_count_list_oltotal_scaled <- lapply(df_count_list_oltotal, function(df) {
   })
 ```
 
-
 > testcase Veldleeuwerik
-
-
 
 ```{r}
 # MCMC parameters
@@ -2744,7 +2796,6 @@ cvvs_olsbp_veldleeuwerik_fast <- cv_varsel(
   validate_search = FALSE)
 ```
 
-
 ```{r}
 cvvs_olsbp_veldleeuwerik <- cv_varsel(
   object          = refmod_oltotal_veldleeuwerik,
@@ -2753,7 +2804,6 @@ cvvs_olsbp_veldleeuwerik <- cv_varsel(
   nterms_max      = 19,
   validate_search = TRUE)
 ```
-
 
 # De Moeren 2022: sbp
 

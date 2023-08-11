@@ -620,5 +620,73 @@
         "providerkey": "Packages",
         "title": "{{projpred}}: {{Projection}} Predictive Feature Selection",
         "type": "article"
+    },
+    {
+        "DOI": "10.1111/1365-2664.14338",
+        "ISSN": "0021-8901",
+        "URL": "http://dx.doi.org/10.1111/1365-2664.14338",
+        "author": [
+            {
+                "family": "Sharps",
+                "given": "Elwyn"
+            },
+            {
+                "family": "Hawkes",
+                "given": "Robert W."
+            },
+            {
+                "family": "Bladon",
+                "given": "Andrew J."
+            },
+            {
+                "family": "Buckingham",
+                "given": "David L."
+            },
+            {
+                "family": "Border",
+                "given": "Jennifer"
+            },
+            {
+                "family": "Morris",
+                "given": "Antony J."
+            },
+            {
+                "family": "Grice",
+                "given": "Philip V."
+            },
+            {
+                "family": "Peach",
+                "given": "Will J."
+            }
+        ],
+        "container-title": "Journal of Applied Ecology",
+        "container-title-short": "Journal of Applied Ecology",
+        "id": "sharps2023",
+        "is-referenced-by-count": "1",
+        "issue": "4",
+        "issued": {
+            "date-parts": [
+                [
+                    2023,
+                    1,
+                    4
+                ]
+            ]
+        },
+        "language": "en",
+        "member": "311",
+        "page": "568-580",
+        "prefix": "10.1111",
+        "providerkey": "doi",
+        "publisher": "Wiley",
+        "reference-count": "42",
+        "references-count": "42",
+        "score": "1",
+        "source": "Crossref",
+        "subject": "Ecology",
+        "title": "Reversing declines in farmland birds: How much agri‐environment provision is needed at farm and landscape scales?",
+        "type": "article-journal",
+        "update-policy": "http://dx.doi.org/10.1002/crossmark_policy",
+        "volume": "60"
     }
 ]
