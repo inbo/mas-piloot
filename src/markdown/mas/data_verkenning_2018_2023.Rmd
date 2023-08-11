@@ -1110,12 +1110,14 @@ for (reg in unique(diversiteit_vogels_strat$regio)) {
 ## Oppervlakte beheerovereenkomsten
 
 
-```{r bo-2021}
-bo_2021 <- read_sf(
-  here("data/bo_vlm/BO_2021_VLM_EXTERN.shp")) %>%
+```{r bo-2022}
+bo_2022 <- read_sf(
+  here("data/bo_vlm/BO_2022_VLM_EXTERN.shp")) %>%
   janitor::clean_names() %>%
   mutate(start = lubridate::ymd(start),
-         stop = lubridate::ymd(stop)) %>%
+         stop = lubridate::ymd(stop),
+         startjaar = year(start),
+         stopjaar = year(stop)) %>%
   st_transform(crs = 31370)
 
 perimeters <- read_sf(
@@ -1126,7 +1128,7 @@ sbp_akkervogels <- tar_read(sbp_akkervogels,
 ```
 
 ```{r opp-bo-data}
-bo_dm_ol <- bo_2021 %>%
+bo_dm_ol <- bo_2022 %>%
   st_intersection(y = perimeters)
 
 openheid_sf <- rast(here("data", "dem",
@@ -1159,7 +1161,7 @@ regio_sbp_openheid <- sbp_sf %>%
 
 opp_evolutie <- bo_dm_ol %>%
   filter(eenheid == "Hectare") %>%
-  select(bh_doelst, srt_object, bhpakket, start, stop) %>%
+  select(bh_doelst, srt_object, bh_pakket, start, stop, startjaar, stopjaar) %>%
   st_intersection(regio_sbp_openheid) %>%
   mutate(opp = st_area(.)) %>%
   st_drop_geometry()
@@ -1167,28 +1169,28 @@ opp_evolutie <- bo_dm_ol %>%
 
 De volgende figuur geeft de cumulatieve oppervlakte aan afgesloten beheerovereenkomsten voor de verschillende soortbeschermingsmaatregelen over de jaren en opgesplitst per stratum.
 Deze cijfers gelden voor het volledige projectgebied van de Moeren en de Oostelijke leemstreek zoals gedefinieerd in het MAS pilootproject.
-De data voor 2022-2023 zitten hier nog niet bij.
 
 ```{r opp-bo-evolutie, out.width="100%"}
 opp_evolutie %>%
-  expand_grid(jaar = ymd(paste0(2017:2021, "-02-02"))) %>%
-  mutate(opp2 = case_when(
-    jaar < start ~ 0,
-    jaar %within% interval(start, stop) ~ as.numeric(opp),
-    jaar > stop ~ -as.numeric(opp)
-  )) %>%
+  expand_grid(jaar = 2018:2023) %>%
+  mutate(
+    opp2 = ifelse(startjaar <= jaar & stopjaar >= jaar, opp, 0)
+  ) %>%
   filter(bh_doelst == "soortenbescherming (SB)",
          openheid %in% c("HOL", "OL")) %>%
-  group_by(bh_doelst, srt_object, regio, is_sbp, openheid, jaar,
-           .groups = "drop") %>%
-  summarise(tot_opp_ha = sum(opp2) / 1e4) %>%
+  group_by(bh_doelst, srt_object, regio, is_sbp, openheid, jaar) %>%
+  summarise(tot_opp_ha = sum(opp2) / 1e4,
+            .groups = "drop") %>%
   ggplot() +
-  geom_bar(aes(x = jaar, weight = tot_opp_ha,
-               fill = srt_object)) +
-  facet_grid(regio ~ openheid + is_sbp, scales = "free") +
-  labs(y = "Oppervlakte (Hectare)") +
-  theme(legend.position = "bottom",
-        legend.title = element_blank())
+    geom_bar(aes(x = jaar, weight = tot_opp_ha,
+                 fill = srt_object)) +
+    scale_x_continuous(breaks = 2018:2023) +
+    facet_grid(regio ~ openheid + is_sbp, scales = "free_y") +
+    labs(y = "Oppervlakte (ha)",
+         x = "") +
+    theme(legend.position = "bottom",
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
 
 
