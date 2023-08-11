@@ -2895,7 +2895,7 @@ for (naam in names(all_models)) {
 final_models_complex <- list(
   Blauwborst = Blauwborst_distmod_2018_2023_hn1,
   BruineKiekendief = BruineKiekendief_distmod_2018_2023_hn1,
-  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2023_hn1,                      
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2023_hn1,
   Ekster = Ekster_distmod_2018_2023_hr1,
   Fazant = Fazant_distmod_2018_2023_hr1,
   Gaai = Gaai_distmod_2018_2023_hn1,
