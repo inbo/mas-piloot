@@ -1952,35 +1952,59 @@ plot_brms_fit(final, x = "sbp", show_data = FALSE,
 ```{r}
 plot_brms_fit(final, x = "haag", factor = 100, show_data = FALSE,
               axis_label = "proportie hagen (%)")
+plot_brms_fit(final, x = "openheid_waarde_1000", show_data = FALSE,
+              axis_label = "openheid landschap (1000 m)")
 plot_brms_fit(final, x = "houtkant", factor = 100, show_data = FALSE,
               axis_label = "proportie houtkanten (%)")
+plot_brms_fit(final, x = "meerjarige_fruitteelt_hfdtlt_pre", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie hoofdteelt meerjarige fruitteelt vorig jaar (%)")
+plot_brms_fit(final, x = "bomenrij", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie bomenrijen (%)")
+plot_brms_fit(final, x = "zomergranen_hfdtlt_pre2", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie hoofdteelt zomergranen vorig jaar (%)")
 plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
               show_data = FALSE,
               axis_label = "proportie hoofdteelt wintergranen (%)")
-plot_brms_fit(final, x = "openheid_waarde_1000", show_data = FALSE,
-              axis_label = "openheid landschap (1000 m)")
-plot_brms_fit(final, x = "aardappelen_hfdtlt", show_data = FALSE,
-              axis_label = "proportie hoofdteelt aardappelen (%)")
-plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100,
+plot_brms_fit(final, x = "boom", show_data = FALSE,
+              axis_label = "proportie bomen (%)")
+plot_brms_fit(final, x = "bosrand", factor = 100,
               show_data = FALSE,
-              axis_label = "proportie hoofdteelt groententeelt (%)")
+              axis_label = "proportie bosranden (%)")
+plot_brms_fit(final, x = "peulvruchten_hfdtlt_pre", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie hoofdteelt peulvruchten vorig jaar (%)")
 ```
 
 ```{r}
 plot_brms_fit(final, x = "haag", factor = 100, show_data = TRUE,
               axis_label = "proportie hagen (%)")
+plot_brms_fit(final, x = "openheid_waarde_1000", show_data = TRUE,
+              axis_label = "openheid landschap (1000 m)")
 plot_brms_fit(final, x = "houtkant", factor = 100, show_data = TRUE,
               axis_label = "proportie houtkanten (%)")
+plot_brms_fit(final, x = "meerjarige_fruitteelt_hfdtlt_pre", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie hoofdteelt meerjarige fruitteelt vorig jaar (%)")
+plot_brms_fit(final, x = "bomenrij", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie bomenrijen (%)")
+plot_brms_fit(final, x = "zomergranen_hfdtlt_pre2", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie hoofdteelt zomergranen vorig jaar (%)")
 plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
               show_data = TRUE,
               axis_label = "proportie hoofdteelt wintergranen (%)")
-plot_brms_fit(final, x = "openheid_waarde_1000", show_data = TRUE,
-              axis_label = "openheid landschap (1000 m)")
-plot_brms_fit(final, x = "aardappelen_hfdtlt", show_data = TRUE,
-              axis_label = "proportie hoofdteelt aardappelen (%)")
-plot_brms_fit(final, x = "groententeelt_hfdtlt", factor = 100,
+plot_brms_fit(final, x = "boom", show_data = TRUE,
+              axis_label = "proportie bomen (%)")
+plot_brms_fit(final, x = "bosrand", factor = 100,
               show_data = TRUE,
-              axis_label = "proportie hoofdteelt groententeelt (%)")
+              axis_label = "proportie bosranden (%)")
+plot_brms_fit(final, x = "peulvruchten_hfdtlt_pre", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie hoofdteelt peulvruchten vorig jaar (%)")
 ```
 
 ## Conclusie
