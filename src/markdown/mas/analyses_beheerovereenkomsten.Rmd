@@ -1729,7 +1729,7 @@ Nu doen we een grondige forward search die meer tijd nodig heeft met `validate_s
 We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel (`deltas = TRUE`).
 
 ```{r}
-cvvs_file <- paste0(projpred_path, "cvvs_refmodel1.rds")
+cvvs_file <- paste0(projpred_path, "cvvs_olsbp_GeleKwikstaart.rds")
 if (!file.exists(cvvs_file)) {
   cvvs_refmodel1 <- cv_varsel(
     object          = ref_gelekwik_model2,
