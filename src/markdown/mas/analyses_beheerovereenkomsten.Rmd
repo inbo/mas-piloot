@@ -1859,7 +1859,8 @@ final
 
 ```{r}
 plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
-                          factor = 1, n = 100, show_data = FALSE) {
+                          factor = 1, n = 100, show_data = FALSE,
+                          interval = c(0.6, 0.95)) {
   
   if (is.null(axis_label)) {
     axis_label <- x
@@ -1889,7 +1890,8 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
     }
     
     out <- out +
-      stat_halfeye(aes(y = .epred), alpha = 0.5) +
+      stat_halfeye(aes(y = .epred), alpha = 0.5,
+                   .width = interval) +
       labs(x = axis_label,
            y = paste("aantal broedparen", species)) +
       theme(legend.position = "")
@@ -1924,7 +1926,8 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
     }
     
     out <- out +
-      stat_lineribbon(aes(y = .epred), alpha = 0.5) +
+      stat_lineribbon(aes(y = .epred), alpha = 0.5,
+                      .width = interval) +
       labs(x = axis_label,
            y = paste("aantal broedparen", species),
            fill = "credible\nlevel")
