@@ -2019,12 +2019,10 @@ plot_brms_fit(final, x = "peulvruchten_hfdtlt_pre", factor = 100,
 -   enkel voor 2022-2023
 -   alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
 
-# Oostelijke leemstreek 2022-2023: sbp
-
-We bekijken eerst het effect van `sbp`.
+# Analyses alle doelsoorten
 
 ```{r}
-doel_soorten_ol_pre <- c(
+doel_soorten <- c(
   "Veldleeuwerik", 
   "Gele Kwikstaart", 
   "Geelgors", 
@@ -2038,17 +2036,24 @@ doel_soorten_ol_pre <- c(
   "Haas")
 ```
 
-Onze doelsoorten zijn `r doel_soorten_ol_pre`.
+Onze doelsoorten zijn `r doel_soorten`.
 
-## Lijst van datasets
+## Data preparatie
+
+We creëren lijsten van datasets voor alle doelsoorten:
+
+-  Oostelijke leemstreek 2022-2023
+-  De Moeren 2022-2023
+-  Oostelijke leemstreek 2018-2023 (enkel plots reeds geteld in 2018-2021)
+-  De Moeren 2018-2023 (enkel plots reeds geteld in 2018-2021)
 
 ```{r}
-create_data_list <- function(doel_soorten_ol_pre, region, year = 2022) {
-  df_count_list <- vector("list", length = length(doel_soorten_ol_pre))
-  df_count_names <- vector(length = length(doel_soorten_ol_pre))
+create_data_list <- function(soorten, region, year = 2022) {
+  df_count_list <- vector("list", length = length(soorten))
+  df_count_names <- vector(length = length(soorten))
 
-  for (i in seq_along(doel_soorten_ol_pre)) {
-    spec <- sort(doel_soorten_ol_pre)[i]
+  for (i in seq_along(soorten)) {
+    spec <- sort(soorten)[i]
       
     # Presence data
     if (spec == "Haas") { # geen broedcode
@@ -2132,6 +2137,73 @@ create_data_list <- function(doel_soorten_ol_pre, region, year = 2022) {
   return(df_count_list)
 }
 ```
+
+```{r}
+# Oostelijke leemstreek 2022-2023
+df_count_list_olnew <- create_data_list(
+  doel_soorten,
+  "Oostelijke leemstreek",
+  2022:2023)
+
+# De Moeren 2022-2023
+df_count_list_dmnew <- create_data_list(
+  doel_soorten,
+  "De Moeren",
+  2022:2023)
+
+# 2018-2023
+## Get plots from 2018-2021
+plots_old <- design %>%
+  filter(!jaar %in% 2022:2023) %>%
+  distinct(plotnaam) %>%
+  pull()
+
+## Get presence-absences for region and year span
+df_count_list_oltotal_raw <- create_data_list(
+  doel_soorten, 
+  "Oostelijke leemstreek", 
+  2018:2023)
+
+df_count_list_dmtotal_raw <- create_data_list(
+  doel_soorten, 
+  "De Moeren", 
+  2018:2023)
+
+## Retrieve presence-absence data only from old plots
+df_count_list_oltotal <- lapply(df_count_list_oltotal_raw, function(df) {
+  df %>%
+    filter(plotnaam %in% plots_old)
+  })
+
+df_count_list_dmtotal <- lapply(df_count_list_dmtotal_raw, function(df) {
+  df %>%
+    filter(plotnaam %in% plots_old)
+  })
+```
+
+# Oostelijke leemstreek 2022-2023: sbp
+
+We bekijken eerst het effect van `sbp`.
+
+```{r}
+doel_soorten_ol_pre <- c(
+  "Veldleeuwerik", 
+  "Gele Kwikstaart", 
+  "Geelgors", 
+  "Kievit", 
+  "Grasmus",
+  "Witte Kwikstaart",
+  "Ringmus",
+  "Torenvalk",
+  "Kwartel",
+  "Kneu",
+  "Haas")
+```
+
+Onze doelsoorten zijn `r doel_soorten_ol_pre`.
+
+## Lijst van datasets
+
 
 ```{r}
 df_count_list <- create_data_list(doel_soorten_ol_pre,
