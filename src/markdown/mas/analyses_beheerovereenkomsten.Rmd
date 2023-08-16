@@ -2181,6 +2181,159 @@ df_count_list_dmtotal <- lapply(df_count_list_dmtotal_raw, function(df) {
   })
 ```
 
+## Data exploratie
+### Oostelijke leemstreek 2022-2023
+
+Voor Ringmus hebben we bijna geen data.
+We zullen deze soort niet opnemen in de analyses van de Oostelijke leemstreek 2022-2023.
+
+```{r}
+for (i in seq_along(df_count_list_olnew)) {
+  df <- df_count_list_olnew[[i]]
+  spec <- names(df_count_list_olnew)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_olnew[["Ringmus"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_olnew_scaled <- lapply(df_count_list_olnew, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+### De Moeren 2022-2023
+
+Voor Geelgors hebben we bijna geen data.
+We zullen deze soort niet opnemen in de analyses van de De Moeren 2022-2023.
+
+```{r}
+for (i in seq_along(df_count_list_dmnew)) {
+  df <- df_count_list_dmnew[[i]]
+  spec <- names(df_count_list_dmnew)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_dmnew[["Geelgors"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_dmnew_scaled <- lapply(df_count_list_dmnew, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+### Oostelijke leemstreek 2018-2023
+
+Voor Ringmus hebben we bijna geen data.
+We zullen deze soort niet opnemen in de analyses van de Oostelijke leemstreek 2018-2023.
+
+```{r}
+for (i in seq_along(df_count_list_oltotal)) {
+  df <- df_count_list_oltotal[[i]]
+  spec <- names(df_count_list_oltotal)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_oltotal[["Ringmus"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_oltotal_scaled <- lapply(df_count_list_oltotal, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+### De Moeren 2018-2023
+
+Voor Geelgors hebben we geen data.
+We zullen deze soort niet opnemen in de analyses van de De Moeren 2018-2023.
+
+```{r}
+for (i in seq_along(df_count_list_dmtotal)) {
+  df <- df_count_list_dmtotal[[i]]
+  spec <- names(df_count_list_dmtotal)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_dmtotal[["Geelgors"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_dmtotal_scaled <- lapply(df_count_list_dmtotal, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
 # Oostelijke leemstreek 2022-2023: sbp
 
 We bekijken eerst het effect van `sbp`.
