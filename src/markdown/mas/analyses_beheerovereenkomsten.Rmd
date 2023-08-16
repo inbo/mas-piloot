@@ -2657,6 +2657,9 @@ refmodel_meta_list <- list(
   "Oostelijke leemstreek 2018-2023" = refmod_ol_total_list,
   "De Moeren 2018-2023" = refmod_dm_total_list)
 
+saveRDS(refmodel_meta_list,
+        paste0(projpred_path, "refmodel_meta_list", ".rds"))
+
 for (i in seq_along(refmodel_meta_list)) {
   mod_list <- refmodel_meta_list[[i]]
   name <- names(refmodel_meta_list)[i]
@@ -3010,7 +3013,7 @@ size_decided_ol_total_list
 ```
 
 
-### De Moeren 2022-2023
+### De Moeren 2018-2023
 
 ```{r}
 cvvs_dm_total_list <- vector("list", length = length(refmod_dm_total_list))
