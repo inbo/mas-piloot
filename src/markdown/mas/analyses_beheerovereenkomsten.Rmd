@@ -2612,7 +2612,6 @@ form_refmod_sbp2 <- bf(paste("aantal", "~", paste(predictors_sbp2,
 form_refmod_sbp2
 ```
 
-
 ```{r}
 refmod_dm_total_list <- vector("list",
                                 length = length(df_count_list_dmtotal_scaled))
@@ -2645,7 +2644,7 @@ names(refmod_dm_total_list) <- refmod_dm_total_names
 ```
 
 
-## Model fit
+## Check model fit
 
 Niet altijd een goede fit:
 
@@ -2660,7 +2659,7 @@ refmodel_meta_list <- list(
 
 for (i in seq_along(refmodel_meta_list)) {
   mod_list <- refmodel_meta_list[[i]]
-  name <- names(mod_list)[i]
+  name <- names(refmodel_meta_list)[i]
   for (i in seq_along(mod_list)) {
     title <- paste("Fit", name, "-", names(mod_list)[i])
     ref_mod <- mod_list[[i]]
@@ -2673,57 +2672,67 @@ for (i in seq_along(refmodel_meta_list)) {
 ## PPVS
 
 ```{r}
-search_terms_olsbp <- get_search_terms(
+search_terms_sbp <- get_search_terms(
   n_predictors_max = 2, 
-  predictors = predictors_olsbp[-match("sbp", predictors_olsbp)],
+  predictors = predictors_sbp[-match("sbp", predictors_sbp)],
   keep_var = "sbp")
 ```
 
 ```{r}
-cvvs_olsbp_list <- vector("list", length = length(refmod_olsbp_list))
-cvvs_olsbp_names <- vector(length = length(refmod_olsbp_list))
+search_terms_propsb <- get_search_terms(
+  n_predictors_max = 2, 
+  predictors = predictors_propsb[-match("area_prop_sb_cat", predictors_propsb)],
+  keep_var = "area_prop_sb_cat")
+```
 
-for (i in seq_along(refmod_olsbp_list)) {
-  spec <- names(refmod_olsbp_list)[i]
-  name <- paste0("cvvs_olsbp_", spec)
+### Oostelijke leemstreek 2022-2023
+#### sbp
+
+```{r}
+cvvs_olsbp_new_list <- vector("list", length = length(refmod_olsbp_new_list))
+cvvs_olsbp_new_names <- vector(length = length(refmod_olsbp_new_list))
+
+for (i in seq_along(refmod_olsbp_new_list)) {
+  spec <- names(refmod_olsbp_new_list)[i]
+  name <- paste0("cvvs_olsbp_new_", spec)
   print(paste("Busy with", name, "..."))
   
   cvvs_file <- paste0(projpred_path, name, ".rds")
   if (!file.exists(cvvs_file)) {
     assign(name, 
            cv_varsel(
-             object          = refmod_olsbp_list[[i]],
+             object          = refmod_olsbp_new_list[[i]],
              method          = "forward",
              cv_method       = "LOO",
-             search_terms    = search_terms_olsbp,
+             search_terms    = search_terms_sbp,
              validate_search = TRUE))
     saveRDS(get(name), cvvs_file)
   } else {
     assign(name, readRDS(cvvs_file))
   }
   
-  cvvs_olsbp_list[[i]] <- get(name)
-  cvvs_olsbp_names[i] <- spec
+  cvvs_olsbp_new_list[[i]] <- get(name)
+  cvvs_olsbp_new_names[i] <- spec
 }
 
-names(cvvs_olsbp_list) <- cvvs_olsbp_names
+names(cvvs_olsbp_new_list) <- cvvs_olsbp_new_names
 ```
 
 ```{r}
-for (i in seq_along(cvvs_olsbp_list)) {
-  title <- names(cvvs_olsbp_list)[i]
+for (i in seq_along(cvvs_olsbp_new_list)) {
+  title <- names(cvvs_olsbp_new_list)[i]
   if (!title == "FALSE") {
-    print(plot(cvvs_olsbp_list[[i]], stats = "mlpd", deltas = TRUE, 
+    print(plot(cvvs_olsbp_new_list[[i]], stats = "mlpd", deltas = TRUE, 
                ranking_abbreviate = TRUE, 
                ranking_abbreviate_args = list(minlength = 4)) +
              ggtitle(title))
     
-    smmry <- summary(cvvs_olsbp_list[[i]], stats = "mlpd", 
+    smmry <- summary(cvvs_olsbp_new_list[[i]], stats = "mlpd", 
                  type = c("mean", "lower", "upper"),
                  deltas = TRUE)
     print(smmry, digits = 1)
     
-    rk <- ranking(cvvs_olsbp_list[[i]])
+    rk <- ranking(cvvs_olsbp_new_list[[i]])
     pr_rk <- cv_proportions(rk)
     
     print(plot(pr_rk) +
@@ -2737,9 +2746,333 @@ for (i in seq_along(cvvs_olsbp_list)) {
 Choose model sizes.
 
 ```{r}
-size_decided_olsbp_list <- list(8, 5, 8, 2, 10, 9, 3)
-size_decided_olsbp_list
+size_decided_olsbp_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_olsbp_new_list
 ```
+
+#### area prop sb (categorised)
+
+```{r}
+cvvs_olpropsb_new_list <- vector("list",
+                                 length = length(refmod_olpropsb_new_list))
+cvvs_olpropsb_new_names <- vector(length = length(refmod_olpropsb_new_list))
+
+for (i in seq_along(refmod_olpropsb_new_list)) {
+  spec <- names(refmod_olpropsb_new_list)[i]
+  name <- paste0("cvvs_olpropsb_new_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_olpropsb_new_list[[i]],
+             method          = "forward",
+             cv_method       = "LOO",
+             search_terms    = search_terms_propsb,
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_olpropsb_new_list[[i]] <- get(name)
+  cvvs_olpropsb_new_names[i] <- spec
+}
+
+names(cvvs_olpropsb_new_list) <- cvvs_olpropsb_new_names
+```
+
+```{r}
+for (i in seq_along(cvvs_olpropsb_new_list)) {
+  title <- names(cvvs_olpropsb_new_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_olpropsb_new_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_olpropsb_new_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_olpropsb_new_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_olpropsb_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_olpropsb_new_list
+```
+
+### De Moeren 2022-2023
+#### sbp
+
+```{r}
+cvvs_dmsbp_new_list <- vector("list", length = length(refmod_dmsbp_new_list))
+cvvs_dmsbp_new_names <- vector(length = length(refmod_dmsbp_new_list))
+
+for (i in seq_along(refmod_dmsbp_new_list)) {
+  spec <- names(refmod_dmsbp_new_list)[i]
+  name <- paste0("cvvs_dmsbp_new_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_dmsbp_new_list[[i]],
+             method          = "forward",
+             cv_method       = "LOO",
+             search_terms    = search_terms_sbp,
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_dmsbp_new_list[[i]] <- get(name)
+  cvvs_dmsbp_new_names[i] <- spec
+}
+
+names(cvvs_dmsbp_new_list) <- cvvs_dmsbp_new_names
+```
+
+```{r}
+for (i in seq_along(cvvs_dmsbp_new_list)) {
+  title <- names(cvvs_dmsbp_new_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_dmsbp_new_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_dmsbp_new_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_dmsbp_new_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_dmsbp_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_dmsbp_new_list
+```
+
+#### area prop sb (categorised)
+
+```{r}
+cvvs_dmpropsb_new_list <- vector("list",
+                                 length = length(refmod_dmpropsb_new_list))
+cvvs_dmpropsb_new_names <- vector(length = length(refmod_dmpropsb_new_list))
+
+for (i in seq_along(refmod_dmpropsb_new_list)) {
+  spec <- names(refmod_dmpropsb_new_list)[i]
+  name <- paste0("cvvs_dmpropsb_new_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_dmpropsb_new_list[[i]],
+             method          = "forward",
+             cv_method       = "LOO",
+             search_terms    = search_terms_propsb,
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_dmpropsb_new_list[[i]] <- get(name)
+  cvvs_dmpropsb_new_names[i] <- spec
+}
+
+names(cvvs_dmpropsb_new_list) <- cvvs_dmpropsb_new_names
+```
+
+```{r}
+for (i in seq_along(cvvs_dmpropsb_new_list)) {
+  title <- names(cvvs_dmpropsb_new_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_dmpropsb_new_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_dmpropsb_new_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_dmpropsb_new_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_dmpropsb_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_dmpropsb_new_list
+```
+
+
+### Oostelijke leemstreek 2018-2023
+
+```{r}
+cvvs_ol_total_list <- vector("list", length = length(refmod_ol_total_list))
+cvvs_ol_total_names <- vector(length = length(refmod_ol_total_list))
+
+for (i in seq_along(refmod_ol_total_list)) {
+  spec <- names(refmod_ol_total_list)[i]
+  name <- paste0("cvvs_ol_total_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_ol_total_list[[i]],
+             method          = "forward",
+             cv_method       = "LOO",
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_ol_total_list[[i]] <- get(name)
+  cvvs_ol_total_names[i] <- spec
+}
+
+names(cvvs_ol_total_list) <- cvvs_ol_total_names
+```
+
+```{r}
+for (i in seq_along(cvvs_ol_total_list)) {
+  title <- names(cvvs_ol_total_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_ol_total_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_ol_total_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_ol_total_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_ol_total_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_ol_total_list
+```
+
+
+### De Moeren 2022-2023
+
+```{r}
+cvvs_dm_total_list <- vector("list", length = length(refmod_dm_total_list))
+cvvs_dm_total_names <- vector(length = length(refmod_dm_total_list))
+
+for (i in seq_along(refmod_dm_total_list)) {
+  spec <- names(refmod_dm_total_list)[i]
+  name <- paste0("cvvs_dm_total_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_dm_total_list[[i]],
+             method          = "forward",
+             cv_method       = "LOO",
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_dm_total_list[[i]] <- get(name)
+  cvvs_dm_total_names[i] <- spec
+}
+
+names(cvvs_dm_total_list) <- cvvs_dm_total_names
+```
+
+```{r}
+for (i in seq_along(cvvs_dm_total_list)) {
+  title <- names(cvvs_dm_total_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_dm_total_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_dm_total_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_dm_total_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_dm_total_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_dm_total_list
+```
+
 
 ## Fit finale modellen
 
