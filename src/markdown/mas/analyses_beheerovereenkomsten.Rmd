@@ -2569,6 +2569,50 @@ names(refmod_ol_total_list) <- refmod_ol_total_names
 
 ### De Moeren 2018-2023
 
+Er is geen meerjarige fruitteelt of bomengroepen in deze plots.
+We verwijderen deze variabele.
+
+```{r}
+df_count_list_dmtotal <- lapply(df_count_list_dmtotal,
+  function(df) {
+    df %>%
+      select(!starts_with("meerjarige_fruitteelt")) %>%
+      select(-c("bomengroep"))
+  }
+)
+df_count_list_dmtotal_scaled <- lapply(df_count_list_dmtotal_scaled,
+  function(df) {
+    df %>%
+      select(!starts_with("meerjarige_fruitteelt")) %>%
+      select(-c("bomengroep"))
+  }
+)
+```
+
+```{r}
+indices_to_remove_sbp2 <- which(names(df_count_list_olnew$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "area_prop_sb",
+  "meerjarige_fruitteelt_hfdtlt",
+  "meerjarige_fruitteelt_hfdtlt_pre",
+  "bomengroep",
+  "x_plot",
+  "y_plot",
+  "is_sbp",
+  "openheid_klasse_300"))
+
+predictors_sbp2 <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_sbp2]
+
+form_refmod_sbp2 <- bf(paste("aantal", "~", paste(predictors_sbp2,
+                                                  collapse = " + ")))
+form_refmod_sbp2
+```
+
+
 ```{r}
 refmod_dm_total_list <- vector("list",
                                 length = length(df_count_list_dmtotal_scaled))
@@ -2579,7 +2623,7 @@ for (i in seq_along(df_count_list_dmtotal_scaled)) {
   name <- paste0("refmod_dm_total_", spec)
   print(paste("Busy fitting", name, "..."))
   assign(name,
-         brm(formula = form_refmod_sbp,
+         brm(formula = form_refmod_sbp2,
              data = df_count_list_dmtotal_scaled[[i]], 
              family = poisson(),
              prior = R2D2_prior,
