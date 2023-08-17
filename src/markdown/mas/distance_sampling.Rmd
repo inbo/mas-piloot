@@ -3748,8 +3748,6 @@ for (naam in names(final_models_simpel_2022)) {
 }
 ```
 
-Voor Kleine karekiet kiezen we voor het hn model omwille van de betere model fit ondanks het verschil in AIC. Voor Meerkoet kiezen we voor het hn model omwille van de betere model fit ondanks dat het complexer is dan het hr model.
-
 ```{r}
 final_models_2022 <-  list(
   Boomkruiper = Boomkruiper_distmod_2022_hn1_simpel,
@@ -3978,6 +3976,7 @@ for (naam in names(final_models_2022)) {
 
 ```{r}
 spec_to_remove <- c("Roek",
+                    "Ringmus",
                     "GroeneSpecht",
                     "BruineKiekendief_zonder_broedcode",
                     "BruineKiekendief",
@@ -4014,7 +4013,6 @@ spec_to_bin_2022 <- list(
   Huiszwaluw = 6,
   Kievit = 4,
   Kwartel = 6,
-  Ringmus = 3,
   Roodborst = 3,
   Torenvalk = 6,
   Torenvalk_zonder_broedcode = 6,
@@ -4301,6 +4299,719 @@ Ten slotte schrijven de de finale modellen weg.
 write_csv(do.call(rbind, results_2022),
           file = paste0(model_path, "results_models_2022.csv"))
 saveRDS(final_models_2022_update, file = paste0(model_path, "models_2022.rds"))
+```
+
+
+## Densiteitschattingen 2023
+
+### Model selectie per soort
+
+We selecteren het meest simpele model waarvoor het verschil in AIC kleiner is dan 2.
+
+```{r, results = 'asis'}
+for (naam in names(all_models_2023)) {
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  print(
+  summarize_ds_models2(all_models_2023[[naam]]) %>%
+    kable(caption = titel)
+  )
+  cat("\n")
+}
+```
+
+```{r}
+final_models_2023_complex <- list(
+  Boomkruiper = Boomkruiper_distmod_2023_hn1,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2023_hn1,
+  Buizerd = Buizerd_distmod_2023_hr1,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2023_hr1,
+  Ekster = Ekster_distmod_2023_hn3,
+  Fazant = Fazant_distmod_2023_hr3,
+  Gaai = Gaai_distmod_2023_hn2,
+  Geelgors = Geelgors_distmod_2023_hn5,
+  GeleKwikstaart = GeleKwikstaart_distmod_2023_hr10,
+  Grasmus = Grasmus_distmod_2023_hr10,
+  GroeneSpecht = GroeneSpecht_distmod_2023_hr1,
+  Groenling = Groenling_distmod_2023_hr1,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2023_hn1,
+  GroteLijster = GroteLijster_distmod_2023_hn1,
+  Haas = Haas_distmod_2023_hr7,
+  Heggenmus = Heggenmus_distmod_2023_hn3,
+  Holenduif = Holenduif_distmod_2023_hn1,
+  Houtduif = Houtduif_distmod_2023_hn7,
+  Huismus = Huismus_distmod_2023_hr6,
+  Kauw = Kauw_distmod_2023_hr1,
+  Kievit = Kievit_distmod_2023_hr1,
+  KleineKarekiet = KleineKarekiet_distmod_2023_hn1,
+  Kneu = Kneu_distmod_2023_hr2,
+  Koolmees = Koolmees_distmod_2023_hn1,
+  Meerkoet = Meerkoet_distmod_2023_hn1,
+  Merel = Merel_distmod_2023_hn8,
+  Pimpelmees = Pimpelmees_distmod_2023_hn1,
+  Putter = Putter_distmod_2023_hn1,
+  Rietzanger = Rietzanger_distmod_2023_hn1,
+  Roek = Roek_distmod_2023_hn1,
+  Roodborst = Roodborst_distmod_2023_hn1,
+  Roodborsttapuit = Roodborsttapuit_distmod_2023_hr1,
+  Spreeuw = Spreeuw_distmod_2023_hr3,
+  Tjiftjaf = Tjiftjaf_distmod_2023_hr3,
+  Torenvalk = Torenvalk_distmod_2023_hr9,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2023_hn3,
+  TurkseTortel = TurkseTortel_distmod_2023_hr4,
+  Veldleeuwerik = Veldleeuwerik_distmod_2023_hr4,
+  Vink = Vink_distmod_2023_hn7,
+  Winterkoning = Winterkoning_distmod_2023_hn6,
+  WitteKwikstaart = WitteKwikstaart_distmod_2023_hr4,
+  Zanglijster = Zanglijster_distmod_2023_hr1,
+  ZwarteKraai = ZwarteKraai_distmod_2023_hn6,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2023_hn6,
+  Zwartkop = Zwartkop_distmod_2023_hn1
+)
+```
+
+Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen.
+
+```{r}
+# Welke soorten moeten niet opnieuw gefit worden?
+specs_to_remove_2023 <- lapply(seq_along(final_models_2023_complex), function(i) {
+    soort <- names(final_models_2023_complex)[i]
+    ds_model <- final_models_2023_complex[[i]]
+    f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+    
+    if (f != "~1") {
+      return(soort)
+    } else {
+      return(NULL)
+    }
+  })
+specs_to_remove_2023[sapply(specs_to_remove_2023, is.null)] <- NULL
+specs_to_remove_2023 <- unlist(specs_to_remove_2023)
+
+# Verwijder soorten uit simpele dataset
+distance_dfs_2023_simpel_new <- 
+  distance_dfs_2023_simpel[!names(distance_dfs_2023_simpel) %in% 
+                                specs_to_remove_2023]
+names(distance_dfs_2023_simpel_new)
+```
+
+```{r}
+# Key functions
+keys <- c("hn", "hr")
+
+final_models_simpel_2023 <- list()
+final_models_simpel_2023_names <- c()
+
+# Fit opnieuw met simpele dataset
+for (spec in names(distance_dfs_2023_simpel_new)) {
+  distance_data_new <- distance_dfs_2023_simpel_new[[spec]]
+  sample_table_2023 <- sample_tables_2023[[spec]]
+  obs_table_2023 <- obs_tables_2023[[spec]]
+  
+  out_models <- list()
+  model_names <- c()
+    
+  for (k in keys) {
+    # Naam voor model
+    mod_name <- paste0(spec, "_distmod_2023_", k, 1, "_simpel")
+    file <- paste0(model_path, mod_name, ".rds")
+    
+    # Sla model op als het nog niet bestaat en lees het in anderzijds
+    if (file.exists(file)) {
+      det_model <- readRDS(file)
+      assign(mod_name, det_model)
+      print(paste0("Model '", mod_name, "' fitted. ", 
+                   "Formula: '~1'. Key: '", k, "'."))
+    } else {
+      det_model <- ds(data = distance_data_new, key = k, 
+        formula = ~1, max_adjustments = 2, 
+        monotonicity = "strict", 
+        truncation = 300, transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor_2023, 
+        region_table = region_table_2023, 
+        sample_table = sample_table_2023, 
+        obs_table = obs_table_2023)
+    }
+      
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '~1'. Key: '", k, "'."))
+    
+    # Sla gefitte model op
+    assign(mod_name, det_model)
+    saveRDS(det_model, file = file)
+    
+    # Put models and model names in list 
+    out_models <- c(out_models, list(det_model))
+    model_names <- c(model_names, mod_name)
+  }
+  names(out_models) <- model_names
+  
+  # Put models and model names in list 
+  final_models_simpel_2023 <- c(final_models_simpel_2023, list(out_models))
+  final_models_simpel_2023_names <- c(final_models_simpel_2023_names, spec)
+}
+names(final_models_simpel_2023) <- final_models_simpel_2023_names
+```
+
+```{r, results = 'asis'}
+for (naam in names(final_models_simpel_2023)) {
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  print(
+  summarize_ds_models2(final_models_simpel_2023[[naam]]) %>%
+    kable(caption = titel)
+  )
+  cat("\n")
+}
+```
+
+```{r}
+final_models_2023 <- list(
+  Blauwborst = Blauwborst_distmod_2023_hn1_simpel,
+  Boomkruiper = Boomkruiper_distmod_2023_hn1_simpel,
+  BruineKiekendief = BruineKiekendief_distmod_2023_hn1_simpel,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2023_hn1_simpel,
+  Buizerd = Buizerd_distmod_2023_hr1_simpel,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2023_hr1_simpel,
+  Ekster = Ekster_distmod_2023_hn3,
+  Fazant = Fazant_distmod_2023_hr3,
+  Gaai = Gaai_distmod_2023_hn2,
+  Geelgors = Geelgors_distmod_2023_hn5,
+  GeleKwikstaart = GeleKwikstaart_distmod_2023_hr10,
+  Grasmus = Grasmus_distmod_2023_hr10,
+  GrauweGors = GrauweGors_distmod_2023_hn1_simpel,
+  GroeneSpecht = GroeneSpecht_distmod_2023_hr1_simpel,
+  Groenling = Groenling_distmod_2023_hr1_simpel,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2023_hn1_simpel,
+  GroteLijster = GroteLijster_distmod_2023_hn1_simpel,
+  Haas = Haas_distmod_2023_hr7,
+  Heggenmus = Heggenmus_distmod_2023_hn3,
+  Holenduif = Holenduif_distmod_2023_hn1_simpel,
+  Houtduif = Houtduif_distmod_2023_hn7,
+  Huismus = Huismus_distmod_2023_hr6,
+  Huiszwaluw = Huiszwaluw_distmod_2023_hn1_simpel,
+  Kauw = Kauw_distmod_2023_hr1_simpel,
+  Kievit = Kievit_distmod_2023_hr1_simpel,
+  KleineKarekiet = KleineKarekiet_distmod_2023_hn1_simpel,
+  Kneu = Kneu_distmod_2023_hr2,
+  Koolmees = Koolmees_distmod_2023_hn1_simpel,
+  Kwartel = Kwartel_distmod_2023_hn1_simpel,
+  Meerkoet = Meerkoet_distmod_2023_hn1_simpel,
+  Merel = Merel_distmod_2023_hn8,
+  Nijlgans = Nijlgans_distmod_2023_hn1_simpel,
+  Patrijs = Patrijs_distmod_2023_hr1_simpel,
+  Pimpelmees = Pimpelmees_distmod_2023_hn1_simpel,
+  Putter = Putter_distmod_2023_hn1_simpel,
+  Rietzanger = Rietzanger_distmod_2023_hn1_simpel,
+  Ringmus = Ringmus_distmod_2023_hr1_simpel,
+  Roek = Roek_distmod_2023_hn1_simpel,
+  Roodborst = Roodborst_distmod_2023_hn1_simpel,
+  Roodborsttapuit = Roodborsttapuit_distmod_2023_hn1_simpel,
+  Spotvogel = Spotvogel_distmod_2023_hn1_simpel,
+  Spreeuw = Spreeuw_distmod_2023_hr3,
+  Tjiftjaf = Tjiftjaf_distmod_2023_hr3,
+  Torenvalk = Torenvalk_distmod_2023_hr9,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2023_hn3,
+  TurkseTortel = TurkseTortel_distmod_2023_hr4,
+  Veldleeuwerik = Veldleeuwerik_distmod_2023_hr4,
+  Vink = Vink_distmod_2023_hn7,
+  WildeEend = WildeEend_distmod_2023_hn1_simpel,
+  Winterkoning = Winterkoning_distmod_2023_hn6,
+  WitteKwikstaart = WitteKwikstaart_distmod_2023_hr4,
+  Zanglijster = Zanglijster_distmod_2023_hr1_simpel,
+  ZwarteKraai = ZwarteKraai_distmod_2023_hn6,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2023_hn6,
+  Zwartkop = Zwartkop_distmod_2023_hn1_simpel
+)
+```
+
+### Model fit per soort
+
+```{r}
+for (naam in names(final_models_2023)) {
+  ds_model_2023 <- final_models_2023[[naam]]
+  f <- ds_model_2023$ddf$ds$aux$ddfobj$scale$formula
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  par(mfrow = c(1, 2))
+  von_mises <- gof_ds(ds_model_2023)
+  plot(ds_model_2023 , pdf = TRUE, showpoints = FALSE,
+       main = titel)
+  print(paste(titel, f, sep = " - "))
+  print(von_mises)
+  
+  if (f == "~regio") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "De Moeren",
+         main = "De Moeren", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(regio = "De Moeren"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "Oostelijke leemstreek",
+         main = "Oostelijke leemstreek", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(regio = "Oostelijke leemstreek"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~sbp") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "binnen",
+         main = "binnen", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(sbp = "binnen"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "buiten",
+         main = "buiten", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(sbp = "buiten"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~openheid") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "OL",
+         main = "OL", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(openheid = "OL"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "HOL",
+         main = "HOL", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(openheid = "HOL"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + sbp", "~regio * sbp")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+      j <- sort(unique(ds_model_2023$ddf$data$sbp))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+      
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & sbp == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, sbp = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + openheid", "~regio * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2023$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+      
+      if (!(j == "HOL" & reg == "De Moeren")) {
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, openheid = j), pdf = TRUE)
+      }}
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~sbp + openheid", "~sbp * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2023$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$sbp))[k]
+      
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(sbp = reg, openheid = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~regio + sbp + openheid") {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    for (h in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      o <- sort(unique(ds_model_2023$ddf$data$openheid))[h]
+      
+      for (i in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+        j <- sort(unique(ds_model_2023$ddf$data$sbp))[i]
+        
+        for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+        reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+        
+        if (!(o == "HOL" & reg == "De Moeren")) {
+        plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+           subset = regio == reg & sbp == j & openheid == o,
+           main = paste(reg, j, o, sep = "- "), pl.col = alpha(cols[h], 0.5))
+        add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[h],
+          data = data.frame(regio = reg, sbp = j, openheid = o), pdf = TRUE)
+        }}
+      }
+    }
+    par(mfrow = c(1, 1))
+  }
+  
+  print(plot_detection_curve(ds_model_2023) +
+    labs(title = titel))
+}
+```
+
+#### Problematische soorten
+
+```{r}
+spec_to_remove <- c("Patrijs",
+                    "Ringmus",
+                    "BruineKiekendief_zonder_broedcode",
+                    "BruineKiekendief")
+```
+
+
+De data voor `r spec_to_remove` passen niet voor distance sampling.
+Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand.
+Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten. Ook hebben ze vaak maar weinig data.
+
+```{r}
+indices_to_remove <- which(names(final_models_2023) %in% spec_to_remove)
+
+# Remove
+final_models_2023[indices_to_remove] <- NULL
+```
+
+#### Binned distance sampling
+
+```{r}
+spec_to_bin_2023 <- list(
+  Blauwborst = 4,
+  Boomkruiper = 3,
+  Fazant = 6,
+  Gaai = 3,
+  GrauweGors = 4,
+  Groenling = 6,
+  GroteBonteSpecht = 3,
+  GroteLijster = 4,
+  Haas = 6,
+  Holenduif = 3,
+  Kauw = 6,
+  Kievit = 6,
+  Kwartel = 4,
+  Nijlgans = 3,
+  Roek = 4,
+  Roodborst = 3,
+  Torenvalk = 4,
+  Veldleeuwerik = 6,
+  Zanglijster = 4,
+  ZwarteKraai = 3
+)
+```
+
+De detectiekans voor `r names(spec_to_bin_2023)` neemt soms weer toe na een bepaalde afstand.
+Voor deze soorten groeperen we de afstanden per 50 (6 bins), 75 (4 bins) of 100 m (3 bins).
+
+```{r}
+final_models_2023_update <- final_models_2023
+final_models_2023_binned <- list()
+final_models_2023_binned_names <- c()
+
+for (spec in names(spec_to_bin_2023)) {
+  sample_table_2023 <- sample_tables_2023[[spec]]
+  obs_table_2023 <- obs_tables_2023[[spec]]
+  ds_model <- final_models_2023[[spec]]
+  
+  k <- ds_model$ddf$ds$aux$ddfobj$type
+  f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+  i <- which(as.character(forms_2023) == gsub("\\s", "", f))
+  cp <- seq(0, 300, length.out = spec_to_bin_2023[[spec]] + 1)
+  
+  # Naam voor model
+  mod_name <- paste0(spec, "_distmod_2023_", k, i, "_binned")
+  file <- paste0(model_path, mod_name, ".rds")
+  
+  # Sla model op als het nog niet bestaat en lees het in anderzijds
+  if (file.exists(file)) {
+    det_model <- readRDS(file)
+    assign(mod_name, det_model)
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+  } else {
+    if (f == "~1") {
+      distance_data <- distance_dfs_2023_simpel_new[[spec]]
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), max_adjustments = 2, 
+        monotonicity = "strict", cutpoints = cp,
+        truncation = 300, transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor_2023, 
+        region_table = region_table_2023, 
+        sample_table = sample_table_2023, 
+        obs_table = obs_table_2023)
+    } else {
+      distance_data <- distance_dfs_2023_final[[spec]]
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, cutpoints = cp,
+        convert_units = conversion_factor_2023, 
+        region_table = region_table_2023, 
+        sample_table = sample_table_2023, 
+        obs_table = obs_table_2023)
+    }
+    
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+    
+    # Sla gefitte model op
+    assign(mod_name, det_model)
+    saveRDS(det_model, file = file)
+  }
+  # Put models and model names in list 
+  final_models_2023_update[[spec]] <- det_model
+  
+  final_models_2023_binned <- c(final_models_2023_binned, list(det_model))
+  final_models_2023_binned_names <- c(final_models_2023_binned_names, spec)
+}
+names(final_models_2023_binned) <- final_models_2023_binned_names
+```
+
+We controleren nieuwe fit.
+
+```{r}
+for (naam in names(final_models_2023_binned)) {
+  ds_model_2023 <- final_models_2023_binned[[naam]]
+  f <- ds_model_2023$ddf$ds$aux$ddfobj$scale$formula
+  
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  par(mfrow = c(1, 1))
+  plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+       main = paste(titel, f, sep = " - "))
+  
+  if (f == "~regio") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "De Moeren",
+         main = "De Moeren", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(regio = "De Moeren"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "Oostelijke leemstreek",
+         main = "Oostelijke leemstreek", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(regio = "Oostelijke leemstreek"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~sbp") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "binnen",
+         main = "binnen", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(sbp = "binnen"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "buiten",
+         main = "buiten", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(sbp = "buiten"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~openheid") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "OL",
+         main = "OL", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(openheid = "OL"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "HOL",
+         main = "HOL", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(openheid = "HOL"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + sbp", "~regio * sbp")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+      j <- sort(unique(ds_model_2023$ddf$data$sbp))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+      
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & sbp == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, sbp = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + openheid", "~regio * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2023$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+      
+      if (!(j == "HOL" & reg == "De Moeren")) {
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, openheid = j), pdf = TRUE)
+      }}
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~sbp + openheid", "~sbp * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2023$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$sbp))[k]
+      
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(sbp = reg, openheid = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~regio + sbp + openheid") {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    for (h in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      o <- sort(unique(ds_model_2023$ddf$data$openheid))[h]
+      
+      for (i in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+        j <- sort(unique(ds_model_2023$ddf$data$sbp))[i]
+        
+        for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+        reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+        
+        if (!(o == "HOL" & reg == "De Moeren")) {
+        plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+           subset = regio == reg & sbp == j & openheid == o,
+           main = paste(reg, j, o, sep = "- "), pl.col = alpha(cols[h], 0.5))
+        add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[h],
+          data = data.frame(regio = reg, sbp = j, openheid = o), pdf = TRUE)
+        }}
+      }
+    }
+    par(mfrow = c(1, 1))
+  }
+  
+  print(plot_detection_curve(ds_model_2023) +
+    labs(title = titel))
+}
+```
+
+
+### Resultaten
+
+We hebben de densiteiten kunnen schatten van `r length(unique(gsub("_zonder_broedcode", "", names(final_models_2023_update))))` soorten.
+De volgende tabel geeft een overzicht van de soorten en finale modellen die gefit zijn.
+
+```{r}
+results_2023 <- lapply(seq_along(final_models_2023_update), 
+  function(i) {
+    ds_model <- final_models_2023_update[[i]]
+    k <- gsub(" key function", "", Distance:::model.description(ds_model$ddf))
+    f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+    b <- ds_model$ddf$meta.data$binned
+    p <- as.numeric(summary(ds_model)$ds$average.p)
+    se <- as.numeric(summary(ds_model)$ds$average.p.se)
+    
+    data.frame(soort = names(final_models_2023_update[i]),
+               key = k, formule = f, binned = b, Pa_hat = p, SE = se)
+  })
+
+do.call(rbind, results_2023) %>%
+  kable(digits = 3)
+```
+
+We visualiseren voor elk stratum. De tweede figuur toont ook de data zelf. Dit zijn de gemiddeldes over de telperiodes per plot.
+
+```{r}
+for (i in seq_along(final_models_2023_update)) {
+  titel <- paste(unlist(strsplit(names(final_models_2023_update)[i], 
+                 "(?<=[a-z])(?=[A-Z])", perl = TRUE)), collapse = " ")
+  
+  p1 <- plot_densiteit(dsmodel = final_models_2023_update[[i]], soort = titel,
+                       show_data = FALSE, year = 2023)
+  print(p1)
+  
+  p2 <- plot_densiteit(dsmodel = final_models_2023_update[[i]], soort = titel,
+                       show_data = TRUE, year = 2023)
+  print(p2)
+}
+```
+
+Ten slotte schrijven de de finale modellen weg.
+
+```{r}
+write_csv(do.call(rbind, results_2023),
+          file = paste0(model_path, "results_models_2023.csv"))
+saveRDS(final_models_2023_update, file = paste0(model_path, "models_2023.rds"))
 ```
 
 
