@@ -3390,7 +3390,7 @@ do.call(rbind, results) %>%
 We visualiseren voor elk stratum. De tweede figuur toont ook de data zelf. Dit zijn de gemiddeldes over de telperiodes per plot.
 
 ```{r}
-plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
+plot_densiteit <- function(dsmodel, soort, show_data = TRUE, year = 2022) {
   # Calculate summary of dsmodel
   summary_dsmodel <- summary(dsmodel)
   
@@ -3479,10 +3479,12 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
   } else {
     if (show_data) {
       spec_presence <- df_obs_list[[gsub(" ", "", soort)]] %>%
-        filter(jaar == 2022)
+        filter(jaar == year)
       
-      # Totale lijst van bezochte plots in 2022
-      bezoekenlijst_2022 <- design_2022_mas  %>% 
+      # Totale lijst van bezochte plots in bepaald jaar
+      bezoekenlijst_year <- bind_rows(design_2022_mas, design_2023_mas) %>%
+        filter(jaar == year) %>%
+        select(-periode_in_jaar) %>%
         expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
         arrange(plotnaam, jaar, periode_in_jaar)
       
@@ -3491,8 +3493,9 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
         st_drop_geometry() %>%
         group_by(plotnaam, jaar, periode_in_jaar) %>%
         summarise(aantal = sum(aantal)) %>%
-        full_join(bezoekenlijst_2022, by = c("plotnaam", "jaar", 
-                                                  "periode_in_jaar")) %>%
+        full_join(bezoekenlijst_year, by = c("plotnaam",
+                                             "jaar",
+                                             "periode_in_jaar")) %>%
         replace(is.na(.), 0) %>%
         arrange(plotnaam, jaar, periode_in_jaar) %>%
         mutate(Region.Label = paste(regio, jaar, sep = " - "))
@@ -3517,7 +3520,8 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
       
       p <- ggplot() +
         stat_sum(data = average_df, aes(x = stratum, y = Estimate), 
-                 position = position_dodge(width = 0.5), alpha = 0.1, colour = "firebrick")
+                 position = position_dodge(width = 0.5), alpha = 0.1,
+                 colour = "firebrick")
     } else {
       p <- ggplot()
     }
@@ -3745,61 +3749,62 @@ for (naam in names(final_models_simpel_2022)) {
 Voor Kleine karekiet kiezen we voor het hn model omwille van de betere model fit ondanks het verschil in AIC. Voor Meerkoet kiezen we voor het hn model omwille van de betere model fit ondanks dat het complexer is dan het hr model.
 
 ```{r}
-final_models_2022 <- list(
-  Blauwborst = Blauwborst_distmod_2022_hn1_simpel,
+final_models_2022 <-  list(
   Boomkruiper = Boomkruiper_distmod_2022_hn1_simpel,
-  Bosrietzanger = Bosrietzanger_distmod_2022_hn1_simpel,
+  Bosrietzanger = Bosrietzanger_distmod_2022_hr2,
   BruineKiekendief = BruineKiekendief_distmod_2022_hn1_simpel,
   BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2022_hr1_simpel,
   Buizerd = Buizerd_distmod_2022_hr1_simpel,
-  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2022_hr7,
-  Ekster = Ekster_distmod_2022_hn1_simpel,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2022_hr6,
+  Ekster = Ekster_distmod_2022_hr1_simpel,
   Fazant = Fazant_distmod_2022_hr7,
   Gaai = Gaai_distmod_2022_hn1_simpel,
-  Geelgors = Geelgors_distmod_2022_hr1_simpel,
-  GeleKwikstaart = GeleKwikstaart_distmod_2022_hr1_simpel,
+  Geelgors = Geelgors_distmod_2022_hn5,
+  GeleKwikstaart = GeleKwikstaart_distmod_2022_hr1,
   Grasmus = Grasmus_distmod_2022_hr10,
   Graspieper = Graspieper_distmod_2022_hn1_simpel,
   GrauweGors = GrauweGors_distmod_2022_hn1_simpel,
   GroeneSpecht = GroeneSpecht_distmod_2022_hr1_simpel,
-  Groenling = Groenling_distmod_2022_hr1_simpel,
-  GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hn1_simpel,
+  Groenling = Groenling_distmod_2022_hn2,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hr2,
   GroteLijster = GroteLijster_distmod_2022_hn1_simpel,
   Haas = Haas_distmod_2022_hn3,
   Heggenmus = Heggenmus_distmod_2022_hn1_simpel,
-  Holenduif = Holenduif_distmod_2022_hn1_simpel,
-  Houtduif = Houtduif_distmod_2022_hr7,
-  Huismus = Huismus_distmod_2022_hn6,
-  Kauw = Kauw_distmod_2022_hn1_simpel,
+  Holenduif = Holenduif_distmod_2022_hn2,
+  Houtduif = Houtduif_distmod_2022_hn7,
+  Huismus = Huismus_distmod_2022_hn8,
+  Huiszwaluw = Huiszwaluw_distmod_2022_hr1_simpel,
+  Kauw = Kauw_distmod_2022_hn3,
   Kievit = Kievit_distmod_2022_hr1_simpel,
-  KleineKarekiet = KleineKarekiet_distmod_2022_hn1_simpel,
-  Kneu = Kneu_distmod_2022_hn6,
-  Koolmees = Koolmees_distmod_2022_hn1_simpel,
+  KleineKarekiet = KleineKarekiet_distmod_2022_hr1_simpel,
+  Kneu = Kneu_distmod_2022_hr9,
+  Koolmees = Koolmees_distmod_2022_hn3,
   Kwartel = Kwartel_distmod_2022_hn1_simpel,
-  Meerkoet = Meerkoet_distmod_2022_hn1_simpel,
+  Meerkoet = Meerkoet_distmod_2022_hr1_simpel,
   Merel = Merel_distmod_2022_hn7,
+  Patrijs = Patrijs_distmod_2022_hr1_simpel,
   Pimpelmees = Pimpelmees_distmod_2022_hn1_simpel,
   Putter = Putter_distmod_2022_hn1_simpel,
   Rietzanger = Rietzanger_distmod_2022_hr1_simpel,
   Ringmus = Ringmus_distmod_2022_hn1_simpel,
   Roek = Roek_distmod_2022_hn1_simpel,
   Roodborst = Roodborst_distmod_2022_hn1_simpel,
-  Roodborsttapuit = Roodborsttapuit_distmod_2022_hn1_simpel,
+  Roodborsttapuit = Roodborsttapuit_distmod_2022_hr1_simpel,
   Spotvogel = Spotvogel_distmod_2022_hn1_simpel,
-  Spreeuw = Spreeuw_distmod_2022_hn1_simpel,
+  Spreeuw = Spreeuw_distmod_2022_hn3,
   Tjiftjaf = Tjiftjaf_distmod_2022_hn2,
-  Torenvalk = Torenvalk_distmod_2022_hr5,
-  TurkseTortel = TurkseTortel_distmod_2022_hr1_simpel,
-  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2022_hr3,
-  Veldleeuwerik = Veldleeuwerik_distmod_2022_hr7,
-  Vink = Vink_distmod_2022_hn8,
+  Torenvalk = Torenvalk_distmod_2022_hn5,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2022_hn4,
+  TurkseTortel = TurkseTortel_distmod_2022_hr6,
+  Veldleeuwerik = Veldleeuwerik_distmod_2022_hr4,
+  Vink = Vink_distmod_2022_hn7,
   WildeEend = WildeEend_distmod_2022_hn1_simpel,
   Winterkoning = Winterkoning_distmod_2022_hr8,
-  WitteKwikstaart = WitteKwikstaart_distmod_2022_hn2,
-  Zanglijster = Zanglijster_distmod_2022_hn2,
-  ZwarteKraai = ZwarteKraai_distmod_2022_hr3,
-  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2022_hn2,
-  Zwartkop = Zwartkop_distmod_2022_hn2
+  WitteKwikstaart = WitteKwikstaart_distmod_2022_hr2,
+  Zanglijster = Zanglijster_distmod_2022_hr2,
+  ZwarteKraai = ZwarteKraai_distmod_2022_hr5,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2022_hn4,
+  Zwartkop = Zwartkop_distmod_2022_hn1_simpel
 )
 ```
 
@@ -3970,8 +3975,11 @@ for (naam in names(final_models_2022)) {
 #### Problematische soorten
 
 ```{r}
-spec_to_remove <- c("BruineKiekendief", "BruineKiekendief_zonder_broedcode", 
-                    "Roek")
+spec_to_remove <- c("Roek",
+                    "GroeneSpecht",
+                    "BruineKiekendief_zonder_broedcode",
+                    "BruineKiekendief",
+                    "Rietzanger")
 ```
 
 
@@ -3989,26 +3997,31 @@ final_models_2022[indices_to_remove] <- NULL
 #### Binned distance sampling
 
 ```{r}
-spec_to_bin_2022 <- list(GeleKwikstaart = 4,
-                      Graspieper = 3,
-                      GrauweGors = 3,
-                      GroteBonteSpecht = 4,
-                      GroteLijster = 3,
-                      Haas = 4,
-                      Holenduif = 4,
-                      Kauw = 3,
-                      Kievit = 4,
-                      Kwartel = 6,
-                      Rietzanger = 4,
-                      Ringmus = 3,
-                      Torenvalk_zonder_broedcode = 6,
-                      Veldleeuwerik = 6,
-                      WildeEend = 4,
-                      WitteKwikstaart = 6,
-                      Zanglijster = 4,
-                      ZwarteKraai = 6,
-                      ZwarteRoodstaart = 4,
-                      Zwartkop = 6)
+spec_to_bin_2022 <- list(
+  Boomkruiper = 4,
+  Bosrietzanger = 6,
+  Ekster = 4,
+  GeleKwikstaart = 4,
+  Graspieper = 3,
+  GrauweGors = 3,
+  Groenling = 6,
+  GroteBonteSpecht = 6,
+  GroteLijster = 3,
+  Haas = 4,
+  Holenduif = 4,
+  Huiszwaluw = 6,
+  Kievit = 4,
+  Kwartel = 6,
+  Ringmus = 3,
+  Roodborst = 3,
+  Torenvalk = 6,
+  Torenvalk_zonder_broedcode = 6,
+  Veldleeuwerik = 6,
+  WildeEend = 4,
+  Zanglijster = 4,
+  ZwarteKraai = 3,
+  ZwarteRoodstaart = 4
+)
 ```
 
 De detectiekans voor `r names(spec_to_bin_2022)` neemt soms weer toe na een bepaalde afstand.
