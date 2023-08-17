@@ -3576,6 +3576,8 @@ for (i in seq_along(final_models_update)) {
 Ten slotte schrijven de de finale modellen weg.
 
 ```{r}
+write_csv(do.call(rbind, results),
+          file = paste0(model_path, "results_models_2018_2023.csv"))
 saveRDS(final_models_update, file = paste0(model_path, "models_2018_2023.rds"))
 ```
 
@@ -4259,7 +4261,7 @@ We hebben de densiteiten kunnen schatten van `r length(unique(gsub("_zonder_broe
 De volgende tabel geeft een overzicht van de soorten en finale modellen die gefit zijn.
 
 ```{r}
-results <- lapply(seq_along(final_models_2022_update), 
+results_2022 <- lapply(seq_along(final_models_2022_update), 
   function(i) {
     ds_model <- final_models_2022_update[[i]]
     k <- gsub(" key function", "", Distance:::model.description(ds_model$ddf))
@@ -4272,7 +4274,7 @@ results <- lapply(seq_along(final_models_2022_update),
                key = k, formule = f, binned = b, Pa_hat = p, SE = se)
   })
 
-do.call(rbind, results) %>%
+do.call(rbind, results_2022) %>%
   kable(digits = 3)
 ```
 
@@ -4296,6 +4298,8 @@ for (i in seq_along(final_models_2022_update)) {
 Ten slotte schrijven de de finale modellen weg.
 
 ```{r}
+write_csv(do.call(rbind, results_2022),
+          file = paste0(model_path, "results_models_2022.csv"))
 saveRDS(final_models_2022_update, file = paste0(model_path, "models_2022.rds"))
 ```
 
