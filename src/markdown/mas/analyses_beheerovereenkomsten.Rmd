@@ -2706,7 +2706,8 @@ for (i in seq_along(refmod_olsbp_new_list)) {
            cv_varsel(
              object          = refmod_olsbp_new_list[[i]],
              method          = "forward",
-             cv_method       = "LOO",
+             cv_method       = "kfold",
+             K               = 5,
              search_terms    = search_terms_sbp,
              validate_search = TRUE))
     saveRDS(get(name), cvvs_file)
@@ -2771,7 +2772,8 @@ for (i in seq_along(refmod_olpropsb_new_list)) {
            cv_varsel(
              object          = refmod_olpropsb_new_list[[i]],
              method          = "forward",
-             cv_method       = "LOO",
+             cv_method       = "kfold",
+             K               = 5,
              search_terms    = search_terms_propsb,
              validate_search = TRUE))
     saveRDS(get(name), cvvs_file)
@@ -2836,7 +2838,8 @@ for (i in seq_along(refmod_dmsbp_new_list)) {
            cv_varsel(
              object          = refmod_dmsbp_new_list[[i]],
              method          = "forward",
-             cv_method       = "LOO",
+             cv_method       = "kfold",
+             K               = 5,
              search_terms    = search_terms_sbp,
              validate_search = TRUE))
     saveRDS(get(name), cvvs_file)
@@ -2901,7 +2904,8 @@ for (i in seq_along(refmod_dmpropsb_new_list)) {
            cv_varsel(
              object          = refmod_dmpropsb_new_list[[i]],
              method          = "forward",
-             cv_method       = "LOO",
+             cv_method       = "kfold",
+             K               = 5,
              search_terms    = search_terms_propsb,
              validate_search = TRUE))
     saveRDS(get(name), cvvs_file)
@@ -2966,7 +2970,8 @@ for (i in seq_along(refmod_ol_total_list)) {
            cv_varsel(
              object          = refmod_ol_total_list[[i]],
              method          = "forward",
-             cv_method       = "LOO",
+             cv_method       = "kfold",
+             K               = 5,
              validate_search = TRUE))
     saveRDS(get(name), cvvs_file)
   } else {
@@ -3030,7 +3035,8 @@ for (i in seq_along(refmod_dm_total_list)) {
            cv_varsel(
              object          = refmod_dm_total_list[[i]],
              method          = "forward",
-             cv_method       = "LOO",
+             cv_method       = "kfold",
+             K               = 5,
              validate_search = TRUE))
     saveRDS(get(name), cvvs_file)
   } else {
