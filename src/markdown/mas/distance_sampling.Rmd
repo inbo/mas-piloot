@@ -349,7 +349,7 @@ veldleeuwerik_df %>%
             mediaan = median(aantal),
             gemiddelde = mean(aantal),
             max = max(aantal),
-            varantie = var(aantal),
+            variantie = var(aantal),
             .groups = "drop") %>%
   kable()
 ```
