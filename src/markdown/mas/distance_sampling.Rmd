@@ -1181,9 +1181,6 @@ veldleeuwerik_df %>%
 ```
 
 # Densiteitsschattingen 2022 {#dens-2022}
-
-Later kunnen we dezelfde analyses doen voor 2023.
-
 ## Data selectie en preparatie {#preparatie-distance2022}
 
 We beschouwen alle plots van 2022.
@@ -3584,7 +3581,6 @@ saveRDS(final_models_update, file = paste0(model_path, "models_2018_2023.rds"))
 ```
 
 ## Densiteitschattingen 2022
-
 ### Model selectie per soort
 
 We selecteren het meest simpele model waarvoor het verschil in AIC kleiner is dan 2.
@@ -4305,7 +4301,6 @@ saveRDS(final_models_2022_update, file = paste0(model_path, "models_2022.rds"))
 
 
 ## Densiteitschattingen 2023
-
 ### Model selectie per soort
 
 We selecteren het meest simpele model waarvoor het verschil in AIC kleiner is dan 2.
