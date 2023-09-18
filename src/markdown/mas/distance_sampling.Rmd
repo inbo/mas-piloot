@@ -3468,10 +3468,9 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE, year = 2022) {
     # Plot
     p <- p + 
       geom_point(data = summary_df, aes(x = jaar, y = Estimate, 
-                                        colour = regio), size = 4) + 
+                                        colour = regio), size = 3) + 
       geom_errorbar(data = summary_df, aes(x = jaar, ymin = lcl, ymax = ucl, 
                                            colour = regio), width = 0.25) +
-      scale_y_continuous(limits = c(0, NA)) +
       facet_wrap(~regio) +
       theme(legend.position = "")
     
@@ -3537,10 +3536,9 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE, year = 2022) {
     # Plot
     p <- p +
       geom_point(data = summary_df, aes(x = stratum, y = Estimate, 
-                                        colour = regio), size = 4) + 
+                                        colour = regio), size = 3) + 
       geom_errorbar(data = summary_df, aes(x = stratum, ymin = lcl, 
                     ymax = ucl, colour = regio), width = 0.25) +
-      scale_y_continuous(limits = c(0, NA)) +
       facet_wrap(~regio) +
       theme(legend.position = "")
   }
@@ -3551,6 +3549,16 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE, year = 2022) {
                   title = gsub("_zonder_broedcode", "", soort))
   } else {
     p <- p + labs(x = "", y = "Aantal broedparen per 100 ha", title = soort)
+  }
+  
+  if (show_data) {
+    p <- p + scale_y_continuous(limits = c(0, NA),
+                                trans = scales::pseudo_log_trans(),
+                                breaks = c(0:5, seq(10, 50, 10),
+                                           seq(75, 200, 25),
+                                           seq(300, 1000, 100)))
+  } else {
+    p <- p + scale_y_continuous(limits = c(0, NA))
   }
   
   return(p)
