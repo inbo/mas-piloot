@@ -430,10 +430,11 @@ bezoekenlijst %>%
   distinct() %>%
   group_by(regio, jaar, openheid) %>%
   summarise(aantal_plots = n()) %>%
-  ggplot(aes(x = openheid, y = aantal_plots, fill = factor(jaar))) +
+  ggplot(aes(x = openheid, y = aantal_plots)) +
     geom_bar(stat = "identity") +
     theme(panel.grid.minor.x = element_blank(),
-          panel.grid.major.x = element_blank()) + 
+          panel.grid.major.x = element_blank(),
+          legend.position = "") + 
     facet_wrap(jaar~regio, scales = "free_y") +
     labs(y = "", x = "Aantal plots per categorie openheid landschap",
          fill = "jaar")
@@ -1043,7 +1044,8 @@ palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(la
 
 plot_detection_curve(veldleeuwerik_dist_2018_2022_model, design_mat = design_plot, 
                      labels = labels_plot) +
-  scale_colour_manual(values = palette)
+  scale_colour_manual(values = palette) +
+  theme(legend.position = "right")
 ```
 
 De gemiddelde detectiekans $\hat{P}_a$ is gelijk aan `r round(veldleeuwerik_dist_2018_2022_model$dht$individuals$average.p, digits = 3)`.
