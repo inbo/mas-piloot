@@ -227,16 +227,16 @@ We verwijderen deze plots voor verdere analyses.
 
 ```{r}
 # Totale lijst van bezochte plots in 2018-2023
-bezoekenlijst_2018_2022 <- mas_data_sf %>%
+bezoekenlijst <- mas_data_sf %>%
   distinct(plotnaam, regio, openheid, sbp, jaar, periode_in_jaar) %>%
   # selectie telperiodes Veldleeuwerik
   filter(periode_in_jaar %in% telperiodes) %>% 
   arrange(plotnaam, jaar, periode_in_jaar)
 
-design <- bezoekenlijst_2018_2022 %>%
+design <- bezoekenlijst %>%
   expand(regio, openheid)
   
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-c(jaar, periode_in_jaar)) %>%
   distinct() %>%
   group_by(regio, openheid) %>%
@@ -249,13 +249,13 @@ bezoekenlijst_2018_2022 %>%
 
 ```{r}
 # Verwijder plots
-plot_to_remove <- bezoekenlijst_2018_2022 %>%
+plot_to_remove <- bezoekenlijst %>%
   filter(openheid == "HGL" |
          (regio == "De Moeren" & openheid == "HOL")) %>%
   pull(plotnaam) %>%
   unique()
 
-bezoekenlijst_2018_2022 <- bezoekenlijst_2018_2022 %>%
+bezoekenlijst <- bezoekenlijst %>%
   filter(!plotnaam %in% plot_to_remove)
 
 veldleeuwerik_presences <- veldleeuwerik_presences %>%
@@ -265,7 +265,7 @@ veldleeuwerik_presences <- veldleeuwerik_presences %>%
 Controle:
 
 ```{r}
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-c(jaar, periode_in_jaar)) %>%
   distinct() %>%
   group_by(regio, openheid) %>%
@@ -287,7 +287,7 @@ veldleeuwerik_df <- veldleeuwerik_presences %>%
   group_by(plotnaam, jaar, periode_in_jaar) %>%
   summarise(aantal = sum(aantal),
             .groups = "drop") %>% # som aantallen gespot per dag 
-  full_join(bezoekenlijst_2018_2022, by = c("plotnaam", "jaar", 
+  full_join(bezoekenlijst, by = c("plotnaam", "jaar", 
                                             "periode_in_jaar")) %>%
   replace(is.na(.), 0) %>%
   arrange(plotnaam, jaar, periode_in_jaar) %>%
@@ -304,11 +304,11 @@ Het aantal waarnemingen niet altijd toe met het aantal bezochte plots.
 Het aantal waargenomen broedparen is steeds gelijkaardig aan het aantal waarnemingen wat wil zeggen dat de meeste waarnemingen meestal om een enkel broedpaar (of een individu dat broedgedrag vertoont) gaat.
 
 ```{r}
-plots_per_jaar <- bezoekenlijst_2018_2022 %>%
+plots_per_jaar <- bezoekenlijst %>%
   group_by(regio, jaar) %>%
   summarise(aantal_plots = n_distinct(plotnaam))
 
-telperiodes_per_jaar <- bezoekenlijst_2018_2022 %>%
+telperiodes_per_jaar <- bezoekenlijst %>%
   group_by(regio, jaar) %>%
   summarise(aantal_telperiodes = n_distinct(periode_in_jaar))
 
@@ -410,10 +410,10 @@ Voor analyses waarbij we ook afwezigheden in beschouwing nemen, zouden we deze p
 In beide regio's is er vooral geteld in open landschap en minder in half-open landschap.
 
 ```{r}
-design_openheid <- bezoekenlijst_2018_2022 %>%
+design_openheid <- bezoekenlijst %>%
   expand(regio, jaar, openheid)
   
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, openheid) %>%
@@ -425,7 +425,7 @@ bezoekenlijst_2018_2022 %>%
 ```
 
 ```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, openheid) %>%
@@ -460,10 +460,10 @@ De plots bevinden zich in beide regio's meestal binnen het soorbeschermingsplan.
 In 2022-2023 is dit verschil kleiner.
 
 ```{r}
-design_sbp <- bezoekenlijst_2018_2022 %>%
+design_sbp <- bezoekenlijst %>%
   expand(regio, jaar, sbp)
   
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, sbp) %>%
@@ -476,7 +476,7 @@ bezoekenlijst_2018_2022 %>%
 ```
 
 ```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, sbp) %>%
@@ -508,10 +508,10 @@ veldleeuwerik_df %>%
 ### Interactie openheid en soortbeschermingsplan
 
 ```{r}
-design_openheid <- bezoekenlijst_2018_2022 %>%
+design_openheid <- bezoekenlijst %>%
   expand(regio, jaar, openheid, sbp)
   
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, openheid, sbp) %>%
@@ -524,7 +524,7 @@ bezoekenlijst_2018_2022 %>%
 ```
 
 ```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, openheid, sbp) %>%
@@ -643,7 +643,7 @@ ggplot(data = circle_fun()) +
 We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022-2023 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
 
 ```{r}
-plots_old <- bezoekenlijst_2018_2022 %>%
+plots_old <- bezoekenlijst %>%
   filter(!jaar %in% 2022:2023) %>%
   distinct(plotnaam) %>%
   pull()
@@ -651,7 +651,7 @@ plots_old <- bezoekenlijst_2018_2022 %>%
 veldleeuwerik_2018_2022_reduced <- veldleeuwerik_presences %>%
   filter(plotnaam %in% plots_old)
 
-bezoekenlijst_2018_2022_reduced <- bezoekenlijst_2018_2022 %>%
+bezoekenlijst_2018_2022_reduced <- bezoekenlijst %>%
   filter(plotnaam %in% plots_old)
 ```
 
@@ -1190,7 +1190,7 @@ We beschouwen alle plots van 2022.
 veldleeuwerik_2022 <- veldleeuwerik_presences %>%
   filter(jaar == 2022)
 
-design_2022 <- bezoekenlijst_2018_2022 %>%
+design_2022 <- bezoekenlijst %>%
   filter(jaar == 2022)
 ```
 
@@ -1599,7 +1599,7 @@ We hebben 3 belangrijke dataframes.
 
 ```{r}
 mas_data_sf <- mas_data_sf
-design_2018_2023_mas <- bezoekenlijst_2018_2022
+design_2018_2023_mas <- bezoekenlijst
 datumgrenzen_mas <- datumgrenzen_mas 
 ```
 
@@ -3415,7 +3415,7 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE, year = 2022) {
         filter(plotnaam %in% plots_old)
       
       # Totale lijst van bezochte plots in 2018-2022
-      bezoekenlijst_2018_2022 <- design_2018_2023_mas_reduced  %>%
+      bezoekenlijst <- design_2018_2023_mas_reduced  %>%
         select(-periode_in_jaar) %>%
         expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
         arrange(plotnaam, jaar, periode_in_jaar)
@@ -3425,7 +3425,7 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE, year = 2022) {
         st_drop_geometry() %>%
         group_by(plotnaam, jaar, periode_in_jaar) %>%
         summarise(aantal = sum(aantal)) %>%
-        full_join(bezoekenlijst_2018_2022, by = c("plotnaam", "jaar", 
+        full_join(bezoekenlijst, by = c("plotnaam", "jaar", 
                                                   "periode_in_jaar")) %>%
         replace(is.na(.), 0) %>%
         arrange(plotnaam, jaar, periode_in_jaar) %>%
