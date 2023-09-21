@@ -67,12 +67,12 @@ calc_vzml <- function(path, punten_sf, group_by_col, clip_bo) {
   }
 
   if (!is.null(clip_bo)) {
-    layer_sf_cropped <- layer_sf_raw %>%
+    layer_sf <- layer_sf_raw %>%
       st_set_crs(31370) %>%
       st_intersection(punten_sf %>%
-                        st_buffer(dist = 300))
-
-    layer_sf <- st_difference(layer_sf_cropped, clip_bo)
+                        st_buffer(dist = 300) %>%
+                        st_union()) %>%
+      st_difference(clip_bo)
   } else {
     layer_sf <- layer_sf_raw %>%
       st_set_crs(31370)
