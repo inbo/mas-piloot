@@ -545,6 +545,7 @@ H'(t) = - \sum_{i=1}^{C(t)}(p_i(t)*\ln[p_i(t)])
 $$
 
 Met $p_i(t)$ de proportie van teelt $i$ ($i = 1, ..., C(t)$) in telcirkel $t$.
+We herschalen wel zodat de proporties opsommen tot 1 per telcirkel per jaar.
 
 Daarna nemen we de exponent zodat dit getal te interpreteren is als het aantal teelten moest elke teelt eenzelfde oppervlakte hebben (= effectief aantal teelten: <https://en.wikipedia.org/wiki/Diversity_index#Effective_number_of_species_or_Hill_numbers>).
 
@@ -552,9 +553,13 @@ Voor berekening zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
 
 ```{r}
 telpunten_2018_2023_hfdtlt_div1 <- telpunten_2018_2023_hfdtlt_long_tot %>%
-  mutate(calc = area_prop * log(area_prop)) %>%
-  group_by(pointid, jaar) %>%
-  summarise(gewas_div_shannon = exp(-sum(calc)), .groups = "drop")
+    group_by(pointid, jaar) %>%
+    mutate(sum = sum(area_prop)) %>%
+    ungroup() %>%
+    mutate(area_prop_new = area_prop / sum,
+           calc = area_prop_new * log(area_prop_new)) %>%
+    group_by(pointid, jaar) %>%
+    summarise(gewas_div_shannon = exp(-sum(calc)), .groups = "drop")
 ```
 
 ```{r}
