@@ -346,6 +346,8 @@ Download van url's.
 Voor elk jaar hebben we een aparte file.
 We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
 We verwijderen de polygonen die tot de beheerovereenkomstenlaag horen.
+We voegen gewichten toe aan polygonen die overlappen.
+Indien twee polygonen met verschillende teelten overlappen, zal de oppervlakte van elke teelt een gewicht van $\frac{1}{2}$ krijgen.
 
 ```{r}
 hftlt_groepen_raw <- read_csv2(file.path(mbag_dir, "data", "gewasgroepen", 
@@ -735,6 +737,7 @@ Download van url.
 
 Voor elk jaar hebben we een aparte file.
 We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
+Indien twee polygonen met verschillende teelten overlappen, zal de oppervlakte van elke teelt een gewicht van $\frac{1}{2}$ krijgen.
 We verwijderen de polygonen die tot de beheerovereenkomstenlaag horen.
 
 ```{r}

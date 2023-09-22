@@ -81,9 +81,14 @@ calc_vzml <- function(path, punten_sf, group_by_col, clip_bo) {
   points_vzml <- landusemetrics_grid_cell(
     grid_cell = punten_sf %>%
       st_buffer(dist = 300),
-    layer = layer_sf,
+    layer = layer_sf  %>%
+      group_by(geometry) %>%
+      mutate(n = n()) %>%
+      ungroup() %>%
+      mutate(weight = 1 / n),
     grid_group_by_col = "pointid",
-    layer_group_by_col = group_by_col)
+    layer_group_by_col = group_by_col,
+    weight_col = "weight")
 
   points_vzml <- points_vzml %>%
     ungroup()
