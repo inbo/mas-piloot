@@ -67,12 +67,12 @@ calc_vzml <- function(path, punten_sf, group_by_col, clip_bo) {
   }
 
   if (!is.null(clip_bo)) {
-    layer_sf_cropped <- layer_sf_raw %>%
+    layer_sf <- layer_sf_raw %>%
       st_set_crs(31370) %>%
       st_intersection(punten_sf %>%
-                        st_buffer(dist = 300))
-
-    layer_sf <- st_difference(layer_sf_cropped, clip_bo)
+                        st_buffer(dist = 300) %>%
+                        st_union()) %>%
+      st_difference(clip_bo)
   } else {
     layer_sf <- layer_sf_raw %>%
       st_set_crs(31370)
@@ -81,9 +81,14 @@ calc_vzml <- function(path, punten_sf, group_by_col, clip_bo) {
   points_vzml <- landusemetrics_grid_cell(
     grid_cell = punten_sf %>%
       st_buffer(dist = 300),
-    layer = layer_sf,
+    layer = layer_sf  %>%
+      group_by(geometry) %>%
+      mutate(n = n()) %>%
+      ungroup() %>%
+      mutate(weight = 1 / n),
     grid_group_by_col = "pointid",
-    layer_group_by_col = group_by_col)
+    layer_group_by_col = group_by_col,
+    weight_col = "weight")
 
   points_vzml <- points_vzml %>%
     ungroup()

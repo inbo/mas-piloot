@@ -313,7 +313,7 @@ for (var in telling_vars) {
 ## Discussie
 
 ```{r}
-q3_hfdtlt <- c("andere_hfdtlt", "braakland_hfdtlt", "graangewassen_hfdtlt",
+q3_hfdtlt <- c("andere_hfdtlt", "braakland_hfdtlt", "andere_graangewassen_hfdtlt",
                "houtachtige_gewassen", "water_hfdtlt", "zaden_hfdtlt",
                "zomergranen_hfdtlt")
 q3_hfdtlt <- c(q3_hfdtlt, paste(q3_hfdtlt, "pre", sep = "_"))
@@ -332,7 +332,7 @@ Alle uitspraken voor `..hfdtlt` gelden ook voor `..hfdtlt_pre`.
 -  `braakland_hfdtlt`: uitsluiten, dit kan belangrijk zijn, maar is allicht ook aanwezig in de laag van beheerovereenkomsten
 -  `houtachtige_gewassen`: uitsluiten, belangrijkste houtachtige gewassen zijn aanwezig in `meerjarige_fruitteelt_hfdtlt` en allicht soms ook in bepaalde variabelen van de kleine landschapselementen
 -  `water_hfdtlt`: uitsluiten, vermoedelijk niet van belang en bijna niet aanwezig
--  `graangewassen_hfdtlt` en `zomergranen_hfdtlt`: belangrijk voor vogels, we tellen ze samen op onder `zomergranen_hfdtlt2`
+-  `andere_graangewassen_hfdtlt` en `zomergranen_hfdtlt`: belangrijk voor vogels, we tellen ze samen op onder `zomergranen_hfdtlt2`
 -  `zaden_hfdtlt`: belangrijk voor vogels, soms zelfs grote oppervlaktes
 
 Voor de voorteelten is er bijna geen data. We behouden enkel de proportie afwezige voorteelt.
@@ -345,11 +345,11 @@ bivariate_df <- mas_data_df %>%
   select(plotnaam, regio, jaar, periode_in_jaar, all_of(bivar_vars)) %>%
   mutate(jaar = factor(jaar),
          zomergranen_hfdtlt2 = rowSums(across(
-           c(graangewassen_hfdtlt, zomergranen_hfdtlt))),
+           c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt))),
          zomergranen_hfdtlt_pre2 = rowSums(across(
-           c(graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
-  select(-c(graangewassen_hfdtlt, zomergranen_hfdtlt,
-            graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)) %>%
+           c(andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
+  select(-c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt,
+            andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)) %>%
   distinct() %>%
   arrange(regio, jaar, plotnaam, periode_in_jaar)
 ```

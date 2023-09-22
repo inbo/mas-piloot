@@ -697,7 +697,7 @@ Zowel per design als via k-fold validation lijkt het random intercept onze voork
 
 -   De Poisson verdeling kan gebruikt worden om de aantallen te modelleren
 -   Er is een vrij groot verschil tussen beide regio's waardoor we quasi voor elke variabele een interactieterm zouden moeten toevoegen. We zouden best de analyses opsplitsen per gebied.
--   We willen nagaan of er een positief effect is van beschermingsmaatregelen. Zowel ter interpretatie als eenvoud van het model kan de `sbp` variabele misschien handiger zijn dan de `area_opp_sb` variabele.
+-   We willen nagaan of er een positief effect is van beschermingsmaatregelen. Zowel ter interpretatie als eenvoud van het model kan de `sbp` variabele misschien handiger zijn dan de `area_prop_sb` variabele.
 -   De variabele `periode_in_jaar` vermoeilijkt de analyses (toevoegen van random effects). Het is allicht slimmer de aantallen per telcirkel per jaar te aggregeren. @klaassen2022 gebruiken voor gelijkaardige analyses *"het maximumaantal waargenomen broedparen (het hoogste aantal territoriale individuen van een soort tijdens één van de tellingen)"*.
 -   We vermoeden ook dat er een duidelijker signaal zal vormen als we enkel de data van 2022 en 2023 bekijken.
 
@@ -1859,7 +1859,8 @@ final
 
 ```{r}
 plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
-                          factor = 1, n = 100, show_data = FALSE) {
+                          factor = 1, n = 100, show_data = FALSE,
+                          interval = c(0.6, 0.95)) {
   
   if (is.null(axis_label)) {
     axis_label <- x
@@ -1889,7 +1890,8 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
     }
     
     out <- out +
-      stat_halfeye(aes(y = .epred), alpha = 0.5) +
+      stat_halfeye(aes(y = .epred), alpha = 0.5,
+                   .width = interval) +
       labs(x = axis_label,
            y = paste("aantal broedparen", species)) +
       theme(legend.position = "")
@@ -1924,7 +1926,8 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
     }
     
     out <- out +
-      stat_lineribbon(aes(y = .epred), alpha = 0.5) +
+      stat_lineribbon(aes(y = .epred), alpha = 0.5,
+                      .width = interval) +
       labs(x = axis_label,
            y = paste("aantal broedparen", species),
            fill = "credible\nlevel")
@@ -2016,12 +2019,10 @@ plot_brms_fit(final, x = "peulvruchten_hfdtlt_pre", factor = 100,
 -   enkel voor 2022-2023
 -   alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
 
-# Oostelijke leemstreek 2022-2023: sbp
-
-We bekijken eerst het effect van `sbp`.
+# Analyses alle doelsoorten
 
 ```{r}
-doel_soorten_ol_pre <- c(
+doel_soorten <- c(
   "Veldleeuwerik", 
   "Gele Kwikstaart", 
   "Geelgors", 
@@ -2035,17 +2036,24 @@ doel_soorten_ol_pre <- c(
   "Haas")
 ```
 
-Onze doelsoorten zijn `r doel_soorten_ol_pre`.
+Onze doelsoorten zijn `r doel_soorten`.
 
-## Lijst van datasets
+## Data preparatie
+
+We creëren lijsten van datasets voor alle doelsoorten:
+
+-  Oostelijke leemstreek 2022-2023
+-  De Moeren 2022-2023
+-  Oostelijke leemstreek 2018-2023 (enkel plots reeds geteld in 2018-2021)
+-  De Moeren 2018-2023 (enkel plots reeds geteld in 2018-2021)
 
 ```{r}
-create_data_list <- function(doel_soorten_ol_pre, region, year = 2022) {
-  df_count_list <- vector("list", length = length(doel_soorten_ol_pre))
-  df_count_names <- vector(length = length(doel_soorten_ol_pre))
+create_data_list <- function(soorten, region, year = 2022) {
+  df_count_list <- vector("list", length = length(soorten))
+  df_count_names <- vector(length = length(soorten))
 
-  for (i in seq_along(doel_soorten_ol_pre)) {
-    spec <- sort(doel_soorten_ol_pre)[i]
+  for (i in seq_along(soorten)) {
+    spec <- sort(soorten)[i]
       
     # Presence data
     if (spec == "Haas") { # geen broedcode
@@ -2131,18 +2139,58 @@ create_data_list <- function(doel_soorten_ol_pre, region, year = 2022) {
 ```
 
 ```{r}
-df_count_list <- create_data_list(doel_soorten_ol_pre,
-                                  "Oostelijke leemstreek",
-                                  2022:2023)
+# Oostelijke leemstreek 2022-2023
+df_count_list_olnew <- create_data_list(
+  doel_soorten,
+  "Oostelijke leemstreek",
+  2022:2023)
+
+# De Moeren 2022-2023
+df_count_list_dmnew <- create_data_list(
+  doel_soorten,
+  "De Moeren",
+  2022:2023)
+
+# 2018-2023
+## Get plots from 2018-2021
+plots_old <- design %>%
+  filter(!jaar %in% 2022:2023) %>%
+  distinct(plotnaam) %>%
+  pull()
+
+## Get presence-absences for region and year span
+df_count_list_oltotal_raw <- create_data_list(
+  doel_soorten, 
+  "Oostelijke leemstreek", 
+  2018:2023)
+
+df_count_list_dmtotal_raw <- create_data_list(
+  doel_soorten, 
+  "De Moeren", 
+  2018:2023)
+
+## Retrieve presence-absence data only from old plots
+df_count_list_oltotal <- lapply(df_count_list_oltotal_raw, function(df) {
+  df %>%
+    filter(plotnaam %in% plots_old)
+  })
+
+df_count_list_dmtotal <- lapply(df_count_list_dmtotal_raw, function(df) {
+  df %>%
+    filter(plotnaam %in% plots_old)
+  })
 ```
 
+## Data exploratie
+### Oostelijke leemstreek 2022-2023
+
 Voor Ringmus hebben we bijna geen data.
-We zullen deze soort niet opnemen in de analyses van de Oostelijke leemstreek.
+We zullen deze soort niet opnemen in de analyses van de Oostelijke leemstreek 2022-2023.
 
 ```{r}
-for (i in seq_along(df_count_list)) {
-  df <- df_count_list[[i]]
-  spec <- names(df_count_list)[i]
+for (i in seq_along(df_count_list_olnew)) {
+  df <- df_count_list_olnew[[i]]
+  spec <- names(df_count_list_olnew)[i]
   
   p <- df %>%
     ggplot(aes(x = aantal, fill = sbp)) +
@@ -2159,13 +2207,127 @@ for (i in seq_along(df_count_list)) {
 ```
 
 ```{r}
-df_count_list[["Ringmus"]] <- NULL
+df_count_list_olnew[["Ringmus"]] <- NULL
 ```
 
 We centreren en schalen de continue variabelen.
 
 ```{r}
-df_count_list_scaled <- lapply(df_count_list, function(df) {
+df_count_list_olnew_scaled <- lapply(df_count_list_olnew, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+### De Moeren 2022-2023
+
+Voor Geelgors hebben we bijna geen data.
+We zullen deze soort niet opnemen in de analyses van de De Moeren 2022-2023.
+
+```{r}
+for (i in seq_along(df_count_list_dmnew)) {
+  df <- df_count_list_dmnew[[i]]
+  spec <- names(df_count_list_dmnew)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_dmnew[["Geelgors"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_dmnew_scaled <- lapply(df_count_list_dmnew, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+### Oostelijke leemstreek 2018-2023
+
+Voor Ringmus hebben we bijna geen data.
+We zullen deze soort niet opnemen in de analyses van de Oostelijke leemstreek 2018-2023.
+
+```{r}
+for (i in seq_along(df_count_list_oltotal)) {
+  df <- df_count_list_oltotal[[i]]
+  spec <- names(df_count_list_oltotal)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_oltotal[["Ringmus"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_oltotal_scaled <- lapply(df_count_list_oltotal, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+### De Moeren 2018-2023
+
+Voor Geelgors hebben we geen data.
+We zullen deze soort niet opnemen in de analyses van de De Moeren 2018-2023.
+
+```{r}
+for (i in seq_along(df_count_list_dmtotal)) {
+  df <- df_count_list_dmtotal[[i]]
+  spec <- names(df_count_list_dmtotal)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_dmtotal[["Geelgors"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_dmtotal_scaled <- lapply(df_count_list_dmtotal, function(df) {
     df %>%
       mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
                     .fns = ~ as.numeric(scale(.x))))
@@ -2174,52 +2336,83 @@ df_count_list_scaled <- lapply(df_count_list, function(df) {
 
 ## Fit referentiemodellen
 
+We sample the posterior distributions for the models with three Markov chain Monte Carlo (MCMC) chains, each of which is run for 8,000 iterations, of which the first 2,000 were removed as burn-in. The chains were thinned by 3 to yield 2,000 posterior samples per chain and so 6,000 posterior samples in total.
+
 ```{r}
 # MCMC parameters
 nchains <- 3           # number of chains
 niter <- 8000         # number of iterations (incl. burn-in)
 burnin <- niter / 4    # number of initial samples to discard (burn-in)
 nparallel <- nchains   # number of cores used for parallel computing
-thinning <- 2
+thinning <- 3
 ```
 
-```{r}
-# Formula
-indices_to_remove_olsbp <- which(names(df_count_list$GeleKwikstaart) %in% c(
-  "id", 
-  "aantal", 
-  "plotnaam", 
-  "regio",
-  "jaar",
-  "area_prop_sb_cat",
-  "x_plot",
-  "y_plot",
-  "is_sbp",
-  "openheid_klasse_300"))
-
-predictors_olsbp <- names(df_count_list$GeleKwikstaart)[-indices_to_remove_olsbp]
-
-form_refmod_olsbp <- bf(paste("aantal", "~", paste(predictors_olsbp, 
-                                                   collapse = " + ")))
-form_refmod_olsbp
-```
+We use the R2D2 prior.
 
 ```{r}
 R2D2_prior <- set_prior(R2D2(mean_R2 = 0.5, prec_R2 = 2, cons_D2 = 1, 
                              autoscale = TRUE))
 ```
 
-```{r}
-refmod_olsbp_list <- vector("list", length = length(df_count_list_scaled))
-refmod_olsbp_names <- vector(length = length(df_count_list_scaled))
+Model formula to investigate the effect of `sbp`:
 
-for (i in seq_along(df_count_list_scaled)) {
-  spec <- names(df_count_list_scaled)[i]
-  name <- paste0("refmod_olsbp_", spec)
+```{r}
+indices_to_remove_sbp <- which(names(df_count_list_olnew$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "area_prop_sb",
+  "x_plot",
+  "y_plot",
+  "is_sbp",
+  "openheid_klasse_300"))
+
+predictors_sbp <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_sbp]
+
+form_refmod_sbp <- bf(paste("aantal", "~", paste(predictors_sbp,
+                                                 collapse = " + ")))
+form_refmod_sbp
+```
+
+Model formula to investigate the effect of `area_prop_sb` (categorised):
+
+```{r}
+indices_to_remove_propsb <- which(names(df_count_list_olnew$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "area_prop_sb",
+  "x_plot",
+  "y_plot",
+  "is_sbp", "sbp",
+  "openheid_klasse_300"))
+
+predictors_propsb <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_propsb]
+
+form_refmod_propsb <- bf(paste("aantal", "~", paste(predictors_propsb,
+                                                    collapse = " + ")))
+form_refmod_propsb
+```
+
+### Oostelijke leemstreek 2022-2023
+#### sbp
+
+```{r}
+refmod_olsbp_new_list <- vector("list",
+                                length = length(df_count_list_olnew_scaled))
+refmod_olsbp_new_names <- vector(length = length(df_count_list_olnew_scaled))
+
+for (i in seq_along(df_count_list_olnew_scaled)) {
+  spec <- names(df_count_list_olnew_scaled)[i]
+  name <- paste0("refmod_olsbp_new_", spec)
   print(paste("Busy fitting", name, "..."))
   assign(name,
-         brm(formula = form_refmod_olsbp,
-             data = df_count_list_scaled[[i]], 
+         brm(formula = form_refmod_sbp,
+             data = df_count_list_olnew_scaled[[i]], 
                family = poisson(),
                prior = R2D2_prior,
                chains = nchains, 
@@ -2232,78 +2425,318 @@ for (i in seq_along(df_count_list_scaled)) {
                file = paste0(model_path, name),
                file_refit = "on_change"))
   
-  refmod_olsbp_list[[i]] <- get(name)
-  refmod_olsbp_names[i] <- spec
+  refmod_olsbp_new_list[[i]] <- get(name)
+  refmod_olsbp_new_names[i] <- spec
 }
 
-names(refmod_olsbp_list) <- refmod_olsbp_names
+names(refmod_olsbp_new_list) <- refmod_olsbp_new_names
 ```
+
+#### area_prop_sb (categorised)
+
+```{r}
+refmod_olpropsb_new_list <- vector("list",
+                                length = length(df_count_list_olnew_scaled))
+refmod_olpropsb_new_names <- vector(length = length(df_count_list_olnew_scaled))
+
+for (i in seq_along(df_count_list_olnew_scaled)) {
+  spec <- names(df_count_list_olnew_scaled)[i]
+  name <- paste0("refmod_olpropsb_new_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_propsb,
+             data = df_count_list_olnew_scaled[[i]], 
+               family = poisson(),
+               prior = R2D2_prior,
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+  
+  refmod_olpropsb_new_list[[i]] <- get(name)
+  refmod_olpropsb_new_names[i] <- spec
+}
+
+names(refmod_olpropsb_new_list) <- refmod_olpropsb_new_names
+```
+
+
+### De Moeren 2022-2023
+#### sbp
+
+```{r}
+refmod_dmsbp_new_list <- vector("list",
+                                length = length(df_count_list_dmnew_scaled))
+refmod_dmsbp_new_names <- vector(length = length(df_count_list_dmnew_scaled))
+
+for (i in seq_along(df_count_list_dmnew_scaled)) {
+  spec <- names(df_count_list_dmnew_scaled)[i]
+  name <- paste0("refmod_dmsbp_new_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_sbp,
+             data = df_count_list_dmnew_scaled[[i]], 
+               family = poisson(),
+               prior = R2D2_prior,
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+  
+  refmod_dmsbp_new_list[[i]] <- get(name)
+  refmod_dmsbp_new_names[i] <- spec
+}
+
+names(refmod_dmsbp_new_list) <- refmod_dmsbp_new_names
+```
+
+#### area_prop_sb (categorised)
+
+```{r}
+refmod_dmpropsb_new_list <- vector("list",
+                                length = length(df_count_list_dmnew_scaled))
+refmod_dmpropsb_new_names <- vector(length = length(df_count_list_dmnew_scaled))
+
+for (i in seq_along(df_count_list_dmnew_scaled)) {
+  spec <- names(df_count_list_dmnew_scaled)[i]
+  name <- paste0("refmod_dmpropsb_new_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_propsb,
+             data = df_count_list_dmnew_scaled[[i]], 
+               family = poisson(),
+               prior = R2D2_prior,
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+  
+  refmod_dmpropsb_new_list[[i]] <- get(name)
+  refmod_dmpropsb_new_names[i] <- spec
+}
+
+names(refmod_dmpropsb_new_list) <- refmod_dmpropsb_new_names
+```
+
+
+### Oostelijke leemstreek 2018-2023
+
+```{r}
+refmod_ol_total_list <- vector("list",
+                                length = length(df_count_list_oltotal_scaled))
+refmod_ol_total_names <- vector(length = length(df_count_list_oltotal_scaled))
+
+for (i in seq_along(df_count_list_oltotal_scaled)) {
+  spec <- names(df_count_list_oltotal_scaled)[i]
+  name <- paste0("refmod_ol_total_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_sbp,
+             data = df_count_list_oltotal_scaled[[i]], 
+               family = poisson(),
+               prior = R2D2_prior,
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+  
+  refmod_ol_total_list[[i]] <- get(name)
+  refmod_ol_total_names[i] <- spec
+}
+
+names(refmod_ol_total_list) <- refmod_ol_total_names
+```
+
+### De Moeren 2018-2023
+
+Er is geen meerjarige fruitteelt of bomengroepen in deze plots.
+We verwijderen deze variabele.
+
+```{r}
+df_count_list_dmtotal <- lapply(df_count_list_dmtotal,
+  function(df) {
+    df %>%
+      select(!starts_with("meerjarige_fruitteelt")) %>%
+      select(-c("bomengroep"))
+  }
+)
+df_count_list_dmtotal_scaled <- lapply(df_count_list_dmtotal_scaled,
+  function(df) {
+    df %>%
+      select(!starts_with("meerjarige_fruitteelt")) %>%
+      select(-c("bomengroep"))
+  }
+)
+```
+
+```{r}
+indices_to_remove_sbp2 <- which(names(df_count_list_olnew$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "area_prop_sb",
+  "meerjarige_fruitteelt_hfdtlt",
+  "meerjarige_fruitteelt_hfdtlt_pre",
+  "bomengroep",
+  "x_plot",
+  "y_plot",
+  "is_sbp",
+  "openheid_klasse_300"))
+
+predictors_sbp2 <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_sbp2]
+
+form_refmod_sbp2 <- bf(paste("aantal", "~", paste(predictors_sbp2,
+                                                  collapse = " + ")))
+form_refmod_sbp2
+```
+
+```{r}
+refmod_dm_total_list <- vector("list",
+                                length = length(df_count_list_dmtotal_scaled))
+refmod_dm_total_names <- vector(length = length(df_count_list_dmtotal_scaled))
+
+for (i in seq_along(df_count_list_dmtotal_scaled)) {
+  spec <- names(df_count_list_dmtotal_scaled)[i]
+  name <- paste0("refmod_dm_total_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_sbp2,
+             data = df_count_list_dmtotal_scaled[[i]], 
+             family = poisson(),
+             prior = R2D2_prior,
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             sample_prior = TRUE,
+             backend = "cmdstanr",
+             file = paste0(model_path, name),
+             file_refit = "on_change"))
+  
+  refmod_dm_total_list[[i]] <- get(name)
+  refmod_dm_total_names[i] <- spec
+}
+
+names(refmod_dm_total_list) <- refmod_dm_total_names
+```
+
+
+## Check model fit
 
 Niet altijd een goede fit:
 
 ```{r}
-for (i in seq_along(refmod_olsbp_list)) {
-  title <- paste("Fit referentiemodel", names(refmod_olsbp_list)[i])
-  ref_mod <- refmod_olsbp_list[[i]]
-  print(pp_check(ref_mod, type = "bars", ndraws = 200) +
-          ggtitle(title))
+refmodel_meta_list <- list(
+  "Oostelijke leemstreek 2022-2023 (sbp)" = refmod_olsbp_new_list,
+  "Oostelijke leemstreek 2022-2023 (prop sb)" = refmod_olpropsb_new_list,
+  "De Moeren 2022-2023 (sbp)" = refmod_dmsbp_new_list,
+  "De Moeren 2022-2023 (prop sb)" = refmod_dmpropsb_new_list,
+  "Oostelijke leemstreek 2018-2023" = refmod_ol_total_list,
+  "De Moeren 2018-2023" = refmod_dm_total_list)
+
+saveRDS(refmodel_meta_list,
+        paste0(projpred_path, "refmodel_meta_list", ".rds"))
+
+for (i in seq_along(refmodel_meta_list)) {
+  mod_list <- refmodel_meta_list[[i]]
+  name <- names(refmodel_meta_list)[i]
+  for (i in seq_along(mod_list)) {
+    title <- paste("Fit", name, "-", names(mod_list)[i])
+    ref_mod <- mod_list[[i]]
+    print(pp_check(ref_mod, type = "bars", ndraws = 200) +
+            ggtitle(title))
+  }
 }
 ```
 
 ## PPVS
 
 ```{r}
-search_terms_olsbp <- get_search_terms(
+search_terms_sbp <- get_search_terms(
   n_predictors_max = 2, 
-  predictors = predictors_olsbp[-match("sbp", predictors_olsbp)],
+  predictors = predictors_sbp[-match("sbp", predictors_sbp)],
   keep_var = "sbp")
 ```
 
 ```{r}
-cvvs_olsbp_list <- vector("list", length = length(refmod_olsbp_list))
-cvvs_olsbp_names <- vector(length = length(refmod_olsbp_list))
+search_terms_propsb <- get_search_terms(
+  n_predictors_max = 2, 
+  predictors = predictors_propsb[-match("area_prop_sb_cat", predictors_propsb)],
+  keep_var = "area_prop_sb_cat")
+```
 
-for (i in seq_along(refmod_olsbp_list)) {
-  spec <- names(refmod_olsbp_list)[i]
-  name <- paste0("cvvs_olsbp_", spec)
+### Oostelijke leemstreek 2022-2023
+#### sbp
+
+```{r}
+cvvs_olsbp_new_list <- vector("list", length = length(refmod_olsbp_new_list))
+cvvs_olsbp_new_names <- vector(length = length(refmod_olsbp_new_list))
+
+for (i in seq_along(refmod_olsbp_new_list)) {
+  spec <- names(refmod_olsbp_new_list)[i]
+  name <- paste0("cvvs_olsbp_new_", spec)
   print(paste("Busy with", name, "..."))
   
   cvvs_file <- paste0(projpred_path, name, ".rds")
   if (!file.exists(cvvs_file)) {
     assign(name, 
            cv_varsel(
-             object          = refmod_olsbp_list[[i]],
+             object          = refmod_olsbp_new_list[[i]],
              method          = "forward",
-             cv_method       = "LOO",
-             search_terms    = search_terms_olsbp,
+             cv_method       = "kfold",
+             K               = 5,
+             search_terms    = search_terms_sbp,
              validate_search = TRUE))
     saveRDS(get(name), cvvs_file)
   } else {
     assign(name, readRDS(cvvs_file))
   }
   
-  cvvs_olsbp_list[[i]] <- get(name)
-  cvvs_olsbp_names[i] <- spec
+  cvvs_olsbp_new_list[[i]] <- get(name)
+  cvvs_olsbp_new_names[i] <- spec
 }
 
-names(cvvs_olsbp_list) <- cvvs_olsbp_names
+names(cvvs_olsbp_new_list) <- cvvs_olsbp_new_names
 ```
 
 ```{r}
-for (i in seq_along(cvvs_olsbp_list)) {
-  title <- names(cvvs_olsbp_list)[i]
+for (i in seq_along(cvvs_olsbp_new_list)) {
+  title <- names(cvvs_olsbp_new_list)[i]
   if (!title == "FALSE") {
-    print(plot(cvvs_olsbp_list[[i]], stats = "mlpd", deltas = TRUE, 
+    print(plot(cvvs_olsbp_new_list[[i]], stats = "mlpd", deltas = TRUE, 
                ranking_abbreviate = TRUE, 
                ranking_abbreviate_args = list(minlength = 4)) +
              ggtitle(title))
     
-    smmry <- summary(cvvs_olsbp_list[[i]], stats = "mlpd", 
+    smmry <- summary(cvvs_olsbp_new_list[[i]], stats = "mlpd", 
                  type = c("mean", "lower", "upper"),
                  deltas = TRUE)
     print(smmry, digits = 1)
     
-    rk <- ranking(cvvs_olsbp_list[[i]])
+    rk <- ranking(cvvs_olsbp_new_list[[i]])
     pr_rk <- cv_proportions(rk)
     
     print(plot(pr_rk) +
@@ -2317,9 +2750,338 @@ for (i in seq_along(cvvs_olsbp_list)) {
 Choose model sizes.
 
 ```{r}
-size_decided_olsbp_list <- list(8, 5, 8, 2, 10, 9, 3)
-size_decided_olsbp_list
+size_decided_olsbp_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_olsbp_new_list
 ```
+
+#### area prop sb (categorised)
+
+```{r}
+cvvs_olpropsb_new_list <- vector("list",
+                                 length = length(refmod_olpropsb_new_list))
+cvvs_olpropsb_new_names <- vector(length = length(refmod_olpropsb_new_list))
+
+for (i in seq_along(refmod_olpropsb_new_list)) {
+  spec <- names(refmod_olpropsb_new_list)[i]
+  name <- paste0("cvvs_olpropsb_new_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_olpropsb_new_list[[i]],
+             method          = "forward",
+             cv_method       = "kfold",
+             K               = 5,
+             search_terms    = search_terms_propsb,
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_olpropsb_new_list[[i]] <- get(name)
+  cvvs_olpropsb_new_names[i] <- spec
+}
+
+names(cvvs_olpropsb_new_list) <- cvvs_olpropsb_new_names
+```
+
+```{r}
+for (i in seq_along(cvvs_olpropsb_new_list)) {
+  title <- names(cvvs_olpropsb_new_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_olpropsb_new_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_olpropsb_new_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_olpropsb_new_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_olpropsb_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_olpropsb_new_list
+```
+
+### De Moeren 2022-2023
+#### sbp
+
+```{r}
+cvvs_dmsbp_new_list <- vector("list", length = length(refmod_dmsbp_new_list))
+cvvs_dmsbp_new_names <- vector(length = length(refmod_dmsbp_new_list))
+
+for (i in seq_along(refmod_dmsbp_new_list)) {
+  spec <- names(refmod_dmsbp_new_list)[i]
+  name <- paste0("cvvs_dmsbp_new_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_dmsbp_new_list[[i]],
+             method          = "forward",
+             cv_method       = "kfold",
+             K               = 5,
+             search_terms    = search_terms_sbp,
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_dmsbp_new_list[[i]] <- get(name)
+  cvvs_dmsbp_new_names[i] <- spec
+}
+
+names(cvvs_dmsbp_new_list) <- cvvs_dmsbp_new_names
+```
+
+```{r}
+for (i in seq_along(cvvs_dmsbp_new_list)) {
+  title <- names(cvvs_dmsbp_new_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_dmsbp_new_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_dmsbp_new_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_dmsbp_new_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_dmsbp_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_dmsbp_new_list
+```
+
+#### area prop sb (categorised)
+
+```{r}
+cvvs_dmpropsb_new_list <- vector("list",
+                                 length = length(refmod_dmpropsb_new_list))
+cvvs_dmpropsb_new_names <- vector(length = length(refmod_dmpropsb_new_list))
+
+for (i in seq_along(refmod_dmpropsb_new_list)) {
+  spec <- names(refmod_dmpropsb_new_list)[i]
+  name <- paste0("cvvs_dmpropsb_new_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_dmpropsb_new_list[[i]],
+             method          = "forward",
+             cv_method       = "kfold",
+             K               = 5,
+             search_terms    = search_terms_propsb,
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_dmpropsb_new_list[[i]] <- get(name)
+  cvvs_dmpropsb_new_names[i] <- spec
+}
+
+names(cvvs_dmpropsb_new_list) <- cvvs_dmpropsb_new_names
+```
+
+```{r}
+for (i in seq_along(cvvs_dmpropsb_new_list)) {
+  title <- names(cvvs_dmpropsb_new_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_dmpropsb_new_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_dmpropsb_new_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_dmpropsb_new_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_dmpropsb_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_dmpropsb_new_list
+```
+
+
+### Oostelijke leemstreek 2018-2023
+
+```{r}
+cvvs_ol_total_list <- vector("list", length = length(refmod_ol_total_list))
+cvvs_ol_total_names <- vector(length = length(refmod_ol_total_list))
+
+for (i in seq_along(refmod_ol_total_list)) {
+  spec <- names(refmod_ol_total_list)[i]
+  name <- paste0("cvvs_ol_total_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_ol_total_list[[i]],
+             method          = "forward",
+             cv_method       = "kfold",
+             K               = 5,
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_ol_total_list[[i]] <- get(name)
+  cvvs_ol_total_names[i] <- spec
+}
+
+names(cvvs_ol_total_list) <- cvvs_ol_total_names
+```
+
+```{r}
+for (i in seq_along(cvvs_ol_total_list)) {
+  title <- names(cvvs_ol_total_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_ol_total_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_ol_total_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_ol_total_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_ol_total_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_ol_total_list
+```
+
+
+### De Moeren 2018-2023
+
+```{r}
+cvvs_dm_total_list <- vector("list", length = length(refmod_dm_total_list))
+cvvs_dm_total_names <- vector(length = length(refmod_dm_total_list))
+
+for (i in seq_along(refmod_dm_total_list)) {
+  spec <- names(refmod_dm_total_list)[i]
+  name <- paste0("cvvs_dm_total_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           cv_varsel(
+             object          = refmod_dm_total_list[[i]],
+             method          = "forward",
+             cv_method       = "kfold",
+             K               = 5,
+             validate_search = TRUE))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_dm_total_list[[i]] <- get(name)
+  cvvs_dm_total_names[i] <- spec
+}
+
+names(cvvs_dm_total_list) <- cvvs_dm_total_names
+```
+
+```{r}
+for (i in seq_along(cvvs_dm_total_list)) {
+  title <- names(cvvs_dm_total_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_dm_total_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_dm_total_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_dm_total_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_dm_total_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_dm_total_list
+```
+
 
 ## Fit finale modellen
 
@@ -2588,251 +3350,6 @@ for (pred in predictors_olsbp_list$WitteKwikstaart$predictors) {
 }
 ```
 
-# Oostelijke leemstreek 2022-2023: area_prop_sb
 
-We doen hetzelfde, maar nu beschouwen we `area_prop_sb` in plaats van de `sbp` variabele.
-
-```{r}
-# Formula
-indices_to_remove2 <- which(names(df_count_list$GeleKwikstaart) %in% c(
-  "id", 
-  "aantal", 
-  "plotnaam", 
-  "regio",
-  "jaar",
-  "area_prop_sb",
-  "x_plot",
-  "y_plot",
-  "is_sbp", "sbp",
-  "openheid_klasse_300"))
-
-predictors_olpropsb <- names(df_count_list$GeleKwikstaart)[-indices_to_remove2]
-
-form_refmod_olpropsb <- bf(paste("aantal", "~", paste(predictors_olpropsb, 
-                                                   collapse = " + ")))
-form_refmod_olpropsb
-```
-
-```{r}
-refmod_olpropsb_list <- vector("list", length = length(df_count_list_scaled))
-refmod_olpropsb_names <- vector(length = length(df_count_list_scaled))
-
-for (i in seq_along(df_count_list_scaled)) {
-  spec <- names(df_count_list_scaled)[i]
-  name <- paste0("refmod_olpropsb_", spec)
-  print(paste("Busy fitting", name, "..."))
-  assign(name,
-         brm(formula = form_refmod_olpropsb,
-             data = df_count_list_scaled[[i]], 
-               family = poisson(),
-               prior = R2D2_prior,
-               chains = nchains, 
-               warmup = burnin, 
-               iter = niter,
-               cores = nparallel,
-               thin = thinning,
-               sample_prior = TRUE,
-               backend = "cmdstanr",
-               file = paste0(model_path, name),
-               file_refit = "on_change"))
-  
-  refmod_olpropsb_list[[i]] <- get(name)
-  refmod_olpropsb_names[i] <- spec
-}
-
-names(refmod_olpropsb_list) <- refmod_olpropsb_names
-```
-
-Niet altijd een goede fit:
-
-```{r}
-for (i in seq_along(refmod_olpropsb_list)) {
-  title <- paste("Fit referentiemodel", names(refmod_olpropsb_list)[i])
-  ref_mod <- refmod_olpropsb_list[[i]]
-  print(pp_check(ref_mod, type = "bars", ndraws = 200) +
-          ggtitle(title))
-}
-```
-
-```{r}
-search_terms_olpropsb <- get_search_terms(
-  n_predictors_max = 2, 
-  predictors = predictors_olpropsb[-match("area_prop_sb_cat", predictors_olpropsb)],
-  keep_var = "area_prop_sb_cat")
-```
-
-```{r, eval=FALSE}
-cvvs_olpropsb_list <- vector("list", length = length(refmod_olpropsb_list))
-cvvs_olpropsb_names <- vector(length = length(refmod_olpropsb_list))
-
-for (i in seq_along(refmod_olpropsb_list)) {
-  spec <- names(refmod_olpropsb_list)[i]
-  name <- paste0("cvvs_olpropsb_", spec)
-  print(paste("Busy with", name, "..."))
-  
-  cvvs_file <- paste0(projpred_path, name, ".rds")
-  if (!file.exists(cvvs_file)) {
-    assign(name, 
-           cv_varsel(
-             object          = refmod_olpropsb_list[[i]],
-             method          = "forward",
-             cv_method       = "LOO",
-             search_terms    = search_terms_olpropsb,
-             validate_search = TRUE))
-    saveRDS(get(name), cvvs_file)
-  } else {
-    assign(name, readRDS(cvvs_file))
-  }
-  
-  cvvs_olpropsb_list[[i]] <- get(name)
-  cvvs_olpropsb_names[i] <- spec
-}
-
-names(cvvs_olpropsb_list) <- cvvs_olpropsb_names
-```
-
-```{r, eval=FALSE}
-for (i in seq_along(cvvs_olpropsb_list)) {
-  title <- names(cvvs_olpropsb_list)[i]
-  if (!title == "FALSE") {
-    print(plot(cvvs_olpropsb_list[[i]], stats = "mlpd", deltas = TRUE, 
-               ranking_abbreviate = TRUE, 
-               ranking_abbreviate_args = list(minlength = 4)) +
-             ggtitle(title))
-    
-    smmry <- summary(cvvs_olpropsb_list[[i]], stats = "mlpd", 
-                 type = c("mean", "lower", "upper"),
-                 deltas = TRUE)
-    print(smmry, digits = 1)
-    
-    rk <- ranking(cvvs_olpropsb_list[[i]])
-    pr_rk <- cv_proportions(rk)
-    
-    print(plot(pr_rk) +
-             ggtitle(title))
-    print(plot(cv_proportions(rk, cumulate = TRUE)) +
-             ggtitle(title))
-  }
-}
-```
-
-# Oostelijke leemstreek totaalanalyse
-
-Voor de totaalanalyse beschouwen we alle plots van 2018-2021 en voegen enkel plots van 2022 en 2023 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren (cf. distance sampling analyses).
-We voeren de PPVS uit zonder restricties.
-
-```{r}
-# Get presence-absences for region and year span
-df_count_list_oltotal_raw <- create_data_list(
-  doel_soorten_ol, 
-  "Oostelijke leemstreek", 
-  2018:2023)
-
-# Get plots from 2018-2021
-plots_old <- design %>%
-  filter(regio == "Oostelijke leemstreek",
-         !jaar %in% 2022:2023) %>%
-  distinct(plotnaam) %>%
-  pull()
-
-# Retrieve presence-absence data only from old plots
-df_count_list_oltotal <- lapply(df_count_list_oltotal_raw, function(df) {
-  df %>%
-    filter(plotnaam %in% plots_old)
-  })
-```
-
-Het gaat om zoveel plots (en dus datapunten) per jaar:
-
-```{r}
-df_count_list_oltotal$Geelgors %>%
-  group_by(jaar) %>% summarise(n = n_distinct(plotnaam)) %>%
-  kable()
-```
-
-Scale continuous variables.
-
-```{r}
-df_count_list_oltotal_scaled <- lapply(df_count_list_oltotal, function(df) {
-    df %>%
-      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
-                    .fns = ~ as.numeric(scale(.x))))
-  })
-```
-
-> testcase Veldleeuwerik
-
-```{r}
-# MCMC parameters
-nchains <- 3           # number of chains
-niter <- 8000         # number of iterations (incl. burn-in)
-burnin <- niter / 4    # number of initial samples to discard (burn-in)
-nparallel <- nchains   # number of cores used for parallel computing
-thinning <- 2
-```
-
-```{r}
-# Formula
-indices_to_remove_oltotal <- which(names(df_count_list_oltotal$GeleKwikstaart) %in% c(
-  "id", 
-  "aantal", 
-  "plotnaam", 
-  "regio",
-  "jaar",
-  "area_prop_sb",
-  "x_plot",
-  "y_plot",
-  "is_sbp",
-  "openheid_klasse_300"))
-
-predictors_oltotal <- names(df_count_list_oltotal$GeleKwikstaart)[-indices_to_remove_oltotal]
-
-form_refmod_oltotal <- bf(paste("aantal", "~", paste(predictors_oltotal, 
-                                                   collapse = " + "),
-                                "+", "(1 | plotnaam)"))
-form_refmod_oltotal
-```
-
-```{r}
-refmod_oltotal_veldleeuwerik <- brm(
-  formula = form_refmod_oltotal,
-  data = df_count_list_oltotal_scaled[["Veldleeuwerik"]], 
-  family = poisson(),
-  prior = R2D2_prior,
-  chains = nchains, 
-  warmup = burnin, 
-  iter = niter,
-  cores = nparallel,
-  thin = thinning,
-  sample_prior = TRUE,
-  backend = "cmdstanr")
-```
-
-```{r}
-pp_check(refmod_oltotal_veldleeuwerik, type = "bars", ndraws = 200)
-```
-
-```{r}
-cvvs_olsbp_veldleeuwerik_fast <- cv_varsel(
-  refmod_oltotal_veldleeuwerik,
-  ### Only for the sake of speed (not recommended in general):
-  nclusters_pred = 20,
-  validate_search = FALSE)
-```
-
-```{r}
-cvvs_olsbp_veldleeuwerik <- cv_varsel(
-  object          = refmod_oltotal_veldleeuwerik,
-  method          = "forward",
-  cv_method       = "LOO",
-  nterms_max      = 19,
-  validate_search = TRUE)
-```
-
-# De Moeren 2022: sbp
-
-# De Moeren 2023: area_prop_sb
-
-# De Moeren totaalanalyse
 
 # Referenties
