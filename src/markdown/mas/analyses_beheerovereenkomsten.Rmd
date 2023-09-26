@@ -1973,9 +1973,6 @@ plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100,
               axis_label = "proportie hoofdteelt wintergranen (%)")
 plot_brms_fit(final, x = "boom", show_data = FALSE,
               axis_label = "proportie bomen (%)")
-plot_brms_fit(final, x = "bosrand", factor = 100,
-              show_data = FALSE,
-              axis_label = "proportie bosranden (%)")
 plot_brms_fit(final, x = "peulvruchten_hfdtlt_pre", factor = 100, 
               show_data = FALSE,
               axis_label = "proportie hoofdteelt peulvruchten vorig jaar (%)")
@@ -2002,9 +1999,6 @@ plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100,
               axis_label = "proportie hoofdteelt wintergranen (%)")
 plot_brms_fit(final, x = "boom", show_data = TRUE,
               axis_label = "proportie bomen (%)")
-plot_brms_fit(final, x = "bosrand", factor = 100,
-              show_data = TRUE,
-              axis_label = "proportie bosranden (%)")
 plot_brms_fit(final, x = "peulvruchten_hfdtlt_pre", factor = 100, 
               show_data = TRUE,
               axis_label = "proportie hoofdteelt peulvruchten vorig jaar (%)")
@@ -2745,14 +2739,17 @@ for (i in seq_along(cvvs_olsbp_new_list)) {
              ggtitle(title))
   }
 }
+
 ```
 
-Choose model sizes.
+Manual choices for model size:
 
 ```{r}
-size_decided_olsbp_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_olsbp_new_list <- list(5, 12, 12, NA, NA, 9, 16, 6, 9, 3)
+names(size_decided_olsbp_new_list) <- names(cvvs_olsbp_new_list)
 size_decided_olsbp_new_list
 ```
+
 
 #### area prop sb (categorised)
 
@@ -2768,14 +2765,14 @@ for (i in seq_along(refmod_olpropsb_new_list)) {
   
   cvvs_file <- paste0(projpred_path, name, ".rds")
   if (!file.exists(cvvs_file)) {
-    assign(name, 
+    try(assign(name, 
            cv_varsel(
              object          = refmod_olpropsb_new_list[[i]],
              method          = "forward",
              cv_method       = "kfold",
              K               = 5,
              search_terms    = search_terms_propsb,
-             validate_search = TRUE))
+             validate_search = TRUE)))
     saveRDS(get(name), cvvs_file)
   } else {
     assign(name, readRDS(cvvs_file))
@@ -2811,14 +2808,17 @@ for (i in seq_along(cvvs_olpropsb_new_list)) {
              ggtitle(title))
   }
 }
+
 ```
 
-Choose model sizes.
+Manual choices for model size:
 
 ```{r}
-size_decided_olpropsb_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_olpropsb_new_list <- list(4, 5, 7, NA, 14, 5, 13, 3, 8, 6)
+names(size_decided_olpropsb_new_list) <- names(cvvs_olpropsb_new_list)
 size_decided_olpropsb_new_list
 ```
+
 
 ### De Moeren 2022-2023
 #### sbp
@@ -2835,13 +2835,12 @@ for (i in seq_along(refmod_dmsbp_new_list)) {
   cvvs_file <- paste0(projpred_path, name, ".rds")
   if (!file.exists(cvvs_file)) {
     assign(name, 
-           cv_varsel(
+           try(cv_varsel(
              object          = refmod_dmsbp_new_list[[i]],
              method          = "forward",
-             cv_method       = "kfold",
-             K               = 5,
+             cv_method       = "LOO",
              search_terms    = search_terms_sbp,
-             validate_search = TRUE))
+             validate_search = TRUE)))
     saveRDS(get(name), cvvs_file)
   } else {
     assign(name, readRDS(cvvs_file))
@@ -2879,10 +2878,11 @@ for (i in seq_along(cvvs_dmsbp_new_list)) {
 }
 ```
 
-Choose model sizes.
+Manual choices for model size:
 
 ```{r}
-size_decided_dmsbp_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_dmsbp_new_list <- list(5, 12, 12, NA, NA, 9, 16, 6, 9, 3)
+names(size_decided_dmsbp_new_list) <- names(cvvs_dmsbp_new_list)
 size_decided_dmsbp_new_list
 ```
 
@@ -2901,13 +2901,12 @@ for (i in seq_along(refmod_dmpropsb_new_list)) {
   cvvs_file <- paste0(projpred_path, name, ".rds")
   if (!file.exists(cvvs_file)) {
     assign(name, 
-           cv_varsel(
+           try(cv_varsel(
              object          = refmod_dmpropsb_new_list[[i]],
              method          = "forward",
-             cv_method       = "kfold",
-             K               = 5,
+             cv_method       = "LOO",
              search_terms    = search_terms_propsb,
-             validate_search = TRUE))
+             validate_search = TRUE)))
     saveRDS(get(name), cvvs_file)
   } else {
     assign(name, readRDS(cvvs_file))
@@ -2945,10 +2944,11 @@ for (i in seq_along(cvvs_dmpropsb_new_list)) {
 }
 ```
 
-Choose model sizes.
+Manual choices for model size:
 
 ```{r}
-size_decided_dmpropsb_new_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_dmpropsb_new_list <- list(4, 5, 7, NA, 14, 5, 13, 3, 8, 6)
+names(size_decided_dmpropsb_new_list) <- names(cvvs_dmpropsb_new_list)
 size_decided_dmpropsb_new_list
 ```
 
@@ -2967,12 +2967,12 @@ for (i in seq_along(refmod_ol_total_list)) {
   cvvs_file <- paste0(projpred_path, name, ".rds")
   if (!file.exists(cvvs_file)) {
     assign(name, 
-           cv_varsel(
+           try(cv_varsel(
              object          = refmod_ol_total_list[[i]],
              method          = "forward",
              cv_method       = "kfold",
              K               = 5,
-             validate_search = TRUE))
+             validate_search = TRUE)))
     saveRDS(get(name), cvvs_file)
   } else {
     assign(name, readRDS(cvvs_file))
@@ -3010,10 +3010,11 @@ for (i in seq_along(cvvs_ol_total_list)) {
 }
 ```
 
-Choose model sizes.
+Manual choices for model size:
 
 ```{r}
-size_decided_ol_total_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_ol_total_list <- list(NA, NA, NA, NA, NA, 5, 4, NA, 12, 12)
+names(size_decided_ol_total_list) <- names(cvvs_ol_total_list)
 size_decided_ol_total_list
 ```
 
@@ -3032,12 +3033,12 @@ for (i in seq_along(refmod_dm_total_list)) {
   cvvs_file <- paste0(projpred_path, name, ".rds")
   if (!file.exists(cvvs_file)) {
     assign(name, 
-           cv_varsel(
+           try(cv_varsel(
              object          = refmod_dm_total_list[[i]],
              method          = "forward",
              cv_method       = "kfold",
              K               = 5,
-             validate_search = TRUE))
+             validate_search = TRUE)))
     saveRDS(get(name), cvvs_file)
   } else {
     assign(name, readRDS(cvvs_file))
@@ -3084,25 +3085,35 @@ size_decided_dm_total_list
 
 
 ## Fit finale modellen
+### Oostelijke leemstreek
+#### area prop sb (categorised)
 
 ```{r}
-predictors_olsbp_list <- vector("list", length = length(cvvs_olsbp_list))
-predictors_olsbp_names <- vector(length = length(cvvs_olsbp_list))
+predictors_olpropsb_new_list <- vector("list",
+                                       length = length(cvvs_olpropsb_new_list))
+predictors_olpropsb_new_names <- vector(length = length(cvvs_olpropsb_new_list))
 
-for (i in seq_along(cvvs_olsbp_list)) {
-  cvvs <- cvvs_olsbp_list[[i]]
-  spec <- names(cvvs_olsbp_list)[i]
+for (i in seq_along(cvvs_olpropsb_new_list)) {
+  mod_size <- size_decided_olpropsb_new_list[[i]]
+  spec <- names(cvvs_olpropsb_new_list)[i]
   
-  rk <- ranking(cvvs)
-  preds <- head(rk[["fulldata"]], size_decided_olsbp_list[[i]])
+  if (is.na(mod_size)) {
+    predictors_olpropsb_new_list[[i]] <- NA
+  } else {
+    cvvs <- cvvs_olpropsb_new_list[[i]]
+    
+    rk <- ranking(cvvs)
+    preds <- head(rk[["fulldata"]], mod_size)
+    
+    predictors_olpropsb_new_list[[i]]$predictors <- preds
+    predictors_olpropsb_new_list[[i]]$formula <- bf(paste("aantal", "~", 
+                                                   paste(preds, 
+                                                         collapse = " + ")))
+  }
   
-  predictors_olsbp_list[[i]]$predictors <- preds
-  predictors_olsbp_list[[i]]$formula <- bf(paste("aantal", "~", 
-                                                 paste(preds, 
-                                                       collapse = " + ")))
-  predictors_olsbp_names[i] <- spec
+  predictors_olpropsb_new_names[i] <- spec
 }
-names(predictors_olsbp_list) <- predictors_olsbp_names
+names(predictors_olpropsb_new_list) <- predictors_olpropsb_new_names
 ```
 
 ### Geelgors
