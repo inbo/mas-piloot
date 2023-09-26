@@ -3153,6 +3153,10 @@ for (i in seq_along(predictors_olpropsb_new_list)) {
              file = paste0(model_path, name_pois),
              file_refit = "on_change"))
   
+  ## Perform K-fold cross-validation
+  assign(name_pois,
+         add_criterion(get(name_pois), c("kfold"), K = 5, cores = 5))
+  
   mod_final_pois_olpropsb_list[[i]] <- get(name_pois)
   
   # Zero-inflated Poisson
@@ -3170,6 +3174,10 @@ for (i in seq_along(predictors_olpropsb_new_list)) {
              backend = "cmdstanr",
              file = paste0(model_path, name_zip),
              file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_zip,
+         add_criterion(get(name_zip), c("kfold"), K = 5, cores = 5))
   
   mod_final_zip_olpropsb_list[[i]] <- get(name_zip)
 }
