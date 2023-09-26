@@ -1878,7 +1878,7 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
       add_epred_draws(model)
     
     out <- plot_df %>%
-      ggplot(aes(x = .data[[x]], y = aantal, fill = .data[[x]]))
+      ggplot(aes(x = .data[[x]], y = aantal))
     
     if (isTRUE(show_data)) {
       out <- out +
@@ -1890,7 +1890,7 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
     }
     
     out <- out +
-      stat_halfeye(aes(y = .epred), alpha = 0.5,
+      stat_eye(aes(y = .epred), alpha = 0.5,
                    .width = interval) +
       labs(x = axis_label,
            y = paste("aantal broedparen", species)) +
@@ -3186,7 +3186,7 @@ names(mod_final_pois_olpropsb_list) <- names(predictors_olpropsb_new_list)
 names(mod_final_zip_olpropsb_list) <- names(predictors_olpropsb_new_list)
 ```
 
-Model selection between poisson and zero-inflated poisson.
+Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
 
 ```{r, results='asis'}
 for (i in seq_along(predictors_olpropsb_new_list)) {
@@ -3200,13 +3200,39 @@ for (i in seq_along(predictors_olpropsb_new_list)) {
   comparisons <- loo_compare(model_pois, model_zip,
                              criterion = "kfold")[, c(1, 2)]
   
+  comparisons %>%
+    as.data.frame() %>%
+    rownames_to_column("model") %>%
+    mutate(CI_ll = elpd_diff  + qnorm(0.10) * se_diff,
+           CI_ul = elpd_diff  + qnorm(0.90) * se_diff,
+           width = 0.9 - 0.1) %>%
+    arrange(desc(elpd_diff)) %>%
+    kable(digits = 3) %>%
+    print()
   
+  p1 <- pp_check(model_pois, type = "bars", ndraws = 100) +
+    ggtitle(paste("Poisson model", spec, "(Oostelijke leemstreek - prop sb)"))
+  p2 <- pp_check(model_zip, type = "bars", ndraws = 100) +
+    ggtitle(paste("ZIP model", spec, "(Oostelijke leemstreek - prop sb)"))
+  print(p1)
+  print(p2)
 }
 ```
 
 
 ```{r}
-mod_final_olpropsb_list <- list()
+mod_final_olpropsb_list <- list(
+  mod_final_zip_olpropsb_list$Geelgors,
+  mod_final_pois_olpropsb_list$GeleKwikstaart,
+  mod_final_pois_olpropsb_list$Grasmus,
+  mod_final_zip_olpropsb_list$Kievit,
+  mod_final_zip_olpropsb_list$Kneu,
+  mod_final_pois_olpropsb_list$Kwartel,
+  mod_final_zip_olpropsb_list$Torenvalk,
+  mod_final_pois_olpropsb_list$Veldleeuwerik,
+  mod_final_pois_olpropsb_list$WitteKwikstaart
+  )
+names(mod_final_olpropsb_list) <- names(predictors_olpropsb_new_list)
 ```
 
 
@@ -3225,7 +3251,8 @@ for (i in seq_along(mod_final_olpropsb_list)) {
   print(paste("Model fit", spec, "(Oostelijke leemstreek - prop sb)"))
   pp_check(model, type = "bars_grouped", ndraws = 100, 
            group = "area_prop_sb_cat",
-           facet_args = list(ncol = 1, scales = "free_y"))
+           facet_args = list(ncol = 1, scales = "free_y")) %>%
+    print()
 }
 ```
 
@@ -3243,258 +3270,11 @@ for (i in seq_along(mod_final_olpropsb_list)) {
   # Visualise results
   for (pred in predictors_olpropsb_new_list[[spec]]$predictors) {
     p <- plot_brms_fit(model, pred) +
-      ggtitle(spec)
+      ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
     print(p)
   }
 }
 ```
-
-
-### Geelgors
-
-```{r}
-fit_olsbp_geelgors <- brm(
-  formula = predictors_olsbp_list$Geelgors$formula,
-  data = df_count_list[["Geelgors"]], 
-  family = zero_inflated_poisson(),
-  chains = nchains, 
-  warmup = burnin, 
-  iter = niter,
-  cores = nparallel,
-  thin = thinning,
-  backend = "cmdstanr",
-  file = paste0(model_path, "fit_olsbp_geelgors"),
-  file_refit = "on_change")
-
-fit_olsbp_geelgors
-```
-
-```{r}
-plot(fit_olsbp_geelgors, ask = FALSE)
-```
-
-```{r}
-pp_check(fit_olsbp_geelgors, type = "bars_grouped", ndraws = 100, 
-         group = "sbp", facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-```{r}
-for (pred in predictors_olsbp_list$Geelgors$predictors) {
-  p <- plot_brms_fit(fit_olsbp_geelgors, pred)
-  print(p)
-}
-```
-
-### Gele kwikstaart
-
-```{r}
-fit_olsbp_gelekwikstaart <- brm(
-  formula = predictors_olsbp_list$GeleKwikstaart$formula,
-  data = df_count_list[["GeleKwikstaart"]], 
-  family = poisson(),
-  chains = nchains, 
-  warmup = burnin, 
-  iter = niter,
-  cores = nparallel,
-  thin = thinning,
-  backend = "cmdstanr",
-  file = paste0(model_path, "fit_olsbp_gelekwikstaart"),
-  file_refit = "on_change")
-
-fit_olsbp_gelekwikstaart
-```
-
-```{r}
-plot(fit_olsbp_gelekwikstaart, ask = FALSE)
-```
-
-```{r}
-pp_check(fit_olsbp_gelekwikstaart, type = "bars_grouped", ndraws = 100, 
-         group = "sbp", facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-```{r}
-for (pred in predictors_olsbp_list$GeleKwikstaart$predictors) {
-  p <- plot_brms_fit(fit_olsbp_gelekwikstaart, pred)
-  print(p)
-}
-```
-
-### Grasmus
-
-```{r}
-fit_olsbp_grasmus <- brm(
-  formula = predictors_olsbp_list$Grasmus$formula,
-  data = df_count_list[["Grasmus"]], 
-  family = poisson(),
-  chains = nchains, 
-  warmup = burnin, 
-  iter = niter,
-  cores = nparallel,
-  thin = thinning,
-  backend = "cmdstanr",
-  file = paste0(model_path, "fit_olsbp_grasmus"),
-  file_refit = "on_change")
-
-fit_olsbp_grasmus
-```
-
-```{r}
-plot(fit_olsbp_grasmus, ask = FALSE)
-```
-
-```{r}
-pp_check(fit_olsbp_grasmus, type = "bars_grouped", ndraws = 100, 
-         group = "sbp", facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-```{r}
-for (pred in predictors_olsbp_list$Grasmus$predictors) {
-  p <- plot_brms_fit(fit_olsbp_grasmus, pred)
-  print(p)
-}
-```
-
-### Haas
-
-```{r}
-fit_olsbp_haas <- brm(
-  formula = predictors_olsbp_list$Haas$formula,
-  data = df_count_list[["Haas"]], 
-  family = zero_inflated_poisson(),
-  chains = nchains, 
-  warmup = burnin, 
-  iter = niter,
-  cores = nparallel,
-  thin = thinning,
-  backend = "cmdstanr",
-  file = paste0(model_path, "fit_olsbp_haas"),
-  file_refit = "on_change")
-
-fit_olsbp_haas
-```
-
-```{r}
-plot(fit_olsbp_haas, ask = FALSE)
-```
-
-```{r}
-pp_check(fit_olsbp_haas, type = "bars_grouped", ndraws = 100, 
-         group = "sbp", facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-```{r}
-for (pred in predictors_olsbp_list$Haas$predictors) {
-  p <- plot_brms_fit(fit_olsbp_haas, pred)
-  print(p)
-}
-```
-
-### Kievit
-
-```{r}
-fit_olsbp_kievit <- brm(
-  formula = predictors_olsbp_list$Kievit$formula,
-  data = df_count_list[["Kievit"]], 
-  family = zero_inflated_poisson(),
-  chains = nchains, 
-  warmup = burnin, 
-  iter = niter,
-  cores = nparallel,
-  thin = thinning,
-  backend = "cmdstanr",
-  file = paste0(model_path, "fit_olsbp_kievit"),
-  file_refit = "on_change")
-
-fit_olsbp_kievit
-```
-
-```{r}
-plot(fit_olsbp_kievit, ask = FALSE)
-```
-
-```{r}
-pp_check(fit_olsbp_kievit, type = "bars_grouped", ndraws = 100, 
-         group = "sbp", facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-```{r}
-for (pred in predictors_olsbp_list$Kievit$predictors) {
-  p <- plot_brms_fit(fit_olsbp_kievit, pred)
-  print(p)
-}
-```
-
-### Veldleeuwerik
-
-```{r}
-fit_olsbp_veldleeuwerik <- brm(
-  formula = predictors_olsbp_list$Veldleeuwerik$formula,
-  data = df_count_list[["Veldleeuwerik"]], 
-  family = poisson(),
-  chains = nchains, 
-  warmup = burnin, 
-  iter = niter,
-  cores = nparallel,
-  thin = thinning,
-  backend = "cmdstanr",
-  file = paste0(model_path, "fit_olsbp_veldleeuwerik"),
-  file_refit = "on_change")
-
-fit_olsbp_veldleeuwerik
-```
-
-```{r}
-plot(fit_olsbp_veldleeuwerik, ask = FALSE)
-```
-
-```{r}
-pp_check(fit_olsbp_veldleeuwerik, type = "bars_grouped", ndraws = 100, 
-         group = "sbp", facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-```{r}
-for (pred in predictors_olsbp_list$Veldleeuwerik$predictors) {
-  p <- plot_brms_fit(fit_olsbp_veldleeuwerik, pred)
-  print(p)
-}
-```
-
-### Witte kwikstaart
-
-```{r}
-fit_olsbp_wittekwikstaart <- brm(
-  formula = predictors_olsbp_list$WitteKwikstaart$formula,
-  data = df_count_list[["WitteKwikstaart"]], 
-  family = poisson(),
-  chains = nchains, 
-  warmup = burnin, 
-  iter = niter,
-  cores = nparallel,
-  thin = thinning,
-  backend = "cmdstanr",
-  file = paste0(model_path, "fit_olsbp_wittekwikstaart"),
-  file_refit = "on_change")
-
-fit_olsbp_wittekwikstaart
-```
-
-```{r}
-plot(fit_olsbp_wittekwikstaart, ask = FALSE)
-```
-
-```{r}
-pp_check(fit_olsbp_wittekwikstaart, type = "bars_grouped", ndraws = 100, 
-         group = "sbp", facet_args = list(ncol = 1, scales = "free_y"))
-```
-
-```{r}
-for (pred in predictors_olsbp_list$WitteKwikstaart$predictors) {
-  p <- plot_brms_fit(fit_olsbp_wittekwikstaart, pred)
-  print(p)
-}
-```
-
 
 
 # Referenties
