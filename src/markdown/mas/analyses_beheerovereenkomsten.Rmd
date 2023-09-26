@@ -3119,7 +3119,7 @@ names(predictors_olpropsb_new_list) <- predictors_olpropsb_new_names
 predictors_olpropsb_new_list <- predictors_olpropsb_new_list[!is.na(predictors_olpropsb_new_list)]
 ```
 
-Fit models for both Poisson and Zero-inflated Poisson:
+Fit models for both Poisson and Zero-inflated Poisson.
 
 ```{r}
 # MCMC parameters
@@ -3186,6 +3186,68 @@ names(mod_final_pois_olpropsb_list) <- names(predictors_olpropsb_new_list)
 names(mod_final_zip_olpropsb_list) <- names(predictors_olpropsb_new_list)
 ```
 
+Model selection between poisson and zero-inflated poisson.
+
+```{r, results='asis'}
+for (i in seq_along(predictors_olpropsb_new_list)) {
+  spec <- names(predictors_olpropsb_new_list)[i]
+  model_pois <- mod_final_pois_olpropsb_list[[i]]
+  model_zip <- mod_final_zip_olpropsb_list[[i]]
+  
+  print(paste("Model selection", spec, "(Oostelijke leemstreek - prop sb)"))
+  
+  # Comparison among models
+  comparisons <- loo_compare(model_pois, model_zip,
+                             criterion = "kfold")[, c(1, 2)]
+  
+  
+}
+```
+
+
+```{r}
+mod_final_olpropsb_list <- list()
+```
+
+
+MCMC convergence and model fit.
+
+```{r}
+for (i in seq_along(mod_final_olpropsb_list)) {
+  spec <- names(mod_final_olpropsb_list)[i]
+  model <- mod_final_olpropsb_list[[i]]
+  
+  # MCMC convergence
+  print(paste("MCMC convergence", spec, "(Oostelijke leemstreek - prop sb)"))
+  plot(model, ask = FALSE)
+  
+  # Model fit
+  print(paste("Model fit", spec, "(Oostelijke leemstreek - prop sb)"))
+  pp_check(model, type = "bars_grouped", ndraws = 100, 
+           group = "area_prop_sb_cat",
+           facet_args = list(ncol = 1, scales = "free_y"))
+}
+```
+
+Results:
+
+```{r}
+for (i in seq_along(mod_final_olpropsb_list)) {
+  spec <- names(mod_final_olpropsb_list)[i]
+  model <- mod_final_olpropsb_list[[i]]
+  
+  # Print summary
+  print(paste("Results", spec, "(Oostelijke leemstreek - prop sb)"))
+  print(summary(model))
+  
+  # Visualise results
+  for (pred in predictors_olpropsb_new_list[[spec]]$predictors) {
+    p <- plot_brms_fit(model, pred) +
+      ggtitle(spec)
+    print(p)
+  }
+}
+```
 
 
 ### Geelgors
