@@ -3088,6 +3088,8 @@ size_decided_dm_total_list
 ### Oostelijke leemstreek
 #### area prop sb (categorised)
 
+Create list with model structure
+
 ```{r}
 predictors_olpropsb_new_list <- vector("list",
                                        length = length(cvvs_olpropsb_new_list))
@@ -3114,7 +3116,69 @@ for (i in seq_along(cvvs_olpropsb_new_list)) {
   predictors_olpropsb_new_names[i] <- spec
 }
 names(predictors_olpropsb_new_list) <- predictors_olpropsb_new_names
+predictors_olpropsb_new_list <- predictors_olpropsb_new_list[!is.na(predictors_olpropsb_new_list)]
 ```
+
+Fit models for both Poisson and Zero-inflated Poisson:
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+```
+
+```{r}
+mod_final_pois_olpropsb_list <- vector("list", length = length(predictors_olpropsb_new_list))
+mod_final_zip_olpropsb_list <- vector("list", length = length(predictors_olpropsb_new_list))
+
+for (i in seq_along(predictors_olpropsb_new_list)) {
+  spec <- names(predictors_olpropsb_new_list)[i]
+  
+  # Poisson
+  name_pois <- paste0("mod_final_pois_olpropsb_", spec)
+  print(paste("Busy fitting", name_pois, "..."))
+  assign(name_pois,
+         brm(formula = predictors_olpropsb_new_list[[spec]]$formula,
+             data = df_count_list_olnew_scaled[[i]], 
+             family = poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_pois),
+             file_refit = "on_change"))
+  
+  mod_final_pois_olpropsb_list[[i]] <- get(name_pois)
+  
+  # Zero-inflated Poisson
+  name_zip <- paste0("mod_final_zip_olpropsb_", spec)
+  print(paste("Busy fitting", name_zip, "..."))
+  assign(name_zip,
+         brm(formula = predictors_olpropsb_new_list[[spec]]$formula,
+             data = df_count_list_olnew_scaled[[i]], 
+             family = zero_inflated_poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_zip),
+             file_refit = "on_change"))
+  
+  mod_final_zip_olpropsb_list[[i]] <- get(name_zip)
+}
+
+names(mod_final_pois_olpropsb_list) <- names(predictors_olpropsb_new_list)
+names(mod_final_zip_olpropsb_list) <- names(predictors_olpropsb_new_list)
+```
+
+
 
 ### Geelgors
 
