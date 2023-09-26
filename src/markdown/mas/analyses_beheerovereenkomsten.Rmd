@@ -3086,6 +3086,299 @@ size_decided_dm_total_list
 
 ## Fit finale modellen
 ### Oostelijke leemstreek
+#### sbp
+
+Create list with model structure
+
+```{r}
+predictors_olsbp_new_list <- vector("list",
+                                       length = length(cvvs_olsbp_new_list))
+predictors_olsbp_new_names <- vector(length = length(cvvs_olsbp_new_list))
+
+for (i in seq_along(cvvs_olsbp_new_list)) {
+  mod_size <- size_decided_olsbp_new_list[[i]]
+  spec <- names(cvvs_olsbp_new_list)[i]
+  
+  if (is.na(mod_size)) {
+    predictors_olsbp_new_list[[i]] <- NA
+  } else {
+    cvvs <- cvvs_olsbp_new_list[[i]]
+    
+    rk <- ranking(cvvs)
+    preds <- head(rk[["fulldata"]], mod_size)
+    
+    predictors_olsbp_new_list[[i]]$predictors <- preds
+    predictors_olsbp_new_list[[i]]$formula <- bf(paste("aantal", "~", 
+                                                   paste(preds, 
+                                                         collapse = " + ")))
+  }
+  
+  predictors_olsbp_new_names[i] <- spec
+}
+names(predictors_olsbp_new_list) <- predictors_olsbp_new_names
+predictors_olsbp_new_list <- predictors_olsbp_new_list[!is.na(predictors_olsbp_new_list)]
+```
+
+Fit models for both Poisson and Zero-inflated Poisson.
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+```
+
+```{r}
+mod_final_pois_olsbp_list <- vector("list", length = length(predictors_olsbp_new_list))
+mod_final_zip_olsbp_list <- vector("list", length = length(predictors_olsbp_new_list))
+
+for (i in seq_along(predictors_olsbp_new_list)) {
+  spec <- names(predictors_olsbp_new_list)[i]
+  
+  # Poisson
+  name_pois <- paste0("mod_final_pois_olsbp_", spec)
+  print(paste("Busy fitting", name_pois, "..."))
+  assign(name_pois,
+         brm(formula = predictors_olsbp_new_list[[spec]]$formula,
+             data = df_count_list_olnew_scaled[[i]], 
+             family = poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_pois),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_pois,
+         add_criterion(get(name_pois), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_pois_olsbp_list[[i]] <- get(name_pois)
+  
+  # Zero-inflated Poisson
+  name_zip <- paste0("mod_final_zip_olsbp_", spec)
+  print(paste("Busy fitting", name_zip, "..."))
+  assign(name_zip,
+         brm(formula = predictors_olsbp_new_list[[spec]]$formula,
+             data = df_count_list_olnew_scaled[[i]], 
+             family = zero_inflated_poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_zip),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_zip,
+         add_criterion(get(name_zip), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_zip_olsbp_list[[i]] <- get(name_zip)
+}
+
+names(mod_final_pois_olsbp_list) <- names(predictors_olsbp_new_list)
+names(mod_final_zip_olsbp_list) <- names(predictors_olsbp_new_list)
+```
+
+Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
+
+```{r, results='asis'}
+for (i in seq_along(predictors_olsbp_new_list)) {
+  spec <- names(predictors_olsbp_new_list)[i]
+  model_pois <- mod_final_pois_olsbp_list[[i]]
+  model_zip <- mod_final_zip_olsbp_list[[i]]
+  
+  print(paste("Model selection", spec, "(Oostelijke leemstreek - prop sb)"))
+  
+  # Comparison among models
+  comparisons <- loo_compare(model_pois, model_zip,
+                             criterion = "kfold")[, c(1, 2)]
+  
+  comparisons %>%
+    as.data.frame() %>%
+    rownames_to_column("model") %>%
+    mutate(CI_ll = elpd_diff  + qnorm(0.10) * se_diff,
+           CI_ul = elpd_diff  + qnorm(0.90) * se_diff,
+           width = 0.9 - 0.1) %>%
+    arrange(desc(elpd_diff)) %>%
+    kable(digits = 3) %>%
+    print()
+  
+  p1 <- pp_check(model_pois, type = "bars", ndraws = 100) +
+    ggtitle(paste("Poisson model", spec, "(Oostelijke leemstreek - prop sb)"))
+  p2 <- pp_check(model_zip, type = "bars", ndraws = 100) +
+    ggtitle(paste("ZIP model", spec, "(Oostelijke leemstreek - prop sb)"))
+  print(p1)
+  print(p2)
+}
+```
+
+
+```{r}
+mod_final_olsbp_list <- list(
+  ...
+  )
+names(mod_final_olsbp_list) <- names(predictors_olsbp_new_list)
+```
+
+
+MCMC convergence and model fit.
+
+```{r}
+for (i in seq_along(mod_final_olsbp_list)) {
+  spec <- names(mod_final_olsbp_list)[i]
+  model <- mod_final_olsbp_list[[i]]
+  
+  # MCMC convergence
+  print(paste("MCMC convergence", spec, "(Oostelijke leemstreek - sbp)"))
+  plot(model, ask = FALSE)
+  
+  # Model fit
+  print(paste("Model fit", spec, "(Oostelijke leemstreek - sbp)"))
+  pp_check(model, type = "bars_grouped", ndraws = 100, 
+           group = "area_prop_sb_cat",
+           facet_args = list(ncol = 1, scales = "free_y")) %>%
+    print()
+}
+```
+
+Results:
+
+```{r}
+for (i in seq_along(mod_final_olsbp_list)) {
+  spec <- names(mod_final_olsbp_list)[i]
+  model <- mod_final_olsbp_list[[i]]
+  
+  # Print summary
+  print(paste("Results", spec, "(Oostelijke leemstreek - sbp)"))
+  print(summary(model))
+  
+  # Visualise results
+  for (pred in predictors_olsbp_new_list[[spec]]$predictors) {
+    p <- plot_brms_fit(model, pred) +
+      ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
+    print(p)
+  }
+}
+```
+
+We zijn vooral geïnteresseerd in het verschil tussen soortbeschermingsplannen en nulbeleid.
+Dit kunnen we proportioneel uitdrukken.
+
+```{r}
+get_effects <- function(df, ref = 0,
+                        min_threshold = -0.2,
+                        max_threshold = 0.25) {
+  require(effectclass)
+  
+  # add effects
+  df$effect_fine <- classification(
+    lcl = df$lcl,
+    ucl = df$ucl,
+    threshold = c(min_threshold, max_threshold))
+
+  df$effect_coarse <- coarse_classification(df$effect_fine)
+  
+  # order and rename effects
+  out <- df %>%
+    mutate(
+      trend_fine = case_when(
+          effect_fine == "++" ~ "strong positief effect",
+          effect_fine == "+" ~ "positief effect",
+          effect_fine == "+~" ~ "gematigd positief effect",
+          effect_fine == "~" ~ "stabiel",
+          effect_fine == "-" ~ "negatief effect",
+          effect_fine == "-~" ~ "gematigd negatief effect",
+          effect_fine == "--" ~ "sterk negatief effect",
+          TRUE ~ "onzeker",
+      ),
+      trend_fine = factor(trend_fine,
+        levels = c(
+          "strong positief effect",
+          "positief effect",
+          "gematigd positief effect",
+          "stabiel",
+          "gematigd negatief effect",
+          "negatief effect",
+          "sterk negatief effect",
+          "onzeker"),
+        ordered = TRUE)
+    ) %>%
+    mutate(
+      trend_coarse = case_when(
+          effect_coarse == "+" ~ "positief effect",
+          effect_coarse == "-" ~ "negatief effect",
+          effect_coarse == "~" ~ "stabiel",
+          TRUE ~ "onzeker",
+      ),
+      trend_coarse = factor(trend_coarse,
+        levels = c("positief effect",
+                   "stabiel",
+                   "negatief effect",
+                   "onzeker"),
+        ordered = TRUE)
+    ) %>%
+    mutate(
+      trend_simple = case_when(
+        lcl > ref ~ "positief effect",
+        ucl < ref ~ "negatief effect",
+        TRUE ~ "stabiel of onzeker effect"
+        ),
+      trend_simple = factor(trend_simple,
+        levels = c("positief effect",
+                   "negatief effect",
+                   "stabiel of onzeker effect"),
+        ordered = TRUE)
+    ) %>%
+    select(-c(effect_fine, effect_coarse))
+}
+
+create_draws_df <- function(model, seed = 123) {
+  df <- model %>%
+    spread_draws(`b_area_prop_sb_cat.*`, regex = TRUE, seed = seed) %>%
+    select(starts_with("b_area_prop_sb_cat")) %>%
+    pivot_longer(cols = everything(), names_to = "area_prop_sb_cat_long") %>%
+    mutate(area_prop_sb_cat = gsub("b_area_prop_sb_cat", "",
+                                   area_prop_sb_cat_long),
+           value_log = value,
+           value = exp(value) - 1) %>%
+    select(area_prop_sb_cat, value_log, value) %>%
+    group_by(area_prop_sb_cat) %>%
+    mutate(median_log = median(value_log),
+           lcl_log = quantile(value_log, 0.05),
+           ucl_log = quantile(value_log, 0.95)) %>%
+    mutate(median = median(value),
+           lcl = quantile(value, 0.05),
+           ucl = quantile(value, 0.95)) %>%
+    ungroup() %>%
+    mutate(.point = "median",
+           .width = 0.95 - 0.05)
+  
+  df_ordered <- df %>%
+    mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
+                                     levels = c("nulbeleid",
+                                                "laagbeleid",
+                                                "middellaagbeleid",
+                                                "middelhoogbeleid",
+                                                "hoogbeleid"),
+                                      ordered = TRUE))
+  
+  out <- get_effects(df_ordered)
+}
+```
+
+
+```{r}
+# get posterior draws for parameters of interest
+draws_olsbp_list <- lapply(mod_final_olsbp_list, create_draws_df)
+```
+
 #### area prop sb (categorised)
 
 Create list with model structure
