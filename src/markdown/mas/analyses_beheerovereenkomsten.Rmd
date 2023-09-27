@@ -3188,7 +3188,7 @@ names(mod_final_zip_olsbp_list) <- names(predictors_olsbp_new_list)
 
 Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
 
-```{r, results='asis'}
+```{r, results="asis"}
 for (i in seq_along(predictors_olsbp_new_list)) {
   spec <- names(predictors_olsbp_new_list)[i]
   model_pois <- mod_final_pois_olsbp_list[[i]]
@@ -3210,9 +3210,11 @@ for (i in seq_along(predictors_olsbp_new_list)) {
     kable(digits = 3) %>%
     print()
   
-  p1 <- pp_check(model_pois, type = "bars", ndraws = 100) +
+  p1 <- pp_check(model_pois, type = "bars_grouped", ndraws = 100, group = "sbp",
+                 facet_args = list(ncol = 1, scales = "free_y")) +
     ggtitle(paste("Poisson model", spec, "(Oostelijke leemstreek - sbp)"))
-  p2 <- pp_check(model_zip, type = "bars", ndraws = 100) +
+  p2 <- pp_check(model_zip, type = "bars_grouped", ndraws = 100, group = "sbp",
+                 facet_args = list(ncol = 1, scales = "free_y")) +
     ggtitle(paste("ZIP model", spec, "(Oostelijke leemstreek - sbp)"))
   print(p1)
   print(p2)
@@ -3225,8 +3227,8 @@ mod_final_olsbp_list <- list(
   mod_final_zip_olsbp_list$Geelgors,
   mod_final_pois_olsbp_list$GeleKwikstaart,
   mod_final_pois_olsbp_list$Grasmus,
-  mod_final_zip_olsbp_list$Kneu,
-  mod_final_zip_olsbp_list$Kwartel,
+  mod_final_pois_olsbp_list$Kneu,
+  mod_final_pois_olsbp_list$Kwartel,
   mod_final_pois_olsbp_list$Torenvalk,
   mod_final_pois_olsbp_list$Veldleeuwerik,
   mod_final_pois_olsbp_list$WitteKwikstaart
@@ -3377,7 +3379,7 @@ names(mod_final_zip_olpropsb_list) <- names(predictors_olpropsb_new_list)
 
 Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
 
-```{r, results='asis'}
+```{r, results="asis"}
 for (i in seq_along(predictors_olpropsb_new_list)) {
   spec <- names(predictors_olpropsb_new_list)[i]
   model_pois <- mod_final_pois_olpropsb_list[[i]]
@@ -3415,9 +3417,9 @@ mod_final_olpropsb_list <- list(
   mod_final_pois_olpropsb_list$GeleKwikstaart,
   mod_final_pois_olpropsb_list$Grasmus,
   mod_final_zip_olpropsb_list$Kievit,
-  mod_final_zip_olpropsb_list$Kneu,
+  mod_final_pois_olpropsb_list$Kneu,
   mod_final_pois_olpropsb_list$Kwartel,
-  mod_final_zip_olpropsb_list$Torenvalk,
+  mod_final_pois_olpropsb_list$Torenvalk,
   mod_final_pois_olpropsb_list$Veldleeuwerik,
   mod_final_pois_olpropsb_list$WitteKwikstaart
   )
@@ -3617,41 +3619,45 @@ max_threshold <- log(1.25)
 
 
 ```{r}
-spec <- "Geelgors"
-draws_olpropsb_list[[spec]] %>%
-  ggplot(aes(y = area_prop_sb_cat)) +
-    geom_violin(aes(y = value_log, fill = trend_coarse),
-                colour = alpha("white", 0)) +
-    geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
-    geom_hline(yintercept = c(min_threshold, max_threshold),
-               linetype = "dotdash") +
-    geom_errorbar(aes(xmin = lcl_log, xmax = ucl_log),
-                  linewidth = 1, colour = "black", width = 0.1) +
-    geom_point(aes(x = median_log),
-               size = 2.2, colour = "black") +
-    scale_fill_manual(values =  c("chartreuse3",
-                                  "gold",
-                                  "firebrick1",
-                                  "skyblue"),
-                      drop = FALSE) +
-    labs(y = "Procentuele wijziging t.o.v. nulbeleid",
-         x = "",
-         fill = "Trend") +
-    scale_x_continuous(
-      breaks = index_breaks(),
-      labels = index_labels,
-      minor_breaks = minor_breaks(),
-      limits = c(-log(3.3), log(3.3)),
-      sec.axis = sec_axis(~ exp(.),
-        breaks = index_breaks_rev(),
-        labels = index_labels_rev(),
-        name = "Proportionele wijziging t.o.v. nulbeleid")
-      ) +
-    theme(
-      legend.position = "right",
-      legend.background = element_rect(fill = "white", color = "darkgrey"),
-      legend.margin = margin(6, 6, 6, 6)
-      )
+for (spec in names(draws_olpropsb_list)) {
+  p <- draws_olpropsb_list[[spec]] %>%
+    ggplot(aes(x = area_prop_sb_cat)) +
+      geom_violin(aes(y = value_log, fill = trend_coarse),
+                  colour = alpha("white", 0)) +
+      geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+      geom_hline(yintercept = c(min_threshold, max_threshold),
+                 linetype = "dotdash") +
+      geom_errorbar(aes(ymin = lcl_log, ymax = ucl_log),
+                    linewidth = 1, colour = "black", width = 0.1) +
+      geom_point(aes(y = median_log),
+                 size = 2.2, colour = "black") +
+      scale_fill_manual(values =  c("chartreuse3",
+                                    "gold",
+                                    "firebrick1",
+                                    "skyblue"),
+                        drop = FALSE) +
+      labs(y = "Procentuele wijziging t.o.v. nulbeleid",
+           x = "",
+           title = spec,
+           fill = "Trend") +
+      scale_y_continuous(
+        breaks = index_breaks(),
+        labels = index_labels,
+        minor_breaks = minor_breaks(),
+        #limits = c(-log(3.3), log(3.3)),
+        sec.axis = sec_axis(~ exp(.),
+          breaks = index_breaks_rev(),
+          labels = index_labels_rev(),
+          name = "Relatieve wijziging t.o.v. nulbeleid")
+        ) +
+      theme(
+        legend.position = "right",
+        legend.background = element_rect(fill = "white", color = "darkgrey"),
+        legend.margin = margin(6, 6, 6, 6)
+        )
+  print(p)
+}
+
 ```
 
 
