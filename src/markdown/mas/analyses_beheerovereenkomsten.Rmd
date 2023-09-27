@@ -3142,7 +3142,7 @@ for (i in seq_along(predictors_olsbp_new_list)) {
   print(paste("Busy fitting", name_pois, "..."))
   assign(name_pois,
          brm(formula = predictors_olsbp_new_list[[spec]]$formula,
-             data = df_count_list_olnew_scaled[[i]], 
+             data = df_count_list_olnew_scaled[[spec]], 
              family = poisson(),
              chains = nchains, 
              warmup = burnin, 
@@ -3164,7 +3164,7 @@ for (i in seq_along(predictors_olsbp_new_list)) {
   print(paste("Busy fitting", name_zip, "..."))
   assign(name_zip,
          brm(formula = predictors_olsbp_new_list[[spec]]$formula,
-             data = df_count_list_olnew_scaled[[i]], 
+             data = df_count_list_olnew_scaled[[spec]], 
              family = zero_inflated_poisson(),
              chains = nchains, 
              warmup = burnin, 
@@ -3331,7 +3331,7 @@ for (i in seq_along(predictors_olpropsb_new_list)) {
   print(paste("Busy fitting", name_pois, "..."))
   assign(name_pois,
          brm(formula = predictors_olpropsb_new_list[[spec]]$formula,
-             data = df_count_list_olnew_scaled[[i]], 
+             data = df_count_list_olnew_scaled[[spec]], 
              family = poisson(),
              chains = nchains, 
              warmup = burnin, 
@@ -3353,7 +3353,7 @@ for (i in seq_along(predictors_olpropsb_new_list)) {
   print(paste("Busy fitting", name_zip, "..."))
   assign(name_zip,
          brm(formula = predictors_olpropsb_new_list[[spec]]$formula,
-             data = df_count_list_olnew_scaled[[i]], 
+             data = df_count_list_olnew_scaled[[spec]], 
              family = zero_inflated_poisson(),
              chains = nchains, 
              warmup = burnin, 
@@ -3536,7 +3536,7 @@ get_effects <- function(df, ref = 0,
     select(-c(effect_fine, effect_coarse))
 }
 
-create_draws_df <- function(model, seed = 123) {
+create_draws_df <- function(model, seed = 123, ...) {
   df <- model %>%
     spread_draws(`b_area_prop_sb_cat.*`, regex = TRUE, seed = seed) %>%
     select(starts_with("b_area_prop_sb_cat")) %>%
@@ -3566,14 +3566,92 @@ create_draws_df <- function(model, seed = 123) {
                                                 "hoogbeleid"),
                                       ordered = TRUE))
   
-  out <- get_effects(df_ordered)
+  out <- get_effects(df_ordered, ...)
 }
 ```
-
 
 ```{r}
 # get posterior draws for parameters of interest
 draws_olpropsb_list <- lapply(mod_final_olpropsb_list, create_draws_df)
+```
+
+We visualiseren dit:
+
+```{r}
+index_labels <- function(x) {
+  sprintf("%+.0f%%", 100 * (exp(x) - 1))
+}
+
+index_breaks <- function() {
+  z <- 1 - c(
+    4 / 5, 3 / 4, 2 / 3, 1 / 2, 1 / 3, 1 / 5
+  )
+  z <- log(sort(z))
+  c(z, 0, -z)
+}
+
+minor_breaks <- function() {
+  breaks <- unique(abs(index_breaks()))
+  out <- vector(length = length(breaks) - 1)
+  i <- 1
+  while (i < length(breaks)) {
+    out[i] <- mean(c(breaks[i], breaks[i + 1]))
+    i <- i + 1
+  }
+  return(c(-out, out))
+}
+
+index_breaks_rev <- function() {
+  exp(index_breaks())
+}
+
+index_labels_rev <- function(digits = 2) {
+  format(round(exp(index_breaks()), digits), nsmall = digits)
+}
+```
+
+```{r}
+min_threshold <- log(0.8)
+max_threshold <- log(1.25)
+```
+
+
+```{r}
+spec <- "Geelgors"
+draws_olpropsb_list[[spec]] %>%
+  ggplot(aes(y = area_prop_sb_cat)) +
+    geom_violin(aes(y = value_log, fill = trend_coarse),
+                colour = alpha("white", 0)) +
+    geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+    geom_hline(yintercept = c(min_threshold, max_threshold),
+               linetype = "dotdash") +
+    geom_errorbar(aes(xmin = lcl_log, xmax = ucl_log),
+                  linewidth = 1, colour = "black", width = 0.1) +
+    geom_point(aes(x = median_log),
+               size = 2.2, colour = "black") +
+    scale_fill_manual(values =  c("chartreuse3",
+                                  "gold",
+                                  "firebrick1",
+                                  "skyblue"),
+                      drop = FALSE) +
+    labs(y = "Procentuele wijziging t.o.v. nulbeleid",
+         x = "",
+         fill = "Trend") +
+    scale_x_continuous(
+      breaks = index_breaks(),
+      labels = index_labels,
+      minor_breaks = minor_breaks(),
+      limits = c(-log(3.3), log(3.3)),
+      sec.axis = sec_axis(~ exp(.),
+        breaks = index_breaks_rev(),
+        labels = index_labels_rev(),
+        name = "Proportionele wijziging t.o.v. nulbeleid")
+      ) +
+    theme(
+      legend.position = "right",
+      legend.background = element_rect(fill = "white", color = "darkgrey"),
+      legend.margin = margin(6, 6, 6, 6)
+      )
 ```
 
 
