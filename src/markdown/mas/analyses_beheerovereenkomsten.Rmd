@@ -1901,7 +1901,9 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
       out <- out +
         facet_wrap(vars(!!sym(facet_var)))
     } else if (length(cat_vars) > 2) {
-      stop("Not implemented for more than 3 categorical predictors!", .call = FALSE)
+      facet_var <- setdiff(cat_vars, x)
+      out <- out +
+          facet_grid(vars(!!sym(facet_var[1])), vars(!!sym(facet_var[2])))
     }
       
   } else {
@@ -1935,11 +1937,9 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
     if (length(cat_vars) == 1) {
       out <- out +
         facet_wrap(vars(!!sym(cat_vars)))
-    } else if (length(cat_vars) == 2) {
+    } else if (length(cat_vars) > 2) {
       out <- out +
         facet_grid(vars(!!sym(cat_vars[1])), vars(!!sym(cat_vars[2])))
-    } else if (length(cat_vars) > 2) {
-      stop("Not implemented for more than 2 categorical predictors!", .call = FALSE)
     }
   }
   return(out)
@@ -2823,7 +2823,7 @@ size_decided_olpropsb_new_list
 ### De Moeren 2022-2023
 #### sbp
 
-```{r}
+```{r, eval=FALSE}
 cvvs_dmsbp_new_list <- vector("list", length = length(refmod_dmsbp_new_list))
 cvvs_dmsbp_new_names <- vector(length = length(refmod_dmsbp_new_list))
 
@@ -2853,7 +2853,7 @@ for (i in seq_along(refmod_dmsbp_new_list)) {
 names(cvvs_dmsbp_new_list) <- cvvs_dmsbp_new_names
 ```
 
-```{r}
+```{r, eval=FALSE}
 for (i in seq_along(cvvs_dmsbp_new_list)) {
   title <- names(cvvs_dmsbp_new_list)[i]
   if (!title == "FALSE") {
@@ -2880,7 +2880,7 @@ for (i in seq_along(cvvs_dmsbp_new_list)) {
 
 Manual choices for model size:
 
-```{r}
+```{r, eval=FALSE}
 size_decided_dmsbp_new_list <- list(5, 12, 12, NA, NA, 9, 16, 6, 9, 3)
 names(size_decided_dmsbp_new_list) <- names(cvvs_dmsbp_new_list)
 size_decided_dmsbp_new_list
@@ -3262,7 +3262,7 @@ Results:
 ```{r}
 for (i in seq_along(mod_final_olsbp_list)) {
   spec <- names(mod_final_olsbp_list)[i]
-  model <- mod_final_olsbp_list[[i]]
+  model <- mod_final_olsbp_list[[spec]]
   
   # Print summary
   print(paste("Results", spec, "(Oostelijke leemstreek - sbp)"))
@@ -3276,6 +3276,7 @@ for (i in seq_along(mod_final_olsbp_list)) {
   }
 }
 ```
+
 
 #### area prop sb (categorised)
 
@@ -3432,7 +3433,7 @@ MCMC convergence and model fit.
 ```{r}
 for (i in seq_along(mod_final_olpropsb_list)) {
   spec <- names(mod_final_olpropsb_list)[i]
-  model <- mod_final_olpropsb_list[[i]]
+  model <- mod_final_olpropsb_list[[spec]]
   
   # MCMC convergence
   print(paste("MCMC convergence", spec, "(Oostelijke leemstreek - prop sb)"))
@@ -3672,5 +3673,194 @@ for (spec in names(draws_olpropsb_list)) {
 ```
 
 
+#### 2018-2023
+
+Create list with model structure
+
+```{r}
+predictors_ol_total_list <- vector("list",
+                                       length = length(cvvs_ol_total_list))
+predictors_ol_total_names <- vector(length = length(cvvs_ol_total_list))
+
+for (i in seq_along(cvvs_ol_total_list)) {
+  mod_size <- size_decided_ol_total_list[[i]]
+  spec <- names(cvvs_ol_total_list)[i]
+  
+  if (is.na(mod_size)) {
+    predictors_ol_total_list[[i]] <- NA
+  } else {
+    cvvs <- cvvs_ol_total_list[[i]]
+    
+    rk <- ranking(cvvs)
+    preds <- head(rk[["fulldata"]], mod_size)
+    
+    predictors_ol_total_list[[i]]$predictors <- preds
+    predictors_ol_total_list[[i]]$formula <- bf(paste("aantal", "~", 
+                                                   paste(preds, 
+                                                         collapse = " + ")))
+  }
+  
+  predictors_ol_total_names[i] <- spec
+}
+names(predictors_ol_total_list) <- predictors_ol_total_names
+predictors_ol_total_list <- predictors_ol_total_list[!is.na(predictors_ol_total_list)]
+```
+
+Fit models for both Poisson and Zero-inflated Poisson.
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+```
+
+```{r}
+mod_final_pois_oltotal_list <- vector("list", length = length(predictors_ol_total_list))
+mod_final_zip_oltotal_list <- vector("list", length = length(predictors_ol_total_list))
+
+for (i in seq_along(predictors_ol_total_list)) {
+  spec <- names(predictors_ol_total_list)[i]
+  
+  # Poisson
+  name_pois <- paste0("mod_final_pois_oltotal_", spec)
+  print(paste("Busy fitting", name_pois, "..."))
+  assign(name_pois,
+         brm(formula = predictors_ol_total_list[[spec]]$formula,
+             data = df_count_list_olnew_scaled[[spec]], 
+             family = poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_pois),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_pois,
+         add_criterion(get(name_pois), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_pois_oltotal_list[[i]] <- get(name_pois)
+  
+  # Zero-inflated Poisson
+  name_zip <- paste0("mod_final_zip_oltotal_", spec)
+  print(paste("Busy fitting", name_zip, "..."))
+  assign(name_zip,
+         brm(formula = predictors_ol_total_list[[spec]]$formula,
+             data = df_count_list_olnew_scaled[[spec]], 
+             family = zero_inflated_poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_zip),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_zip,
+         add_criterion(get(name_zip), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_zip_oltotal_list[[i]] <- get(name_zip)
+}
+
+names(mod_final_pois_oltotal_list) <- names(predictors_ol_total_list)
+names(mod_final_zip_oltotal_list) <- names(predictors_ol_total_list)
+```
+
+Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
+
+```{r, results="asis"}
+for (i in seq_along(predictors_ol_total_list)) {
+  spec <- names(predictors_ol_total_list)[i]
+  model_pois <- mod_final_pois_oltotal_list[[i]]
+  model_zip <- mod_final_zip_oltotal_list[[i]]
+  
+  print(paste("Model selection", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  
+  # Comparison among models
+  comparisons <- loo_compare(model_pois, model_zip,
+                             criterion = "kfold")[, c(1, 2)]
+  
+  comparisons %>%
+    as.data.frame() %>%
+    rownames_to_column("model") %>%
+    mutate(CI_ll = elpd_diff  + qnorm(0.10) * se_diff,
+           CI_ul = elpd_diff  + qnorm(0.90) * se_diff,
+           width = 0.9 - 0.1) %>%
+    arrange(desc(elpd_diff)) %>%
+    kable(digits = 3) %>%
+    print()
+  
+  p1 <- pp_check(model_pois, type = "bars", ndraws = 100) +
+    ggtitle(paste("Poisson model", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  p2 <- pp_check(model_zip, type = "bars", ndraws = 100) +
+    ggtitle(paste("ZIP model", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  print(p1)
+  print(p2)
+}
+```
+
+
+```{r}
+mod_final_oltotal_list <- list(
+  mod_final_zip_oltotal_list$Geelgors,
+  mod_final_pois_oltotal_list$GeleKwikstaart,
+  mod_final_pois_oltotal_list$Grasmus,
+  mod_final_zip_oltotal_list$Kievit,
+  mod_final_pois_oltotal_list$Kneu,
+  mod_final_pois_oltotal_list$Kwartel,
+  mod_final_pois_oltotal_list$Torenvalk,
+  mod_final_pois_oltotal_list$Veldleeuwerik,
+  mod_final_pois_oltotal_list$WitteKwikstaart
+  )
+names(mod_final_oltotal_list) <- names(predictors_ol_total_list)
+```
+
+
+MCMC convergence and model fit.
+
+```{r}
+for (i in seq_along(mod_final_oltotal_list)) {
+  spec <- names(mod_final_oltotal_list)[i]
+  model <- mod_final_oltotal_list[[spec]]
+  
+  # MCMC convergence
+  print(paste("MCMC convergence", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  plot(model, ask = FALSE)
+  
+  # Model fit
+  print(paste("Model fit", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  pp_check(model, type = "bars_grouped", ndraws = 100, 
+           group = "area_prop_sb_cat",
+           facet_args = list(ncol = 1, scales = "free_y")) %>%
+    print()
+}
+```
+
+Results:
+
+```{r}
+for (i in seq_along(mod_final_oltotal_list)) {
+  spec <- names(mod_final_oltotal_list)[i]
+  model <- mod_final_oltotal_list[[i]]
+  
+  # Print summary
+  print(paste("Results", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  print(summary(model))
+  
+  # Visualise results
+  for (pred in predictors_ol_total_list[[spec]]$predictors) {
+    p <- plot_brms_fit(model, pred) +
+      ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
+    print(p)
+  }
+}
+```
 
 # Referenties
