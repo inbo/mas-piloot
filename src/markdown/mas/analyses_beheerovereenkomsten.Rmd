@@ -3994,17 +3994,9 @@ for (i in seq_along(predictors_dmpropsb_new_list)) {
 
 ```{r}
 mod_final_dmpropsb_list <- list(
-  mod_final_zip_dmpropsb_list$Geelgors,
-  mod_final_pois_dmpropsb_list$GeleKwikstaart,
-  mod_final_pois_dmpropsb_list$Grasmus,
-  mod_final_zip_dmpropsb_list$Kievit,
-  mod_final_pois_dmpropsb_list$Kneu,
-  mod_final_pois_dmpropsb_list$Kwartel,
-  mod_final_pois_dmpropsb_list$Torenvalk,
-  mod_final_pois_dmpropsb_list$Veldleeuwerik,
-  mod_final_pois_dmpropsb_list$WitteKwikstaart
+  mod_final_pois_dmpropsb_list$Veldleeuwerik
   )
-names(mod_final_dmpropsb_list) <- names(predictors_dmpropsb_new_list)
+names(mod_final_dmpropsb_list) <- "Veldleeuwerik"
 ```
 
 
@@ -4050,108 +4042,6 @@ for (i in seq_along(mod_final_dmpropsb_list)) {
 
 We zijn vooral geïnteresseerd in het verschil tussen soortbeschermingsplannen en nulbeleid.
 Dit kunnen we proportioneel uitdrukken.
-
-```{r}
-get_effects <- function(df, ref = 0,
-                        min_threshold = -0.2,
-                        max_threshold = 0.25) {
-  require(effectclass)
-  
-  # add effects
-  df$effect_fine <- classification(
-    lcl = df$lcl,
-    ucl = df$ucl,
-    threshold = c(min_threshold, max_threshold))
-
-  df$effect_coarse <- coarse_classification(df$effect_fine)
-  
-  # order and rename effects
-  out <- df %>%
-    mutate(
-      trend_fine = case_when(
-          effect_fine == "++" ~ "strong positief effect",
-          effect_fine == "+" ~ "positief effect",
-          effect_fine == "+~" ~ "gematigd positief effect",
-          effect_fine == "~" ~ "stabiel",
-          effect_fine == "-" ~ "negatief effect",
-          effect_fine == "-~" ~ "gematigd negatief effect",
-          effect_fine == "--" ~ "sterk negatief effect",
-          TRUE ~ "onzeker",
-      ),
-      trend_fine = factor(trend_fine,
-        levels = c(
-          "strong positief effect",
-          "positief effect",
-          "gematigd positief effect",
-          "stabiel",
-          "gematigd negatief effect",
-          "negatief effect",
-          "sterk negatief effect",
-          "onzeker"),
-        ordered = TRUE)
-    ) %>%
-    mutate(
-      trend_coarse = case_when(
-          effect_coarse == "+" ~ "positief effect",
-          effect_coarse == "-" ~ "negatief effect",
-          effect_coarse == "~" ~ "stabiel",
-          TRUE ~ "onzeker",
-      ),
-      trend_coarse = factor(trend_coarse,
-        levels = c("positief effect",
-                   "stabiel",
-                   "negatief effect",
-                   "onzeker"),
-        ordered = TRUE)
-    ) %>%
-    mutate(
-      trend_simple = case_when(
-        lcl > ref ~ "positief effect",
-        ucl < ref ~ "negatief effect",
-        TRUE ~ "stabiel of onzeker effect"
-        ),
-      trend_simple = factor(trend_simple,
-        levels = c("positief effect",
-                   "negatief effect",
-                   "stabiel of onzeker effect"),
-        ordered = TRUE)
-    ) %>%
-    select(-c(effect_fine, effect_coarse))
-}
-
-create_draws_df <- function(model, seed = 123, ...) {
-  df <- model %>%
-    spread_draws(`b_area_prop_sb_cat.*`, regex = TRUE, seed = seed) %>%
-    select(starts_with("b_area_prop_sb_cat")) %>%
-    pivot_longer(cols = everything(), names_to = "area_prop_sb_cat_long") %>%
-    mutate(area_prop_sb_cat = gsub("b_area_prop_sb_cat", "",
-                                   area_prop_sb_cat_long),
-           value_log = value,
-           value = exp(value) - 1) %>%
-    select(area_prop_sb_cat, value_log, value) %>%
-    group_by(area_prop_sb_cat) %>%
-    mutate(median_log = median(value_log),
-           lcl_log = quantile(value_log, 0.05),
-           ucl_log = quantile(value_log, 0.95)) %>%
-    mutate(median = median(value),
-           lcl = quantile(value, 0.05),
-           ucl = quantile(value, 0.95)) %>%
-    ungroup() %>%
-    mutate(.point = "median",
-           .width = 0.95 - 0.05)
-  
-  df_ordered <- df %>%
-    mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
-                                     levels = c("nulbeleid",
-                                                "laagbeleid",
-                                                "middellaagbeleid",
-                                                "middelhoogbeleid",
-                                                "hoogbeleid"),
-                                      ordered = TRUE))
-  
-  out <- get_effects(df_ordered, ...)
-}
-```
 
 ```{r}
 # get posterior draws for parameters of interest
