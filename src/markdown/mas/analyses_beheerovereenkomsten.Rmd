@@ -2013,6 +2013,17 @@ plot_brms_fit(final, x = "peulvruchten_hfdtlt_pre", factor = 100,
 -   enkel voor 2022-2023
 -   alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
 
+```{r}
+to_remove <- sort(sapply(ls(),function(x){object.size(get(x))}),
+                  decreasing = TRUE) %>%
+  names() %>%
+  head(70)
+  
+rm(list = to_remove[!grepl("mas_data_df|design|plot_brms_fit", to_remove)])
+gc()
+```
+
+
 # Analyses alle doelsoorten
 
 ```{r}
@@ -2421,10 +2432,13 @@ for (i in seq_along(df_count_list_olnew_scaled)) {
   
   refmod_olsbp_new_list[[i]] <- get(name)
   refmod_olsbp_new_names[i] <- spec
+  rm(list = name)
 }
 
 names(refmod_olsbp_new_list) <- refmod_olsbp_new_names
+gc()
 ```
+
 
 #### area_prop_sb (categorised)
 
@@ -2454,9 +2468,11 @@ for (i in seq_along(df_count_list_olnew_scaled)) {
   
   refmod_olpropsb_new_list[[i]] <- get(name)
   refmod_olpropsb_new_names[i] <- spec
+    rm(list = name)
 }
 
 names(refmod_olpropsb_new_list) <- refmod_olpropsb_new_names
+gc()
 ```
 
 
@@ -2489,9 +2505,11 @@ for (i in seq_along(df_count_list_dmnew_scaled)) {
   
   refmod_dmsbp_new_list[[i]] <- get(name)
   refmod_dmsbp_new_names[i] <- spec
+  rm(list = name)
 }
 
 names(refmod_dmsbp_new_list) <- refmod_dmsbp_new_names
+gc()
 ```
 
 #### area_prop_sb (categorised)
@@ -2522,9 +2540,11 @@ for (i in seq_along(df_count_list_dmnew_scaled)) {
   
   refmod_dmpropsb_new_list[[i]] <- get(name)
   refmod_dmpropsb_new_names[i] <- spec
+  rm(list = name)
 }
 
 names(refmod_dmpropsb_new_list) <- refmod_dmpropsb_new_names
+gc()
 ```
 
 
@@ -2556,9 +2576,11 @@ for (i in seq_along(df_count_list_oltotal_scaled)) {
   
   refmod_ol_total_list[[i]] <- get(name)
   refmod_ol_total_names[i] <- spec
+  rm(list = name)
 }
 
 names(refmod_ol_total_list) <- refmod_ol_total_names
+gc()
 ```
 
 ### De Moeren 2018-2023
@@ -2632,9 +2654,11 @@ for (i in seq_along(df_count_list_dmtotal_scaled)) {
   
   refmod_dm_total_list[[i]] <- get(name)
   refmod_dm_total_names[i] <- spec
+  rm(list = name)
 }
 
 names(refmod_dm_total_list) <- refmod_dm_total_names
+gc()
 ```
 
 
@@ -2711,9 +2735,11 @@ for (i in seq_along(refmod_olsbp_new_list)) {
   
   cvvs_olsbp_new_list[[i]] <- get(name)
   cvvs_olsbp_new_names[i] <- spec
+  rm(list = name)
 }
 
 names(cvvs_olsbp_new_list) <- cvvs_olsbp_new_names
+gc()
 ```
 
 ```{r}
@@ -2780,9 +2806,11 @@ for (i in seq_along(refmod_olpropsb_new_list)) {
   
   cvvs_olpropsb_new_list[[i]] <- get(name)
   cvvs_olpropsb_new_names[i] <- spec
+  rm(list = name)
 }
 
 names(cvvs_olpropsb_new_list) <- cvvs_olpropsb_new_names
+gc()
 ```
 
 ```{r}
@@ -2848,9 +2876,11 @@ for (i in seq_along(refmod_dmsbp_new_list)) {
   
   cvvs_dmsbp_new_list[[i]] <- get(name)
   cvvs_dmsbp_new_names[i] <- spec
+  rm(list = name)
 }
 
 names(cvvs_dmsbp_new_list) <- cvvs_dmsbp_new_names
+gc()
 ```
 
 ```{r, eval=FALSE}
@@ -2914,9 +2944,11 @@ for (i in seq_along(refmod_dmpropsb_new_list)) {
   
   cvvs_dmpropsb_new_list[[i]] <- get(name)
   cvvs_dmpropsb_new_names[i] <- spec
+  rm(list = name)
 }
 
 names(cvvs_dmpropsb_new_list) <- cvvs_dmpropsb_new_names
+gc()
 ```
 
 ```{r}
@@ -2980,9 +3012,11 @@ for (i in seq_along(refmod_ol_total_list)) {
   
   cvvs_ol_total_list[[i]] <- get(name)
   cvvs_ol_total_names[i] <- spec
+  rm(list = name)
 }
 
 names(cvvs_ol_total_list) <- cvvs_ol_total_names
+gc()
 ```
 
 ```{r}
@@ -3046,9 +3080,11 @@ for (i in seq_along(refmod_dm_total_list)) {
   
   cvvs_dm_total_list[[i]] <- get(name)
   cvvs_dm_total_names[i] <- spec
+  rm(list = name)
 }
 
 names(cvvs_dm_total_list) <- cvvs_dm_total_names
+gc()
 ```
 
 ```{r, eval=FALSE}
@@ -3236,6 +3272,10 @@ mod_final_olsbp_list <- list(
 names(mod_final_olsbp_list) <- names(predictors_olsbp_new_list)
 ```
 
+```{r}
+rm(list = c("mod_final_pois_olsbp_list", "mod_final_zip_olsbp_list"))
+gc()
+```
 
 MCMC convergence and model fit.
 
@@ -3427,6 +3467,10 @@ mod_final_olpropsb_list <- list(
 names(mod_final_olpropsb_list) <- names(predictors_olpropsb_new_list)
 ```
 
+```{r}
+rm(list = c("mod_final_pois_olpropsb_list", "mod_final_zip_olpropsb_list"))
+gc()
+```
 
 MCMC convergence and model fit.
 
@@ -3468,7 +3512,7 @@ for (i in seq_along(mod_final_olpropsb_list)) {
 }
 ```
 
-We zijn vooral geïnteresseerd in het verschil tussen soortbeschermingsplannen en nulbeleid.
+We zijn vooral geïnteresseerd in het verschil tussen soortbeschermingsplannen en nulbeleid (op basis van 90 % credible intervallen).
 Dit kunnen we proportioneel uitdrukken.
 
 ```{r}
@@ -3817,6 +3861,10 @@ mod_final_oltotal_list <- list(
 names(mod_final_oltotal_list) <- names(predictors_ol_total_list)
 ```
 
+```{r}
+rm(list = c("mod_final_pois_oltotal_list", "mod_final_zip_oltotal_list"))
+gc()
+```
 
 MCMC convergence and model fit.
 
@@ -3999,6 +4047,10 @@ mod_final_dmpropsb_list <- list(
 names(mod_final_dmpropsb_list) <- "Veldleeuwerik"
 ```
 
+```{r}
+rm(list = c("mod_final_pois_dmpropsb_list", "mod_final_zip_dmpropsb_list"))
+gc()
+```
 
 MCMC convergence and model fit.
 
