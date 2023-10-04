@@ -3139,8 +3139,8 @@ for (i in seq_along(cvvs_dm_total_list)) {
 
 Choose model sizes.
 
-```{r, eval=FALSE}
-size_decided_dm_total_list <- list(8)
+```{r}
+size_decided_dm_total_list <- list(2)
 size_decided_dm_total_list
 ```
 
@@ -4285,6 +4285,192 @@ for (spec in names(draws_dmpropsb_list)) {
         legend.margin = margin(6, 6, 6, 6)
         )
   print(p)
+}
+```
+
+#### 2018-2023
+
+Create list with model structure
+
+```{r}
+predictors_dm_total_list <- vector("list",
+                                       length = length(cvvs_dm_total_list))
+predictors_dm_total_names <- vector(length = length(cvvs_dm_total_list))
+
+for (i in seq_along(cvvs_dm_total_list)) {
+  mod_size <- size_decided_dm_total_list[[i]]
+  spec <- names(cvvs_dm_total_list)[i]
+  
+  if (is.na(mod_size)) {
+    predictors_dm_total_list[[i]] <- NA
+  } else {
+    cvvs <- cvvs_dm_total_list[[i]]
+    
+    rk <- ranking(cvvs)
+    preds <- head(rk[["fulldata"]], mod_size)
+    
+    predictors_dm_total_list[[i]]$predictors <- preds
+    predictors_dm_total_list[[i]]$formula <- bf(paste("aantal", "~", 
+                                                   paste(preds, 
+                                                         collapse = " + ")))
+  }
+  
+  predictors_dm_total_names[i] <- spec
+}
+names(predictors_dm_total_list) <- predictors_dm_total_names
+predictors_dm_total_list <- predictors_dm_total_list[!is.na(predictors_dm_total_list)]
+```
+
+Fit models for both Poisson and Zero-inflated Poisson.
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+```
+
+```{r}
+mod_final_pois_dmtotal_list <- vector("list", length = length(predictors_dm_total_list))
+mod_final_zip_dmtotal_list <- vector("list", length = length(predictors_dm_total_list))
+
+for (i in seq_along(predictors_dm_total_list)) {
+  spec <- names(predictors_dm_total_list)[i]
+  
+  # Poisson
+  name_pois <- paste0("mod_final_pois_dmtotal_", spec)
+  print(paste("Busy fitting", name_pois, "..."))
+  assign(name_pois,
+         brm(formula = predictors_dm_total_list[[spec]]$formula,
+             data = df_count_list_dmnew_scaled[[spec]], 
+             family = poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_pois),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_pois,
+         add_criterion(get(name_pois), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_pois_dmtotal_list[[i]] <- get(name_pois)
+  
+  # Zero-inflated Poisson
+  name_zip <- paste0("mod_final_zip_dmtotal_", spec)
+  print(paste("Busy fitting", name_zip, "..."))
+  assign(name_zip,
+         brm(formula = predictors_dm_total_list[[spec]]$formula,
+             data = df_count_list_dmnew_scaled[[spec]], 
+             family = zero_inflated_poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_zip),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_zip,
+         add_criterion(get(name_zip), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_zip_dmtotal_list[[i]] <- get(name_zip)
+}
+
+names(mod_final_pois_dmtotal_list) <- names(predictors_dm_total_list)
+names(mod_final_zip_dmtotal_list) <- names(predictors_dm_total_list)
+```
+
+Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
+
+```{r, results="asis"}
+for (i in seq_along(predictors_dm_total_list)) {
+  spec <- names(predictors_dm_total_list)[i]
+  model_pois <- mod_final_pois_dmtotal_list[[i]]
+  model_zip <- mod_final_zip_dmtotal_list[[i]]
+  
+  print(paste("Model selection", spec, "(De Moeren - 2018-2023)"))
+  
+  # Comparison among models
+  comparisons <- loo_compare(model_pois, model_zip,
+                             criterion = "kfold")[, c(1, 2)]
+  
+  comparisons %>%
+    as.data.frame() %>%
+    rownames_to_column("model") %>%
+    mutate(CI_ll = elpd_diff  + qnorm(0.10) * se_diff,
+           CI_ul = elpd_diff  + qnorm(0.90) * se_diff,
+           width = 0.9 - 0.1) %>%
+    arrange(desc(elpd_diff)) %>%
+    kable(digits = 3) %>%
+    print()
+  
+  p1 <- pp_check(model_pois, type = "bars", ndraws = 100) +
+    ggtitle(paste("Poisson model", spec, "(De Moeren - 2018-2023)"))
+  p2 <- pp_check(model_zip, type = "bars", ndraws = 100) +
+    ggtitle(paste("ZIP model", spec, "(De Moeren - 2018-2023)"))
+  print(p1)
+  print(p2)
+}
+```
+
+
+```{r}
+mod_final_dmtotal_list <- list(
+  mod_final_pois_dmtotal_list$Veldleeuwerik
+  )
+names(mod_final_dmtotal_list) <- names(predictors_dm_total_list)
+```
+
+```{r}
+rm(list = c("mod_final_pois_dmtotal_list", "mod_final_zip_dmtotal_list"))
+gc()
+```
+
+MCMC convergence and model fit.
+
+```{r}
+for (i in seq_along(mod_final_dmtotal_list)) {
+  spec <- names(mod_final_dmtotal_list)[i]
+  model <- mod_final_dmtotal_list[[spec]]
+  
+  # MCMC convergence
+  print(paste("MCMC convergence", spec, "(De Moeren - 2018-2023)"))
+  plot(model, ask = FALSE)
+  
+  # Model fit
+  print(paste("Model fit", spec, "(De Moeren - 2018-2023)"))
+  pp_check(model, type = "bars", ndraws = 100) %>%
+    print()
+}
+```
+
+Results:
+
+```{r}
+for (i in seq_along(mod_final_dmtotal_list)) {
+  spec <- names(mod_final_dmtotal_list)[i]
+  model <- mod_final_dmtotal_list[[i]]
+  
+  # Print summary
+  print(paste("Results", spec, "(De Moeren - 2018-2023)"))
+  print(summary(model))
+  
+  # Visualise results
+  for (pred in predictors_dm_total_list[[spec]]$predictors) {
+    p <- plot_brms_fit(model, pred) +
+      ggtitle(paste(spec, "De Moeren", sep = " - "))
+    print(p)
+    rm(p)
+    gc()
+  }
 }
 ```
 
