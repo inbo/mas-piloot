@@ -8,6 +8,7 @@ output:
     toc: true
     toc_float: true
     toc_collapsed: true
+    toc_depth: 5
 editor_options: 
   chunk_output_type: console
 bibliography: references.json
@@ -1875,7 +1876,7 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
       select(-aantal) %>%
       mutate(across(where(is.numeric), FUN)) %>%
       distinct() %>%
-      add_epred_draws(model)
+      add_epred_draws(model, ndraws = 3000)
     
     out <- plot_df %>%
       ggplot(aes(x = .data[[x]], y = aantal))
@@ -1914,7 +1915,7 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
       expand_grid(range = seq_range(model$data[[x]], n = n)) %>%
       `colnames<-`(c(names(model$data)[-match(c("aantal", x), 
                                               names(model$data))], x)) %>%
-      add_epred_draws(model)
+      add_epred_draws(model, ndraws = 3000)
     
     out <- plot_df %>%
       ggplot(aes(x = .data[[x]]*factor, y = aantal))
@@ -3087,6 +3088,30 @@ names(cvvs_dm_total_list) <- cvvs_dm_total_names
 gc()
 ```
 
+Deze analyse enkel voor Veldleeuwerik.
+
+```{r}
+spec <- "Veldleeuwerik"
+name <- paste0("cvvs_dm_total_", spec)
+print(paste("Busy with", name, "..."))
+
+cvvs_file <- paste0(projpred_path, name, ".rds")
+if (!file.exists(cvvs_file)) {
+  assign(name, 
+         try(cv_varsel(
+           object          = refmod_dm_total_list[[spec]],
+           method          = "forward",
+           cv_method       = "LOO",
+           validate_search = TRUE)))
+  saveRDS(get(name), cvvs_file)
+} else {
+  assign(name, readRDS(cvvs_file))
+}
+  
+cvvs_dm_total_list <- list("Veldleeuwerik" = get(name))
+```
+
+
 ```{r, eval=FALSE}
 for (i in seq_along(cvvs_dm_total_list)) {
   title <- names(cvvs_dm_total_list)[i]
@@ -3115,7 +3140,7 @@ for (i in seq_along(cvvs_dm_total_list)) {
 Choose model sizes.
 
 ```{r, eval=FALSE}
-size_decided_dm_total_list <- list(8, 5, 8, 2, 10, 9, 3)
+size_decided_dm_total_list <- list(8)
 size_decided_dm_total_list
 ```
 
@@ -3310,9 +3335,9 @@ for (i in seq_along(mod_final_olsbp_list)) {
   
   # Visualise results
   for (pred in predictors_olsbp_new_list[[spec]]$predictors) {
-    plot_brms_fit(model, pred) +
-      ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - ")) %>%
-      print()
+    p <- plot_brms_fit(model, pred) +
+      ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
+    print(p)
     gc()
   }
 }
@@ -3509,6 +3534,8 @@ for (i in seq_along(mod_final_olpropsb_list)) {
     p <- plot_brms_fit(model, pred) +
       ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
     print(p)
+    rm(p)
+    gc()
   }
 }
 ```
@@ -3534,51 +3561,51 @@ get_effects <- function(df, ref = 0,
   out <- df %>%
     mutate(
       trend_fine = case_when(
-          effect_fine == "++" ~ "strong positief effect",
-          effect_fine == "+" ~ "positief effect",
-          effect_fine == "+~" ~ "gematigd positief effect",
+          effect_fine == "++" ~ "sterk positief",
+          effect_fine == "+" ~ "positief",
+          effect_fine == "+~" ~ "gematigd positief",
           effect_fine == "~" ~ "stabiel",
-          effect_fine == "-" ~ "negatief effect",
-          effect_fine == "-~" ~ "gematigd negatief effect",
-          effect_fine == "--" ~ "sterk negatief effect",
+          effect_fine == "-" ~ "negatief",
+          effect_fine == "-~" ~ "gematigd negatief",
+          effect_fine == "--" ~ "sterk negatief",
           TRUE ~ "onzeker",
       ),
       trend_fine = factor(trend_fine,
         levels = c(
-          "strong positief effect",
-          "positief effect",
-          "gematigd positief effect",
+          "sterk positief",
+          "positief",
+          "gematigd positief",
           "stabiel",
-          "gematigd negatief effect",
-          "negatief effect",
-          "sterk negatief effect",
+          "gematigd negatief",
+          "negatief",
+          "sterk negatief",
           "onzeker"),
         ordered = TRUE)
     ) %>%
     mutate(
       trend_coarse = case_when(
-          effect_coarse == "+" ~ "positief effect",
-          effect_coarse == "-" ~ "negatief effect",
+          effect_coarse == "+" ~ "positief",
+          effect_coarse == "-" ~ "negatief",
           effect_coarse == "~" ~ "stabiel",
           TRUE ~ "onzeker",
       ),
       trend_coarse = factor(trend_coarse,
-        levels = c("positief effect",
+        levels = c("positief",
                    "stabiel",
-                   "negatief effect",
+                   "negatief",
                    "onzeker"),
         ordered = TRUE)
     ) %>%
     mutate(
       trend_simple = case_when(
-        lcl > ref ~ "positief effect",
-        ucl < ref ~ "negatief effect",
-        TRUE ~ "stabiel of onzeker effect"
+        lcl > ref ~ "positief",
+        ucl < ref ~ "negatief",
+        TRUE ~ "stabiel of onzeker"
         ),
       trend_simple = factor(trend_simple,
-        levels = c("positief effect",
-                   "negatief effect",
-                   "stabiel of onzeker effect"),
+        levels = c("positief",
+                   "negatief",
+                   "stabiel of onzeker"),
         ordered = TRUE)
     ) %>%
     select(-c(effect_fine, effect_coarse))
@@ -3586,7 +3613,8 @@ get_effects <- function(df, ref = 0,
 
 create_draws_df <- function(model, seed = 123, ...) {
   df <- model %>%
-    spread_draws(`b_area_prop_sb_cat.*`, regex = TRUE, seed = seed) %>%
+    spread_draws(`b_area_prop_sb_cat.*`, regex = TRUE, seed = seed,
+                 ndraws = 3000) %>%
     select(starts_with("b_area_prop_sb_cat")) %>%
     pivot_longer(cols = everything(), names_to = "area_prop_sb_cat_long") %>%
     mutate(area_prop_sb_cat = gsub("b_area_prop_sb_cat", "",
@@ -3693,10 +3721,10 @@ for (spec in names(draws_olpropsb_list)) {
                                     "firebrick1",
                                     "skyblue"),
                         drop = FALSE) +
-      labs(y = "Procentuele wijziging t.o.v. nulbeleid",
+      labs(y = "Procentueel verschil t.o.v. nulbeleid",
            x = "",
            title = spec,
-           fill = "Trend") +
+           fill = "Verschil") +
       scale_y_continuous(
         breaks = index_breaks(),
         labels = index_labels,
@@ -3705,7 +3733,7 @@ for (spec in names(draws_olpropsb_list)) {
         sec.axis = sec_axis(~ exp(.),
           breaks = index_breaks_rev(),
           labels = index_labels_rev(),
-          name = "Relatieve wijziging t.o.v. nulbeleid")
+          name = "Relatief verschil t.o.v. nulbeleid")
         ) +
       theme(
         legend.position = "right",
@@ -3901,6 +3929,8 @@ for (i in seq_along(mod_final_oltotal_list)) {
     p <- plot_brms_fit(model, pred) +
       ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
     print(p)
+    rm(p)
+    gc()
   }
 }
 ```
@@ -4089,6 +4119,8 @@ for (i in seq_along(mod_final_dmpropsb_list)) {
     p <- plot_brms_fit(model, pred) +
       ggtitle(paste(spec, "De Moeren", sep = " - "))
     print(p)
+    rm(p)
+    gc()
   }
 }
 ```
@@ -4124,7 +4156,7 @@ for (spec in names(draws_dmpropsb_list)) {
                                     "firebrick1",
                                     "skyblue"),
                         drop = FALSE) +
-      labs(y = "Procentuele wijziging t.o.v. nulbeleid",
+      labs(y = "Procentueel verschil t.o.v. nulbeleid",
            x = "",
            title = spec,
            fill = "Trend") +
@@ -4136,7 +4168,7 @@ for (spec in names(draws_dmpropsb_list)) {
         sec.axis = sec_axis(~ exp(.),
           breaks = index_breaks_rev(),
           labels = index_labels_rev(),
-          name = "Relatieve wijziging t.o.v. nulbeleid")
+          name = "Relatief verschil t.o.v. nulbeleid")
         ) +
       theme(
         legend.position = "right",
