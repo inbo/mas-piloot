@@ -309,7 +309,7 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
   mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
           legend = FALSE) +
   mapview(st_crop(paden, detail), legend = FALSE) +
-  mapview(st_crop(punten, detail), zcol = "value", layer = "Type weg/pad")
+  mapview(st_crop(punten, detail), zcol = "value", layer = "Type weg of pad")
 ```
 
 Overzicht aantal punten per categorie:
@@ -667,6 +667,7 @@ Deze werden tot 1 bestand samengevoegd met volgende code:
 sbp_overig <- 
   st_read(path_to_sbp_akkervogels("sbp_overige_soorten.shp"), 
           quiet = TRUE) %>%
+  st_transform(31370) %>%
   filter(soort %in% c("Hamster", "Bruine kiekendief", "Grauwe kiekendief", 
                       "Zomertortel")) %>%
   mutate(soort = ifelse(soort == "Grauwe kiekendief" & gebied == "nieuw 2023", 
@@ -675,6 +676,7 @@ sbp_overig <-
 sbp_akkergvogels <- 
   st_read(path_to_sbp_akkervogels("akkervogelgebieden2022.shp"),
           quiet = TRUE) %>%
+  st_transform(31370) %>%
   mutate(soort = "akkervogels2022") %>%
   select(soort)
 
@@ -1308,3 +1310,30 @@ Een tweede kolom wordt toegevoegd `vervangen door`. Dit is enkel ingevuld bij ee
   
 Uiteindelijk moeten we tot een CSV komen waarbij enkel de punten *behouden* van de eerste batch en *vervanging* van de reserve batch geüpload worden in Avimap (met tellerscode erbij). Overlappen met reeds getelde MAS punten worden niet meegegeven (0 punten).
 
+```{r}
+leemstreek_avimap_df <- read_csv(file.path(
+    "data",
+    "processed",
+    "MAS netwerk Vlaanderen- Westelijke_leemstreek_telpunten.csv"))
+
+leemstreek_avimap_sf <- st_as_sf(leemstreek_avimap_df,
+                                 wkt  = "WKT",
+                                 crs = st_crs(4326)) %>%
+  st_zm() %>%
+  st_transform(31370) %>%
+  rename("geometry" = WKT)
+
+leemstreek_avimap_sf %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_leemstreek_avimap.gpkg"),
+    delete_dsn = TRUE)
+
+leemstreek_avimap_sf %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_leemstreek_avimap.geojson"),
+    delete_dsn = TRUE)
+```
