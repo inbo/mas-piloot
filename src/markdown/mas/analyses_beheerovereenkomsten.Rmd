@@ -3310,9 +3310,10 @@ for (i in seq_along(mod_final_olsbp_list)) {
   
   # Visualise results
   for (pred in predictors_olsbp_new_list[[spec]]$predictors) {
-    p <- plot_brms_fit(model, pred) +
-      ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
-    print(p)
+    plot_brms_fit(model, pred) +
+      ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - ")) %>%
+      print()
+    gc()
   }
 }
 ```
