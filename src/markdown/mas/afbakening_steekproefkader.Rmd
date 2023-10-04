@@ -1227,6 +1227,13 @@ steekproef_avimap %>%
     ))
 
 steekproef_avimap %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.gpkg"
+    ))
+
+steekproef_avimap %>%
   st_drop_geometry() %>%
   bind_cols(steekproef_avimap %>%
               st_coordinates()
