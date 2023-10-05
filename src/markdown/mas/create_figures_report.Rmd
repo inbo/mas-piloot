@@ -28,32 +28,127 @@ opts_knit$set(root.dir = here::here())
 library(tidyverse)
 library(INBOtheme)
 
+conflicted::conflicts_prefer(dplyr::filter)
+theme_set(theme_inbo(transparent = TRUE))
+
 # Source
 dir.create("media", FALSE)
 media_folder <- here("media")
+
+source(here("src", "R", "plot_detection_curve.R"))
+source(here("src", "R", "create_figures.R"))
 ```
 
 # Dubbel tellingen
+
 
 # Distance sampling
 
 ```{r}
 dir.create("media/distance", FALSE)
 out_folder_distance <- here("media/distance")
-```
-
-## Per stratum
-
-```{r}
-
+dsmodel_path <- here("src/markdown/mas/distance_models")
 ```
 
 
 ## Per jaar
 
 ```{r}
-write_csv(do.call(rbind, results),
-          file = paste0(model_path, "results_models_2018_2023.csv"))
-saveRDS(final_models_update, file = paste0(model_path, "models_2018_2023.rds"))
+dir.create("media/distance/per_jaar", FALSE)
+dsmodels_per_jaar <- readRDS(here(dsmodel_path, "models_2018_2023.rds"))
 ```
+
+### Densiteitschattingen
+
+```{r}
+for (spec in names(dsmodels_per_jaar)) {
+  file <- paste0("densiteit_per_jaar_", tolower(spec), ".jpg")
+  ds_model <- dsmodels_per_jaar[[spec]]
+  p <- plot_densiteit(ds_model, spec, show_data = FALSE) +
+    ggtitle("")
+  
+  ggsave(here(out_folder_distance, "per_jaar", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+### Detectiekans
+
+```{r}
+spec <- "Veldleeuwerik"
+file <- paste0("detectiekans_per_jaar_simple_", tolower(spec), ".jpg")
+ds_model <- dsmodels_per_jaar[[spec]]
+p <- plot_detection_curve(ds_model)
+
+ggsave(here(out_folder_distance, "per_jaar", file),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+```{r}
+for (i in seq_along(dsmodels_per_jaar)) {
+  spec <- names(dsmodels_per_jaar)[i]
+  file <- paste0("detectiekans_per_jaar_", tolower(spec), ".jpg")
+  ds_model <- dsmodels_per_jaar[[spec]] 
+  variables <- names(ds_model$ddf$ds$aux$ddfobj$scale$parameters)
+  
+  if (any(grepl("regio", variables)) && any(grepl("jaar", variables))) {
+    design_plot <- matrix(rep(0, 12 * 7), ncol = 7, byrow = TRUE)
+    design_plot[, 1] <- 1
+    design_plot[2, 2] <- 1
+    design_plot[3, 3] <- 1
+    design_plot[4, 4] <- 1
+    design_plot[5, 5] <- 1
+    design_plot[6, 6] <- 1
+    design_plot[7, 7] <- 1
+    design_plot[8:12, 2] <- 1
+    design_plot[8, 3] <- 1
+    design_plot[9, 4] <- 1
+    design_plot[10, 5] <- 1
+    design_plot[11, 6] <- 1
+    design_plot[12, 7] <- 1
+    
+    labels_plot <- paste(c("De Moeren", "Oostelijke leemstreek", 
+                           rep(c("De Moeren", "Oostelijke leemstreek"), each = 5)),
+                         c(2018, 2018, rep(2019:2023, 2)), sep = " - ")
+    
+    mytheme <- theme(legend.position = "right")
+  } else if (any(grepl("regio", variables))) {
+    design_plot <- matrix(c(1, 0, 1, 1), ncol = 2, byrow = TRUE)
+    labels_plot <- c("De Moeren", "Oostelijke leemstreek")
+    mytheme <- theme()
+  } else if (any(grepl("jaar", variables))) {
+    labels_plot <- as.numeric(unique(ds_model$ddf$data$jaar))
+    
+    dim_design <- length(labels_plot)
+    design_plot <- matrix(rep(1, dim_design), ncol = 1,
+                          byrow = TRUE)
+    design_plot <- cbind(design_plot, contr.treatment(dim_design))
+    
+    mytheme <- theme()
+  } else {
+    design_plot <- NULL
+    labels_plot <- NULL
+    mytheme <- theme()
+  }
+  palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(labels_plot))
+  
+  p <- plot_detection_curve(ds_model, design_mat = design_plot, 
+                            labels = labels_plot) +
+    scale_colour_manual(values = palette) +
+    mytheme
+  
+  ggsave(here(out_folder_distance, "per_jaar", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
 
