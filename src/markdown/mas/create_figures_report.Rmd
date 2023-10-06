@@ -39,8 +39,6 @@ source(here("src", "R", "plot_detection_curve.R"))
 source(here("src", "R", "create_figures.R"))
 ```
 
-# Dubbel tellingen
-
 
 # Distance sampling
 
@@ -151,4 +149,46 @@ for (i in seq_along(dsmodels_per_jaar)) {
 }
 ```
 
+## Per stratum
+
+```{r}
+dir.create("media/distance/per_stratum", FALSE)
+dsmodels_per_stratum2022 <- readRDS(here(dsmodel_path, "models_2022.rds"))
+dsmodels_per_stratum2023 <- readRDS(here(dsmodel_path, "models_2023.rds"))
+```
+
+### Densiteitschattingen
+
+```{r}
+species <- sort(union(names(dsmodels_per_stratum2022),
+                      names(dsmodels_per_stratum2023)))
+for (spec in species) {
+  file <- paste0("densiteit_per_stratum_", tolower(spec), ".jpg")
+  ds_model2022 <- dsmodels_per_stratum2022[[spec]]
+  ds_model2023 <- dsmodels_per_stratum2023[[spec]]
+  
+  if (is.null(ds_model2022)) {
+    p <- plot_densiteit(ds_model2023, spec, show_data = FALSE,
+                      year = 2023) +
+      ggtitle("2023")
+  } else if (is.null(ds_model2023)) {
+    p <- plot_densiteit(ds_model2022, spec, show_data = FALSE,
+                      year = 2022) +
+      ggtitle("2022")
+  } else {
+    p <- plot_densiteit(ds_model2022, spec, show_data = FALSE,
+                      year = 2022:2023,
+                      dsmodel2 = ds_model2023) +
+      ggtitle("") + 
+      theme(plot.margin = unit(c(-8, 6, 6, 6), 
+                                "pt"))
+  }
+  
+  ggsave(here(out_folder_distance, "per_stratum", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
 
