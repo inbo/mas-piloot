@@ -27,6 +27,7 @@ opts_knit$set(root.dir = here::here())
 # Packages
 library(tidyverse)
 library(INBOtheme)
+library(gridExtra)
 
 conflicted::conflicts_prefer(dplyr::filter)
 theme_set(theme_inbo(transparent = TRUE))
@@ -192,3 +193,48 @@ for (spec in species) {
 }
 ```
 
+### Detectiekans
+
+```{r}
+for (spec in species) {
+  file <- paste0("detectiekans_per_stratum_simple_", tolower(spec), ".jpg")
+  ds_model2022 <- dsmodels_per_stratum2022[[spec]]
+  ds_model2023 <- dsmodels_per_stratum2023[[spec]]
+  
+  if (is.null(ds_model2022)) {
+    p <- plot_detection_curve(ds_model2023) +
+      ggtitle("2023")
+  } else if (is.null(ds_model2023)) {
+    p <- plot_detection_curve(ds_model2022) +
+      ggtitle("2022")
+  } else {
+    # 2022
+    p1 <- plot_detection_curve(ds_model2022)
+    
+    # 2023
+    p2 <- plot_detection_curve(ds_model2023)
+    
+    # adjust y-limits
+    ymax_lim <- max(max(p1$plot_env$hist_df$counts),
+                    max(p2$plot_env$hist_df$counts),
+                    1)
+    p1 <- p1 +
+      scale_y_continuous(limits = c(0, ymax_lim),
+                         breaks = seq(0, 100, by = 0.25)) +
+      ggtitle("2022")
+    p2 <- p2 +
+      scale_y_continuous(limits = c(0, ymax_lim),
+                         breaks = seq(0, 100, by = 0.25)) +
+      labs(y = "") +
+      ggtitle("2023")
+    
+    p <- grid.arrange(p1, p2, ncol = 2)
+  }
+  
+  ggsave(here(out_folder_distance, "per_stratum", file),
+         p,
+         dpi = 300,
+         width = 10,
+         height = 6)
+}
+```
