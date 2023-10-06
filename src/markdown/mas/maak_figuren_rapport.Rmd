@@ -47,7 +47,6 @@ source(here("src", "R", "create_figures.R"))
 dir.create("media/distance", FALSE)
 out_folder_distance <- here("media/distance")
 dsmodel_path <- here("src/markdown/mas/distance_models")
-beheermodel_path <- here("src/markdown/mas/analyses_cache")
 ```
 
 
@@ -242,6 +241,12 @@ for (spec in species) {
 
 
 # Beheerovereenkomsten
+
+```{r}
+beheermodel_path <- here("src/markdown/mas/analyses_cache")
+```
+
+
 ## Oostelijke leemstreek
 
 ```{r}
@@ -316,8 +321,7 @@ for (spec in names(draws_olpropsb_list)) {
         legend.margin = margin(6, 6, 6, 6)
         )
   
-  ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek"
-              , file),
+  ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek", file),
          p,
          dpi = 300,
          width = 8,
@@ -366,8 +370,7 @@ for (spec in names(draws_olpropsb_list_wt)) {
         legend.margin = margin(6, 6, 6, 6)
         )
   
-  ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek"
-              , file),
+  ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek", file),
          p,
          dpi = 300,
          width = 8,
