@@ -3491,6 +3491,10 @@ mod_final_olpropsb_list <- list(
   mod_final_pois_olpropsb_list$WitteKwikstaart
   )
 names(mod_final_olpropsb_list) <- names(predictors_olpropsb_new_list)
+
+saveRDS(mod_final_olpropsb_list,
+        here("src", "markdown", "mas", "analyses_cache",
+             "mod_final_olpropsb_list.rds"))
 ```
 
 ```{r}
@@ -4000,6 +4004,10 @@ mod_final_oltotal_list <- list(
   mod_final_pois_oltotal_list$WitteKwikstaart
   )
 names(mod_final_oltotal_list) <- names(predictors_ol_total_list)
+
+saveRDS(mod_final_oltotal_list,
+        here("src", "markdown", "mas", "analyses_cache",
+             "mod_final_oltotal_list.rds"))
 ```
 
 ```{r}
@@ -4188,6 +4196,10 @@ mod_final_dmpropsb_list <- list(
   mod_final_pois_dmpropsb_list$Veldleeuwerik
   )
 names(mod_final_dmpropsb_list) <- "Veldleeuwerik"
+
+saveRDS(mod_final_dmpropsb_list,
+        here("src", "markdown", "mas", "analyses_cache",
+             "mod_final_dmpropsb_list.rds"))
 ```
 
 ```{r}
@@ -4430,6 +4442,10 @@ mod_final_dmtotal_list <- list(
   mod_final_pois_dmtotal_list$Veldleeuwerik
   )
 names(mod_final_dmtotal_list) <- names(predictors_dm_total_list)
+
+saveRDS(mod_final_dmtotal_list,
+        here("src", "markdown", "mas", "analyses_cache",
+             "mod_final_dmtotal_list.rds"))
 ```
 
 ```{r}
