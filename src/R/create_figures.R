@@ -225,3 +225,188 @@ plot_densiteit <- function(dsmodel, soort,
 
   return(p)
 }
+
+get_effects <- function(df, ref = 0,
+                        min_threshold = -0.2,
+                        max_threshold = 0.25) {
+  require(effectclass)
+
+  # add effects
+  df$effect_fine <- classification(
+    lcl = df$lcl,
+    ucl = df$ucl,
+    threshold = c(min_threshold, max_threshold))
+
+  df$effect_coarse <- coarse_classification(df$effect_fine)
+
+  # order and rename effects
+  out <- df %>%
+    mutate(
+      trend_fine = case_when(
+        effect_fine == "++" ~ "sterk positief",
+        effect_fine == "+" ~ "positief",
+        effect_fine == "+~" ~ "gematigd positief",
+        effect_fine == "~" ~ "stabiel",
+        effect_fine == "-" ~ "negatief",
+        effect_fine == "-~" ~ "gematigd negatief",
+        effect_fine == "--" ~ "sterk negatief",
+        TRUE ~ "onzeker",
+      ),
+      trend_fine = factor(trend_fine,
+                          levels = c(
+                            "sterk positief",
+                            "positief",
+                            "gematigd positief",
+                            "stabiel",
+                            "gematigd negatief",
+                            "negatief",
+                            "sterk negatief",
+                            "onzeker"),
+                          ordered = TRUE)
+    ) %>%
+    mutate(
+      trend_coarse = case_when(
+        effect_coarse == "+" ~ "positief",
+        effect_coarse == "-" ~ "negatief",
+        effect_coarse == "~" ~ "stabiel",
+        TRUE ~ "onzeker",
+      ),
+      trend_coarse = factor(trend_coarse,
+                            levels = c("positief",
+                                       "stabiel",
+                                       "negatief",
+                                       "onzeker"),
+                            ordered = TRUE)
+    ) %>%
+    mutate(
+      trend_simple = case_when(
+        lcl > ref ~ "positief",
+        ucl < ref ~ "negatief",
+        TRUE ~ "stabiel of onzeker"
+      ),
+      trend_simple = factor(trend_simple,
+                            levels = c("positief",
+                                       "negatief",
+                                       "stabiel of onzeker"),
+                            ordered = TRUE)
+    ) %>%
+    select(-c(effect_fine, effect_coarse))
+}
+
+create_draws_df <- function(model, seed = 123, ...) {
+  require(tidybayes)
+
+  df <- model %>%
+    spread_draws(`b_area_prop_sb_cat.*`, regex = TRUE, seed = seed,
+                 ndraws = 3000) %>%
+    select(starts_with("b_area_prop_sb_cat")) %>%
+    pivot_longer(cols = everything(), names_to = "area_prop_sb_cat_long") %>%
+    mutate(area_prop_sb_cat = gsub("b_area_prop_sb_cat", "",
+                                   area_prop_sb_cat_long),
+           value_log = value,
+           value = exp(value) - 1) %>%
+    select(area_prop_sb_cat, value_log, value) %>%
+    group_by(area_prop_sb_cat) %>%
+    mutate(median_log = median(value_log),
+           lcl_log = quantile(value_log, 0.05),
+           ucl_log = quantile(value_log, 0.95)) %>%
+    mutate(median = median(value),
+           lcl = quantile(value, 0.05),
+           ucl = quantile(value, 0.95)) %>%
+    ungroup() %>%
+    mutate(.point = "median",
+           .width = 0.95 - 0.05)
+
+  df_ordered <- df %>%
+    mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
+                                     levels = c("nulbeleid",
+                                                "laagbeleid",
+                                                "middellaagbeleid",
+                                                "middelhoogbeleid",
+                                                "hoogbeleid"),
+                                     ordered = TRUE))
+
+  out <- get_effects(df_ordered, ...)
+}
+
+create_weighted_draws_df <- function(model, seed = 123, ...) {
+  weight_df <- model$data %>%
+    filter(area_prop_sb_cat != "nulbeleid") %>%
+    count(area_prop_sb_cat) %>%
+    mutate(
+      group = case_when(
+        grepl("laagbeleid", area_prop_sb_cat) ~ "laagbeleid",
+        grepl("hoogbeleid", area_prop_sb_cat) ~ "hoogbeleid"
+      )) %>%
+    group_by(group) %>%
+    mutate(sum = sum(n)) %>%
+    ungroup() %>%
+    mutate(weight = n / sum)
+
+  df <- model %>%
+    spread_draws(`b_area_prop_sb_cat.*`, regex = TRUE, seed = seed,
+                 ndraws = 3000) %>%
+    select(starts_with("b_area_prop_sb_cat")) %>%
+    rename_with(~ gsub("b_area_prop_sb_cat", "", .x)) %>%
+    rowwise() %>%
+    mutate(laagbeleid2 = weighted.mean(c(laagbeleid, middellaagbeleid),
+                                       pull(weight_df[weight_df$group == "laagbeleid", "weight"])),
+           hoogbeleid2 = weighted.mean(c(middelhoogbeleid, hoogbeleid),
+                                       pull(weight_df[weight_df$group == "hoogbeleid", "weight"]))) %>%
+    select("laagbeleid" = laagbeleid2,
+           "hoogbeleid" = hoogbeleid2) %>%
+    pivot_longer(cols = everything(), names_to = "area_prop_sb_cat") %>%
+    mutate(value_log = value,
+           value = exp(value) - 1) %>%
+    select(area_prop_sb_cat, value_log, value) %>%
+    group_by(area_prop_sb_cat) %>%
+    mutate(median_log = median(value_log),
+           lcl_log = quantile(value_log, 0.05),
+           ucl_log = quantile(value_log, 0.95)) %>%
+    mutate(median = median(value),
+           lcl = quantile(value, 0.05),
+           ucl = quantile(value, 0.95)) %>%
+    ungroup() %>%
+    mutate(.point = "median",
+           .width = 0.95 - 0.05)
+
+  df_ordered <- df %>%
+    mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
+                                     levels = c("nulbeleid",
+                                                "laagbeleid",
+                                                "hoogbeleid"),
+                                     ordered = TRUE))
+
+  out <- get_effects(df_ordered, ...)
+}
+
+index_labels <- function(x) {
+  sprintf("%+.0f%%", 100 * (exp(x) - 1))
+}
+
+index_breaks <- function() {
+  z <- 1 - c(
+    5 / 6, 4 / 5, 3 / 4, 2 / 3, 1 / 2, 1 / 3, 1 / 5
+  )
+  z <- log(sort(z))
+  c(z, 0, -z)
+}
+
+minor_breaks <- function() {
+  breaks <- unique(abs(index_breaks()))
+  out <- vector(length = length(breaks) - 1)
+  i <- 1
+  while (i < length(breaks)) {
+    out[i] <- mean(c(breaks[i], breaks[i + 1]))
+    i <- i + 1
+  }
+  return(c(-out, out))
+}
+
+index_breaks_rev <- function() {
+  exp(index_breaks())
+}
+
+index_labels_rev <- function(digits = 2) {
+  format(round(exp(index_breaks()), digits), nsmall = digits)
+}
