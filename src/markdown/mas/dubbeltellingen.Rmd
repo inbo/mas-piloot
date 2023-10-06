@@ -24,6 +24,8 @@ opts_chunk$set(
   warning = FALSE)
 opts_knit$set(root.dir = here::here())
 
+Sys.setenv("PROJ_NETWORK" = "ON")
+
 # Packages
 library(tidyverse)
 library(INBOtheme)
@@ -33,6 +35,8 @@ library(sf)
 library(terra)
 library(lubridate)
 library(brms)
+
+conflicted::conflicts_prefer(dplyr::filter)
 
 # Source
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
@@ -88,8 +92,6 @@ De CRS moet aangepast worden naar Lambert 72.
 Dit doen we via een specifieke pipeline, zie: <https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/>
 
 ```{r mas-waarnemingen-conversie-31370}
-Sys.setenv("PROJ_NETWORK" = "ON")
-sf_proj_network(TRUE)
 pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
 glimpse(pipelines)
 # We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
@@ -115,6 +117,18 @@ vlaanderen <- get_feature_wfs(
   crs = "EPSG:31370",
   filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
   select(NameDUT)
+
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
 
 sbp_akkervogels <- tar_read(sbp_akkervogels,
                             store = targets_store)
@@ -2521,7 +2535,8 @@ corr_soorten_waarnemingen <- brm(
        cmc = FALSE),
     data = dubbels_corr_df, family = gaussian(), seed = 1234, 
     chains = nchains, warmup = burnin, iter = niter, cores = nparallel,
-    control = list(adapt_delta = 0.95))
+    control = list(adapt_delta = 0.95),
+    backend = "cmdstanr")
 
 pp_check(corr_soorten_waarnemingen , type = "dens_overlay_grouped", 
          ndraws = 100, group = "status")
@@ -2568,7 +2583,7 @@ fit <- fitted(corr_soorten_waarnemingen,
   as_tibble() %>%
   bind_cols(new_df)
 
-dubbels_corr_df %>%
+p_corr <- dubbels_corr_df %>%
   ggplot(aes(x = n_waarnemingen, y = n_soorten, col = status)) +
     geom_point() +
     geom_smooth(data = fit, 
@@ -2576,6 +2591,7 @@ dubbels_corr_df %>%
                 stat = "identity") +
     coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
     labs(y = "aantal soorten", x = "aantal waarnemingen")
+p_corr
 ```
 
 Visualisatie log schaal:
@@ -2665,7 +2681,7 @@ waarnemingen_vrij <- hypothesis(x = finaal_waarnemingen1,
                            alpha = 0.05)
 
 # visualise
-rbind.data.frame(soorten_prof$hypothesis,
+p_aantallen <- rbind.data.frame(soorten_prof$hypothesis,
                  soorten_vrij$hypothesis, 
                  waarnemingen_prof$hypothesis, 
                  waarnemingen_vrij$hypothesis) %>%
@@ -2674,12 +2690,13 @@ rbind.data.frame(soorten_prof$hypothesis,
   ggplot(aes(y = Estimate, x = status)) + 
     geom_jitter(data = plot_data_df, aes(x = status, y = n), 
                 col = "firebrick", width = 0.2, height = 0, alpha = 0.1) +
-    geom_point(aes(colour = status), size = 4) +
-    geom_errorbar(aes(ymin = CI.Lower, ymax = CI.Upper, colour = status), 
+    geom_point(size = 4) +
+    geom_errorbar(aes(ymin = CI.Lower, ymax = CI.Upper), 
                   width = 0.2) +
     coord_cartesian(ylim = c(0, NA)) +
     labs(x = "", y = "aantal") +
     facet_grid(~cat)
+p_aantallen
 ```
 
 Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zouden noteren met broedcode 0, maar minder met broedcode > 0. Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_broed2$hypothesis$CI.Lower, 2)` tot `r round(effect_broed2$hypothesis$CI.Upper, 2)`).
@@ -2689,3 +2706,40 @@ Ook vonden we dat er geen significant verschil was in aantal soorten (data broed
 We moeten opmerken dat deze resultaten gebaseerd zijn op modellen die niet altijd een goede weerspiegeling waren van de data. De respons data waren aantallen en dus positief en discreet van aard. Desondanks kozen we vaak voor modellen met een normaal verdeling. Dit gaf eenvoudig interpreteerbare resultaten en was ook vaak niet problematisch omdat de aantallen vaak hoog genoeg lagen (en er dus geen negatieve waarden zouden voorspeld worden door het model). In verschillende gevallen werden de resultaten van de Poisson en Negatief binomiaal modellen vergeleken met het Normaal model. Na omrekenen gaven deze modellen gelijkaardige resultaten. Bovendien waren we telkens geïnteresseerd in specifieke hypotheses. Hoewel precieze credible intervals van de verschillende modellen wel verschilden, gaven ze wel een eenduidig antwoord op onze vragen. Deze waren ook telkens in lijn met de data exploratie.
 
 Ten slotte kozen we het aantal soorten en het aantal waarnemingen als maten om te achterhalen of tellingen van vrijwilligers en de professionele teller gelijkaardige resultaten opleverden. Dit zijn geen onafhankelijke maten. Zoals verwacht toonden we aan dat deze log lineair verwant zijn aan elkaar. Hoe meer waarnemingen, hoe meer soorten. Naarmate het aantal waarnemingen een bepaalde grootte overschrijdt, vlakt het aantal soorten af. Ook hier zagen we een verschil tussen professionele en vrijwillige tellers met over de totale range van aantal waarnemingen een lager aantal soorten gezien door vrijwillige tellers (95 %  CI: `r round(hyp_curve$hypothesis$CI.Lower, 2)` tot `r round(hyp_curve$hypothesis$CI.Upper, 2)`).
+
+# Output figuren
+
+```{r}
+theme_set(theme_inbo(transparent = TRUE))
+
+# Source
+media_folder <- here("media/dubbeltellingen")
+dir.create(media_folder, FALSE)
+```
+
+```{r}
+p_aantallen2 <- p_aantallen
+
+ggsave(here(media_folder, "vergelijk_aantallen.jpg"),
+       p_aantallen2,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+```{r}
+p_corr2 <- p_corr +
+  labs(colour = "Status") +
+   theme(legend.position = c(1, 0),
+         legend.justification = c(1, 0),
+         legend.background = element_rect(fill = "white",
+                                          color = "darkgrey"),
+         legend.margin = margin(6, 6, 6, 6))
+
+ggsave(here(media_folder, "correlatie_aantallen.jpg"),
+       p_corr2,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
