@@ -277,7 +277,7 @@ area_prop_cats2 <- tibble(
 
 ```{r}
 for (spec in names(draws_olpropsb_list)) {
-  file <- paste0("beleidstoestand_fine_", tolower(spec), ".jpg")
+  file <- paste0("beleidstoestand_", tolower(spec), "_fine.jpg")
   
   p <- draws_olpropsb_list[[spec]] %>%
     left_join(area_prop_cats, by = join_by(area_prop_sb_cat)) %>%
@@ -327,7 +327,7 @@ for (spec in names(draws_olpropsb_list)) {
 
 ```{r}
 for (spec in names(draws_olpropsb_list_wt)) {
-  file <- paste0("beleidstoestand_coarse_", tolower(spec), ".jpg")
+  file <- paste0("beleidstoestand_", tolower(spec), "_coarse.jpg")
   
   p <- draws_olpropsb_list_wt[[spec]] %>%
     left_join(area_prop_cats2, by = join_by(area_prop_sb_cat)) %>%
