@@ -224,6 +224,22 @@ for (cat in unique(issue_cat$reden)) {
 }
 ```
 
+```{r}
+issue_cat %>%
+  select("categorie" = reden, "patroon" = match) %>%
+  mutate(categorie = ifelse(is.na(categorie) | categorie == "niet super",
+                            "rest", categorie),
+         patroon = ifelse(is.na(patroon) | patroon == "niet super",
+                          "[restgroep/geen info]", patroon)) %>%
+  count(categorie, patroon, name = "aantal telpunten") %>%
+  group_by(categorie) %>%
+  mutate("aantal per categorie" = sum(`aantal telpunten`)) %>%
+  ungroup() %>%
+  arrange(desc(`aantal per categorie`), categorie, patroon) %>%
+  write_csv(file = here("media", "issues_pilootmeetnet",
+                        "issues_pilootmeetnet.csv"))
+```
+
 
 # Conclusie
 
