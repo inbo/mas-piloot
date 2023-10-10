@@ -28,6 +28,7 @@ opts_knit$set(root.dir = here::here())
 library(tidyverse)
 library(INBOtheme)
 library(gridExtra)
+library(Distance)
 
 conflicted::conflicts_prefer(dplyr::filter)
 theme_set(theme_inbo(transparent = TRUE))
@@ -38,6 +39,7 @@ media_folder <- here("media")
 
 source(here("src", "R", "plot_detection_curve.R"))
 source(here("src", "R", "create_figures.R"))
+source(here("src", "R", "sim.pdata.R"))
 ```
 
 
@@ -47,6 +49,62 @@ source(here("src", "R", "create_figures.R"))
 dir.create("media/distance", FALSE)
 out_folder_distance <- here("media/distance")
 dsmodel_path <- here("src/markdown/mas/distance_models")
+```
+
+## Methodes
+
+Punttransect.
+
+```{r}
+circle_fun <- function(center = c(0, 0), diameter = 600, npoints = 100) {
+    r <- diameter / 2
+    tt <- seq(0, 2 * pi, length.out = npoints)
+    xx <- center[1] + r * cos(tt)
+    yy <- center[2] + r * sin(tt)
+    return(data.frame(x = xx, y = yy))
+}
+
+p1 <- ggplot(data = circle_fun()) +
+    geom_segment(aes(x = 0, y = 0, xend = 300, yend = 0)) +
+    geom_text(aes(x = 150, y = 0, label = "w"), nudge_y = 25) +
+    geom_segment(aes(x = 0, y = 0, xend = -100, yend = 200)) +
+    geom_point(aes(x = -100, y = 200), shape = "\U1F986", size = 10) +
+    geom_text(aes(x = -50, y = 100), label = "r[i]", nudge_y = 20,
+              nudge_x = 20, parse = TRUE) +
+    geom_path(aes(x, y), colour = "red") + 
+    geom_point(aes(x = 0, y = 0), colour = "red", size = 2) +
+    labs(x = "", y = "") +
+    coord_fixed() +
+    theme_void()
+```
+
+Detectiefunctie:
+
+```{r}
+set.seed(1234)
+dist_data <- sim.pdata(N = 1000, sigma = 120, B = 300)
+
+# Fit model
+ds_model <- ds(dist_data$d, key = "hn", truncation = 300, transect = "point", 
+               dht_group = FALSE, convert_units = conversion_factor)
+
+# Plot detection curve
+p2 <- plot_detection_curve(ds_model, show_data = FALSE) +
+    geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = 1),
+              colour = "red", fill = alpha("white", 0)) +
+    geom_text(aes(x = 150, y = 0.6),
+              label = expression(italic("g(r;"*theta*")")))
+```
+
+```{r}
+p_dist_methode <- cowplot::plot_grid(p1, p2, nrow = 1, labels = c("A.", "B."),
+                                     rel_widths = c(1.5, 2))
+
+ggsave(here(out_folder_distance, "methode_distance.jpg"),
+       p_dist_methode,
+       dpi = 300,
+       width = 8,
+       height = 4)
 ```
 
 
