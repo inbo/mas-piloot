@@ -29,6 +29,11 @@ library(tidyverse)
 library(INBOtheme)
 library(gridExtra)
 library(Distance)
+library(targets)
+library(sf)
+library(GVI)
+library(inbospatial)
+library(terra)
 
 conflicted::conflicts_prefer(dplyr::filter)
 theme_set(theme_inbo(transparent = TRUE))
@@ -40,6 +45,20 @@ media_folder <- here("media")
 source(here("src", "R", "plot_detection_curve.R"))
 source(here("src", "R", "create_figures.R"))
 source(here("src", "R", "sim.pdata.R"))
+
+targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+mbag_dir <- here()
+
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
 ```
 
 
@@ -115,6 +134,55 @@ dir.create("media/distance/per_jaar", FALSE)
 dsmodels_per_jaar <- readRDS(here(dsmodel_path, "models_2018_2023.rds"))
 ```
 
+### Strata oppervlakte
+
+```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+# Selectie en buffer
+perimeters_strata <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  st_buffer(dist = 300) %>%
+  group_by(Naam) %>%
+  summarise(geometry = st_union(geometry)) %>%
+  ungroup()
+
+# Visualisatie
+p_moeren <- perimeters_strata %>%
+  filter(Naam == "De Moeren") %>%
+  ggplot() +
+    geom_sf() +
+    facet_grid(~Naam)
+
+p_leemstreek <- perimeters_strata %>%
+  filter(Naam == "Oostelijke leemstreek") %>%
+  ggplot() +
+    geom_sf() +
+    facet_grid(~Naam)
+
+# Bereken oppervlaktes van de regio's
+areas <- perimeters_strata %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
+  select(regio = Naam, Area) %>%
+  st_drop_geometry()
+table_area <- areas %>%
+  rename(`oppervlakte (km²)` = Area) %>%
+  tableGrob(rows = NULL)
+
+# Plot
+p <- grid.arrange(p_moeren, p_leemstreek, table_area, 
+                  layout_matrix = rbind(c(1, 2), c(1, 3)))
+
+ggsave(here(out_folder_distance, "per_jaar", "oppervlakte_strata.jpg"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+
 ### Densiteitschattingen
 
 ```{r}
@@ -132,6 +200,7 @@ for (spec in names(dsmodels_per_jaar)) {
 }
 ```
 
+
 ### Detectiekans
 
 ```{r}
@@ -146,6 +215,35 @@ ggsave(here(out_folder_distance, "per_jaar", file),
        width = 8,
        height = 6)
 ```
+
+```{r}
+p1 <- plot_detection_curve(dsmodels_per_jaar[["Kneu"]]) +
+  ggtitle("Kneu")
+
+p2 <- plot_detection_curve(dsmodels_per_jaar[["Kievit"]]) +
+  labs(title = "Kievit",
+       y = "")
+
+ymax_lim <- max(max(p1$plot_env$hist_df$counts),
+                    max(p2$plot_env$hist_df$counts),
+                    1)
+p1 <- p1 +
+  scale_y_continuous(limits = c(0, ymax_lim),
+                     breaks = seq(0, 100, by = 0.25))
+p2 <- p2 +
+  scale_y_continuous(limits = c(0, ymax_lim),
+                     breaks = seq(0, 100, by = 0.25))
+
+p <- grid.arrange(p1, p2, ncol = 2)
+
+ggsave(here(out_folder_distance, "per_jaar",
+            "detectiekans_per_jaar_vergelijking.jpg"),
+         p,
+         dpi = 300,
+         width = 10,
+         height = 6)
+```
+
 
 ```{r}
 for (i in seq_along(dsmodels_per_jaar)) {
@@ -214,6 +312,67 @@ for (i in seq_along(dsmodels_per_jaar)) {
 dir.create("media/distance/per_stratum", FALSE)
 dsmodels_per_stratum2022 <- readRDS(here(dsmodel_path, "models_2022.rds"))
 dsmodels_per_stratum2023 <- readRDS(here(dsmodel_path, "models_2023.rds"))
+```
+
+### Strata oppervlakte
+
+```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+perimeters_strata <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  group_by(Naam, openheid_klasse, is_sbp) %>%
+  st_buffer(dist = 300) %>%
+  summarize() %>%
+  mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
+                         sep = " - "))
+
+# Visualisatie
+p_moeren <- perimeters_strata %>%
+  filter(Naam == "De Moeren") %>%
+  mutate(stratum = factor(stratum, levels = c("OL - binnen", "OL - buiten",
+                                              "HOL - binnen", "HOL - buiten"))) %>%
+  ggplot(aes(fill = stratum)) +
+    geom_sf(alpha = 0.8) +
+    facet_grid(~Naam) +
+    theme(legend.position = "",
+          axis.text = element_text(size = 4),
+          axis.ticks.length = unit(0.05, "cm"))
+
+p_leemstreek <- perimeters_strata %>%
+  filter(Naam == "Oostelijke leemstreek") %>%
+  mutate(stratum = factor(stratum, levels = c("OL - binnen", "OL - buiten",
+                                              "HOL - binnen", "HOL - buiten"))) %>%
+  ggplot(aes(fill = stratum)) +
+    geom_sf(alpha = 0.8) +
+    facet_grid(~Naam) +
+    labs(fill = "Stratum") +
+    theme(legend.position = "right",
+          axis.text = element_text(size = 6),
+          legend.key.size = unit(0.5, 'cm'),
+          legend.text = element_text(size = 8),
+          axis.ticks.length = unit(0.05, "cm"))
+
+# Bereken oppervlaktes van de strata
+areas <- perimeters_strata %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
+  select(regio = Naam, stratum, Area) %>%
+  st_drop_geometry()
+table_area <- areas %>%
+  rename(`oppervlakte (km²)` = Area) %>%
+  tableGrob(rows = NULL)
+
+# Plot
+p <- grid.arrange(table_area, p_moeren, p_leemstreek, 
+                  layout_matrix = rbind(c(2, 3, 3), c(1, 1, 1)))
+
+ggsave(here(out_folder_distance, "per_stratum", "oppervlakte_strata.jpg"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 4)
 ```
 
 ### Densiteitschattingen
@@ -435,4 +594,89 @@ for (spec in names(draws_olpropsb_list_wt)) {
          height = 6)
 }
 ```
+
+# Zichtbaarheid
+
+```{r}
+steekproef <- tar_read(steekproef_zichtbaarheid, store = targets_store) %>%
+  mutate(openheid_sbp = paste(openheid_klasse,
+                             ifelse(is_sbp,
+                                    "binnen plan",
+                                    "buiten plan"))
+         )
+```
+
+```{r bereken-zichtbaarheid}
+bereken_vvi <- function(point,
+                       dist = 300,
+                       obs_height = 1.7,
+                       resolution = 1,
+                       spacing = 5,
+                       dsm_offset = 0,
+                       output_type) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+
+  dsm_r1 <- inbospatial::get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- inbospatial::get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+  
+  poly25 <- point %>% st_buffer(dist = 25)
+
+  vvi_from_sf(
+    observer = poly25,
+    spacing = spacing,
+    cores = 1,
+    progress = TRUE,
+    max_distance = dist,
+    dsm_rast = dsm_r1 + dsm_offset,
+    dtm_rast = dtm_r1,
+    observer_height = obs_height,
+    raster_res = resolution,
+    output_type = output_type)
+}
+```
+
+```{r}
+vvi_res5sp10 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "VVI", resolution = 5, spacing = 10)
+
+cvvi_res5sp10 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "cumulative", resolution = 5, spacing = 10)
+
+sviewshed_res5sp10 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "viewshed", resolution = 5, spacing = 10)
+
+cirkel_25m <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  st_buffer(25)
+
+cirkel_300m <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  st_buffer(300)
+
+p1 <- ggplot() +
+  tidyterra::geom_spatraster(data = sviewshed_res5sp10) +
+  geom_sf(data = cirkel_300m, alpha = 0, colour = "firebrick") +
+  geom_sf(data = cirkel_25m, alpha = 0, colour = "firebrick") +
+  geom_sf(data = vvi_res5sp10, aes(colour =  VVI)) +
+  tidyterra::scale_fill_terrain_c() +
+  labs(title = paste0("Telpunt Ol_4269.12 (CVVI = ",
+                      round(cvvi_res5sp10, 2), ")"))
+
+ggsave(here("media", "visibility", "voorbeeld_zichtbaarheid.jpg"),
+       p1,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
 
