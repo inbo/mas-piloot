@@ -383,7 +383,8 @@ file <- paste0("densiteit_per_stratum_data_", tolower(spec), ".jpg")
 ds_model2022 <- dsmodels_per_stratum2022[[spec]]
 ds_model2023 <- dsmodels_per_stratum2023[[spec]]
 
-df_obs_list <- readRDS(here(out_folder_distance, "df_obs_list.rds"))
+df_obs_list <- readRDS(here("output", "results", "distance_sampling",
+                            "df_obs_list.rds"))
 veldleeuwerik_df <- df_obs_list$Veldleeuwerik
 
 design <- bind_rows(
@@ -397,16 +398,27 @@ design <- bind_rows(
   separate(Region, into = c("regio", "openheid", "sbp"),
            sep = " - ", remove = TRUE)
 
-plot_densiteit(ds_model2022, spec,
+p <- plot_densiteit(ds_model2022, spec,
                show_data = TRUE,
                year = 2022:2023,
                dsmodel2 = ds_model2023,
                obs_df = veldleeuwerik_df,
                design = design) +
-      ggtitle("") + 
+      ggtitle("") +
+      scale_y_continuous(limits = c(0, NA),
+                         trans = scales::pseudo_log_trans(),
+                         breaks = c(0:5, seq(10, 50, 10),
+                                    seq(75, 200, 25),
+                                    seq(300, 1000, 100))) +
       theme(plot.margin = unit(c(-8, 6, 6, 6), 
                                 "pt"))
 
+ggsave(here(out_folder_distance, "per_stratum",
+       paste0("densiteit_per_stratum2_", tolower(spec), ".jpg")),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
 ```
 
 

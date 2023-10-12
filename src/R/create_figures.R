@@ -115,15 +115,24 @@ plot_densiteit <- function(dsmodel, soort,
       spec_presence <- obs_df %>%
         filter(jaar %in% year)
 
+      # Totale lijst van bezochte plots in bepaald jaar
+      bezoekenlijst_year <- bind_rows(design_2022_mas, design_2023_mas) %>%
+        filter(jaar == year) %>%
+        select(-periode_in_jaar) %>%
+        expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
+        arrange(plotnaam, jaar, periode_in_jaar)
+
       # Voeg afwezigheden toe door te mergen met alle bezoeken
       spec_df <- spec_presence %>%
         st_drop_geometry() %>%
         group_by(plotnaam, jaar, periode_in_jaar) %>%
-        summarise(aantal = sum(aantal), .groups = "drop") %>%
-        full_join(design, by = join_by(plotnaam, jaar)) %>%
-        mutate(aantal = ifelse(is.na(aantal), 0, aantal),
-               periode_in_jaar = ifelse(is.na(periode_in_jaar), "R5",
-                                        periode_in_jaar))
+        summarise(aantal = sum(aantal)) %>%
+        full_join(bezoekenlijst_year, by = c("plotnaam",
+                                             "jaar",
+                                             "periode_in_jaar")) %>%
+        replace(is.na(.), 0) %>%
+        arrange(plotnaam, jaar, periode_in_jaar) %>%
+        mutate(Region.Label = paste(regio, jaar, sep = " - "))
 
       # Oppervlakte telcirkels
       cirkelopp <- pi * 300^2
@@ -131,9 +140,9 @@ plot_densiteit <- function(dsmodel, soort,
       average_df <- spec_df %>%
         # Bepaal voor elke plot het gemiddeld aantal individuen over
         # de telperiodes per jaar
-        group_by(plotnaam, jaar, periode_in_jaar) %>%
+        group_by(plotnaam, periode_in_jaar) %>%
         mutate(totaal = sum(aantal)) %>%
-        group_by(plotnaam, jaar) %>%
+        group_by(plotnaam) %>%
         mutate(gemiddelde = mean(totaal)) %>%
         ungroup() %>%
         select(-c(periode_in_jaar, aantal, totaal)) %>%
@@ -141,8 +150,9 @@ plot_densiteit <- function(dsmodel, soort,
 
         # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
         mutate(Estimate = gemiddelde / cirkelopp * 1e6,
-               stratum = paste(openheid, sbp, sep = " - ")) %>%
-        mutate(jaar.f = factor(jaar))
+               stratum = paste(openheid, sbp, sep = " - "),
+               jaar.f = factor(jaar))
+
 
       p <- ggplot() +
         stat_sum(data = average_df, aes(x = stratum, y = Estimate,
