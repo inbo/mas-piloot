@@ -378,6 +378,39 @@ ggsave(here(out_folder_distance, "per_stratum", "oppervlakte_strata.jpg"),
 ### Densiteitschattingen
 
 ```{r}
+spec <- "Veldleeuwerik"
+file <- paste0("densiteit_per_stratum_data_", tolower(spec), ".jpg")
+ds_model2022 <- dsmodels_per_stratum2022[[spec]]
+ds_model2023 <- dsmodels_per_stratum2023[[spec]]
+
+df_obs_list <- readRDS(here(out_folder_distance, "df_obs_list.rds"))
+veldleeuwerik_df <- df_obs_list$Veldleeuwerik
+
+design <- bind_rows(
+  ds_model2022$dht$clusters$bysample %>%
+    distinct(Region, Sample) %>%
+    mutate(jaar = 2022),
+  ds_model2023$dht$clusters$bysample %>%
+    distinct(Region, Sample) %>%
+    mutate(jaar = 2023)) %>%
+  rename("plotnaam" = Sample) %>% 
+  separate(Region, into = c("regio", "openheid", "sbp"),
+           sep = " - ", remove = TRUE)
+
+plot_densiteit(ds_model2022, spec,
+               show_data = TRUE,
+               year = 2022:2023,
+               dsmodel2 = ds_model2023,
+               obs_df = veldleeuwerik_df,
+               design = design) +
+      ggtitle("") + 
+      theme(plot.margin = unit(c(-8, 6, 6, 6), 
+                                "pt"))
+
+```
+
+
+```{r}
 species <- sort(union(names(dsmodels_per_stratum2022),
                       names(dsmodels_per_stratum2023)))
 for (spec in species) {
@@ -411,6 +444,53 @@ for (spec in species) {
 ```
 
 ### Detectiekans
+
+```{r}
+spec <- "Veldleeuwerik"
+file <- paste0("detectiekans_per_stratum_", tolower(spec), ".jpg")
+ds_model2022 <- dsmodels_per_stratum2022[[spec]]
+ds_model2023 <- dsmodels_per_stratum2023[[spec]]
+
+design_plot <- matrix(c(1, 0, 1, 1), ncol = 2, byrow = TRUE)
+labels_plot <- c("HOL", "OL")
+
+# 2022
+p1 <- plot_detection_curve(ds_model2022,
+                           design_mat = design_plot,
+                           labels = labels_plot,
+                           plot_average_fit = TRUE)
+
+# 2023
+p2 <- plot_detection_curve(ds_model2023,
+                           design_mat = design_plot,
+                           labels = labels_plot,
+                           plot_average_fit = TRUE)
+
+# adjust y-limits
+ymax_lim <- max(max(p1$plot_env$hist_df$counts),
+                max(p2$plot_env$hist_df$counts),
+                1)
+p1 <- p1 +
+  scale_y_continuous(limits = c(0, ymax_lim),
+                     breaks = seq(0, 100, by = 0.25)) +
+  ggtitle("2022") +
+  theme(legend.position = "")
+  
+p2 <- p2 +
+  scale_y_continuous(limits = c(0, ymax_lim),
+                     breaks = seq(0, 100, by = 0.25)) +
+  labs(y = "") +
+  ggtitle("2023")
+
+p <- grid.arrange(p1, p2, ncol = 2)
+
+ggsave(here(out_folder_distance, "per_stratum", file),
+       p,
+       dpi = 300,
+       width = 10,
+       height = 6)
+```
+
 
 ```{r}
 for (spec in species) {

@@ -1,6 +1,8 @@
 plot_densiteit <- function(dsmodel, soort,
                            show_data = TRUE, year = 2022,
-                           dsmodel2 = NULL) {
+                           dsmodel2 = NULL,
+                           obs_df,
+                           design) {
   roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief",
                   "Buizerd",
                   "Grauwe Kiekendief", "Ransuil", "Slechtvalk", "Sperwer",
@@ -45,7 +47,7 @@ plot_densiteit <- function(dsmodel, soort,
         distinct(plotnaam) %>%
         pull()
 
-      spec_presence <- df_obs_list[[gsub(" ", "", soort)]] %>%
+      spec_presence <- obs_df %>%
         filter(plotnaam %in% plots_old)
 
       # Totale lijst van bezochte plots in 2018-2022
@@ -110,27 +112,18 @@ plot_densiteit <- function(dsmodel, soort,
 
   } else {
     if (show_data) {
-      spec_presence <- df_obs_list[[gsub(" ", "", soort)]] %>%
-        filter(jaar == year)
-
-      # Totale lijst van bezochte plots in bepaald jaar
-      bezoekenlijst_year <- bind_rows(design_2022_mas, design_2023_mas) %>%
-        filter(jaar == year) %>%
-        select(-periode_in_jaar) %>%
-        expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
-        arrange(plotnaam, jaar, periode_in_jaar)
+      spec_presence <- obs_df %>%
+        filter(jaar %in% year)
 
       # Voeg afwezigheden toe door te mergen met alle bezoeken
       spec_df <- spec_presence %>%
         st_drop_geometry() %>%
         group_by(plotnaam, jaar, periode_in_jaar) %>%
-        summarise(aantal = sum(aantal)) %>%
-        full_join(bezoekenlijst_year, by = c("plotnaam",
-                                             "jaar",
-                                             "periode_in_jaar")) %>%
-        replace(is.na(.), 0) %>%
-        arrange(plotnaam, jaar, periode_in_jaar) %>%
-        mutate(Region.Label = paste(regio, jaar, sep = " - "))
+        summarise(aantal = sum(aantal), .groups = "drop") %>%
+        full_join(design, by = join_by(plotnaam, jaar)) %>%
+        mutate(aantal = ifelse(is.na(aantal), 0, aantal),
+               periode_in_jaar = ifelse(is.na(periode_in_jaar), "R5",
+                                        periode_in_jaar))
 
       # Oppervlakte telcirkels
       cirkelopp <- pi * 300^2
@@ -138,9 +131,9 @@ plot_densiteit <- function(dsmodel, soort,
       average_df <- spec_df %>%
         # Bepaal voor elke plot het gemiddeld aantal individuen over
         # de telperiodes per jaar
-        group_by(plotnaam, periode_in_jaar) %>%
+        group_by(plotnaam, jaar, periode_in_jaar) %>%
         mutate(totaal = sum(aantal)) %>%
-        group_by(plotnaam) %>%
+        group_by(plotnaam, jaar) %>%
         mutate(gemiddelde = mean(totaal)) %>%
         ungroup() %>%
         select(-c(periode_in_jaar, aantal, totaal)) %>%
@@ -148,12 +141,13 @@ plot_densiteit <- function(dsmodel, soort,
 
         # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
         mutate(Estimate = gemiddelde / cirkelopp * 1e6,
-               stratum = paste(openheid, sbp, sep = " - "))
+               stratum = paste(openheid, sbp, sep = " - ")) %>%
+        mutate(jaar.f = factor(jaar))
 
       p <- ggplot() +
-        stat_sum(data = average_df, aes(x = stratum, y = Estimate),
-                 position = position_dodge(width = 0.5), alpha = 0.1,
-                 colour = "firebrick")
+        stat_sum(data = average_df, aes(x = stratum, y = Estimate,
+                                        colour = jaar.f),
+                 position = position_dodge(width = 0.5), alpha = 0.1)
     } else {
       p <- ggplot()
     }
