@@ -1674,6 +1674,12 @@ for (i in seq_along(unique(mas_observations$naam))) {
 names(df_obs_list) <- df_obs_names
 ```
 
+```{r}
+saveRDS(df_obs_list, file.path("output", "results", "distance_sampling",
+                               "df_obs_list.rds"))
+```
+
+
 ## Genereer dataframes voor distance sampling
 
 ### 2018-2023
@@ -1697,6 +1703,15 @@ distance_dfs_2018_2022 <- lapply(df_obs_list, function(df) {
 
 design_2018_2023_mas_reduced <- design_2018_2023_mas %>%
   filter(plotnaam %in% plots_old)
+```
+
+```{r}
+saveRDS(design_2018_2023_mas,
+        file.path("output", "results", "distance_sampling",
+                  "design_2018_2023_mas.rds"))
+saveRDS(design_2018_2023_mas_reduced,
+        file.path("output", "results", "distance_sampling",
+                  "design_2018_2023_mas_reduced.rds"))
 ```
 
 `sample_table` geeft aan welke plots in welke regio's voorkomen en welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
