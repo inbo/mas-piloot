@@ -8,15 +8,7 @@ roofvogels_f <- function() {
   return(roofvogels)
 }
 
-plot_densiteit <- function(dsmodel, soort,
-                           show_data = TRUE, year = 2022,
-                           dsmodel2 = NULL,
-                           obs_df,
-                           design,
-                           test = FALSE) {
-  roofvogels <- roofvogels_f()
-
-  # Calculate summary of dsmodel
+summarise_dsmodels <- function(dsmodel, dsmodel2 = NULL, year) {
   summary_dsmodel <- summary(dsmodel)
 
   summary_results_dsmodel <- bind_rows(
@@ -46,6 +38,20 @@ plot_densiteit <- function(dsmodel, soort,
       filter(Label != "Total") %>%
       mutate(Label = paste(Label, year[2], sep = " - "))
   }
+
+  return(summary_results_dsmodel)
+}
+
+plot_densiteit <- function(dsmodel, soort,
+                           show_data = TRUE, year = 2022:2023,
+                           dsmodel2 = NULL,
+                           obs_df,
+                           design,
+                           test = FALSE) {
+  roofvogels <- roofvogels_f()
+
+  # Calculate summary of dsmodel
+  summary_results_dsmodel <- summarise_dsmodels(dsmodel, dsmodel2, year)
 
   if ("jaar" %in% names(dsmodel$ddf$data)) {
     if (show_data) {
