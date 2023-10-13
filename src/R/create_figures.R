@@ -1,14 +1,20 @@
+roofvogels_f <- function() {
+  roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief",
+                  "Buizerd",
+                  "Grauwe Kiekendief", "Ransuil", "Slechtvalk", "Sperwer",
+                  "Steenuil", "Steppekiekendief", "Torenvalk", "Velduil",
+                  "Wespendief", "Zwarte Wouw")
+
+  return(roofvogels)
+}
+
 plot_densiteit <- function(dsmodel, soort,
                            show_data = TRUE, year = 2022,
                            dsmodel2 = NULL,
                            obs_df,
                            design,
                            test = FALSE) {
-  roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief",
-                  "Buizerd",
-                  "Grauwe Kiekendief", "Ransuil", "Slechtvalk", "Sperwer",
-                  "Steenuil", "Steppekiekendief", "Torenvalk", "Velduil",
-                  "Wespendief", "Zwarte Wouw")
+  roofvogels <- roofvogels_f()
 
   # Calculate summary of dsmodel
   summary_dsmodel <- summary(dsmodel)
