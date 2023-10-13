@@ -2,7 +2,8 @@ plot_densiteit <- function(dsmodel, soort,
                            show_data = TRUE, year = 2022,
                            dsmodel2 = NULL,
                            obs_df,
-                           design) {
+                           design,
+                           test = FALSE) {
   roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief",
                   "Buizerd",
                   "Grauwe Kiekendief", "Ransuil", "Slechtvalk", "Sperwer",
@@ -116,48 +117,146 @@ plot_densiteit <- function(dsmodel, soort,
         filter(jaar %in% year)
 
       # Totale lijst van bezochte plots in bepaald jaar
-      bezoekenlijst_year <- bind_rows(design_2022_mas, design_2023_mas) %>%
-        filter(jaar == year) %>%
-        select(-periode_in_jaar) %>%
-        expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
-        arrange(plotnaam, jaar, periode_in_jaar)
+      bezoekenlijst_year <- design %>%
+        filter(jaar %in% year)
 
       # Voeg afwezigheden toe door te mergen met alle bezoeken
       spec_df <- spec_presence %>%
         st_drop_geometry() %>%
         group_by(plotnaam, jaar, periode_in_jaar) %>%
-        summarise(aantal = sum(aantal)) %>%
+        summarise(aantal = sum(aantal), .groups = "drop") %>%
         full_join(bezoekenlijst_year, by = c("plotnaam",
                                              "jaar",
                                              "periode_in_jaar")) %>%
-        replace(is.na(.), 0) %>%
-        arrange(plotnaam, jaar, periode_in_jaar) %>%
-        mutate(Region.Label = paste(regio, jaar, sep = " - "))
+        replace(is.na(.), 0)
 
       # Oppervlakte telcirkels
       cirkelopp <- pi * 300^2
 
-      average_df <- spec_df %>%
-        # Bepaal voor elke plot het gemiddeld aantal individuen over
-        # de telperiodes per jaar
-        group_by(plotnaam, periode_in_jaar) %>%
-        mutate(totaal = sum(aantal)) %>%
-        group_by(plotnaam) %>%
-        mutate(gemiddelde = mean(totaal)) %>%
-        ungroup() %>%
-        select(-c(periode_in_jaar, aantal, totaal)) %>%
-        distinct() %>%
-
-        # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
-        mutate(Estimate = gemiddelde / cirkelopp * 1e6,
-               stratum = paste(openheid, sbp, sep = " - "),
-               jaar.f = factor(jaar))
 
 
-      p <- ggplot() +
-        stat_sum(data = average_df, aes(x = stratum, y = Estimate,
-                                        colour = jaar.f),
-                 position = position_dodge(width = 0.5), alpha = 0.1)
+      if (test == TRUE) {
+        veldleeuwerik_covars <- c("openheid", "jaar")
+        detectiekans_df <- cbind(dsmodel$ddf$data,
+                "detectiekans" = predict(dsmodel,
+                                         se.fit = TRUE)$fitted,
+                "standaardfout" = predict(dsmodel,
+                                          se.fit = TRUE)$se) %>%
+            mutate(jaar = 2022) %>%
+            bind_rows(
+              cbind(dsmodel2$ddf$data,
+                    "detectiekans" = predict(dsmodel2,
+                                             se.fit = TRUE)$fitted,
+                    "standaardfout" = predict(dsmodel2,
+                                              se.fit = TRUE)$se) %>%
+                mutate(jaar = 2023)
+            ) %>%
+            select(all_of(veldleeuwerik_covars), "detectiekans") %>%
+            distinct()
+
+          set.seed(123)
+          average_df <- spec_df %>%
+            full_join(detectiekans_df, by = join_by(jaar, openheid)) %>%
+            # Bepaal voor elke plot het gemiddeld aantal individuen over
+            # de telperiodes per jaar
+            group_by(plotnaam, jaar) %>%
+            mutate(max = max(aantal),
+                   gem = mean(aantal)) %>%
+            ungroup() %>%
+            mutate(gem = gem / detectiekans) %>%
+            select(-c(periode_in_jaar, aantal)) %>%
+            distinct() %>%
+            group_by(regio, jaar, openheid, sbp) %>%
+            mutate(bootstrap = mean_cl_boot(max)) %>%
+            ungroup() %>%
+
+            # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
+            mutate(Estimate = max / cirkelopp * 1e6,
+                   gem_dens = gem  / cirkelopp * 1e6,
+                   total_max_mean = bootstrap$y / cirkelopp * 1e6,
+                   lcl_max_mean = bootstrap$ymin / cirkelopp * 1e6,
+                   ucl_max_mean = bootstrap$ymax / cirkelopp * 1e6,
+                   stratum = paste(openheid, sbp, sep = " - "),
+                   jaar = as.character(jaar)) %>%
+            select(-c(bootstrap)) %>%
+            mutate(methode = "gemiddelde van maxima")
+      } else {
+        set.seed(123)
+        average_df <- spec_df %>%
+          # Bepaal voor elke plot het gemiddeld aantal individuen over
+          # de telperiodes per jaar
+          group_by(plotnaam, jaar) %>%
+          mutate(max = max(aantal),
+                 gem = mean(aantal)) %>%
+          ungroup() %>%
+          select(-c(periode_in_jaar, aantal)) %>%
+          distinct() %>%
+          group_by(regio, jaar, openheid, sbp) %>%
+          mutate(bootstrap = mean_cl_boot(max)) %>%
+          ungroup() %>%
+
+          # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
+          mutate(Estimate = max / cirkelopp * 1e6,
+                 gem_dens = gem  / cirkelopp * 1e6,
+                 total_max_mean = bootstrap$y / cirkelopp * 1e6,
+                 lcl_max_mean = bootstrap$ymin / cirkelopp * 1e6,
+                 ucl_max_mean = bootstrap$ymax / cirkelopp * 1e6,
+                 stratum = paste(openheid, sbp, sep = " - "),
+                 jaar = as.character(jaar)) %>%
+          select(-c(bootstrap)) %>%
+          mutate(methode = "gemiddelde van maxima")
+      }
+
+
+
+      if (test == TRUE) {
+        # Voeg resultaten dsmodel toe
+        summary_results_dsmodel <- bind_rows(summary_results_dsmodel,
+                                             summary_results_dsmodel2) %>%
+          separate(Label, into = c("regio", "openheid", "sbp", "jaar"),
+                   sep = " - ")
+
+        summary_df <- summary_results_dsmodel %>%
+          filter(variable == "density") %>%
+          mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
+          replace(. == 0, NA) %>%
+          mutate(methode = "distance sampling") %>%
+          full_join(average_df %>%
+                      mutate(jaar = as.character(jaar)) %>%
+                      select(jaar, regio, openheid, sbp, gem_dens),
+                    by = join_by(regio, openheid, sbp, jaar)) %>%
+          select(stratum, regio, jaar, "gemiddelde" = Estimate, lcl,
+                 ucl, methode, "data" = gem_dens)
+
+        average_df2 <- average_df %>%
+          select(stratum, regio, jaar, "gemiddelde" = total_max_mean,
+                 "lcl" = lcl_max_mean, "ucl" = ucl_max_mean, methode,
+                 "data" = Estimate)
+
+        p <- bind_rows(summary_df, average_df2) %>%
+          ggplot() +
+            stat_sum(aes(x = stratum, y = data, colour = methode),
+                     position = position_dodge(width = 0.5), alpha = 0.1) +
+            geom_point(aes(x = stratum, y = gemiddelde,
+                           colour = methode), size = 2.5,
+                       position = position_dodge(width = 0.5)) +
+            geom_errorbar(aes(x = stratum, ymin = lcl,
+                            ymax = ucl, colour = methode),
+                          width = 0.25, position = position_dodge(width = 0.5)) +
+            facet_grid(jaar~regio, scales = "free_x") +
+            labs(colour = "Methode", x = "", y = "Aantal broedparen per 100 ha") +
+            theme(legend.position = "top",
+                  legend.background = element_rect(fill = "white",
+                                                   color = "darkgrey"),
+                  legend.margin = margin(6, 6, 6, 6))
+        return(p)
+      } else {
+        p <- ggplot() +
+          stat_sum(data = average_df, aes(x = stratum, y = Estimate,
+                                          colour = jaar.f),
+                   position = position_dodge(width = 0.5), alpha = 0.1)
+      }
+
     } else {
       p <- ggplot()
     }

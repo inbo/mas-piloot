@@ -387,39 +387,62 @@ df_obs_list <- readRDS(here("output", "results", "distance_sampling",
                             "df_obs_list.rds"))
 veldleeuwerik_df <- df_obs_list$Veldleeuwerik
 
-design <- bind_rows(
-  ds_model2022$dht$clusters$bysample %>%
-    distinct(Region, Sample) %>%
-    mutate(jaar = 2022),
-  ds_model2023$dht$clusters$bysample %>%
-    distinct(Region, Sample) %>%
-    mutate(jaar = 2023)) %>%
-  rename("plotnaam" = Sample) %>% 
-  separate(Region, into = c("regio", "openheid", "sbp"),
-           sep = " - ", remove = TRUE)
+design_2018_2023_mas <- readRDS(file.path("output", "results",
+                                          "distance_sampling",
+                                          "design_2018_2023_mas.rds"))
 
 p <- plot_densiteit(ds_model2022, spec,
                show_data = TRUE,
                year = 2022:2023,
                dsmodel2 = ds_model2023,
                obs_df = veldleeuwerik_df,
-               design = design) +
-      ggtitle("") +
+               design = design_2018_2023_mas,
+               test = TRUE) +
+      ggtitle("") + 
       scale_y_continuous(limits = c(0, NA),
-                         trans = scales::pseudo_log_trans(),
-                         breaks = c(0:5, seq(10, 50, 10),
-                                    seq(75, 200, 25),
-                                    seq(300, 1000, 100))) +
+                                trans = scales::pseudo_log_trans(),
+                                breaks = c(0:4, 6, 8, seq(10, 20, 5), 
+                                           seq(30, 50, 10),
+                                           60, 80, 100,
+                                           seq(125, 200, 25),
+                                           seq(300, 1000, 100))) +
       theme(plot.margin = unit(c(-8, 6, 6, 6), 
-                                "pt"))
+                                "pt"),
+            axis.title.y = element_text(margin = margin(r = 20))) +
+      labs(size = "Aantal telpunten")
 
 ggsave(here(out_folder_distance, "per_stratum",
-       paste0("densiteit_per_stratum2_", tolower(spec), ".jpg")),
+       paste0("densiteit_per_stratum_max_", tolower(spec), ".jpg")),
          p,
          dpi = 300,
          width = 8,
-         height = 6)
+         height = 8)
 ```
+
+p <- ggplot() +
+          stat_sum(data = average_df, aes(x = stratum, y = Estimate,
+                                          colour = jaar.f),
+                   position = position_dodge(width = 0.5), alpha = 0.1) +
+          geom_point(data = average_df, aes(x = stratum, y = total_max_mean,
+                                            colour = jaar.f), size = 2.5,
+                     position = position_dodge(width = 0.5)) +
+          geom_errorbar(data = average_df, aes(x = stratum, ymin = lcl_max_mean,
+                          ymax = ucl_max_mean, colour = jaar.f),
+                        width = 0.25, position = position_dodge(width = 0.5)) +
+          geom_point(data = summary_df, aes(x = stratum, y = Estimate,
+                                              group = jaar), size = 2.5,
+                       position = position_dodge(width = 1.2),
+                     colour = "black") +
+          geom_errorbar(data = summary_df, aes(x = stratum, ymin = lcl,
+                                               ymax = ucl, group = jaar),
+                        colour = "black",
+                        width = 0.25, position = position_dodge(width = 1.2)) +
+          facet_wrap(~regio, scales = "free_x") +
+          labs(colour = "Jaar", x = "", y = "Aantal broedparen per 100 ha") +
+          theme(legend.position = "top",
+                legend.background = element_rect(fill = "white",
+                                                 color = "darkgrey"),
+                legend.margin = margin(6, 6, 6, 6))
 
 
 ```{r}
