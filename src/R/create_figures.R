@@ -42,7 +42,7 @@ summarise_dsmodels <- function(dsmodel, dsmodel2 = NULL, year) {
   return(summary_results_dsmodel)
 }
 
-plot_densiteit <- function(dsmodel, soort,
+plot_densiteit <- function(dsmodel, soort = NULL,
                            show_data = TRUE, year = 2022:2023,
                            dsmodel2 = NULL,
                            obs_df, design) {
@@ -100,16 +100,15 @@ plot_densiteit <- function(dsmodel, soort,
       p <- ggplot() +
         stat_sum(data = average_df, aes(x = jaar, y = densiteit),
                  position = position_dodge(width = 0.5), alpha = 0.1,
-                 colour = "firebrick")
+                 colour = "firebrick") +
+        labs(size = "Aantal telpunten")
     } else {
       p <- ggplot()
     }
 
     # Voeg resultaten dsmodel toe
-    summary_results_dsmodel <- summary_results_dsmodel %>%
-      separate(Label, into = c("regio", "jaar"), sep = " - ")
-
     summary_df <- summary_results_dsmodel %>%
+      separate(Label, into = c("regio", "jaar"), sep = " - ") %>%
       filter(variable == "density") %>%
       mutate(jaar = factor(jaar, ordered = TRUE)) %>%
       replace(. == 0, NA)
@@ -120,7 +119,10 @@ plot_densiteit <- function(dsmodel, soort,
       geom_errorbar(data = summary_df, aes(x = jaar, ymin = lcl, ymax = ucl),
                     width = 0.25) +
       facet_wrap(~regio) +
-      theme(legend.position = "")
+      theme(legend.position = "top",
+            legend.background = element_rect(fill = "white",
+                                             color = "darkgrey"),
+            legend.margin = margin(6, 6, 6, 6))
 
   } else {
     if (show_data) {
@@ -319,12 +321,13 @@ plot_densiteit <- function(dsmodel, soort,
 
   }
 
-  if (soort == "Haas" | spec %in% paste(roofvogels, "zonder_broedcode",
+  if (soort == "Haas" | soort %in% paste(roofvogels, "zonder_broedcode",
                                         sep = "_")) {
-    p <- p + labs(x = "", y = "Aantal individuen per 100 ha",
-                  title = gsub("_zonder_broedcode", "", soort))
+    p <- p + labs(x = "", y = "Aantal individuen per 100 ha")
+  } else if (is.null(soort)) {
+    p <- p + labs(x = "", y = "Aantal broedparen per 100 ha")
   } else {
-    p <- p + labs(x = "", y = "Aantal broedparen per 100 ha", title = soort)
+    p <- p + labs(x = "", y = "Aantal broedparen per 100 ha")
   }
 
   if (show_data) {
