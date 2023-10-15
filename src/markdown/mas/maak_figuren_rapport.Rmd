@@ -200,6 +200,28 @@ for (spec in names(dsmodels_per_jaar)) {
 }
 ```
 
+```{r}
+df_obs_list <- readRDS(here("output", "results", "distance_sampling",
+                            "df_obs_list.rds"))
+design_2018_2023_mas <- readRDS(file.path("output", "results",
+                                          "distance_sampling",
+                                          "design_2018_2023_mas.rds"))
+
+for (spec in names(dsmodels_per_jaar)) {
+  file <- paste0("densiteit_per_jaar_", tolower(spec), "_data", ".jpg")
+  ds_model <- dsmodels_per_jaar[[spec]]
+  p <- plot_densiteit(ds_model, spec, show_data = TRUE,
+                      design = design_2018_2023_mas,
+                      obs_df = df_obs_list[[spec]])
+  
+  ggsave(here(out_folder_distance, "per_jaar", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
 
 ### Detectiekans
 
