@@ -76,21 +76,29 @@ plot_densiteit <- function(dsmodel, soort,
       # Oppervlakte telcirkels
       cirkelopp <- pi * 300^2
 
+      detectiekans_df <- cbind(
+        dsmodel$ddf$data,
+        "detectiekans" = predict(dsmodel)$fitted) %>%
+        select(regio, jaar, "detectiekans") %>%
+        distinct()
+
       average_df <- spec_df %>%
+        mutate(jaar = factor(jaar, ordered = TRUE)) %>%
+        full_join(detectiekans_df, by = join_by(jaar, regio)) %>%
         # Bepaal voor elke plot het gemiddeld aantal individuen over
         # de telperiodes per jaar
         group_by(plotnaam, jaar) %>%
-        mutate(gemiddelde = mean(aantal)) %>%
+        mutate(gem_aantal = mean(aantal)) %>%
         ungroup() %>%
-        mutate(jaar = factor(jaar, ordered = TRUE)) %>%
+        mutate(gem_aantal_p = gem_aantal / detectiekans) %>%
         select(-c(periode_in_jaar, aantal)) %>%
         distinct() %>%
 
         # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
-        mutate(Estimate = gemiddelde / cirkelopp * 1e6)
+        mutate(densiteit = gem_aantal_p / cirkelopp * 1e6)
 
       p <- ggplot() +
-        stat_sum(data = average_df, aes(x = jaar, y = Estimate),
+        stat_sum(data = average_df, aes(x = jaar, y = densiteit),
                  position = position_dodge(width = 0.5), alpha = 0.1,
                  colour = "firebrick")
     } else {
