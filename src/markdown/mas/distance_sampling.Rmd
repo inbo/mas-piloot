@@ -3429,53 +3429,54 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE, year = 2022) {
         filter(plotnaam %in% plots_old)
       
       # Totale lijst van bezochte plots in 2018-2022
-      bezoekenlijst <- design_2018_2023_mas_reduced  %>%
-        select(-periode_in_jaar) %>%
-        expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
-        arrange(plotnaam, jaar, periode_in_jaar)
+      bezoekenlijst <- design_2018_2023_mas %>%
+        filter(plotnaam %in% plots_old)
       
       # Voeg afwezigheden toe door te mergen met alle bezoeken
       spec_df <- spec_presence %>%
-        st_drop_geometry() %>%
         group_by(plotnaam, jaar, periode_in_jaar) %>%
-        summarise(aantal = sum(aantal)) %>%
-        full_join(bezoekenlijst, by = c("plotnaam", "jaar", 
-                                                  "periode_in_jaar")) %>%
-        replace(is.na(.), 0) %>%
-        arrange(plotnaam, jaar, periode_in_jaar) %>%
-        mutate(Region.Label = paste(regio, jaar, sep = " - "))
+        summarise(aantal = sum(aantal), .groups = "drop") %>%
+        full_join(bezoekenlijst, by = c("plotnaam",
+                                        "jaar",
+                                        "periode_in_jaar")) %>%
+        replace(is.na(.), 0)
       
       # Oppervlakte telcirkels
       cirkelopp <- pi * 300^2
       
+      detectiekans_df <- cbind(
+        dsmodel$ddf$data,
+        "detectiekans" = predict(dsmodel)$fitted) %>%
+        select(regio, jaar, "detectiekans") %>%
+        distinct()
+      
       average_df <- spec_df %>%
+        mutate(jaar = factor(jaar, ordered = TRUE)) %>%
+        full_join(detectiekans_df, by = join_by(jaar, regio)) %>%
         # Bepaal voor elke plot het gemiddeld aantal individuen over
         # de telperiodes per jaar
-        group_by(plotnaam, jaar, periode_in_jaar) %>%
-        mutate(totaal = sum(aantal)) %>%
         group_by(plotnaam, jaar) %>%
-        mutate(gemiddelde = mean(totaal)) %>%
+        mutate(gem_aantal = mean(aantal)) %>%
         ungroup() %>%
-        mutate(jaar = factor(jaar, ordered = TRUE)) %>%
-        select(-c(periode_in_jaar, aantal, totaal)) %>%
+        mutate(gem_aantal_p = gem_aantal / detectiekans) %>%
+        select(-c(periode_in_jaar, aantal)) %>%
         distinct() %>%
         
         # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
-        mutate(Estimate = gemiddelde / cirkelopp * 1e6)
+        mutate(densiteit = gem_aantal_p / cirkelopp * 1e6)
       
       p <- ggplot() +
-        stat_sum(data = average_df, aes(x = jaar, y = Estimate), 
-                 position = position_dodge(width = 0.5), alpha = 0.1, 
-                 colour = "firebrick")
+        stat_sum(data = average_df, aes(x = jaar, y = densiteit),
+                 position = position_dodge(width = 0.5), alpha = 0.1,
+                 colour = "firebrick") +
+        labs(size = "Aantal telpunten")
     } else {
       p <- ggplot()
     }
     
     # Voeg resultaten dsmodel toe
-    summary_results_dsmodel <- summary_results_dsmodel %>%
-      separate(Label, into = c("regio", "jaar"), sep = " - ")
-    
     summary_df <- summary_results_dsmodel %>%
+      separate(Label, into = c("regio", "jaar"), sep = " - ") %>%
       filter(variable == "density") %>%
       mutate(jaar = factor(jaar, ordered = TRUE)) %>%
       replace(. == 0, NA)
@@ -3496,54 +3497,53 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE, year = 2022) {
       
       # Totale lijst van bezochte plots in bepaald jaar
       bezoekenlijst_year <- bind_rows(design_2022_mas, design_2023_mas) %>%
-        filter(jaar == year) %>%
-        select(-periode_in_jaar) %>%
-        expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
-        arrange(plotnaam, jaar, periode_in_jaar)
+        filter(jaar == year)
       
       # Voeg afwezigheden toe door te mergen met alle bezoeken
       spec_df <- spec_presence %>%
-        st_drop_geometry() %>%
         group_by(plotnaam, jaar, periode_in_jaar) %>%
-        summarise(aantal = sum(aantal)) %>%
+        summarise(aantal = sum(aantal), .groups = "drop") %>%
         full_join(bezoekenlijst_year, by = c("plotnaam",
                                              "jaar",
                                              "periode_in_jaar")) %>%
-        replace(is.na(.), 0) %>%
-        arrange(plotnaam, jaar, periode_in_jaar) %>%
-        mutate(Region.Label = paste(regio, jaar, sep = " - "))
+        replace(is.na(.), 0)
       
       # Oppervlakte telcirkels
       cirkelopp <- pi * 300^2
       
+      detectiekans_df <- cbind(
+          dsmodel$ddf$data,
+          "detectiekans" = predict(dsmodel)$fitted) %>%
+          select(regio, sbp, openheid, "detectiekans") %>%
+          distinct()
+      
       average_df <- spec_df %>%
+        full_join(detectiekans_df,
+                  by = join_by(regio, sbp, openheid)) %>%
         # Bepaal voor elke plot het gemiddeld aantal individuen over
         # de telperiodes per jaar
-        group_by(plotnaam, periode_in_jaar) %>%
-        mutate(totaal = sum(aantal)) %>%
         group_by(plotnaam) %>%
-        mutate(gemiddelde = mean(totaal)) %>%
+        mutate(gem_aantal = mean(aantal)) %>%
         ungroup() %>%
-        select(-c(periode_in_jaar, aantal, totaal)) %>%
+        mutate(gem_aantal_p = gem_aantal / detectiekans) %>%
+        select(-c(periode_in_jaar, aantal)) %>%
         distinct() %>%
         
         # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
-        mutate(Estimate = gemiddelde / cirkelopp * 1e6,
+        mutate(densiteit = gem_aantal_p / cirkelopp * 1e6,
                stratum = paste(openheid, sbp, sep = " - "))
       
       p <- ggplot() +
-        stat_sum(data = average_df, aes(x = stratum, y = Estimate), 
-                 position = position_dodge(width = 0.5), alpha = 0.1,
-                 colour = "firebrick")
+        stat_sum(data = average_df, aes(x = stratum, y = densiteit),
+                 position = position_dodge(width = 0.5), alpha = 0.1) +
+        labs(size = "Aantal telpunten")
     } else {
       p <- ggplot()
     }
     
     # Voeg resultaten dsmodel toe
-    summary_results_dsmodel <- summary_results_dsmodel %>%
-      separate(Label, into = c("regio", "openheid", "sbp"), sep = " - ")
-    
     summary_df <- summary_results_dsmodel %>%
+      separate(Label, into = c("regio", "openheid", "sbp"), sep = " - ") %>%
       filter(variable == "density") %>%
       mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
       replace(. == 0, NA)
