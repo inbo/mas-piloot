@@ -464,7 +464,7 @@ get_effects <- function(df, ref = 0,
     select(-c(effect_fine, effect_coarse))
 }
 
-create_draws_df <- function(model, seed = 123, ...) {
+create_draws_df <- function(model, ll = 0.025, ul = 0.975, seed = 123, ...) {
   require(tidybayes)
 
   df <- model %>%
@@ -479,14 +479,14 @@ create_draws_df <- function(model, seed = 123, ...) {
     select(area_prop_sb_cat, value_log, value) %>%
     group_by(area_prop_sb_cat) %>%
     mutate(median_log = median(value_log),
-           lcl_log = quantile(value_log, 0.05),
-           ucl_log = quantile(value_log, 0.95)) %>%
+           lcl_log = quantile(value_log, ll),
+           ucl_log = quantile(value_log, ul)) %>%
     mutate(median = median(value),
-           lcl = quantile(value, 0.05),
-           ucl = quantile(value, 0.95)) %>%
+           lcl = quantile(value, ll),
+           ucl = quantile(value, ul)) %>%
     ungroup() %>%
     mutate(.point = "median",
-           .width = 0.95 - 0.05)
+           .width = ul - ll)
 
   df_ordered <- df %>%
     mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
@@ -500,7 +500,8 @@ create_draws_df <- function(model, seed = 123, ...) {
   out <- get_effects(df_ordered, ...)
 }
 
-create_weighted_draws_df <- function(model, seed = 123, ...) {
+create_weighted_draws_df <- function(model, ll = 0.025, ul = 0.975,
+                                     seed = 123, ...) {
   weight_df <- model$data %>%
     filter(area_prop_sb_cat != "nulbeleid") %>%
     count(area_prop_sb_cat) %>%
@@ -521,9 +522,9 @@ create_weighted_draws_df <- function(model, seed = 123, ...) {
     rename_with(~ gsub("b_area_prop_sb_cat", "", .x)) %>%
     rowwise() %>%
     mutate(laagbeleid2 = weighted.mean(c(laagbeleid, middellaagbeleid),
-                                       pull(weight_df[weight_df$group == "laagbeleid", "weight"])),
+            pull(weight_df[weight_df$group == "laagbeleid", "weight"])),
            hoogbeleid2 = weighted.mean(c(middelhoogbeleid, hoogbeleid),
-                                       pull(weight_df[weight_df$group == "hoogbeleid", "weight"]))) %>%
+            pull(weight_df[weight_df$group == "hoogbeleid", "weight"]))) %>%
     select("laagbeleid" = laagbeleid2,
            "hoogbeleid" = hoogbeleid2) %>%
     pivot_longer(cols = everything(), names_to = "area_prop_sb_cat") %>%
@@ -532,14 +533,14 @@ create_weighted_draws_df <- function(model, seed = 123, ...) {
     select(area_prop_sb_cat, value_log, value) %>%
     group_by(area_prop_sb_cat) %>%
     mutate(median_log = median(value_log),
-           lcl_log = quantile(value_log, 0.05),
-           ucl_log = quantile(value_log, 0.95)) %>%
+           lcl_log = quantile(value_log, ll),
+           ucl_log = quantile(value_log, ul)) %>%
     mutate(median = median(value),
-           lcl = quantile(value, 0.05),
-           ucl = quantile(value, 0.95)) %>%
+           lcl = quantile(value, ll),
+           ucl = quantile(value, ul)) %>%
     ungroup() %>%
     mutate(.point = "median",
-           .width = 0.95 - 0.05)
+           .width = ul - ll)
 
   df_ordered <- df %>%
     mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
