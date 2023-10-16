@@ -35,6 +35,8 @@ library(INBOtheme)
 library(sf)
 library(terra)
 
+theme_set(theme_inbo(transparent = TRUE))
+
 # Targets
 library(targets)
 
@@ -55,6 +57,7 @@ targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 # Source
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
+media_folder <- here("media", "data_exploratie")
 ```
 
 # Inlezen data
