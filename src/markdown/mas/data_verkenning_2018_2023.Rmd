@@ -98,10 +98,15 @@ Selectie van vogelsoorten waargenomen in 2022-2023 in HOL en OL.
 ```{r tabel-vogels, message=FALSE}
 summary_mas2022_2023 <- mas2022_2023 %>%
   st_drop_geometry() %>%
+  group_by(regio, jaar) %>%
+  mutate(aantal_soorten_regiojaar = n_distinct(naam)) %>%
   group_by(regio, jaar, openheid, sbp) %>%
-  summarise(aantal_waarnemingen = n_distinct(oid), 
-            aantal_plots = n_distinct(plotid), 
-            aantal_soorten = n_distinct(naam)) %>%
+  mutate(aantal_waarnemingen = n_distinct(oid), 
+         aantal_plots = n_distinct(plotid), 
+         aantal_soorten_stratum = n_distinct(naam)) %>%
+  ungroup() %>%
+  distinct(regio, jaar, openheid, sbp, aantal_waarnemingen, aantal_plots,
+           aantal_soorten_stratum, aantal_soorten_regiojaar) %>%
   arrange(regio, jaar, openheid, sbp)
 
 write_csv(summary_mas2022_2023, here(media_folder, "summary_mas_2022_2023.csv"))
@@ -135,11 +140,11 @@ p <- diversiteit %>%
   ggplot() +
     geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
     geom_boxplot(aes(x = stratum, y = aantal_soorten,
-                     fill = periode_in_jaar)) +
+                     colour = periode_in_jaar)) +
     facet_grid(jaar~regio, scales = "free_x") +
     labs(y = "Aantal soorten", x = "", fill = "Telperiode")
 
-ggsave(here(media_folder, "soortenaantal_mas_2022_2023.jpg"),
+ggsave(here(media_folder, "soorten_mas_2022_2023.jpg"),
        p,
        dpi = 300,
        width = 8,
@@ -523,6 +528,7 @@ relfreqs_z %>%
 
 ```{r selectie-vogels-langetermijn}
 mas_vogels <- mas_data_sf %>%
+  st_drop_geometry() %>%
   filter(soortgrp == 2,                # vogels
          openheid %in% c("HOL", "OL"))
 ```
@@ -533,13 +539,21 @@ Selectie van vogelsoorten in HOL en OL
 ## Enkele cijfers
 
 ```{r tabel-langetermijn, message=FALSE}
-mas_vogels %>%
-  st_drop_geometry() %>%
+summary_mas2018_2023 <- mas_vogels %>%
   group_by(regio, jaar) %>%
-  summarise(aantal_waarnemingen = n_distinct(oid), 
-            aantal_plots = n_distinct(plotid), 
-            aantal_soorten = n_distinct(naam),
-            .groups = "drop") %>%
+  mutate(aantal_soorten_regiojaar = n_distinct(naam)) %>%
+  group_by(regio, jaar, openheid, sbp) %>%
+  mutate(aantal_waarnemingen = n_distinct(oid), 
+         aantal_plots = n_distinct(plotid), 
+         aantal_soorten_stratum = n_distinct(naam)) %>%
+  ungroup() %>%
+  distinct(regio, jaar, openheid, sbp, aantal_waarnemingen, aantal_plots,
+           aantal_soorten_stratum, aantal_soorten_regiojaar) %>%
+  arrange(regio, jaar, openheid, sbp)
+
+write_csv(summary_mas2018_2023, here(media_folder, "summary_mas_2018_2023.csv"))
+
+summary_mas2018_2023 %>%
   kable()
 ```
 
@@ -563,6 +577,70 @@ mas_vogels %>%
     scale_alpha_manual(values = 1) +
     facet_grid(legende~regio, scales = "free_y") 
 ```
+
+```{r}
+p <- mas_vogels %>%
+  group_by(regio, jaar, periode_in_jaar) %>%
+  mutate(n_per_telperiode = n_distinct(plotnaam)) %>%
+  ungroup() %>%
+  select(regio, jaar, periode_in_jaar, n_per_telperiode) %>%
+  distinct() %>%
+  ggplot(aes(x = periode_in_jaar, y = n_per_telperiode, 
+             fill = periode_in_jaar)) +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_bar(stat = "identity") +
+    facet_grid(regio~jaar, scales = "free_y") +
+    labs(x = "Telperiode", y = "Aantal tellingen") +
+    theme(legend.position = "")
+
+p
+
+ggsave(here(media_folder, "tellingen_mas_2018_2023.jpg"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+```{r}
+p <- mas_vogels %>%
+  group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
+  summarise(n = n_distinct(naam), .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = n, colour = periode_in_jaar)) +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_boxplot() +
+    facet_grid(regio~jaar, scales = "free_y") +
+    labs(x = "Telperiode", y = "Aantal soorten") +
+    theme(legend.position = "")
+p
+
+ggsave(here(media_folder, "soorten_mas_2018_2023.jpg"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+
+```{r}
+p <- mas_vogels %>%
+  group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = n, colour = periode_in_jaar)) +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_boxplot() +
+    facet_grid(regio~jaar, scales = "free_y") +
+    labs(x = "Telperiode", y = "Aantal waarnemingen") +
+    theme(legend.position = "")
+p
+
+ggsave(here(media_folder, "waarnemingen_mas_2018_2023.jpg"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
 
 ## Soortendiversiteit
 
