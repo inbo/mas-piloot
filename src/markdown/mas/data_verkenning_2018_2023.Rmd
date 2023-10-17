@@ -74,7 +74,7 @@ mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"),
 ```
 
 
-# Resultaten vogels 2022_2023
+# Resultaten vogels 2022-2023
 
 ```{r selectie-vogels}
 mas2022_2023 <- mas_data_sf %>%
@@ -322,44 +322,84 @@ relfreqs_doel %>%
   arrange(naam) %>%
   select(-stratum) %>%
   kable(digits = 2)
+
+relfreqs_doel %>%
+  group_by(regio, jaar, stratum, openheid, sbp, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(regio, jaar, stratum, openheid, sbp, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = regio,
+              values_from = gemiddelde_freq) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  group_by(openheid, sbp) %>%
+  arrange(naam) %>%
+  select(-stratum) %>%
+  write_csv(here(media_folder, "verschilfreq_mas_2022_2023_doel.csv"))
 ```
 
 De volgende figuur geeft een overzicht van de genoteerde broedcodes per regio voor elke soort. Een telling is hier geïnterpreteerd als een waarneming van een bepaalde soort op een bepaalde afstand in een bepaalde plot in een bepaalde telperiode. Er is dus geen rekening gehouden met het aantal vogels genoteerd per telling. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuur geeft dus enkel de absolute aantallen weer. 
 
-```{r broedcodes-doelsoorten, message=FALSE, fig.height=7, fig.width=9}
+```{r broedcodes-doelsoorten, message=FALSE, fig.height=14, fig.width=9}
 # Save totals to put labels on plot
-totals <- doel_df %>%
-    st_drop_geometry() %>%
-    group_by(naam, stratum, regio) %>%
-    summarise(total = n(), .groups = "drop")
+strata_df <- doel_df %>%
+  st_drop_geometry() %>%
+  select(stratum, regio, jaar) %>%
+  distinct()
 
 # summarise data and make plot
-doel_df %>% 
-  st_drop_geometry() %>%
-  mutate(wrntype_omschrijving2 = paste(wrntype, wrntype_omschrijving, 
-                                       sep = ": ")) %>%
-  group_by(naam, stratum, regio, wrntype_omschrijving2) %>%
-  summarise(N = n(), .groups = "drop") %>%
-  ggplot(aes(x = stratum, y = N, fill = wrntype_omschrijving2)) +
-    geom_bar(stat = "identity", colour = "black") +
-    geom_text(data = totals, aes(x = stratum, 
-                                 y = total + c(rep(30, 17), rep(125, 6)),
-                                 label = total, fill = NULL)) +
-    labs(y = "Aantal tellingen", x = "") +
-    guides(fill = guide_legend(title = "broedcode")) +
-    facet_grid(naam~regio, scales = "free") 
+for (spec in sort(doelsoorten)) {
+  p <- doel_df %>%
+    st_drop_geometry() %>%
+    mutate(wrntype_omschrijving2 = paste(wrntype, wrntype_omschrijving, 
+                                         sep = ": "),
+           wrntype_omschrijving2 = reorder(wrntype_omschrijving2, wrntype,
+                                           decreasing = TRUE)) %>%
+    filter(naam == spec) %>%
+    select(jaar, stratum, regio, wrntype_omschrijving2) %>%
+    group_by(jaar, stratum, regio, wrntype_omschrijving2) %>%
+    summarise(N = n(), .groups = "drop") %>%
+    full_join(strata_df, by = join_by(stratum, regio, jaar)) %>%
+    mutate(stratum = gsub(" - ", " -\n", stratum)) %>%
+    ggplot(aes(x = stratum, y = N, fill = wrntype_omschrijving2)) +
+      geom_bar(stat = "identity") +
+      scale_fill_discrete(drop = FALSE) +
+      labs(y = "Aantal tellingen", x = "", title = spec, fill = "Broedcode") +
+      facet_grid(regio~jaar, scales = "free")
+  
+  print(p)
+  
+  name <- tolower(gsub("\\s", "", spec))
+  
+  ggsave(here(media_folder, paste0("broedcode_", name, "_mas_2022_2023.jpg")),
+         p + ggtitle(""),
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
 ```
 
 De volgende figuur toont de relatieve frequentie van de doelsoorten in een bepaalde telperiode voor de verschillende regio's gestratificeerd volgens openheid van het landschap en binnen of buiten sbp's. 
 
 ```{r telperiode-doelsoorten, message=FALSE}
-relfreqs_doel %>%
-  ggplot() +
-    labs(y = "Relatieve frequentie", x = "Telperiode") +
-    geom_point(aes(x = periode_in_jaar, y = relfreq,
-                   colour = openheid, shape = sbp)) +
-    facet_grid(naam~regio) +
-    scale_y_continuous(limits = c(0, 1))
+for (spec in sort(doelsoorten)) {
+  p <- relfreqs_doel %>%
+    filter(naam == spec) %>%
+    ggplot() +
+      labs(y = "Relatieve frequentie", x = "Telperiode", title = spec) +
+      geom_point(aes(x = periode_in_jaar, y = relfreq,
+                     colour = sbp, shape = openheid),
+                 size = 3, position = position_dodge2(width = 0.2)) +
+      facet_grid(jaar~regio) +
+      scale_y_continuous(limits = c(0, 1))
+  print(p)
+  
+  name <- tolower(gsub("\\s", "", spec))
+  
+  ggsave(here(media_folder, paste0("relfreq_", name, "_mas_2022_2023.jpg")),
+         p + ggtitle(""),
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
 ```
 
 
