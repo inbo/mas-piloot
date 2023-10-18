@@ -1428,11 +1428,7 @@ plot_densiteit_max <- function(data, design, soort, show_data = TRUE,
                         ymax = ucl_max_mean, colour = stratum),
                     width = 0.25, position = position_dodge(width = 0.5)) +
       facet_wrap(~regio) +
-      labs(colour = "Stratum", size = "Aantal telpunten") +
-      theme(legend.position = "top",
-            legend.background = element_rect(fill = "white",
-                                             color = "darkgrey"),
-            legend.margin = margin(6, 6, 6, 6))
+      labs(colour = "Stratum", size = "Aantal telpunten")
 
   if (soort == "Haas" | soort %in% paste(roofvogels, "zonder_broedcode",
                                          sep = "_")) {
@@ -1454,11 +1450,6 @@ plot_densiteit_max <- function(data, design, soort, show_data = TRUE,
   return(p)
 }
 ```
-
-```{r}
-plot_densiteit_max(doel_vogels, bezoekenlijst_2018_2023, "Geelgors")
-```
-
 
 ```{r doelsoorten-dichtheden-strat-maxaantal}
 for (spec in sort(doelsoorten)) {
