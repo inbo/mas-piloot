@@ -660,6 +660,7 @@ diversiteit_vogels_strat <- mas_vogels %>%
 ```{r soortenaantal-boxplot-langetermijn-strat}
 p <- diversiteit_vogels_strat %>%
   ggplot() +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
     labs(y = "Aantal soorten", x = "Telperiode", fill = "Stratum") +
     geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = stratum)) +
     facet_grid(regio~jaar) +
@@ -842,9 +843,12 @@ relfreqs_doel_2018_2023_jaar <- doel_vogels %>%
                names_to = "naam",
                values_to = "relfreq")
 
+write_csv(relfreqs_doel_2018_2023_jaar,
+          here(media_folder, "relfreqs_jaar_mas_2018_2023_doel.csv"))
+
 relfreqs_doel_2018_2023_jaar %>%
   filter(naam %in% doelsoorten) %>%
-  group_by(regio, naam) %>%
+  group_by(regio, jaar, naam) %>%
   mutate(
     w = n / sum(n),
     gemiddelde_freq = weighted.mean(relfreq, w)) %>%
@@ -853,51 +857,85 @@ relfreqs_doel_2018_2023_jaar %>%
               values_from = gemiddelde_freq,
               values_fill = 0) %>%
   ungroup() %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   arrange(naam) %>%
   kable(digits = 2)
+
+relfreqs_doel_2018_2023_jaar %>%
+  filter(naam %in% doelsoorten) %>%
+  group_by(regio, jaar, naam) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
+  distinct(regio, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = regio,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  ungroup() %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  arrange(naam) %>%
+  write_csv(here(media_folder, "verschilfreq_mas_2018_2023_doel.csv"))
 ```
 
 De volgende figuren tonen de relatieve frequentie van de doelsoorten in een bepaalde telperiode voor de verschillende regio’s over de jaren.
 
 ```{r telperiode-doelsoorten-langetermijn, message=FALSE}
-for (soort in doelsoorten) {
-  print(
-    relfreqs_doelvogels %>% 
-      filter(naam == soort) %>%
+for (spec in sort(doelsoorten)) {
+  p <- relfreqs_doel_2018_2023_jaar %>% 
+      filter(naam == spec) %>%
       ggplot() +
+        geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
         geom_point(aes(x = periode_in_jaar, y = relfreq, colour = regio)) +
-        labs(title = toString(soort), 
+        labs(title = toString(spec), 
              y = "Relatieve frequentie", 
-             x = "Telperiode") +
-        scale_y_continuous(limits = c(0, 1)) +
+             x = "Telperiode",
+             colour = "Regio") +
+        scale_y_continuous(limits = c(0, NA)) +
         facet_wrap(~jaar)
-    )
+  print(p)
+  
+  name <- tolower(gsub("\\s", "", spec))
+  
+  ggsave(here(media_folder, paste0("relfreq_", name, "_mas_2018_2023.jpg")),
+         p + ggtitle(""),
+         dpi = 300,
+         width = 8,
+         height = 6)
 }
 ```
 
 Telperiodes zijn herhalingen binnen een jaar en we zijn vooral geïnteresseerd in de wijzigingen van jaar tot jaar:
 
 ```{r telperiode-doelsoorten-langetermijn2, message=FALSE}
-for (soort in doelsoorten) {
-  print(
-    relfreqs_doelvogels %>% 
-    filter(naam == soort) %>%
+for (spec in doelsoorten) {
+  p <- relfreqs_doel_2018_2023_jaar %>% 
+    filter(naam == spec) %>%
     ggplot() +
-      geom_jitter(aes(x = jaar, y = relfreq, colour = regio, 
-                     shape = periode_in_jaar),
-                  width = 0.1) +
-      labs(title = toString(soort), y = "Relatieve frequentie", x = "") +
-      scale_y_continuous(limits = c(NA, 1))
-    )
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = jaar, y = relfreq, colour = regio, 
+                    shape = periode_in_jaar),
+               position = position_dodge2(width = 0.4)) +
+    labs(title = toString(spec), y = "Relatieve frequentie", x = "",
+         colour = "Regio", shape = "Telperiode") +
+    scale_y_continuous(limits = c(0, NA))
+  print(p)
+  
+  name <- tolower(gsub("\\s", "", spec))
+  
+  ggsave(here(media_folder, paste0("relfreq2_", name, "_mas_2018_2023.jpg")),
+         p + ggtitle(""),
+         dpi = 300,
+         width = 8,
+         height = 6)
 }
 ```
 
 > We berekenen de relatieve frequenties apart binnen voor elke regio binnen elk stratum in elke telperiode in elk jaar. Deze resultaten kunnen niet zomaar uitgemiddeld worden om tot een gemiddelde over de strata en over de jaren te komen. Dit moet verder uitgezocht worden.
+
+Gewogen gemiddelde.
 
 ```{r diversiteit-doelsoorten-langetermijn-strat}
 relfreqs_doelvogels_strat <- mas_vogels %>% 
-  filter(wrntype > 0L,
-         openheid %in% c("HOL", "OL")) %>%
   st_drop_geometry() %>%
   group_by(regio, plotnaam, jaar, stratum, periode_in_jaar, naam) %>%
   summarise(totaal_aantal = sum(aantal),
@@ -905,117 +943,53 @@ relfreqs_doelvogels_strat <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  full_join(bezoekenlijst_2018_2023,
+            by = join_by(regio, plotnaam, jaar, stratum, periode_in_jaar)) %>%
+  replace(is.na(.), 0) %>%
   mutate(jaar = factor(jaar)) %>%
   group_by(periode_in_jaar, jaar, regio, stratum) %>%
   summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-                   .groups = "drop") %>%
+            n = n(),
+            .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
+
+write_csv(relfreqs_doelvogels_strat,
+          here(media_folder, "relfreqs_strat_mas_2018_2023_doel.csv"))
 ```
 
 ```{r telperiode-doelsoorten-langetermijn-strat, message=FALSE}
-for (soort in doelsoorten) {
-  for (reg in unique(diversiteit_vogels_strat$regio)) {
-    print(
-      relfreqs_doelvogels_strat %>% 
-        filter(naam == soort, regio == reg) %>%
-        ggplot() +
-          geom_jitter(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
-                         shape = periode_in_jaar),
-                      width = 0.1) +
-          labs(title = toString(soort), 
-               y = "Relatieve frequentie", 
-               x = "") +
-          expand_limits(y = 1) +
-          facet_wrap(~regio)
-        )
-  }
-}
-```
-
-Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De relatieve frequentie is dus identiek als in **2.2**.
-
-> Opgepast! In de volgende tabel wordt de gemiddelde relatieve frequentie berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
-
-```{r freq-torenvalk-langetermijn}
-relfreqs_vogels %>%
-  filter(naam == "Torenvalk") %>%
-  group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
-  distinct(regio, naam, gemiddelde_freq) %>%
-  pivot_wider(names_from = regio,
-              values_from = gemiddelde_freq,
-              values_fill = 0) %>%
-  ungroup() %>%
-  arrange(naam) %>%
-  kable(digits = 2)
-```
-
-De volgende figuur toont de relatieve frequentie van de soort in een bepaalde telperiode voor de verschillende regio's over de jaren.
-
-```{r telperiode-torenvalk-langetermijn, message=FALSE}
-relfreqs_vogels %>%
-  filter(naam == "Torenvalk") %>%
-  ggplot() +
-    geom_point(aes(x = periode_in_jaar, y = relfreq, colour = regio)) +
-    labs(title = "Torenvalk", y = "Relatieve frequentie", x = "Telperiode") +
-    scale_y_continuous(limits = c(0, 1)) +
-    facet_wrap(~jaar, scales = "free_y")
-```
-
-Telperiodes zijn herhalingen binnen een jaar en we zijn vooral geïnteresseerd in de wijzigingen van jaar tot jaar:
-
-```{r telperiode-torenvalk-langetermijn2, message=FALSE}
-relfreqs_doelvogels %>% 
-filter(naam == "Torenvalk") %>%
-group_by(regio, jaar, periode_in_jaar) %>%
-mutate(gemiddelde_freq = mean(relfreq)) %>%
-ggplot() +
-  geom_jitter(aes(x = jaar, y = gemiddelde_freq, colour = regio, 
-                 shape = periode_in_jaar),
-              width = 0.1) +
-  labs(title = "Torenvalk", y = "Relatieve frequentie", x = "") +
-  expand_limits(y = 1)
-```
-
-> We berekenen de relatieve frequenties apart binnen voor elke regio binnen elk stratum in elke telperiode in elk jaar. Deze resultaten kunnen niet zomaar uitgemiddeld worden om tot een gemiddelde over de strata en over de jaren te komen. Dit moet verder uitgezocht worden.
-
-```{r diversiteit-torenvalk-langetermijn-strat}
-relfreqs_torenvalk_strat <- mas_vogels %>%
-  st_drop_geometry() %>%
-  group_by(regio, plotnaam, jaar, stratum, periode_in_jaar, naam) %>%
-  summarise(totaal_aantal = sum(aantal),
-            .groups = "drop") %>%
-  pivot_wider(names_from = naam,
-              values_from = totaal_aantal,
-              values_fill = list(totaal_aantal = 0)) %>%
-  mutate(jaar = factor(jaar)) %>%
-  group_by(periode_in_jaar, jaar, regio, stratum) %>%
-  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
-                   .fns = ~sum(.x > 0) / n()),
-                   .groups = "drop") %>%
-  pivot_longer(cols = where(is.double),
-               names_to = "naam",
-               values_to = "relfreq")
-```
-
-```{r telperiode-torenvalk-langetermijn-strat, message=FALSE}
-for (reg in unique(diversiteit_vogels_strat$regio)) {
-  print(
-    relfreqs_torenvalk_strat %>% 
-      filter(naam == "Torenvalk", regio == reg) %>%
+for (spec in sort(doelsoorten)) {
+  p <- relfreqs_doelvogels_strat %>%
+      filter(naam == spec) %>%
+      mutate(stratum = factor(stratum,
+                              levels = c("OL - binnen",
+                                         "OL - buiten",
+                                         "HOL - binnen",
+                                         "HOL - buiten"))) %>%
       ggplot() +
-        geom_jitter(aes(x = as.factor(jaar), y = relfreq, colour = stratum,
-                       shape = periode_in_jaar),
-                    width = 0.1) +
-        labs(title = "Torenvalk", 
+        geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+        geom_point(aes(x = jaar, y = relfreq, colour = stratum, 
+                      shape = periode_in_jaar),
+                   position = position_dodge2(width = 0.4))  +
+        labs(title = toString(spec), 
              y = "Relatieve frequentie", 
-             x = "") +
-        expand_limits(y = 1) +
-        facet_wrap(~regio)
-    )
+             x = "",
+             shape = "Telperiode",
+             colour = "Stratum") +
+        scale_y_continuous(limits = c(0, NA)) +
+        facet_wrap(~regio, strip.position = "right", ncol = 1)
+  print(p)
+  
+  name <- tolower(gsub("\\s", "", spec))
+  
+  ggsave(here(media_folder, paste0("relfreq3_", name, "_mas_2018_2023.jpg")),
+         p + ggtitle(""),
+         dpi = 300,
+         width = 8,
+         height = 6)
 }
 ```
 
