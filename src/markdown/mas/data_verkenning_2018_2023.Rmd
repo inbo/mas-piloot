@@ -1058,7 +1058,7 @@ De volgende figuur geeft de cumulatieve oppervlakte aan afgesloten beheerovereen
 Deze cijfers gelden voor het volledige projectgebied van de Moeren en de Oostelijke leemstreek zoals gedefinieerd in het MAS pilootproject.
 
 ```{r opp-bo-evolutie, out.width="100%"}
-opp_evolutie %>%
+p <- opp_evolutie %>%
   expand_grid(jaar = 2018:2023) %>%
   mutate(
     opp2 = ifelse(startjaar <= jaar & stopjaar >= jaar, opp, 0)
@@ -1078,16 +1078,63 @@ opp_evolutie %>%
     theme(legend.position = "bottom",
           legend.title = element_blank(),
           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+p
+
+ggsave(here(media_folder, paste0("soortbeschermingsmaatregelen1_2018_2023.jpg")),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+Proporties binnen telcirkels:
+
+```{r}
+p <- mas_vogels %>%
+  distinct(plotnaam, jaar, regio, sbp, openheid, stratum, area_prop_sb) %>%
+  ggplot() +
+    geom_boxplot(aes(x = factor(jaar), y = area_prop_sb)) +
+    facet_wrap(~regio) +
+    labs(x = "", y = "Proportie soorbeschermingsmaatregelen") +
+    theme(legend.position = "bottom",
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+p
+
+ggsave(here(media_folder, paste0("soortbeschermingsmaatregelen2_2018_2023.jpg")),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
 ```
 
 
+```{r}
+p <- mas_vogels %>%
+  distinct(plotnaam, jaar, regio, sbp, openheid, stratum, area_prop_sb) %>%
+  ggplot() +
+    geom_boxplot(aes(x = factor(jaar), y = area_prop_sb)) +
+    facet_grid(regio ~ openheid + sbp, scales = "free_y") +
+    labs(x = "", y = "Proportie soorbeschermingsmaatregelen") +
+    theme(legend.position = "bottom",
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+p
+
+ggsave(here(media_folder, paste0("soortbeschermingsmaatregelen3_2018_2023.jpg")),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
 ## Dichtheden (aantal per 100ha)
 
-> dichtheden herberekend aantal broedpaar per 100ha (internationale maat, en ook beschreven als doelen bij soortbeschermingsplan akkervogels), zodat we die kunnen vergelijken gemiddeld voor de moeren en de leemstreek.  
+> dichtheden herberekend aantal broedpaar per 100ha (internationale maat, en ook beschreven als doelen bij soortbeschermingsplan akkervogels), zodat we die kunnen vergelijken gemiddeld voor De moeren en de Oostelijke leemstreek.  
 
 ### Algemeen
 
-Zijn de dichtheden in de Moeren opvallend hoger/lager dan in de leemstreek? **echter zonder rekening te houden met koppels, territoria of detectiekansen**.
+Zijn de dichtheden in De Moeren opvallend hoger/lager dan in de Oostelijke leemstreek? **echter zonder rekening te houden met koppels, territoria of detectiekansen**.
 
 ```{r dichtheden}
 meanabu <- mas_vogels %>%
