@@ -169,7 +169,8 @@ relfreqs <- mas2022_2023 %>%
   group_by(jaar, periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-                   .groups = "drop") %>%
+            n = n(),
+            .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
@@ -197,12 +198,14 @@ ggsave(here(media_folder, "soortenfreqs_mas_2022_2023.jpg"),
        height = 6)
 ```
 
-Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in **De Moeren**:
+Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in **De Moeren**. We nemen een gewogen gemiddelde omdat in bepaalde jaren en bepaalde telperiodes meer tellingen zijn geweest (hoewel dit bijna geen verschil is voor 2022-2023).
 
 ```{r meerfrequent-moeren}
 relfreqs %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -218,7 +221,9 @@ Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie
 ```{r meerfrequent-leemstreek}
 relfreqs %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -250,7 +255,7 @@ doel_df <- mas2022_2023 %>%
          ifelse(naam == "Torenvalk", wrntype >= 0L, wrntype > 0L))
 ```
 
-Enkel data met broedcode > 0 zijn weerhouden tenzij voor Torenvalk.
+Enkel data met broedcode > 0 zijn weerhouden tenzij voor Torenvalk. We nemen een gewogen gemiddelde omdat in bepaalde telperiodes meer tellingen zijn geweest (hoewel dit bijna geen verschil is voor 2022-2023).
 
 <!--Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben. In De Moeren is geen half-open landschap aanwezig (NA).-->
 
@@ -271,14 +276,17 @@ relfreqs_doel <- doel_df %>%
   group_by(jaar, periode_in_jaar, regio, stratum, openheid, sbp) %>%
   summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-                   .groups = "drop") %>%
+            n = n(),
+            .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
 
 relfreqs_doel %>%
   group_by(regio, jaar, stratum, openheid, sbp, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(regio, jaar, stratum, openheid, sbp, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq) %>%
@@ -290,7 +298,9 @@ relfreqs_doel %>%
 
 relfreqs_doel %>%
   group_by(regio, jaar, stratum, openheid, sbp, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(regio, jaar, stratum, openheid, sbp, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq) %>%
@@ -418,7 +428,8 @@ relfreqs_z <- zoogdieren %>%
   group_by(jaar, periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-                   .groups = "drop") %>%
+            n = n(),
+            .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
@@ -444,10 +455,14 @@ ggsave(here(media_folder, "soortenfreqs_zoogdieren_2022_2023.jpg"),
        height = 6)
 ```
 
+We nemen een gewogen gemiddelde omdat in bepaalde jaren en bepaalde telperiodes meer tellingen zijn geweest (hoewel dit bijna geen verschil is voor 2022-2023).
+ 
 ```{r freqtable-zoogdieren}
 relfreqs_z %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -462,7 +477,9 @@ relfreqs_z %>%
 
 relfreqs_z %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -674,7 +691,8 @@ relfreqs_vogels <- mas_vogels %>%
   group_by(jaar, periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-                   .groups = "drop") %>%
+            n = n(),
+            .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
@@ -710,7 +728,9 @@ Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie
 ```{r meerfrequent-moeren-langetermijn}
 relfreqs_vogels %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>% # Correct?
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -724,7 +744,9 @@ relfreqs_vogels %>%
 ```{r}
 verschil_dm_2018_2023 <- relfreqs_vogels %>%
   group_by(jaar, regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(jaar, regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -743,7 +765,9 @@ Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie
 ```{r meerfrequent-leemstreek-langetermijn}
 relfreqs_vogels %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>% # Correct?
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -757,7 +781,9 @@ relfreqs_vogels %>%
 ```{r}
 verschil_ol_2018_2023 <- relfreqs_vogels %>%
   group_by(jaar, regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(jaar, regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
@@ -782,21 +808,20 @@ bind_rows(verschil_dm_2018_2023, verschil_ol_2018_2023) %>%
 
 ```{r selectie-doelsoorten-langetermijn}
 doel_vogels <- mas_vogels %>% 
-  filter(naam %in% doelsoorten, 
-         wrntype > 0L,
-         openheid %in% c("HOL", "OL")) 
+  filter(naam %in% doelsoorten,
+         ifelse(naam == "Torenvalk", wrntype >= 0L, wrntype > 0L)) 
 ```
 
-Enkel data met broedcode > 0 zijn weerhouden in OL en HOL. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **4.2**.
+Enkel data met broedcode > 0 zijn weerhouden tenzij voor Torenvalk. De relatieve frequenties zullen dus niet exact hetzelfde zijn als in **4.2**.
 
 <!--Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.-->
 
 > Opgepast! In de volgende tabel wordt de gemiddelde relatieve frequentie berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
 
+ We nemen een gewogen gemiddelde.
+
 ```{r diversiteit-doelsoorten-langetermijn}
-relfreqs_doelvogels <- mas_vogels %>% 
-  filter(wrntype > 0L,
-         openheid %in% c("HOL", "OL")) %>%
+relfreqs_doel_2018_2023_jaar <- doel_vogels %>%
   st_drop_geometry() %>%
   group_by(regio, plotnaam, jaar, periode_in_jaar, naam) %>%
   summarise(totaal_aantal = sum(aantal),
@@ -804,19 +829,25 @@ relfreqs_doelvogels <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  full_join(bezoekenlijst_2018_2023,
+            by = join_by(regio, jaar, plotnaam, periode_in_jaar)) %>%
+  replace(is.na(.), 0) %>%
   mutate(jaar = factor(jaar)) %>%
   group_by(periode_in_jaar, jaar, regio) %>%
   summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x > 0) / n()),
-                   .groups = "drop") %>%
+            n = n(),
+            .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
 
-relfreqs_doelvogels %>%
+relfreqs_doel_2018_2023_jaar %>%
   filter(naam %in% doelsoorten) %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>% # Correct?
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
   distinct(regio, naam, gemiddelde_freq) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_freq,
