@@ -1149,6 +1149,7 @@ meanabu <- mas_vogels %>%
   group_by(jaar, periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x) / n() * (100 * 1e4) / (pi * 300^2)),
+            n = n(),
             .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
@@ -1181,18 +1182,22 @@ meanabu %>%
 
 > Opgepast! In de volgende tabellen wordt de gemiddelde densiteit berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
 
+Gewogen gemiddelde.
+
 Top 20 van soorten die in termen van verschil in gemiddelde aantallen meer abundant zijn in **de Moeren** (aantallen per 100 ha):
 
 ```{r meerabundant-moeren}
 meanabu %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_aantal_per_100ha = mean(aantal_per_100ha)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_aantal_per_100ha = weighted.mean(aantal_per_100ha, w)) %>%
+  ungroup() %>%
   distinct(regio, naam, gemiddelde_aantal_per_100ha) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_aantal_per_100ha,
               values_fill = 0) %>%
   mutate(verschil = `De Moeren` - `Oostelijke leemstreek`) %>%
-  ungroup() %>%
   slice_max(verschil, n = 20) %>%
   kable(digits = 2)
 ```
@@ -1202,13 +1207,15 @@ Top 20 van soorten die in termen van verschil in gemiddelde aantallen meer abund
 ```{r meerabundant-leemstreek}
 meanabu %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_aantal_per_100ha = mean(aantal_per_100ha)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_aantal_per_100ha = weighted.mean(aantal_per_100ha, w)) %>%
+  ungroup() %>%
   distinct(regio, naam, gemiddelde_aantal_per_100ha) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_aantal_per_100ha,
               values_fill = 0) %>%
   mutate(verschil = `De Moeren` - `Oostelijke leemstreek`) %>%
-  ungroup() %>%
   slice_max(-verschil, n = 20) %>%
   kable(digits = 2)
 ```
@@ -1217,13 +1224,12 @@ meanabu %>%
 
 #### Gemiddelde dichtheden
 
-Enkel data met broedcode > 0 zijn weerhouden. De dichtheden zullen dus niet exact hetzelfde zijn als in sectie \@ref(algemeen).
+Enkel data met broedcode > 0 zijn weerhouden tenzij voor Torenvalk. De dichtheden zullen dus niet exact hetzelfde zijn als in sectie \@ref(algemeen).
 
 <!--Opgepast: verwarrend is dat het veld broedcode niet de broedcode bevat. Hiervoor moet je het veld `wrntype` hebben.-->
 
 ```{r dichtheden-doelsoorten}
-meanabu_doel <- mas_vogels %>%
-  filter(wrntype > 0L) %>%
+meanabu_doel <- doel_vogels  %>%
   st_drop_geometry() %>%
   group_by(regio, plotnaam, jaar, periode_in_jaar, naam) %>%
   summarise(totaal_aantal = sum(aantal),
@@ -1231,10 +1237,14 @@ meanabu_doel <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  full_join(bezoekenlijst_2018_2023,
+            by = join_by(regio, jaar, plotnaam, periode_in_jaar)) %>%
+  replace(is.na(.), 0) %>%
   mutate(jaar = factor(jaar)) %>%
   group_by(jaar, periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x) / n() * (100 * 1e4) / (pi * 300^2)),
+            n = n(),
             .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
@@ -1243,11 +1253,15 @@ meanabu_doel <- mas_vogels %>%
 
 > Opgepast! In de volgende tabellen wordt de gemiddelde densiteit berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
 
+Gewogen gemiddelde.
+
 ```{r tabel-doelsoorten}
 meanabu_doel %>%
   filter(naam %in% doelsoorten) %>%
   group_by(regio, naam) %>%
-  mutate(gemiddelde_aantal_per_100ha = mean(aantal_per_100ha)) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_aantal_per_100ha = weighted.mean(aantal_per_100ha, w)) %>%
   distinct(regio, naam, gemiddelde_aantal_per_100ha) %>%
   pivot_wider(names_from = regio,
               values_from = gemiddelde_aantal_per_100ha,
@@ -1260,41 +1274,44 @@ meanabu_doel %>%
 De volgende figuren tonen de dichtheden van de doelsoorten in een bepaalde telperiode voor de verschillende regio’s over de jaren.
 
 ```{r telperiode-doelsoorten-dichtheden, message=FALSE}
-for (soort in doelsoorten) {
-  print(
-    meanabu_doel %>% 
-      filter(naam == soort) %>%
-      ggplot() +
-        geom_point(aes(x = periode_in_jaar, y = aantal_per_100ha, colour = regio)) +
-        labs(title = toString(soort), 
-             y = "Aantal per 100 ha", 
-             x = "Telperiode") +
-        facet_wrap(~jaar)
-    )
+for (spec in sort(doelsoorten)) {
+  p <- meanabu_doel %>% 
+    filter(naam == spec) %>%
+    ggplot() +
+      geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+      geom_point(aes(x = periode_in_jaar, y = aantal_per_100ha, colour = regio)) +
+      labs(title = toString(spec), 
+           y = "Aantal per 100 ha", 
+           x = "Telperiode",
+           colour = "Regio") +
+      scale_y_continuous(limits = c(0, NA)) +
+      facet_wrap(~jaar)
+  print(p)
 }
 ```
 
 Telperiodes zijn herhalingen binnen een jaar en we zijn vooral geïnteresseerd in de wijzigingen van jaar tot jaar:
 
 ```{r telperiode-doelsoorten-dichtheden2, message=FALSE}
-for (soort in doelsoorten) {
-  print(
-    meanabu_doel %>% 
-      filter(naam == soort) %>%
-      ggplot() +
-        geom_jitter(aes(x = jaar, y = aantal_per_100ha, colour = regio, 
-                       shape = periode_in_jaar),
-                    width = 0.1) +
-        labs(title = toString(soort), y = "Aantal per 100 ha", x = "")
-    )
+for (spec in sort(doelsoorten)) {
+  p <- meanabu_doel %>% 
+    filter(naam == spec) %>%
+    ggplot() +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = jaar, y = aantal_per_100ha, colour = regio, 
+                    shape = periode_in_jaar),
+               position = position_dodge2(width = 0.4)) +
+    labs(title = toString(spec), y = "Aantal per 100 ha", x = "",
+         colour = "Regio", shape = "Telperiode") +
+    scale_y_continuous(limits = c(0, NA))
+  print(p)
 }
 ```
 
 > We berekenen de relatieve frequenties apart binnen voor elke regio binnen elk stratum in elke telperiode in elk jaar. Deze resultaten kunnen niet zomaar uitgemiddeld worden om tot een gemiddelde over de strata en over de jaren te komen. Dit moet verder uitgezocht worden.
 
 ```{r diversiteit-doelsoorten-dichtheden-strat}
-meanabu_doelvogels_strat <- mas_vogels %>% 
-  filter(wrntype > 0L) %>%
+meanabu_doelvogels_strat <- doel_vogels %>%
   st_drop_geometry() %>%
   group_by(regio, plotnaam, jaar, stratum, periode_in_jaar, naam) %>%
   summarise(totaal_aantal = sum(aantal),
@@ -1302,114 +1319,44 @@ meanabu_doelvogels_strat <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  full_join(bezoekenlijst_2018_2023,
+            by = join_by(regio, plotnaam, jaar, stratum, periode_in_jaar)) %>%
+  replace(is.na(.), 0) %>%
   mutate(jaar = factor(jaar)) %>%
   group_by(jaar, periode_in_jaar, stratum, regio) %>%
   summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
                    .fns = ~sum(.x) / n() * (100 * 1e4) / (pi * 300^2)),
+            n = n(),
             .groups = "drop") %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "aantal_per_100ha")
 ```
-
-
 
 ```{r telperiode-doelsoorten-dichtheden-strat, message=FALSE}
-for (soort in doelsoorten) {
-  for (reg in unique(meanabu_doelvogels_strat$regio)) {
-    print(
-      meanabu_doelvogels_strat %>% 
-        filter(naam == soort, regio == reg) %>%
-        ggplot() +
-          geom_jitter(aes(x = as.factor(jaar), y = aantal_per_100ha, 
-                         colour = stratum, shape = periode_in_jaar),
-                     width = 0.1) +
-          labs(title = toString(soort), 
-               y = "Aantal per 100 ha", 
-               x = "") +
-          facet_wrap(~regio, scales = "free_y")
-      )
-  }
+for (spec in sort(doelsoorten)) {
+  p <- meanabu_doelvogels_strat %>%
+      filter(naam == spec) %>%
+      mutate(stratum = factor(stratum,
+                              levels = c("OL - binnen",
+                                         "OL - buiten",
+                                         "HOL - binnen",
+                                         "HOL - buiten"))) %>%
+      ggplot() +
+        geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+        geom_point(aes(x = jaar, y = aantal_per_100ha, colour = stratum, 
+                      shape = periode_in_jaar),
+                   position = position_dodge2(width = 0.4))  +
+        labs(title = toString(spec), 
+             y = "Aantal per 100 ha", 
+             x = "",
+             shape = "Telperiode",
+             colour = "Stratum") +
+        scale_y_continuous(limits = c(0, NA)) +
+        facet_wrap(~regio, strip.position = "right", ncol = 1)
+  print(p)
 }
 ```
-
-Voor de Torenvalk wordt geen rekening gehouden met broedcodes. Alle waarnemingen zijn relevant o.w.v. terreingebruik. De densiteit is dus identiek als in **4.5.1**.
-
-```{r tabel-torenvalk}
-meanabu %>%
-  filter(naam == "Torenvalk") %>%
-  group_by(regio, naam) %>%
-  mutate(gemiddelde_aantal_per_100ha = mean(aantal_per_100ha)) %>%
-  distinct(regio, naam, gemiddelde_aantal_per_100ha) %>%
-  pivot_wider(names_from = regio,
-              values_from = gemiddelde_aantal_per_100ha,
-              values_fill = 0) %>%
-  ungroup() %>%
-  arrange(naam) %>%
-  kable(digits = 2)
-```
-
-De volgende figuur toont de dichtheden van de soort in een bepaalde telperiode voor de verschillende regio's over de jaren.
-
-```{r telperiode-torenvalk-dichtheden, message=FALSE}
-meanabu %>%
-  filter(naam == "Torenvalk") %>%
-  ggplot() +
-    geom_point(aes(x = periode_in_jaar, y = aantal_per_100ha, colour = regio)) +
-    labs(title = "Torenvalk", y = "Aantal per 100 ha", x = "Telperiode") +
-    facet_wrap(~jaar)
-```
-
-Telperiodes zijn herhalingen binnen een jaar en we zijn vooral geïnteresseerd in de wijzigingen van jaar tot jaar:
-
-```{r telperiode-torenvalk-dichtheden2, message=FALSE}
-meanabu %>% 
-filter(naam == "Torenvalk") %>%
-ggplot() +
-  geom_jitter(aes(x = jaar, y = aantal_per_100ha, colour = regio, 
-                 shape = periode_in_jaar), 
-              width = 0.1) +
-  labs(title = "Torenvalk", y = "Aantal per 100 ha", x = "")
-```
-
-> We berekenen de relatieve frequenties apart binnen voor elke regio binnen elk stratum in elke telperiode in elk jaar. Deze resultaten kunnen niet zomaar uitgemiddeld worden om tot een gemiddelde over de strata en over de jaren te komen. Dit moet verder uitgezocht worden.
-
-```{r diversiteit-torenvalk-dichtheden-strat}
-meanabu_torenvalk_strat <- mas_vogels %>%
-  st_drop_geometry() %>%
-  group_by(regio, plotnaam, jaar, stratum, periode_in_jaar, naam) %>%
-  summarise(totaal_aantal = sum(aantal),
-            .groups = "drop") %>%
-  pivot_wider(names_from = naam,
-              values_from = totaal_aantal,
-              values_fill = list(totaal_aantal = 0)) %>%
-  mutate(jaar = factor(jaar)) %>%
-  group_by(periode_in_jaar, jaar, regio, stratum) %>%
-  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
-                   .fns = ~sum(.x) / n() * (100 * 1e4) / (pi * 300^2)),
-            .groups = "drop") %>%
-  pivot_longer(cols = where(is.double),
-               names_to = "naam",
-               values_to = "aantal_per_100ha")
-```
-
-```{r telperiode-torenvalk-dichtheden-strat, message=FALSE}
-for (reg in unique(diversiteit_vogels_strat$regio)) {
-  print(
-    meanabu_torenvalk_strat %>% 
-    filter(naam == "Torenvalk", regio == reg) %>%
-    ggplot() +
-      geom_jitter(aes(x = as.factor(jaar), y = aantal_per_100ha, colour = stratum,
-                     shape = periode_in_jaar),
-                  width = 0.1) +
-      labs(title = "Torenvalk", 
-           y = "Aantal per 100 ha", 
-           x = "") +
-      facet_wrap(~regio, scales = "free_y")
-    )
-}
-```
-
 
 #### Gemiddelde dichtheden op basis van max-aantal broedparen
 
