@@ -109,8 +109,6 @@ summary_mas2022_2023 <- mas2022_2023 %>%
            aantal_soorten_stratum, aantal_soorten_regiojaar) %>%
   arrange(regio, jaar, openheid, sbp)
 
-write_csv(summary_mas2022_2023, here(media_folder, "summary_mas_2022_2023.csv"))
-
 summary_mas2022_2023 %>%
   kable()
 
@@ -137,20 +135,20 @@ diversiteit <- mas2022_2023 %>%
 
 ```{r soortenaantal-boxplot}
 p <- diversiteit %>%
+  mutate(stratum = gsub(" - ", " -\n", stratum)) %>%
   ggplot() +
     geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
     geom_boxplot(aes(x = stratum, y = aantal_soorten,
                      colour = periode_in_jaar)) +
     facet_grid(jaar~regio, scales = "free_x") +
-    labs(y = "Aantal soorten", x = "", fill = "Telperiode")
+    labs(y = "Aantal soorten", x = "", colour = "Telperiode")
+p
 
 ggsave(here(media_folder, "soorten_mas_2022_2023.jpg"),
        p,
        dpi = 300,
        width = 8,
        height = 6)
-
-p
 ```
 
 Om welke soorten gaat het?
@@ -215,23 +213,6 @@ relfreqs %>%
   kable(digits = 2)
 ```
 
-```{r}
-verschil_dm <- relfreqs %>%
-  group_by(jaar, regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
-  distinct(jaar, regio, naam, gemiddelde_freq) %>%
-  pivot_wider(names_from = regio,
-              values_from = gemiddelde_freq,
-              values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
-  ungroup() %>%
-  group_by(jaar) %>%
-  slice_max(verschilfreq, n = 20) %>%
-  mutate(rang = row_number()) %>%
-  ungroup()
-```
-
-
 Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in de **Oostelijke Leemstreek**:
 
 ```{r meerfrequent-leemstreek}
@@ -246,30 +227,6 @@ relfreqs %>%
   ungroup() %>%
   slice_max(-verschilfreq, n = 20) %>%
   kable(digits = 2)
-```
-
-```{r}
-verschil_ol <- relfreqs %>%
-  group_by(jaar, regio, naam) %>%
-  mutate(gemiddelde_freq = mean(relfreq)) %>%
-  distinct(jaar, regio, naam, gemiddelde_freq) %>%
-  pivot_wider(names_from = regio,
-              values_from = gemiddelde_freq,
-              values_fill = 0) %>%
-  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
-  ungroup() %>%
-  group_by(jaar) %>%
-  slice_max(-verschilfreq, n = 20) %>%
-  mutate(rang = row_number()) %>%
-  ungroup()
-```
-
-
-```{r}
-bind_rows(verschil_dm, verschil_ol) %>%
-  mutate(regio = ifelse(verschilfreq > 0,
-                        "De Moeren", "Oostelijke leemstreek")) %>%
-  write_csv(here(media_folder, "verschilfreq_mas_2022_2023.csv"))
 ```
 
 
@@ -531,6 +488,12 @@ mas_vogels <- mas_data_sf %>%
   st_drop_geometry() %>%
   filter(soortgrp == 2,                # vogels
          openheid %in% c("HOL", "OL"))
+
+# To detect absences
+bezoekenlijst_2018_2023 <- mas_data_df %>%
+  filter(openheid %in% c("HOL", "OL")) %>%
+  distinct(plotnaam, regio, jaar, openheid, sbp, stratum, periode_in_jaar) %>%
+  select(plotnaam, periode_in_jaar, everything())
 ```
 
 Selectie van vogelsoorten in HOL en OL
@@ -646,40 +609,22 @@ ggsave(here(media_folder, "waarnemingen_mas_2018_2023.jpg"),
 
 Is de soortendiversiteit in De Moeren hoger dan in de leemstreek?
 
-```{r soortendiversiteit-langetermijn}
-diversiteit_vogels <- mas_vogels %>%
-  st_drop_geometry() %>%
-  group_by(regio, plotnaam, jaar, periode_in_jaar, naam) %>%
-  summarise(totaal_aantal = sum(aantal),
-            .groups = "drop_last") %>%
-  summarise(aantal_soorten = n(),
-            .groups = "drop")
-```
+```{r}
+p <- mas_vogels %>%
+  group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
+  summarise(n = n_distinct(naam), .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = n, fill = regio)) +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_boxplot() +
+    facet_wrap(~jaar) +
+    labs(x = "Telperiode", y = "Aantal soorten", fill = "Regio")
+p
 
-```{r soortenaantal-boxplot-langetermijn}
-diversiteit_vogels %>%
-  ggplot() +
-    geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = regio)) +
-    labs(y = "Aantal soorten", x = "Telperiode") +
-    facet_wrap(~jaar)
-```
-
-Overzichtelijkere figuren om te vergelijken binnen gebieden:
-
-```{r soortenaantal-boxplot-langetermijn2}
-cols <- c("#F8766D", "#00BA38")
-for (i in 1:length(unique(diversiteit_vogels$regio))) {
-  reg <- unique(diversiteit_vogels$regio)[i]
-  print(
-    diversiteit_vogels %>%
-    filter(regio == reg) %>%
-    ggplot() +
-      geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten), 
-                   fill = cols[i]) +
-      facet_wrap(regio~jaar) +
-      labs(y = "Aantal soorten", x = "Telperiode")
-  )
-}
+ggsave(here(media_folder, "soorten2_mas_2018_2023.jpg"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
 ```
 
 Gestratificeerd:
@@ -696,16 +641,19 @@ diversiteit_vogels_strat <- mas_vogels %>%
 ```
 
 ```{r soortenaantal-boxplot-langetermijn-strat}
-for (reg in unique(diversiteit_vogels_strat$regio)) {
-  print(
-    diversiteit_vogels_strat %>%
-    filter(regio == reg) %>%
-    ggplot() +
-      labs(y = "Aantal soorten", x = "Telperiode") +
-      geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = stratum)) +
-      facet_wrap(regio~jaar)
-  )
-}
+p <- diversiteit_vogels_strat %>%
+  ggplot() +
+    labs(y = "Aantal soorten", x = "Telperiode", fill = "Stratum") +
+    geom_boxplot(aes(x = periode_in_jaar, y = aantal_soorten, fill = stratum)) +
+    facet_grid(regio~jaar) +
+  theme(legend.position = "top")
+p
+
+ggsave(here(media_folder, "soorten3_mas_2018_2023.jpg"),
+       p,
+       dpi = 300,
+       width = 10,
+       height = 6)
 ```
 
 Om welke soorten gaat het?
@@ -719,6 +667,9 @@ relfreqs_vogels <- mas_vogels %>%
   pivot_wider(names_from = naam,
               values_from = totaal_aantal,
               values_fill = list(totaal_aantal = 0)) %>%
+  full_join(bezoekenlijst_2018_2023,
+            by = join_by(regio, jaar, plotnaam, periode_in_jaar)) %>%
+  replace(is.na(.), 0) %>%
   mutate(jaar = factor(jaar)) %>%
   group_by(jaar, periode_in_jaar, regio) %>%
   summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
@@ -732,12 +683,24 @@ relfreqs_vogels <- mas_vogels %>%
 Overzicht van relatieve frequenties van de 30 meest frequente soorten in een bepaalde regio. Elk punt staat voor een relatieve frequentie in een bepaald jaar en een bepaalde telperiode van dat jaar.
 
 ```{r soortenfreqs-langetermijn, fig.height = 200/25.4}
-relfreqs_vogels %>%
+p <- relfreqs_vogels %>%
   mutate(naam = reorder(naam, relfreq, FUN = "mean")) %>%
   filter(as.numeric(naam) > length(unique(naam)) - 30) %>%
   ggplot() +
-    labs(y = "", x = "Relatieve frequentie") +
-    geom_point(aes(x = relfreq, y = naam, colour = regio))
+    geom_vline(xintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = relfreq, y = naam, colour = regio),
+               size = 1) +
+    labs(y = "", x = "Relatieve frequentie", colour = "Regio") +
+    facet_wrap(~jaar, nrow = 3) +
+    theme(legend.position = "top",
+          axis.text = element_text(size = 8))
+p
+
+ggsave(here(media_folder, "soortenfreqs_mas_2018_2023.jpg"),
+       p,
+       dpi = 300,
+       width = 6,
+       height = 10)
 ```
 
 > Opgepast! In de volgende tabellen wordt de gemiddelde relatieve frequentie berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
@@ -758,6 +721,23 @@ relfreqs_vogels %>%
   kable(digits = 2)
 ```
 
+```{r}
+verschil_dm_2018_2023 <- relfreqs_vogels %>%
+  group_by(jaar, regio, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(jaar, regio, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = regio,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  ungroup() %>%
+  group_by(jaar) %>%
+  slice_max(verschilfreq, n = 20) %>%
+  mutate(rang = row_number()) %>%
+  ungroup()
+```
+
+
 Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in **de Oostelijke leemstreek** dan in De Moeren:
 
 ```{r meerfrequent-leemstreek-langetermijn}
@@ -772,6 +752,29 @@ relfreqs_vogels %>%
   ungroup() %>%
   slice_max(-verschilfreq, n = 20) %>%
   kable(digits = 2)
+```
+
+```{r}
+verschil_ol_2018_2023 <- relfreqs_vogels %>%
+  group_by(jaar, regio, naam) %>%
+  mutate(gemiddelde_freq = mean(relfreq)) %>%
+  distinct(jaar, regio, naam, gemiddelde_freq) %>%
+  pivot_wider(names_from = regio,
+              values_from = gemiddelde_freq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  ungroup() %>%
+  group_by(jaar) %>%
+  slice_max(-verschilfreq, n = 20) %>%
+  mutate(rang = row_number()) %>%
+  ungroup()
+```
+
+```{r}
+bind_rows(verschil_dm_2018_2023, verschil_ol_2018_2023) %>%
+  mutate(regio = ifelse(verschilfreq > 0,
+                        "De Moeren", "Oostelijke leemstreek")) %>%
+  write_csv(here(media_folder, "verschilfreq_mas_2018_2023.csv"))
 ```
 
 
