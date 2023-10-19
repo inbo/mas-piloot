@@ -143,12 +143,6 @@ p <- diversiteit %>%
     facet_grid(jaar~regio, scales = "free_x") +
     labs(y = "Aantal soorten", x = "", colour = "Telperiode")
 p
-
-ggsave(here(media_folder, "soorten_mas_2022_2023.jpg"),
-       p,
-       dpi = 300,
-       width = 8,
-       height = 6)
 ```
 
 Om welke soorten gaat het?
@@ -190,12 +184,6 @@ p <- relfreqs %>%
     facet_wrap(~jaar) +
     theme(legend.position = "top")
 p
-
-ggsave(here(media_folder, "soortenfreqs_mas_2022_2023.jpg"),
-       p,
-       dpi = 300,
-       width = 8,
-       height = 6)
 ```
 
 Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in **De Moeren**. We nemen een gewogen gemiddelde omdat in bepaalde jaren en bepaalde telperiodes meer tellingen zijn geweest (hoewel dit bijna geen verschil is voor 2022-2023).
@@ -295,20 +283,6 @@ relfreqs_doel %>%
   arrange(naam) %>%
   select(-stratum) %>%
   kable(digits = 2)
-
-relfreqs_doel %>%
-  group_by(regio, jaar, stratum, openheid, sbp, naam) %>%
-  mutate(
-    w = n / sum(n),
-    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
-  distinct(regio, jaar, stratum, openheid, sbp, naam, gemiddelde_freq) %>%
-  pivot_wider(names_from = regio,
-              values_from = gemiddelde_freq) %>%
-  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
-  group_by(openheid, sbp) %>%
-  arrange(naam) %>%
-  select(-stratum) %>%
-  write_csv(here(media_folder, "verschilfreq_mas_2022_2023_doel.csv"))
 ```
 
 De volgende figuur geeft een overzicht van de genoteerde broedcodes per regio voor elke soort. Een telling is hier geïnterpreteerd als een waarneming van een bepaalde soort op een bepaalde afstand in een bepaalde plot in een bepaalde telperiode. Er is dus geen rekening gehouden met het aantal vogels genoteerd per telling. De tellingen zijn hoger in de Leemstreek maar daar waren ook meer plots. Deze figuur geeft dus enkel de absolute aantallen weer. 
@@ -321,7 +295,9 @@ strata_df <- doel_df %>%
   distinct()
 
 # summarise data and make plot
+i = 0
 for (spec in sort(doelsoorten)) {
+  i <- i + 1
   p <- doel_df %>%
     st_drop_geometry() %>%
     mutate(wrntype_omschrijving2 = paste(wrntype, wrntype_omschrijving, 
@@ -334,6 +310,9 @@ for (spec in sort(doelsoorten)) {
     summarise(N = n(), .groups = "drop") %>%
     full_join(strata_df, by = join_by(stratum, regio, jaar)) %>%
     mutate(stratum = gsub(" - ", " -\n", stratum)) %>%
+    mutate(regio = ifelse(regio =="Oostelijke leemstreek",
+                          gsub("\\s", "\n", regio),
+                          regio)) %>%
     ggplot(aes(x = stratum, y = N, fill = wrntype_omschrijving2)) +
       geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
       geom_bar(stat = "identity") +
@@ -342,15 +321,80 @@ for (spec in sort(doelsoorten)) {
       facet_grid(regio~jaar, scales = "free")
   
   print(p)
+  legend <- cowplot::get_legend(
+    p + theme(legend.key.size = unit(0.5, 'cm'), #change legend key size
+              legend.key.height = unit(0.5, 'cm'), #change legend key height
+              legend.key.width = unit(0.5, 'cm'), #change legend key width
+              legend.title = element_text(size = 10), #change legend title font size
+              legend.text = element_text(size = 8))) #change legend text font size
   
   name <- tolower(gsub("\\s", "", spec))
   
-  ggsave(here(media_folder, paste0("broedcode_", name, "_mas_2022_2023.jpg")),
-         p + ggtitle(""),
-         dpi = 300,
-         width = 8,
-         height = 6)
+  assign(paste0("p", i), p +
+           theme(axis.title = element_text(size = 8),
+                 axis.text = element_text(size = 6),
+                 plot.title = element_text(size = 8),
+                 strip.text = element_text(size = 8),
+                 legend.position = "",
+                 axis.text.x = element_text(angle = 90, vjust = 0.5,
+                                            hjust = 1)))
 }
+
+lay <- rbind(c(1, 2, 3),
+             c(4, 5, 6),
+             c(7, 8, 9),
+             c(10, 11, 11))
+
+p_summ <- gridExtra::grid.arrange(
+  p1 +
+    theme(
+      strip.background.y = element_blank(),
+      strip.text.y = element_blank()
+      ),
+  p2 + 
+    labs(y = "") +
+    theme(
+      strip.background.y = element_blank(),
+      strip.text.y = element_blank()
+      ),
+  p3 + labs(y = ""),
+  p4 + 
+    theme(
+      strip.background.y = element_blank(),
+      strip.text.y = element_blank()
+      ),
+  p5 + labs(y = "") + 
+    labs(y = "") +
+    theme(
+      strip.background.y = element_blank(),
+      strip.text.y = element_blank()
+      ),
+  p6 + labs(y = ""),
+  p7 +
+    theme(
+      strip.background.y = element_blank(),
+      strip.text.y = element_blank()
+      ),
+  p8 + labs(y = "") + 
+    labs(y = "") +
+    theme(
+      strip.background.y = element_blank(),
+      strip.text.y = element_blank()
+      ),
+  p9 + labs(y = ""),
+  p10 +
+    theme(
+      strip.background.y = element_blank(),
+      strip.text.y = element_blank()
+      ),
+  legend,
+  ncol = 3, nrow = 4, layout_matrix = lay)
+
+ggsave(here(media_folder, "broedcode_mas_2022_2023.jpg"),
+       p_summ,
+       dpi = 300,
+       width = 8,
+       height = 10)
 ```
 
 De volgende figuur toont de relatieve frequentie van de doelsoorten in een bepaalde telperiode voor de verschillende regio's gestratificeerd volgens openheid van het landschap en binnen of buiten sbp's. 
@@ -368,14 +412,6 @@ for (spec in sort(doelsoorten)) {
       facet_grid(jaar~regio) +
       scale_y_continuous(limits = c(0, NA))
   print(p)
-  
-  name <- tolower(gsub("\\s", "", spec))
-  
-  ggsave(here(media_folder, paste0("relfreq_", name, "_mas_2022_2023.jpg")),
-         p + ggtitle(""),
-         dpi = 300,
-         width = 8,
-         height = 6)
 }
 ```
 
@@ -585,26 +621,6 @@ ggsave(here(media_folder, "tellingen_mas_2018_2023.jpg"),
 ```{r}
 p <- mas_vogels %>%
   group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
-  summarise(n = n_distinct(naam), .groups = "drop") %>%
-  ggplot(aes(x = periode_in_jaar, y = n, colour = periode_in_jaar)) +
-    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
-    geom_boxplot() +
-    facet_grid(regio~jaar, scales = "free_y") +
-    labs(x = "Telperiode", y = "Aantal soorten") +
-    theme(legend.position = "")
-p
-
-ggsave(here(media_folder, "soorten_mas_2018_2023.jpg"),
-       p,
-       dpi = 300,
-       width = 8,
-       height = 6)
-```
-
-
-```{r}
-p <- mas_vogels %>%
-  group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
   summarise(n = n(), .groups = "drop") %>%
   ggplot(aes(x = periode_in_jaar, y = n, colour = periode_in_jaar)) +
     geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
@@ -612,6 +628,18 @@ p <- mas_vogels %>%
     facet_grid(regio~jaar, scales = "free_y") +
     labs(x = "Telperiode", y = "Aantal waarnemingen") +
     theme(legend.position = "")
+p
+```
+
+```{r}
+p <- mas_vogels %>%
+  group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = n, fill = regio)) +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_boxplot() +
+    facet_wrap(~jaar, scales = "free_y") +
+    labs(x = "Telperiode", y = "Aantal waarnemingen", fill = "Regio")
 p
 
 ggsave(here(media_folder, "waarnemingen_mas_2018_2023.jpg"),
@@ -630,6 +658,19 @@ Is de soortendiversiteit in De Moeren hoger dan in de leemstreek?
 p <- mas_vogels %>%
   group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
   summarise(n = n_distinct(naam), .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = n, colour = periode_in_jaar)) +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_boxplot() +
+    facet_grid(regio~jaar, scales = "free_y") +
+    labs(x = "Telperiode", y = "Aantal soorten") +
+    theme(legend.position = "")
+p
+```
+
+```{r}
+p <- mas_vogels %>%
+  group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
+  summarise(n = n_distinct(naam), .groups = "drop") %>%
   ggplot(aes(x = periode_in_jaar, y = n, fill = regio)) +
     geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
     geom_boxplot() +
@@ -637,7 +678,7 @@ p <- mas_vogels %>%
     labs(x = "Telperiode", y = "Aantal soorten", fill = "Regio")
 p
 
-ggsave(here(media_folder, "soorten2_mas_2018_2023.jpg"),
+ggsave(here(media_folder, "soorten_mas_2018_2023.jpg"),
        p,
        dpi = 300,
        width = 8,
@@ -666,12 +707,6 @@ p <- diversiteit_vogels_strat %>%
     facet_grid(regio~jaar) +
   theme(legend.position = "top")
 p
-
-ggsave(here(media_folder, "soorten3_mas_2018_2023.jpg"),
-       p,
-       dpi = 300,
-       width = 10,
-       height = 6)
 ```
 
 Om welke soorten gaat het?
@@ -843,9 +878,6 @@ relfreqs_doel_2018_2023_jaar <- doel_vogels %>%
                names_to = "naam",
                values_to = "relfreq")
 
-write_csv(relfreqs_doel_2018_2023_jaar,
-          here(media_folder, "relfreqs_jaar_mas_2018_2023_doel.csv"))
-
 relfreqs_doel_2018_2023_jaar %>%
   filter(naam %in% doelsoorten) %>%
   group_by(regio, jaar, naam) %>%
@@ -860,21 +892,6 @@ relfreqs_doel_2018_2023_jaar %>%
   mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
   arrange(naam) %>%
   kable(digits = 2)
-
-relfreqs_doel_2018_2023_jaar %>%
-  filter(naam %in% doelsoorten) %>%
-  group_by(regio, jaar, naam) %>%
-  mutate(
-    w = n / sum(n),
-    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
-  distinct(regio, naam, gemiddelde_freq) %>%
-  pivot_wider(names_from = regio,
-              values_from = gemiddelde_freq,
-              values_fill = 0) %>%
-  ungroup() %>%
-  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
-  arrange(naam) %>%
-  write_csv(here(media_folder, "verschilfreq_mas_2018_2023_doel.csv"))
 ```
 
 De volgende figuren tonen de relatieve frequentie van de doelsoorten in een bepaalde telperiode voor de verschillende regio’s over de jaren.
@@ -893,14 +910,6 @@ for (spec in sort(doelsoorten)) {
         scale_y_continuous(limits = c(0, NA)) +
         facet_wrap(~jaar)
   print(p)
-  
-  name <- tolower(gsub("\\s", "", spec))
-  
-  ggsave(here(media_folder, paste0("relfreq_", name, "_mas_2018_2023.jpg")),
-         p + ggtitle(""),
-         dpi = 300,
-         width = 8,
-         height = 6)
 }
 ```
 
@@ -921,12 +930,6 @@ for (spec in doelsoorten) {
   print(p)
   
   name <- tolower(gsub("\\s", "", spec))
-  
-  ggsave(here(media_folder, paste0("relfreq2_", name, "_mas_2018_2023.jpg")),
-         p + ggtitle(""),
-         dpi = 300,
-         width = 8,
-         height = 6)
 }
 ```
 
@@ -955,9 +958,6 @@ relfreqs_doelvogels_strat <- mas_vogels %>%
   pivot_longer(cols = where(is.double),
                names_to = "naam",
                values_to = "relfreq")
-
-write_csv(relfreqs_doelvogels_strat,
-          here(media_folder, "relfreqs_strat_mas_2018_2023_doel.csv"))
 ```
 
 ```{r telperiode-doelsoorten-langetermijn-strat, message=FALSE}
@@ -984,12 +984,6 @@ for (spec in sort(doelsoorten)) {
   print(p)
   
   name <- tolower(gsub("\\s", "", spec))
-  
-  ggsave(here(media_folder, paste0("relfreq3_", name, "_mas_2018_2023.jpg")),
-         p + ggtitle(""),
-         dpi = 300,
-         width = 8,
-         height = 6)
 }
 ```
 
@@ -1080,7 +1074,8 @@ p <- opp_evolutie %>%
           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 p
 
-ggsave(here(media_folder, paste0("soortbeschermingsmaatregelen1_2018_2023.jpg")),
+ggsave(here(media_folder,
+            paste0("soortbeschermingsmaatregelen1_2018_2023.jpg")),
        p,
        dpi = 300,
        width = 8,
@@ -1120,12 +1115,6 @@ p <- mas_vogels %>%
           legend.title = element_blank(),
           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 p
-
-ggsave(here(media_folder, paste0("soortbeschermingsmaatregelen3_2018_2023.jpg")),
-       p,
-       dpi = 300,
-       width = 8,
-       height = 6)
 ```
 
 ## Dichtheden (aantal per 100ha)
