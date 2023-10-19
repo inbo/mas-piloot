@@ -73,6 +73,29 @@ mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"),
                         crs = 31370)
 ```
 
+```{r}
+roofvogels_f <- function() {
+  roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief",
+                  "Buizerd",
+                  "Grauwe Kiekendief", "Ransuil", "Slechtvalk", "Sperwer",
+                  "Steenuil", "Steppekiekendief", "Torenvalk", "Velduil",
+                  "Wespendief", "Zwarte Wouw")
+
+  return(roofvogels)
+}
+
+doelsoorten <- c(
+  "Veldleeuwerik", 
+  "Gele Kwikstaart", 
+  "Geelgors", 
+  "Kievit", 
+  "Grasmus",
+  "Witte Kwikstaart",
+  "Ringmus",
+  "Kwartel",
+  "Kneu",
+  "Torenvalk")
+```
 
 # Resultaten vogels 2022-2023
 
@@ -226,18 +249,6 @@ relfreqs %>%
 ## Doelsoorten
 
 ```{r selectie-doelsoorten}
-doelsoorten <- c(
-  "Veldleeuwerik", 
-  "Gele Kwikstaart", 
-  "Geelgors", 
-  "Kievit", 
-  "Grasmus",
-  "Witte Kwikstaart",
-  "Ringmus",
-  "Kwartel",
-  "Kneu",
-  "Torenvalk")
-
 doel_df <- mas2022_2023 %>% 
   filter(naam %in% doelsoorten, 
          ifelse(naam == "Torenvalk", wrntype >= 0L, wrntype > 0L))
@@ -714,6 +725,7 @@ Om welke soorten gaat het?
 ```{r relfreqs-langetermijn}
 relfreqs_vogels <- mas_vogels %>%
   st_drop_geometry() %>%
+  filter(ifelse(naam %in% roofvogels_f(), wrntype >= 0L, wrntype > 0L)) %>%
   group_by(regio, plotnaam, jaar, periode_in_jaar, naam) %>%
   summarise(totaal_aantal = sum(aantal),
             .groups = "drop") %>%
@@ -734,20 +746,33 @@ relfreqs_vogels <- mas_vogels %>%
                values_to = "relfreq")
 ```
 
-Overzicht van relatieve frequenties van de 30 meest frequente soorten in een bepaalde regio. Elk punt staat voor een relatieve frequentie in een bepaald jaar en een bepaalde telperiode van dat jaar.
+Overzicht van relatieve frequenties van de 20 meest frequente soorten in een bepaalde regio. Elk punt staat voor een relatieve frequentie in een bepaald jaar en een bepaalde telperiode van dat jaar. Enkel data met broedcode > 0 zijn weerhouden tenzij voor roofvogels.
+
+```{r}
+library(ggtext)
+highlight <- function(x, pat, color="black", family="") {
+  ifelse(x %in% pat,
+         glue::glue("<b style='font-family:{family}; color:{color}'>{x}</b>"),
+         x)
+}
+```
 
 ```{r soortenfreqs-langetermijn, fig.height = 200/25.4}
 p <- relfreqs_vogels %>%
   mutate(naam = reorder(naam, relfreq, FUN = "mean")) %>%
-  filter(as.numeric(naam) > length(unique(naam)) - 30) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 20 |
+           naam %in% doelsoorten) %>%
   ggplot() +
     geom_vline(xintercept = 0, alpha = 0.2, linetype = "dashed") +
     geom_point(aes(x = relfreq, y = naam, colour = regio),
                size = 1) +
     labs(y = "", x = "Relatieve frequentie", colour = "Regio") +
     facet_wrap(~jaar, nrow = 3) +
+    scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
     theme(legend.position = "top",
-          axis.text = element_text(size = 8))
+          axis.text = element_text(size = 8),
+          axis.text.y = element_markdown()) +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
 p
 
 ggsave(here(media_folder, "soortenfreqs_mas_2018_2023.jpg"),
@@ -1356,16 +1381,6 @@ De gemiddelden werden hiervan berekend en een 95% betrouwbaarheidsinterval op ba
 **Hier is ook geen rekening gehouden met detectiekansen.**
 
 ```{r}
-roofvogels_f <- function() {
-  roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief",
-                  "Buizerd",
-                  "Grauwe Kiekendief", "Ransuil", "Slechtvalk", "Sperwer",
-                  "Steenuil", "Steppekiekendief", "Torenvalk", "Velduil",
-                  "Wespendief", "Zwarte Wouw")
-
-  return(roofvogels)
-}
-
 plot_densiteit_max <- function(data, design, soort, show_data = TRUE,
                                seed = 123) {
   roofvogels <- roofvogels_f()
