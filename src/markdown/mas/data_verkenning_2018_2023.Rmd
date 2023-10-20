@@ -758,12 +758,16 @@ highlight <- function(x, pat, color="black", family="") {
 ```
 
 ```{r soortenfreqs-langetermijn, fig.height = 200/25.4}
-p <- relfreqs_vogels %>%
-  mutate(naam = reorder(naam, relfreq, FUN = "mean")) %>%
+freq_to_plot <- relfreqs_vogels %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
   filter(as.numeric(naam) > length(unique(naam)) - 20 |
-           naam %in% doelsoorten) %>%
+           naam %in% doelsoorten)
+p <- freq_to_plot %>%
   ggplot() +
     geom_vline(xintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_hline(yintercept = length(unique(freq_to_plot$naam)) - 20 + 0.5,
+               alpha = 0.2, linetype = "dashed") +
     geom_point(aes(x = relfreq, y = naam, colour = regio),
                size = 1) +
     labs(y = "", x = "Relatieve frequentie", colour = "Regio") +
@@ -771,12 +775,13 @@ p <- relfreqs_vogels %>%
     scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
     theme(legend.position = "top",
           axis.text = element_text(size = 8),
-          axis.text.y = element_markdown()) +
-    guides(colour = guide_legend(override.aes = list(size = 3)))
+          axis.text.y = element_markdown(),
+          panel.spacing = unit(0.7, "lines")) +
+    guides(colour = guide_legend(override.aes = list(size = 2)))
 p
 
 ggsave(here(media_folder, "soortenfreqs_mas_2018_2023.jpg"),
-       p,
+       p + theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
        dpi = 300,
        width = 6,
        height = 10)
@@ -801,6 +806,46 @@ relfreqs_vogels %>%
   slice_max(verschilfreq, n = 20) %>%
   kable(digits = 2)
 ```
+
+```{r, fig.height = 200/25.4}
+relfreq_diff_dm <- relfreqs_vogels %>%
+  select(-n) %>%
+  pivot_wider(names_from = regio,
+              values_from = relfreq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  mutate(naam = reorder(naam, verschilfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 20 |
+           naam %in% doelsoorten)
+p <- relfreq_diff_dm %>%
+  ggplot() +
+    geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed",
+               colour = "firebrick") +
+    geom_hline(yintercept = length(unique(relfreq_diff_dm$naam)) - 20 + 0.5,
+               alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = verschilfreq, y = naam),
+               size = 1) +
+    labs(y = "", x = "Relatieve frequentie") +
+    facet_wrap(~jaar, nrow = 3) +
+    scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+    coord_cartesian(xlim = c(0 - abs(max(relfreq_diff_dm$verschilfreq)),
+                             0 + abs(max(relfreq_diff_dm$verschilfreq)))) +
+    scale_x_continuous(breaks = seq(-1, 1, 0.25)) +
+    theme(legend.position = "top",
+          axis.text = element_text(size = 8),
+          axis.text.y = element_markdown(),
+          panel.spacing = unit(1.2, "lines")) +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
+p
+
+ggsave(here(media_folder, "verschilfreq_dm_mas_2018_2023.jpg"),
+       p + theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
+       dpi = 300,
+       width = 6,
+       height = 10)
+```
+
 
 ```{r}
 verschil_dm_2018_2023 <- relfreqs_vogels %>%
@@ -857,11 +902,115 @@ verschil_ol_2018_2023 <- relfreqs_vogels %>%
   ungroup()
 ```
 
+```{r, fig.height = 200/25.4}
+relfreq_diff_ol <- relfreqs_vogels %>%
+  select(-n) %>%
+  pivot_wider(names_from = regio,
+              values_from = relfreq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  mutate(naam = reorder(naam, verschilfreq, FUN = "mean",
+                        decreasing = TRUE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 20 |
+           naam %in% doelsoorten)
+p <- relfreq_diff_ol %>%
+  ggplot() +
+    geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed",
+               colour = "firebrick") +
+    geom_hline(yintercept = length(unique(relfreq_diff_ol$naam)) - 20 + 0.5,
+               alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = verschilfreq, y = naam),
+               size = 1) +
+    labs(y = "", x = "Relatieve frequentie") +
+    facet_wrap(~jaar, nrow = 3) +
+    scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+    coord_cartesian(xlim = c(0 - abs(max(relfreq_diff_ol$verschilfreq)),
+                             0 + abs(max(relfreq_diff_ol$verschilfreq)))) +
+    scale_x_continuous(breaks = seq(-1, 1, 0.25)) +
+    theme(legend.position = "top",
+          axis.text = element_text(size = 8),
+          axis.text.y = element_markdown(),
+          panel.spacing = unit(1.2, "lines")) +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
+p
+
+ggsave(here(media_folder, "verschilfreq_ol_mas_2018_2023.jpg"),
+       p + theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
+       dpi = 300,
+       width = 6,
+       height = 10)
+```
+
 ```{r}
 bind_rows(verschil_dm_2018_2023, verschil_ol_2018_2023) %>%
   mutate(regio = ifelse(verschilfreq > 0,
                         "De Moeren", "Oostelijke leemstreek")) %>%
   write_csv(here(media_folder, "verschilfreq_mas_2018_2023.csv"))
+```
+
+Top tien van beide kanten in 1 plot.
+
+```{r}
+relfreq_diff_total <- relfreqs_vogels %>%
+  select(-n) %>%
+  pivot_wider(names_from = regio,
+              values_from = relfreq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  mutate(naam = reorder(naam, verschilfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 10 |
+           as.numeric(naam) <= 10|
+           naam %in% doelsoorten)
+p <- relfreq_diff_total %>%
+  ggplot() +
+    geom_vline(xintercept = 0,
+               colour = "lightgrey") +
+    geom_hline(yintercept = c(10.5,
+                length(unique(relfreq_diff_total$naam)) - 10 + 0.5),
+               alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = verschilfreq, y = naam),
+               size = 1) +
+    labs(y = "", x = "Relatieve frequentie") +
+    facet_wrap(~jaar, nrow = 3) +
+    scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+    coord_cartesian(xlim = c(0 - abs(max(relfreq_diff_dm$verschilfreq)),
+                             0 + abs(max(relfreq_diff_dm$verschilfreq)))) +
+    scale_x_continuous(breaks = seq(-1, 1, 0.25)) +
+    theme(legend.position = "top",
+          axis.text = element_text(size = 8),
+          axis.text.y = element_markdown(),
+          panel.spacing = unit(1.2, "lines")) +
+    guides(colour = guide_legend(override.aes = list(size = 3))) +
+    annotate("segment",
+             x = c(abs(max(relfreq_diff_dm$verschilfreq))),
+             y = c(length(unique(relfreq_diff_total$naam)) - 10 + 1),
+             xend = c(abs(max(relfreq_diff_dm$verschilfreq))),
+             yend = c(length(unique(relfreq_diff_total$naam)) - 10 + 3),
+             arrow = arrow(type = "closed", length = unit(0.01, "npc")),
+             colour = "black") +
+    annotate("segment",
+           x = c(abs(max(relfreq_diff_dm$verschilfreq))),
+           y = c(10.5 - 0.5),
+           xend = c(abs(max(relfreq_diff_dm$verschilfreq))),
+           yend = c(10.5 - 2.5),
+           arrow = arrow(type = "closed", length = unit(0.01, "npc")),
+           colour = "black") +
+    annotate("text", label = c("De Moeren"),
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.05),
+             y = c(length(unique(relfreq_diff_total$naam)) - 10 + 1),
+             size = 2, hjust = "left", colour = "black", angle = 90) +
+    annotate("text", label = c("Oostelijke leemstreek"),
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.05),
+           y = c(10.5 - 0.5),
+           size = 2, hjust = "right", colour = "black",angle = 90)
+p
+
+ggsave(here(media_folder, "verschilfreq_total_mas_2018_2023.jpg"),
+       p + theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
+       dpi = 300,
+       width = 6,
+       height = 10)
 ```
 
 
