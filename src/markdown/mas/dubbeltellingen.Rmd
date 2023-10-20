@@ -284,12 +284,12 @@ design_2018_2022_sf <- plot_jaar_bezocht_sf %>%
 # Data preparatie
 
 ```{r}
-dubbeltgetelde_plots <- c("DM_18", "VL0086", "VL0091", "VL0105", "DM_1039.1", 
+dubbelgetelde_plots <- c("DM_18", "VL0086", "VL0091", "VL0105", "DM_1039.1", 
                           "DM_256.1.27", "DM_262.4", "DM_222.6", "DM_368.14", 
                           "DM_39.22", "DM_137.2")
 ```
 
-Johannes heeft in 2022 in De Moeren 11 plots als controle dubbel geteld. Het gaat om `r dubbeltgetelde_plots` (mail Johannes 13-01-2023).
+Johannes heeft in 2022 in De Moeren 11 plots als controle dubbel geteld. Het gaat om `r dubbelgetelde_plots` (mail Johannes 13-01-2023).
 
 1.  DM_18: de vrijwilliger heeft door omstandigheden dit punt tijdens de 2e ronde vergeten tellen. Uit een vergelijking van de andere drie rondes kan misschien wel wat gehaald worden. Bij dit punt merkten we ook dat de vrijwilliger "haas" in opmerkingen vermeldde i.p.v. ze in te voeren op kaart net zoals de vogelsoorten.
 2.  VL0086: oud mas-punt, dus tijdsreeks van 5 jaar. Daarmee kan een langere vergelijking gemaakt worden (variatie op tellingen over de jaren door dezelfde vrijwilliger)
@@ -308,7 +308,7 @@ We selecteren de data van deze plots in 2022.
 ```{r}
 dubbels_2022_raw <- mas_31370_pipeline1 %>%
   filter(jaar == 2022,
-         plotnaam %in% dubbeltgetelde_plots)
+         plotnaam %in% dubbelgetelde_plots)
 
 waarnemers_raw <- dubbels_2022_raw %>%
   st_drop_geometry() %>% 
@@ -398,7 +398,7 @@ We voegen variabelen toe gelinkt aan de plots. Enkel sbp is variabel.
 design_dubbels <- design_2018_2022_sf %>%
   st_drop_geometry() %>%
   filter(jaar == 2022,
-         plotnaam %in% dubbeltgetelde_plots) %>%
+         plotnaam %in% dubbelgetelde_plots) %>%
   select(-c(jaar, stratum))
 
 design_dubbels %>%
@@ -2590,7 +2590,7 @@ p_corr <- dubbels_corr_df %>%
                 aes(y = Estimate, ymin = Q2.5, ymax = Q97.5),
                 stat = "identity") +
     coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
-    labs(y = "aantal soorten", x = "aantal waarnemingen")
+    labs(y = "Aantal soorten", x = "Aantal waarnemingen")
 p_corr
 ```
 
@@ -2690,16 +2690,16 @@ p_aantallen <- rbind.data.frame(soorten_prof$hypothesis,
   ggplot(aes(y = Estimate, x = status)) + 
     geom_jitter(data = plot_data_df, aes(x = status, y = n), 
                 col = "firebrick", width = 0.2, height = 0, alpha = 0.1) +
-    geom_point(size = 4) +
+    geom_point(size = 3) +
     geom_errorbar(aes(ymin = CI.Lower, ymax = CI.Upper), 
                   width = 0.2) +
     coord_cartesian(ylim = c(0, NA)) +
-    labs(x = "", y = "aantal") +
+    labs(x = "", y = "Aantal") +
     facet_grid(~cat)
 p_aantallen
 ```
 
-Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden zouden noteren met broedcode 0, maar minder met broedcode > 0. Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_broed2$hypothesis$CI.Lower, 2)` tot `r round(effect_broed2$hypothesis$CI.Upper, 2)`).
+Verdere exploratie maakte duidelijk dat dit verschil in aantal soorten gelijkaardig is voor broedcode nul en broedcode groter dan nul (95 %  CI: `r round(effect_broed$hypothesis$CI.Lower, 2)` tot `r round(effect_broed$hypothesis$CI.Upper, 2)`). Model fit was niet ideaal en in werkelijkheid verwachten we zelfs dat het verschil in aantal soorten met broedcode 0 nog lager ligt voor vrijwilligers in vergelijking met het verschil bij broedcode groter dan 0 omdat het aantal nultellingen door het model onderschat werd. We hebben dus zeker geen bewijs dat er compensatie zou zijn bij de vrijwilligers waarbij ze wel meer soorten zouden noteren met broedcode 0, maar minder met broedcode > 0. Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_broed2$hypothesis$CI.Lower, 2)` tot `r round(effect_broed2$hypothesis$CI.Upper, 2)`).
 
 Ook vonden we dat er geen significant verschil was in aantal soorten (data broedcode > 0) tussen beginnende en ervaren vrijwilligers (95 %  CI: `r round(effect_ervaring$hypothesis$CI.Lower, 2)` tot `r round(effect_ervaring$hypothesis$CI.Upper, 2)`). Voor aantal waarnemingen konden we hetzelfde besluiten (95 %  CI: `r round(effect_ervaring2$hypothesis$CI.Lower, 2)` tot `r round(effect_ervaring2$hypothesis$CI.Upper, 2)`).
 
@@ -2713,6 +2713,7 @@ Ten slotte kozen we het aantal soorten en het aantal waarnemingen als maten om t
 theme_set(theme_inbo(transparent = TRUE))
 
 # Source
+dir.create("media", FALSE)
 media_folder <- here("media/dubbeltellingen")
 dir.create(media_folder, FALSE)
 ```
@@ -2720,7 +2721,7 @@ dir.create(media_folder, FALSE)
 ```{r}
 p_aantallen2 <- p_aantallen
 
-ggsave(here(media_folder, "vergelijk_aantallen.jpg"),
+ggsave(here(media_folder, "vergelijk_aantallen.pdf"),
        p_aantallen2,
        dpi = 300,
        width = 8,
@@ -2736,10 +2737,9 @@ p_corr2 <- p_corr +
                                           color = "darkgrey"),
          legend.margin = margin(6, 6, 6, 6))
 
-ggsave(here(media_folder, "correlatie_aantallen.jpg"),
+ggsave(here(media_folder, "correlatie_aantallen.pdf"),
        p_corr2,
        dpi = 300,
        width = 8,
        height = 6)
 ```
-

@@ -37,6 +37,7 @@ library(terra)
 
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(base::intersect)
+conflicted::conflicts_prefer(base::union)
 theme_set(theme_inbo(transparent = TRUE))
 
 # Source
@@ -120,7 +121,7 @@ p2 <- plot_detection_curve(ds_model, show_data = FALSE) +
 p_dist_methode <- cowplot::plot_grid(p1, p2, nrow = 1, labels = c("A.", "B."),
                                      rel_widths = c(1.5, 2))
 
-ggsave(here(out_folder_distance, "methode_distance.jpg"),
+ggsave(here(out_folder_distance, "methode_distance.pdf"),
        p_dist_methode,
        dpi = 300,
        width = 8,
@@ -176,7 +177,7 @@ table_area <- areas %>%
 p <- grid.arrange(p_moeren, p_leemstreek, table_area, 
                   layout_matrix = rbind(c(1, 2), c(1, 3)))
 
-ggsave(here(out_folder_distance, "per_jaar", "oppervlakte_strata.jpg"),
+ggsave(here(out_folder_distance, "per_jaar", "oppervlakte_strata.pdf"),
        p,
        dpi = 300,
        width = 8,
@@ -188,7 +189,7 @@ ggsave(here(out_folder_distance, "per_jaar", "oppervlakte_strata.jpg"),
 
 ```{r}
 for (spec in names(dsmodels_per_jaar)) {
-  file <- paste0("densiteit_per_jaar_", tolower(spec), ".jpg")
+  file <- paste0("densiteit_per_jaar_", tolower(spec), ".pdf")
   ds_model <- dsmodels_per_jaar[[spec]]
   p <- plot_densiteit(ds_model, spec, show_data = FALSE) +
     ggtitle("")
@@ -209,7 +210,7 @@ design_2018_2023_mas <- readRDS(file.path("output", "results",
                                           "design_2018_2023_mas.rds"))
 
 for (spec in names(dsmodels_per_jaar)) {
-  file <- paste0("densiteit_per_jaar_", tolower(spec), "_data", ".jpg")
+  file <- paste0("densiteit_per_jaar_", tolower(spec), "_data", ".pdf")
   ds_model <- dsmodels_per_jaar[[spec]]
   p <- plot_densiteit(ds_model, spec, show_data = TRUE,
                       design = design_2018_2023_mas,
@@ -228,7 +229,7 @@ for (spec in names(dsmodels_per_jaar)) {
 
 ```{r}
 spec <- "Veldleeuwerik"
-file <- paste0("detectiekans_per_jaar_simple_", tolower(spec), ".jpg")
+file <- paste0("detectiekans_per_jaar_simple_", tolower(spec), ".pdf")
 ds_model <- dsmodels_per_jaar[[spec]]
 p <- plot_detection_curve(ds_model)
 
@@ -260,7 +261,7 @@ p2 <- p2 +
 p <- grid.arrange(p1, p2, ncol = 2)
 
 ggsave(here(out_folder_distance, "per_jaar",
-            "detectiekans_per_jaar_vergelijking.jpg"),
+            "detectiekans_per_jaar_vergelijking.pdf"),
          p,
          dpi = 300,
          width = 10,
@@ -271,7 +272,7 @@ ggsave(here(out_folder_distance, "per_jaar",
 ```{r}
 for (i in seq_along(dsmodels_per_jaar)) {
   spec <- names(dsmodels_per_jaar)[i]
-  file <- paste0("detectiekans_per_jaar_", tolower(spec), ".jpg")
+  file <- paste0("detectiekans_per_jaar_", tolower(spec), ".pdf")
   ds_model <- dsmodels_per_jaar[[spec]] 
   variables <- names(ds_model$ddf$ds$aux$ddfobj$scale$parameters)
   
@@ -391,7 +392,7 @@ table_area <- areas %>%
 p <- grid.arrange(table_area, p_moeren, p_leemstreek, 
                   layout_matrix = rbind(c(2, 3, 3), c(1, 1, 1)))
 
-ggsave(here(out_folder_distance, "per_stratum", "oppervlakte_strata.jpg"),
+ggsave(here(out_folder_distance, "per_stratum", "oppervlakte_strata.pdf"),
        p,
        dpi = 300,
        width = 8,
@@ -414,7 +415,7 @@ species <- sort(intersect(names(dsmodels_per_stratum2022),
                           names(dsmodels_per_stratum2023)))
 
 for (spec in species) {
-  file <- paste0("densiteit_per_stratum_methods_", tolower(spec), ".jpg")
+  file <- paste0("densiteit_per_stratum_methods_", tolower(spec), ".pdf")
   ds_model2022 <- dsmodels_per_stratum2022[[spec]]
   ds_model2023 <- dsmodels_per_stratum2023[[spec]]
   
@@ -442,8 +443,8 @@ for (spec in species) {
 species <- sort(union(names(dsmodels_per_stratum2022),
                       names(dsmodels_per_stratum2023)))
 for (spec in species) {
-  file <- paste0("densiteit_per_stratum_", tolower(spec), ".jpg")
-  file2 <- paste0("densiteit_per_stratum_", tolower(spec), "_data" , ".jpg")
+  file <- paste0("densiteit_per_stratum_", tolower(spec), ".pdf")
+  file2 <- paste0("densiteit_per_stratum_", tolower(spec), "_data" , ".pdf")
   ds_model2022 <- dsmodels_per_stratum2022[[spec]]
   ds_model2023 <- dsmodels_per_stratum2023[[spec]]
   
@@ -489,7 +490,7 @@ for (spec in species) {
 
 ```{r}
 spec <- "Veldleeuwerik"
-file <- paste0("detectiekans_per_stratum_", tolower(spec), ".jpg")
+file <- paste0("detectiekans_per_stratum_", tolower(spec), ".pdf")
 ds_model2022 <- dsmodels_per_stratum2022[[spec]]
 ds_model2023 <- dsmodels_per_stratum2023[[spec]]
 
@@ -536,7 +537,7 @@ ggsave(here(out_folder_distance, "per_stratum", file),
 
 ```{r}
 for (spec in species) {
-  file <- paste0("detectiekans_per_stratum_simple_", tolower(spec), ".jpg")
+  file <- paste0("detectiekans_per_stratum_simple_", tolower(spec), ".pdf")
   ds_model2022 <- dsmodels_per_stratum2022[[spec]]
   ds_model2023 <- dsmodels_per_stratum2023[[spec]]
   
@@ -589,6 +590,7 @@ beheermodel_path <- here("src/markdown/mas/analyses_cache")
 ## Oostelijke leemstreek
 
 ```{r}
+dir.create("media/beheerovereenkomsten", FALSE)
 dir.create("media/beheerovereenkomsten/oostelijke_leemstreek", FALSE)
 mod_final_olpropsb_list <- readRDS(here(beheermodel_path,
                                         "mod_final_olpropsb_list.rds"))
@@ -621,7 +623,7 @@ area_prop_cats2 <- tibble(
 
 ```{r}
 for (spec in names(draws_olpropsb_list)) {
-  file <- paste0("beleidstoestand_", tolower(spec), "_fine.jpg")
+  file <- paste0("beleidstoestand_", tolower(spec), "_fine.pdf")
   
   p <- draws_olpropsb_list[[spec]] %>%
     left_join(area_prop_cats, by = join_by(area_prop_sb_cat)) %>%
@@ -670,7 +672,7 @@ for (spec in names(draws_olpropsb_list)) {
 
 ```{r}
 for (spec in names(draws_olpropsb_list_wt)) {
-  file <- paste0("beleidstoestand_", tolower(spec), "_coarse.jpg")
+  file <- paste0("beleidstoestand_", tolower(spec), "_coarse.pdf")
   
   p <- draws_olpropsb_list_wt[[spec]] %>%
     left_join(area_prop_cats2, by = join_by(area_prop_sb_cat)) %>%
@@ -718,6 +720,10 @@ for (spec in names(draws_olpropsb_list_wt)) {
 ```
 
 # Zichtbaarheid
+
+```{r}
+dir.create("media/visibility", FALSE)
+```
 
 ```{r}
 steekproef <- tar_read(steekproef_zichtbaarheid, store = targets_store) %>%
@@ -792,13 +798,12 @@ p1 <- ggplot() +
   geom_sf(data = vvi_res5sp10, aes(colour =  VVI)) +
   tidyterra::scale_fill_terrain_c() +
   labs(title = paste0("Telpunt Ol_4269.12 (CVVI = ",
-                      round(cvvi_res5sp10, 2), ")"))
+                      round(cvvi_res5sp10, 2), ")"),
+       fill = "Aantal")
 
-ggsave(here("media", "visibility", "voorbeeld_zichtbaarheid.jpg"),
+ggsave(here("media", "visibility", "voorbeeld_zichtbaarheid.pdf"),
        p1,
        dpi = 300,
        width = 8,
        height = 6)
 ```
-
-
