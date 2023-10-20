@@ -57,7 +57,9 @@ targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 # Source
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
+dir.create("media", FALSE)
 media_folder <- here("media", "data_exploratie")
+dir.create(media_folder, FALSE)
 ```
 
 # Inlezen data
@@ -401,7 +403,7 @@ p_summ <- gridExtra::grid.arrange(
   legend,
   ncol = 3, nrow = 4, layout_matrix = lay)
 
-ggsave(here(media_folder, "broedcode_mas_2022_2023.jpg"),
+ggsave(here(media_folder, "broedcode_mas_2022_2023.pdf"),
        p_summ,
        dpi = 300,
        width = 8,
@@ -495,7 +497,7 @@ p <- relfreqs_z %>%
     theme(legend.position = "top")
 p
 
-ggsave(here(media_folder, "soortenfreqs_zoogdieren_2022_2023.jpg"),
+ggsave(here(media_folder, "soortenfreqs_zoogdieren_2022_2023.pdf"),
        p,
        dpi = 300,
        width = 8,
@@ -622,7 +624,7 @@ p <- mas_vogels %>%
 
 p
 
-ggsave(here(media_folder, "tellingen_mas_2018_2023.jpg"),
+ggsave(here(media_folder, "tellingen_mas_2018_2023.pdf"),
        p,
        dpi = 300,
        width = 8,
@@ -653,7 +655,7 @@ p <- mas_vogels %>%
     labs(x = "Telperiode", y = "Aantal waarnemingen", fill = "Regio")
 p
 
-ggsave(here(media_folder, "waarnemingen_mas_2018_2023.jpg"),
+ggsave(here(media_folder, "waarnemingen_mas_2018_2023.pdf"),
        p,
        dpi = 300,
        width = 8,
@@ -689,7 +691,7 @@ p <- mas_vogels %>%
     labs(x = "Telperiode", y = "Aantal soorten", fill = "Regio")
 p
 
-ggsave(here(media_folder, "soorten_mas_2018_2023.jpg"),
+ggsave(here(media_folder, "soorten_mas_2018_2023.pdf"),
        p,
        dpi = 300,
        width = 8,
@@ -780,7 +782,7 @@ p <- freq_to_plot %>%
     guides(colour = guide_legend(override.aes = list(size = 2)))
 p
 
-ggsave(here(media_folder, "soortenfreqs_mas_2018_2023.jpg"),
+ggsave(here(media_folder, "soortenfreqs_mas_2018_2023.pdf"),
        p + theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
        dpi = 300,
        width = 6,
@@ -820,8 +822,8 @@ relfreq_diff_dm <- relfreqs_vogels %>%
            naam %in% doelsoorten)
 p <- relfreq_diff_dm %>%
   ggplot() +
-    geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed",
-               colour = "firebrick") +
+    geom_vline(xintercept = 0,
+               colour = "lightgrey") +
     geom_hline(yintercept = length(unique(relfreq_diff_dm$naam)) - 20 + 0.5,
                alpha = 0.2, linetype = "dashed") +
     geom_point(aes(x = verschilfreq, y = naam),
@@ -839,7 +841,7 @@ p <- relfreq_diff_dm %>%
     guides(colour = guide_legend(override.aes = list(size = 3)))
 p
 
-ggsave(here(media_folder, "verschilfreq_dm_mas_2018_2023.jpg"),
+ggsave(here(media_folder, "verschilfreq_dm_mas_2018_2023.pdf"),
        p + theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
        dpi = 300,
        width = 6,
@@ -864,7 +866,6 @@ verschil_dm_2018_2023 <- relfreqs_vogels %>%
   mutate(rang = row_number()) %>%
   ungroup()
 ```
-
 
 Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in **de Oostelijke leemstreek** dan in De Moeren:
 
@@ -915,8 +916,8 @@ relfreq_diff_ol <- relfreqs_vogels %>%
            naam %in% doelsoorten)
 p <- relfreq_diff_ol %>%
   ggplot() +
-    geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed",
-               colour = "firebrick") +
+    geom_vline(xintercept = 0,
+               colour = "lightgrey") +
     geom_hline(yintercept = length(unique(relfreq_diff_ol$naam)) - 20 + 0.5,
                alpha = 0.2, linetype = "dashed") +
     geom_point(aes(x = verschilfreq, y = naam),
@@ -934,7 +935,7 @@ p <- relfreq_diff_ol %>%
     guides(colour = guide_legend(override.aes = list(size = 3)))
 p
 
-ggsave(here(media_folder, "verschilfreq_ol_mas_2018_2023.jpg"),
+ggsave(here(media_folder, "verschilfreq_ol_mas_2018_2023.pdf"),
        p + theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
        dpi = 300,
        width = 6,
@@ -983,30 +984,30 @@ p <- relfreq_diff_total %>%
           panel.spacing = unit(1.2, "lines")) +
     guides(colour = guide_legend(override.aes = list(size = 3))) +
     annotate("segment",
-             x = c(abs(max(relfreq_diff_dm$verschilfreq))),
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
              y = c(length(unique(relfreq_diff_total$naam)) - 10 + 1),
-             xend = c(abs(max(relfreq_diff_dm$verschilfreq))),
+             xend = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
              yend = c(length(unique(relfreq_diff_total$naam)) - 10 + 3),
-             arrow = arrow(type = "closed", length = unit(0.01, "npc")),
+             arrow = arrow(type = "closed", length = unit(0.015, "npc")),
              colour = "black") +
     annotate("segment",
-           x = c(abs(max(relfreq_diff_dm$verschilfreq))),
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
            y = c(10.5 - 0.5),
-           xend = c(abs(max(relfreq_diff_dm$verschilfreq))),
+           xend = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
            yend = c(10.5 - 2.5),
-           arrow = arrow(type = "closed", length = unit(0.01, "npc")),
+           arrow = arrow(type = "closed", length = unit(0.015, "npc")),
            colour = "black") +
     annotate("text", label = c("De Moeren"),
-             x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.05),
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.03),
              y = c(length(unique(relfreq_diff_total$naam)) - 10 + 1),
              size = 2, hjust = "left", colour = "black", angle = 90) +
     annotate("text", label = c("Oostelijke leemstreek"),
-           x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.05),
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.03),
            y = c(10.5 - 0.5),
-           size = 2, hjust = "right", colour = "black",angle = 90)
+           size = 2, hjust = "right", colour = "black", angle = 90)
 p
 
-ggsave(here(media_folder, "verschilfreq_total_mas_2018_2023.jpg"),
+ggsave(here(media_folder, "verschilfreq_total_mas_2018_2023.pdf"),
        p + theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
        dpi = 300,
        width = 6,
@@ -1249,7 +1250,7 @@ p <- opp_evolutie %>%
 p
 
 ggsave(here(media_folder,
-            paste0("soortbeschermingsmaatregelen1_2018_2023.jpg")),
+            paste0("soortbeschermingsmaatregelen1_2018_2023.pdf")),
        p,
        dpi = 300,
        width = 8,
@@ -1274,7 +1275,7 @@ p <- mas_vogels %>%
           legend.title = element_blank())
 p
 
-ggsave(here(media_folder, paste0("soortbeschermingsmaatregelen2_2018_2023.jpg")),
+ggsave(here(media_folder, paste0("soortbeschermingsmaatregelen2_2018_2023.pdf")),
        p,
        dpi = 300,
        width = 8,

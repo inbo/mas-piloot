@@ -2713,6 +2713,7 @@ Ten slotte kozen we het aantal soorten en het aantal waarnemingen als maten om t
 theme_set(theme_inbo(transparent = TRUE))
 
 # Source
+dir.create("media", FALSE)
 media_folder <- here("media/dubbeltellingen")
 dir.create(media_folder, FALSE)
 ```
