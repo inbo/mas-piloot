@@ -867,6 +867,7 @@ ggsave(here("media", "verklarende_variabelen", "perceelsgroottes.pdf"),
 ```
 
 # Nabijheid natuurgebieden
+## Kaartje
 
 ```{r}
 buffer_km <- 20
@@ -905,6 +906,60 @@ nb_wallonie <- bind_rows(nb_wallonie_1,
 ```
 
 ```{r}
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
+
+# Selecteer (multi)polygonen binnen buffered perimeter (ev. per gebied)
+buffer_layers_to_perimeter <- function(layer, buffer_km, group_var = NULL) {
+  buffer_to_meters <- buffer_km * 1000
+
+  if (is.null(group_var)) {
+    layer <- layer %>%
+      rownames_to_column("id")
+
+    polygons <- perimeters %>%
+      st_buffer(buffer_to_meters) %>%
+      st_intersection(layer) %>%
+      pull(id)
+
+    out <- layer %>%
+      filter(id %in% polygons) %>%
+      select(-id)
+  } else {
+    polygons <- perimeters %>%
+      st_buffer(buffer_to_meters) %>%
+      st_intersection(layer) %>%
+      pull(group_var)
+
+    out <- layer %>%
+      filter(!!sym(group_var) %in% polygons)
+  }
+  return(out)
+}
+
+# Opsplitsen in aparte polygonen (ev. mergen per gebied eerst)
+splits_polys <- function(layer, id_name, group_var = NULL) {
+  if (is.null(group_var)) {
+    out <- layer %>%
+      st_cast("POLYGON") %>%
+      rownames_to_column("id") %>%
+      mutate(id = paste(id_name, id, sep = "_")) %>%
+      select(id)
+  } else {
+    out <- layer %>%
+      group_by_at(group_var) %>%
+      summarise() %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON") %>%
+      rownames_to_column("id") %>%
+      mutate(id = paste(id_name, id, sep = "_")) %>%
+      select(id)
+  }
+  return(out)
+}
+```
+
+```{r}
 nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, buffer_km, 
                                              group_var = "naamdossie")
 nb_nederland1  <- buffer_layers_to_perimeter(nb_nederland, buffer_km)
@@ -922,10 +977,12 @@ nb_wallonie2   <- nb_wallonie1 %>%
   splits_polys("WAL")
 ```
 
+
 ```{r}
 # Visualise
 map1 <- st_buffer(perimeters, buffer_km * 1000)
-mapview::mapview(map1, color = "red", 
+mapview::mapviewOptions(fgb = FALSE) # werkt anders niet
+m <- mapview::mapview(map1, color = "red", 
                  alpha.regions = 0, legend = FALSE) + 
   mapview::mapview(select(nb_vlaanderen2, geometry), layer = "Vlaanderen",
                    col.regions = "yellow") + 
@@ -934,6 +991,11 @@ mapview::mapview(map1, color = "red",
   mapview::mapview(select(nb_frankrijk2, geometry), layer = "Frankrijk") + 
   mapview::mapview(select(nb_wallonie2, geometry), layer = "Wallonië",
                    col.regions = "red")
+
+
+mapview::mapshot(m, file = here("media", "verklarende_variabelen",
+                                "natuurgebieden_perimeters.png"))
 ```
+
 
 
