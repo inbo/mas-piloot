@@ -828,7 +828,7 @@ p <- relfreq_diff_dm %>%
                alpha = 0.2, linetype = "dashed") +
     geom_point(aes(x = verschilfreq, y = naam),
                size = 1) +
-    labs(y = "", x = "Relatieve frequentie") +
+    labs(y = "", x = "Verschil in relatieve frequentie") +
     facet_wrap(~jaar, nrow = 3) +
     scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
     coord_cartesian(xlim = c(0 - abs(max(relfreq_diff_dm$verschilfreq)),
@@ -922,7 +922,7 @@ p <- relfreq_diff_ol %>%
                alpha = 0.2, linetype = "dashed") +
     geom_point(aes(x = verschilfreq, y = naam),
                size = 1) +
-    labs(y = "", x = "Relatieve frequentie") +
+    labs(y = "", x = "Verschil in relatieve frequentie") +
     facet_wrap(~jaar, nrow = 3) +
     scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
     coord_cartesian(xlim = c(0 - abs(max(relfreq_diff_ol$verschilfreq)),
@@ -972,7 +972,7 @@ p <- relfreq_diff_total %>%
                alpha = 0.2, linetype = "dashed") +
     geom_point(aes(x = verschilfreq, y = naam),
                size = 1) +
-    labs(y = "", x = "Relatieve frequentie") +
+    labs(y = "", x = "Verschil in relatieve frequentie") +
     facet_wrap(~jaar, nrow = 3) +
     scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
     coord_cartesian(xlim = c(0 - abs(max(relfreq_diff_dm$verschilfreq)),
