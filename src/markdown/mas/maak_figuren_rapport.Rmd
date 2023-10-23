@@ -63,6 +63,14 @@ try(assignInNamespace(
   ns = "targets"))
 ```
 
+```{r}
+data_path <- here("data", "processed")
+mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
+mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
+                        crs = 31370)
+plot_data_sf <- st_as_sf(mas_data_df, coords = c("x_plot", "y_plot"), 
+                         crs = 31370)
+```
 
 # Distance sampling
 
@@ -803,6 +811,56 @@ p1 <- ggplot() +
 
 ggsave(here("media", "visibility", "voorbeeld_zichtbaarheid.pdf"),
        p1,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+# Perceelsgroottes
+
+```{r}
+dir.create("media/verklarende_variabelen", FALSE)
+```
+
+```{r}
+# Filter and load
+testcase <- plot_data_sf %>%
+  filter(plotnaam %in% c("DM_386.7", "DM_44.45"),
+         jaar == 2022) %>%
+  distinct(plotnaam, geometry)
+lbg_binding <- st_read(file.path("data", "landbouwgebruikspercelen", 
+                        "Shapefile", "Lbgbrprc22.shp")) %>%
+  st_transform(crs = 31370)
+```
+
+```{r}
+# Intersection
+intersect <- st_intersection(testcase %>% st_buffer(300), lbg_binding)
+
+out_df_testcase <- lbg_binding %>% 
+  filter(REF_ID %in% intersect$REF_ID) %>%       # Filter percelen
+  full_join(st_drop_geometry(intersect)) %>% # Get point ids back
+  filter(!is.na(GWSNAM_H)) %>%
+  
+  # Join neighbouring polygons by main crop
+  group_by(plotnaam, GWSNAM_H) %>%
+  summarise() %>%
+  st_cast("MULTIPOLYGON") %>%
+  st_cast("POLYGON") %>%
+  ungroup()
+```
+
+```{r}
+# Visualise
+p <- ggplot() +
+  geom_sf(data = out_df_testcase, fill = alpha("cornflowerblue", 0.5)) +
+  geom_sf(data = st_buffer(testcase, 300), fill = alpha("white", 0),
+          linewidth = 1.5, colour = "firebrick") +
+  geom_sf(data = testcase, colour = "firebrick", size = 2) +
+  theme(plot.margin = unit(c(5.5, 18.5, 5.5, 5.5), "pt"))
+
+ggsave(here("media", "verklarende_variabelen", "perceelsgroottes.pdf"),
+       p,
        dpi = 300,
        width = 8,
        height = 6)
