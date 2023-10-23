@@ -761,8 +761,12 @@ highlight <- function(x, pat, color="black", family="") {
 
 ```{r soortenfreqs-langetermijn, fig.height = 200/25.4}
 freq_to_plot <- relfreqs_vogels %>%
-  mutate(naam = reorder(naam, relfreq, FUN = "mean",
-                        decreasing = FALSE)) %>%
+  group_by(regio, naam) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
+  ungroup() %>%
+  mutate(naam = reorder(naam, gemiddelde_freq, decreasing = FALSE)) %>%
   filter(as.numeric(naam) > length(unique(naam)) - 20 |
            naam %in% doelsoorten)
 p <- freq_to_plot %>%
