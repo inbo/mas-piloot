@@ -865,3 +865,75 @@ ggsave(here("media", "verklarende_variabelen", "perceelsgroottes.pdf"),
        width = 8,
        height = 6)
 ```
+
+# Nabijheid natuurgebieden
+
+```{r}
+buffer_km <- 20
+```
+
+```{r}
+# Inlezen kaarten
+nb_vlaanderen <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Vlaanderen/ps_nbhp.shp"))
+nb_nederland  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Nederland/inspire-pv-ps.nlps-nnn.gml")) %>%
+  st_transform(31370)
+nb_frankrijk  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Frankrijk/znieff1/znieff1.shp")) %>%
+  st_transform(31370)
+nb_wallonie_1  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__ZHIB.shp"))
+nb_wallonie_2  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RN_DOM.shp"))
+nb_wallonie_3  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RN_AGR.shp"))
+nb_wallonie_4  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RES_FOR.shp"))
+nb_wallonie_5  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__CSIS.shp"))
+nb_wallonie_6  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/NATURA_2000_SHAPE_31370/NATURA2000__PERIMETRES.shp"))
+
+nb_wallonie <- bind_rows(nb_wallonie_1,
+                         nb_wallonie_2,
+                         nb_wallonie_3,
+                         nb_wallonie_4,
+                         nb_wallonie_5, 
+                         nb_wallonie_6) %>%
+  st_transform(31370)
+```
+
+```{r}
+nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, buffer_km, 
+                                             group_var = "naamdossie")
+nb_nederland1  <- buffer_layers_to_perimeter(nb_nederland, buffer_km)
+nb_frankrijk1  <- buffer_layers_to_perimeter(nb_frankrijk, buffer_km, 
+                                             group_var = "NOM")
+nb_wallonie1   <- buffer_layers_to_perimeter(nb_wallonie, buffer_km)
+```
+
+```{r}
+nb_vlaanderen2 <- splits_polys(nb_vlaanderen1, "VL", group_var = "naamdossie")
+nb_nederland2  <- splits_polys(nb_nederland1, "NL")
+nb_frankrijk2  <- splits_polys(nb_frankrijk1, "FR", group_var = "NOM")
+nb_wallonie2   <- nb_wallonie1 %>%
+  summarise(geometry = st_union(geometry)) %>%
+  splits_polys("WAL")
+```
+
+```{r}
+# Visualise
+map1 <- st_buffer(perimeters, buffer_km * 1000)
+mapview::mapview(map1, color = "red", 
+                 alpha.regions = 0, legend = FALSE) + 
+  mapview::mapview(select(nb_vlaanderen2, geometry), layer = "Vlaanderen",
+                   col.regions = "yellow") + 
+  mapview::mapview(select(nb_nederland2, geometry), layer = "Nederland", 
+                   col.regions = "orange") +
+  mapview::mapview(select(nb_frankrijk2, geometry), layer = "Frankrijk") + 
+  mapview::mapview(select(nb_wallonie2, geometry), layer = "Wallonië",
+                   col.regions = "red")
+```
+
+
