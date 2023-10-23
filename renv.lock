@@ -500,6 +500,18 @@
       ],
       "Hash": "74a64813f17b492da9c6afda6b128e3d"
     },
+    "arrayhelpers": {
+      "Package": "arrayhelpers",
+      "Version": "1.1-0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "methods",
+        "svUnit",
+        "utils"
+      ],
+      "Hash": "3d4e52d458784c335af3846f2de64f75"
+    },
     "arrow": {
       "Package": "arrow",
       "Version": "12.0.0",
@@ -1095,6 +1107,23 @@
       ],
       "Hash": "2d162e8f29eec5526e362a7415d980ab"
     },
+    "cowplot": {
+      "Package": "cowplot",
+      "Version": "1.1.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "ggplot2",
+        "grDevices",
+        "grid",
+        "gtable",
+        "methods",
+        "rlang",
+        "scales"
+      ],
+      "Hash": "b418e8423699d11c7f2087c2bfd07da2"
+    },
     "cpp11": {
       "Package": "cpp11",
       "Version": "0.4.3",
@@ -1681,6 +1710,30 @@
       ],
       "Hash": "9122b3958e749badb5c939f498038b57"
     },
+    "ggdist": {
+      "Package": "ggdist",
+      "Version": "3.3.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "cli",
+        "distributional",
+        "dplyr",
+        "ggplot2",
+        "glue",
+        "grid",
+        "numDeriv",
+        "quadprog",
+        "rlang",
+        "scales",
+        "tibble",
+        "tidyselect",
+        "vctrs",
+        "withr"
+      ],
+      "Hash": "d988f7c103c4354489f42e42e4889f9c"
+    },
     "ggforce": {
       "Package": "ggforce",
       "Version": "0.4.1",
@@ -1789,6 +1842,21 @@
         "utils"
       ],
       "Hash": "f5de88d5dcd1c4dc81920dbe146f3439"
+    },
+    "ggtext": {
+      "Package": "ggtext",
+      "Version": "0.1.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "ggplot2",
+        "grid",
+        "gridtext",
+        "rlang",
+        "scales"
+      ],
+      "Hash": "c5ba8f5056487403a299b91984be86ca"
     },
     "gh": {
       "Package": "gh",
@@ -1941,6 +2009,26 @@
         "utils"
       ],
       "Hash": "7d7f283939f563670a697165b2cf5560"
+    },
+    "gridtext": {
+      "Package": "gridtext",
+      "Version": "0.1.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "Rcpp",
+        "curl",
+        "grDevices",
+        "grid",
+        "jpeg",
+        "markdown",
+        "png",
+        "rlang",
+        "stringr",
+        "xml2"
+      ],
+      "Hash": "05e4f5fffb1eecfeaac9ea0b7f255fef"
     },
     "grtsdb": {
       "Package": "grtsdb",
@@ -2369,6 +2457,16 @@
       ],
       "Hash": "5baae149f1082f466df9d1442ba7aa65"
     },
+    "jpeg": {
+      "Package": "jpeg",
+      "Version": "0.1-10",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "031a0b683d001a7519202f0628fc0358"
+    },
     "jquerylib": {
       "Package": "jquerylib",
       "Version": "0.1.4",
@@ -2671,7 +2769,7 @@
       "Repository": "https://inbo.r-universe.dev",
       "RemoteUrl": "https://github.com/tidyverse/lubridate",
       "RemoteRef": "HEAD",
-      "RemoteSha": "87afddf0a9c583ad2e0bd15631e08c9469a82a0a",
+      "RemoteSha": "b0440b09619b7d4a2b11f207ca0c4e2416ba3f5b",
       "Requirements": [
         "R",
         "generics",
@@ -3419,6 +3517,16 @@
         "stringfish"
       ],
       "Hash": "f40adbb81e0f84f4292c1a1a3e9dfaa5"
+    },
+    "quadprog": {
+      "Package": "quadprog",
+      "Version": "1.5-8",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "5f919ae5e7f83a6f91dcf2288943370d"
     },
     "quantreg": {
       "Package": "quantreg",
@@ -4196,6 +4304,17 @@
       ],
       "Hash": "d683341b1fa2e8d817efde27d6e6d35b"
     },
+    "svUnit": {
+      "Package": "svUnit",
+      "Version": "1.0.6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "utils"
+      ],
+      "Hash": "894d0aff9585344af4ab78e2b4d60ab7"
+    },
     "svglite": {
       "Package": "svglite",
       "Version": "2.1.1",
@@ -4393,6 +4512,30 @@
         "vctrs"
       ],
       "Hash": "a84e2cc86d07289b3b6f5069df7a004c"
+    },
+    "tidybayes": {
+      "Package": "tidybayes",
+      "Version": "3.0.4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "arrayhelpers",
+        "coda",
+        "dplyr",
+        "ggdist",
+        "ggplot2",
+        "magrittr",
+        "methods",
+        "posterior",
+        "rlang",
+        "tibble",
+        "tidyr",
+        "tidyselect",
+        "vctrs",
+        "withr"
+      ],
+      "Hash": "93b666ce4737ac72e9b8a37eab9175e0"
     },
     "tidyr": {
       "Package": "tidyr",
