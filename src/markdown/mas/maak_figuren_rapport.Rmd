@@ -997,5 +997,76 @@ mapview::mapshot(m, file = here("media", "verklarende_variabelen",
                                 "natuurgebieden_perimeters.png"))
 ```
 
+## Vervalfuncties
 
+```{r}
+# Calculate weights for exponential and logistic decay functions
+calc_weights <- function(x, max_dist, m = NULL, b = NULL, mode = "logistic") {
+  if (mode == "logistic") {
+    # Parameters
+    if (is.null(m)) {
+      m <- 0.5
+    }
+    if (is.null(b)) {
+      b <- 8
+    }
+
+    # Rescale
+    m <- m * max_dist
+    b <- b / max_dist
+
+    # Function
+    out <- 1 / (1 + exp((b) * (x - m)))
+
+  } else if (mode == "exponential") {
+    # Parameters
+    if (is.null(m)) {
+      m <- 1
+    }
+    if (is.null(b)) {
+      b <- 6
+    }
+
+    # Rescale
+    b <- b / max_dist
+
+    # Function
+    out <- 1 / (1 + ((b) * x^(m)))
+
+  } else {
+    stop("Currently only logistic and exponential are supported", call. = FALSE)
+  }
+
+  return(out)
+}
+```
+
+```{r}
+max_distance <- 3000
+p <- tibble(dist = seq(0, max_distance, 1)) %>% 
+  mutate("exponentieel\n(m = 1.37, b = 1)" = calc_weights(
+    dist, max_distance, b = 1, m = 1.37, mode = "exponential")) %>%
+  mutate("logistisch\n(m = 0.5, b = 8)" = calc_weights(
+    dist, max_distance, mode = "logistic")) %>%
+  pivot_longer(cols = c("exponentieel\n(m = 1.37, b = 1)", 
+                        "logistisch\n(m = 0.5, b = 8)"), 
+               names_to = "Vervalfunctie", values_to = "w") %>%
+  ggplot() +
+    geom_line(aes(x = dist, y = w, colour = Vervalfunctie), linewidth = 2) +
+    coord_cartesian(ylim = c(0, 1)) +
+    labs(x = "Afstand tot telpunt", y = "Gewichten") +
+    theme(legend.spacing.y = unit(0.2, 'cm'),
+      legend.position = c(1, 1),
+      legend.justification = c(1, 1),
+      legend.background = element_rect(fill = "white", color = "darkgrey"),
+      legend.margin = margin(6, 6, 6, 6)
+      ) +
+    guides(colour = guide_legend(byrow = TRUE))
+
+ggsave(here("media", "verklarende_variabelen", "distance_decay.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
 
