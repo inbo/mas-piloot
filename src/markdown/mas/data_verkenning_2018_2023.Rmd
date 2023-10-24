@@ -1114,6 +1114,134 @@ ggsave(here(media_folder, "verschilfreq_total_mas_2018_2023.pdf"),
        height = 10)
 ```
 
+```{r}
+relfreq_diff_total2 <- relfreqs_vogels %>%
+  select(-n) %>%
+  filter(jaar %in% 2018:2021) %>%
+  pivot_wider(names_from = regio,
+              values_from = relfreq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  mutate(naam = reorder(naam, verschilfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 10 |
+           as.numeric(naam) <= 10|
+           naam %in% doelsoorten)
+
+p_relfreq_diff_total2 <- relfreq_diff_total2 %>%
+  ggplot() +
+    geom_vline(xintercept = 0,
+               colour = "lightgrey") +
+    geom_hline(yintercept = c(10.5,
+                length(unique(relfreq_diff_total2$naam)) - 10 + 0.5),
+               alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = verschilfreq, y = naam),
+               size = 1) +
+    labs(y = "", x = "Verschil in relatieve frequentie") +
+    facet_wrap(~jaar, nrow = 3) +
+    scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+    coord_cartesian(xlim = c(0 - abs(max(relfreq_diff_dm$verschilfreq)),
+                             0 + abs(max(relfreq_diff_dm$verschilfreq)))) +
+    scale_x_continuous(breaks = seq(-1, 1, 0.25)) +
+    theme(legend.position = "top",
+          axis.text = element_text(size = 8),
+          axis.text.y = element_markdown(),
+          panel.spacing = unit(1.2, "lines")) +
+    guides(colour = guide_legend(override.aes = list(size = 3))) +
+    annotate("segment",
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+             y = c(length(unique(relfreq_diff_total2$naam)) - 10 + 1),
+             xend = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+             yend = c(length(unique(relfreq_diff_total2$naam)) - 10 + 3),
+             arrow = arrow(type = "closed", length = unit(0.015, "npc")),
+             colour = "black") +
+    annotate("segment",
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+           y = c(10.5 - 0.5),
+           xend = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+           yend = c(10.5 - 2.5),
+           arrow = arrow(type = "closed", length = unit(0.015, "npc")),
+           colour = "black") +
+    annotate("text", label = c("De Moeren"),
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.03),
+             y = c(length(unique(relfreq_diff_total2$naam)) - 10 + 1),
+             size = 2, hjust = "left", colour = "black", angle = 90) +
+    annotate("text", label = c("Oostelijke leemstreek"),
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.03),
+           y = c(10.5 - 0.5),
+           size = 2, hjust = "right", colour = "black", angle = 90)
+
+ggsave(here(media_folder, "verschilfreq_total_mas_2018_2021.pdf"),
+       p_relfreq_diff_total2 +
+         theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
+       dpi = 300,
+       width = 8,
+       height = 8)
+
+relfreq_diff_total3 <- relfreqs_vogels %>%
+  select(-n) %>%
+  filter(jaar %in% 2022:2023) %>%
+  pivot_wider(names_from = regio,
+              values_from = relfreq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  mutate(naam = reorder(naam, verschilfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 10 |
+           as.numeric(naam) <= 10|
+           naam %in% doelsoorten)
+
+p_relfreq_diff_total3 <- relfreq_diff_total3 %>%
+  ggplot() +
+    geom_vline(xintercept = 0,
+               colour = "lightgrey") +
+    geom_hline(yintercept = c(10.5,
+                length(unique(relfreq_diff_total3$naam)) - 10 + 0.5),
+               alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = verschilfreq, y = naam),
+               size = 1) +
+    labs(y = "", x = "Verschil in relatieve frequentie") +
+    facet_wrap(~jaar, nrow = 1) +
+    scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+    coord_cartesian(xlim = c(0 - abs(max(relfreq_diff_dm$verschilfreq)),
+                             0 + abs(max(relfreq_diff_dm$verschilfreq)))) +
+    scale_x_continuous(breaks = seq(-1, 1, 0.25)) +
+    theme(legend.position = "top",
+          axis.text = element_text(size = 8),
+          axis.text.y = element_markdown(),
+          panel.spacing = unit(1.2, "lines")) +
+    guides(colour = guide_legend(override.aes = list(size = 3))) +
+    annotate("segment",
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+             y = c(length(unique(relfreq_diff_total3$naam)) - 10 + 1),
+             xend = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+             yend = c(length(unique(relfreq_diff_total3$naam)) - 10 + 3),
+             arrow = arrow(type = "closed", length = unit(0.015, "npc")),
+             colour = "black") +
+    annotate("segment",
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+           y = c(10.5 - 0.5),
+           xend = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+           yend = c(10.5 - 2.5),
+           arrow = arrow(type = "closed", length = unit(0.015, "npc")),
+           colour = "black") +
+    annotate("text", label = c("De Moeren"),
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.03),
+             y = c(length(unique(relfreq_diff_total3$naam)) - 10 + 1),
+             size = 2, hjust = "left", colour = "black", angle = 90) +
+    annotate("text", label = c("Oostelijke leemstreek"),
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.03),
+           y = c(10.5 - 0.5),
+           size = 2, hjust = "right", colour = "black", angle = 90)
+
+ggsave(here(media_folder, "verschilfreq_total_mas_2022_2023.pdf"),
+       p_relfreq_diff_total3 +
+         theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
 
 ## Doelsoorten
 
