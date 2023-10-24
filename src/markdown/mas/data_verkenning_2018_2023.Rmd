@@ -824,6 +824,71 @@ ggsave(here(media_folder, "soortenfreqs_mas_2018_2023.pdf"),
        height = 10)
 ```
 
+```{r}
+freq_to_plot2 <- relfreqs_vogels %>%
+  filter(jaar %in% 2018:2021) %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 20 |
+           naam %in% doelsoorten)
+
+p_freq_to_plot2 <- freq_to_plot2 %>%
+  ggplot() +
+  geom_vline(xintercept = 0, alpha = 0.2, linetype = "dashed") +
+  geom_hline(yintercept = length(unique(freq_to_plot2$naam)) - 20 + 0.5,
+             alpha = 0.2, linetype = "dashed") +
+  geom_point(aes(x = relfreq, y = naam, colour = regio),
+             size = 1) +
+  labs(y = "", x = "Relatieve frequentie", colour = "Regio") +
+  facet_wrap(~jaar, nrow = 2) +
+  scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  theme(legend.position = "top",
+        axis.text = element_text(size = 8),
+        axis.text.y = element_markdown(),
+        panel.spacing = unit(0.7, "lines"),
+        plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")) +
+  guides(colour = guide_legend(override.aes = list(size = 2)))
+
+ggsave(here(media_folder, "soortenfreqs_mas_2018_2021.pdf"),
+       p_freq_to_plot2,
+       dpi = 300,
+       width = 8,
+       height = 8)
+
+freq_to_plot3 <- relfreqs_vogels %>%
+  filter(jaar %in% 2022:2023) %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 20 |
+           naam %in% doelsoorten)
+
+p_freq_to_plot3 <- freq_to_plot3 %>%
+  ggplot() +
+  geom_vline(xintercept = 0, alpha = 0.2, linetype = "dashed") +
+  geom_hline(yintercept = length(unique(freq_to_plot3$naam)) - 20 + 0.5,
+             alpha = 0.2, linetype = "dashed") +
+  geom_point(aes(x = relfreq, y = naam, colour = regio),
+             size = 1) +
+  labs(y = "", x = "Relatieve frequentie", colour = "Regio") +
+  facet_wrap(~jaar, nrow = 1) +
+  scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  theme(legend.position = "top",
+        axis.text = element_text(size = 8),
+        axis.text.y = element_markdown(),
+        panel.spacing = unit(0.7, "lines"),
+        plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")) +
+  guides(colour = guide_legend(override.aes = list(size = 2)))
+
+
+ggsave(here(media_folder, "soortenfreqs_mas_2022_2023.pdf"),
+       p_freq_to_plot3,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
 > Opgepast! In de volgende tabellen wordt de gemiddelde relatieve frequentie berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
 
 Top 20 van soorten die in termen van verschil in gemiddelde relatieve frequentie van voorkomen meer voorkomen in **De Moeren** dan in de Oostelijke leemstreek:
