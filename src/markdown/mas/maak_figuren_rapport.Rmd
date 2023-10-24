@@ -652,7 +652,7 @@ for (spec in names(draws_olpropsb_list)) {
                                     "firebrick1",
                                     "skyblue"),
                         drop = FALSE) +
-      labs(y = "Procentueel verschil t.o.v. nulbeleid",
+      labs(y = "Procentueel verschil met telpunten zonder maatregelen",
            x = "",
            fill = "Verschil") +
       scale_y_continuous(
@@ -662,7 +662,7 @@ for (spec in names(draws_olpropsb_list)) {
         sec.axis = sec_axis(~ exp(.),
           breaks = index_breaks_rev(),
           labels = index_labels_rev(),
-          name = "Relatief verschil t.o.v. nulbeleid")
+          name = "Relatief verschil met telpunten zonder maatregelen")
         ) +
       theme(
         legend.position = "right",
@@ -701,7 +701,7 @@ for (spec in names(draws_olpropsb_list_wt)) {
                                     "firebrick1",
                                     "skyblue"),
                         drop = FALSE) +
-      labs(y = "Procentueel verschil t.o.v. nulbeleid",
+      labs(y = "Procentueel verschil met telpunten zonder maatregelen",
            x = "",
            fill = "Verschil") +
       scale_y_continuous(
@@ -711,7 +711,7 @@ for (spec in names(draws_olpropsb_list_wt)) {
         sec.axis = sec_axis(~ exp(.),
           breaks = index_breaks_rev(),
           labels = index_labels_rev(),
-          name = "Relatief verschil t.o.v. nulbeleid")
+          name = "Relatief verschil met telpunten zonder maatregelen")
         ) +
       theme(
         legend.position = "right",
@@ -985,12 +985,13 @@ mapview::mapviewOptions(fgb = FALSE) # werkt anders niet
 m <- mapview::mapview(map1, color = "red", 
                  alpha.regions = 0, legend = FALSE) + 
   mapview::mapview(select(nb_vlaanderen2, geometry), layer = "Vlaanderen",
-                   col.regions = "yellow") + 
+                   col.regions = "darkgreen", color = "darkgreen") + 
   mapview::mapview(select(nb_nederland2, geometry), layer = "Nederland", 
-                   col.regions = "orange") +
-  mapview::mapview(select(nb_frankrijk2, geometry), layer = "Frankrijk") + 
+                   col.regions = "orange", color = "orange") + 
+  mapview::mapview(select(nb_frankrijk2, geometry), layer = "Frankrijk", 
+                   col.regions = "blue", color = "blue") +
   mapview::mapview(select(nb_wallonie2, geometry), layer = "Wallonië",
-                   col.regions = "red")
+                   col.regions = "red", color = "red")
 
 
 mapview::mapshot(m, file = here("media", "verklarende_variabelen",
@@ -1054,7 +1055,7 @@ p <- tibble(dist = seq(0, max_distance, 1)) %>%
   ggplot() +
     geom_line(aes(x = dist, y = w, colour = Vervalfunctie), linewidth = 2) +
     coord_cartesian(ylim = c(0, 1)) +
-    labs(x = "Afstand tot telpunt", y = "Gewichten") +
+    labs(x = "Afstand tot telpunt (m)", y = "Gewichten") +
     theme(legend.spacing.y = unit(0.2, 'cm'),
       legend.position = c(1, 1),
       legend.justification = c(1, 1),
