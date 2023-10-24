@@ -417,6 +417,48 @@ for (spec in sort(doelsoorten)) {
 }
 ```
 
+```{r}
+p <- doel_df %>% 
+  st_drop_geometry() %>%
+  mutate(plotnaam = paste(plotnaam, jaar, sep = "_")) %>%
+  group_by(regio, plotnaam, stratum, openheid, sbp, periode_in_jaar, naam) %>%
+  summarise(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  full_join(bezoekenlijst_2022_2023 %>% 
+              mutate(plotnaam = paste(plotnaam, jaar, sep = "_")),
+            by = join_by(regio, plotnaam, stratum, openheid, sbp,
+                         periode_in_jaar)) %>%
+  replace(is.na(.), 0) %>%
+  group_by(periode_in_jaar, regio, stratum, openheid, sbp) %>%
+  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+            n = n(),
+            .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq") %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  ggplot() +
+    geom_vline(xintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = relfreq, y = naam, colour = stratum),
+               size = 1, position = position_dodge(width = 0.4)) +
+    scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+    labs(y = "", x = "Relatieve frequentie", colour = "Stratum") +
+    facet_grid(~regio) +
+    theme(legend.position = "top") +
+    guides(colour = guide_legend(override.aes = list(size = 2)))
+
+ggsave(here(media_folder, "soortenfreqs_doel_per_strat.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
 
 # Resultaten zoogdieren 2022-2023
 
