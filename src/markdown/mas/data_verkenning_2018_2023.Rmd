@@ -318,20 +318,26 @@ for (spec in sort(doelsoorten)) {
            wrntype_omschrijving2 = reorder(wrntype_omschrijving2, wrntype,
                                            decreasing = TRUE)) %>%
     filter(naam == spec) %>%
-    select(jaar, stratum, regio, wrntype_omschrijving2) %>%
-    group_by(jaar, stratum, regio, wrntype_omschrijving2) %>%
+    select(jaar, regio, wrntype_omschrijving2) %>%
+    group_by(jaar, regio, wrntype_omschrijving2) %>%
     summarise(N = n(), .groups = "drop") %>%
-    full_join(strata_df, by = join_by(stratum, regio, jaar)) %>%
-    mutate(stratum = gsub(" - ", " -\n", stratum)) %>%
-    mutate(regio = ifelse(regio =="Oostelijke leemstreek",
+    full_join(strata_df %>% select(-stratum) %>% distinct(),
+              by = join_by(regio, jaar)) %>%
+    mutate(regio = ifelse(regio == "Oostelijke leemstreek",
                           gsub("\\s", "\n", regio),
                           regio)) %>%
-    ggplot(aes(x = stratum, y = N, fill = wrntype_omschrijving2)) +
+    ggplot(aes(x = factor(jaar), y = N, fill = wrntype_omschrijving2)) +
       geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
       geom_bar(stat = "identity") +
       scale_fill_discrete(drop = FALSE) +
       labs(y = "Aantal tellingen", x = "", title = spec, fill = "Broedcode") +
-      facet_grid(regio~jaar, scales = "free")
+      facet_wrap(~regio, scales = "free_y") +
+      ggh4x::facetted_pos_scales(
+        y = list(
+          regio == "Oostelijke\nleemstreek" ~ scale_y_continuous(
+            position = "right"
+            )
+        ))
   
   print(p)
   legend <- cowplot::get_legend(
@@ -348,9 +354,7 @@ for (spec in sort(doelsoorten)) {
                  axis.text = element_text(size = 6),
                  plot.title = element_text(size = 8),
                  strip.text = element_text(size = 8),
-                 legend.position = "",
-                 axis.text.x = element_text(angle = 90, vjust = 0.5,
-                                            hjust = 1)))
+                 legend.position = ""))
 }
 
 lay <- rbind(c(1, 2, 3),
@@ -360,53 +364,38 @@ lay <- rbind(c(1, 2, 3),
 
 p_summ <- gridExtra::grid.arrange(
   p1 +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
+    theme(plot.margin = unit(c(5.5, -2, 5.5, 5.5), "pt")),
   p2 + 
     labs(y = "") +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
-  p3 + labs(y = ""),
-  p4 + 
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
-  p5 + labs(y = "") + 
+    theme(plot.margin = unit(c(5.5, -2, 5.5, -2), "pt")),
+  p3 +
     labs(y = "") +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
-  p6 + labs(y = ""),
+    theme(plot.margin = unit(c(5.5, 5.5, 5.5, -2), "pt")),
+  p4 +
+    theme(plot.margin = unit(c(5.5, -2, 5.5, 5.5), "pt")),
+  p5 + 
+    labs(y = "") +
+    theme(plot.margin = unit(c(5.5, -2, 5.5, -2), "pt")),
+  p6 +
+    labs(y = "") +
+    theme(plot.margin = unit(c(5.5, 5.5, 5.5, -2), "pt")),
   p7 +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
-  p8 + labs(y = "") + 
+    theme(plot.margin = unit(c(5.5, -2, 5.5, 5.5), "pt")),
+  p8 + 
     labs(y = "") +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
-  p9 + labs(y = ""),
-  p10 +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
+    theme(plot.margin = unit(c(5.5, -2, 5.5, -2), "pt")),
+  p9 +
+    labs(y = "") +
+    theme(plot.margin = unit(c(5.5, 5.5, 5.5, -2), "pt")),
+  p10  +
+    theme(plot.margin = unit(c(5.5, -2, 5.5, 5.5), "pt")),
   legend,
   ncol = 3, nrow = 4, layout_matrix = lay)
 
 ggsave(here(media_folder, "broedcode_mas_2022_2023.pdf"),
        p_summ,
        dpi = 300,
-       width = 8,
+       width = 6,
        height = 10)
 ```
 
