@@ -577,6 +577,71 @@ relfreqs_z %>%
   write_csv(here(media_folder, "verschilfreq_zoogdieren_2022_2023.csv"))
 ```
 
+## Haas
+
+```{r}
+p <- zoogdieren %>%
+  st_drop_geometry() %>%
+  filter(naam == "Haas") %>%
+  group_by(regio, jaar, periode_in_jaar) %>%
+  summarise(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = totaal_aantal, fill = factor(jaar))) +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_bar(stat = "identity", position = "dodge") +
+    facet_wrap(~regio) +
+    labs(y = "Aantal individuen", x = "Telperiode", fill = "Jaar")
+p
+
+ggsave(here(media_folder, "aantallen_haas.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+```{r}
+p <- zoogdieren %>%
+  st_drop_geometry() %>%
+  filter(naam == "Haas") %>%
+  mutate(plotnaam = paste(plotnaam, jaar, sep = "_")) %>%
+  group_by(regio, plotnaam, stratum, openheid, sbp, periode_in_jaar, naam) %>%
+  summarise(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  full_join(bezoekenlijst_2022_2023 %>% 
+              mutate(plotnaam = paste(plotnaam, jaar, sep = "_")),
+            by = join_by(regio, plotnaam, stratum, openheid, sbp,
+                         periode_in_jaar)) %>%
+  replace(is.na(.), 0) %>%
+  group_by(periode_in_jaar, regio, stratum, openheid, sbp) %>%
+  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+            n = n(),
+            .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq") %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  ggplot() +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(y = relfreq, x = stratum, shape = periode_in_jaar),
+               size = 3, position = position_dodge(width = 0.3)) +
+    scale_y_continuous(limits = c(0, NA)) +
+    labs(y = "Relatieve frequentie", x = "", shape = "Telperiode") +
+    facet_grid(~regio, scales = "free_x") +
+    theme(legend.position = "top")
+p
+
+ggsave(here(media_folder, "soortenfreqs_haas_per_strat.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
 
 # Resultaten vogels 2018--2023
 
