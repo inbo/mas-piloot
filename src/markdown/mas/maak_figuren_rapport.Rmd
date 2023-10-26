@@ -34,6 +34,7 @@ library(sf)
 library(GVI)
 library(inbospatial)
 library(terra)
+library(corrplot)
 
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(base::intersect)
@@ -1045,11 +1046,11 @@ calc_weights <- function(x, max_dist, m = NULL, b = NULL, mode = "logistic") {
 ```{r}
 max_distance <- 3000
 p <- tibble(dist = seq(0, max_distance, 1)) %>% 
-  mutate("exponentieel\n(m = 1.37, b = 1)" = calc_weights(
-    dist, max_distance, b = 1, m = 1.37, mode = "exponential")) %>%
+  mutate("exponentieel\n(m = 1.3, b = 1)" = calc_weights(
+    dist, max_distance, b = 1, m = 1.3, mode = "exponential")) %>%
   mutate("logistisch\n(m = 0.5, b = 8)" = calc_weights(
     dist, max_distance, mode = "logistic")) %>%
-  pivot_longer(cols = c("exponentieel\n(m = 1.37, b = 1)", 
+  pivot_longer(cols = c("exponentieel\n(m = 1.3, b = 1)", 
                         "logistisch\n(m = 0.5, b = 8)"), 
                names_to = "Vervalfunctie", values_to = "w") %>%
   ggplot() +
@@ -1069,5 +1070,87 @@ ggsave(here("media", "verklarende_variabelen", "distance_decay.pdf"),
        dpi = 300,
        width = 8,
        height = 6)
+```
+
+# Exploratie verklarende variabelen
+
+```{r}
+kle_vars <- c("haag", "houtkant", "boom", "bomengroep", "bomenrij", "bosrand")
+plot_vars <- c("openheid_waarde_1000", "natuur_exp",
+               kle_vars)
+hfdtlt_vars <- sort(names(mas_data_df)[grep("hfdtlt$", 
+                                            names(mas_data_df))])
+hfdtlt_pre_vars <- sort(names(mas_data_df)[grep("hfdtlt_pre$", 
+                                                names(mas_data_df))])
+vrtlt_vars <- sort(names(mas_data_df)[grep("vrtlt$", names(mas_data_df))])
+plotjaar_vars <- c("area_prop_sb", "area_prop_bo_overig",
+                   hfdtlt_vars, hfdtlt_pre_vars,
+                   "gewas_div_shannon", "gewas_div_n", "gewas_evenness",
+                   vrtlt_vars, "perceel_median_area", "perceel_iqr_area", 
+                   "perceel_cv_area", "inertie_sb", "inertie_overig", 
+                   "status_teller", "sbp")
+telling_vars <- c("n_predators", "n_predators_spec")
+```
+
+```{r}
+exclude_hfdtlt <- c("andere_hfdtlt", "braakland_hfdtlt", "houtachtige_gewassen", 
+                    "water_hfdtlt")
+exclude_hfdtlt <- c(exclude_hfdtlt, paste(exclude_hfdtlt, "pre", sep = "_"))
+exclude_vrtlt <- setdiff(vrtlt_vars, "afwezig_vrtlt")
+exclude_univars <- c(exclude_hfdtlt, exclude_vrtlt)
+```
+
+```{r}
+bivar_vars <- setdiff(c(plot_vars, plotjaar_vars, telling_vars), 
+                      exclude_univars)
+
+bivariate_df <- mas_data_df %>%
+  select(plotnaam, regio, jaar, periode_in_jaar, all_of(bivar_vars)) %>%
+  mutate(jaar = factor(jaar),
+         zomergranen_hfdtlt2 = rowSums(across(
+           c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt))),
+         zomergranen_hfdtlt_pre2 = rowSums(across(
+           c(andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
+  select(-c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt,
+            andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)) %>%
+  distinct() %>%
+  arrange(regio, jaar, plotnaam, periode_in_jaar)
+```
+
+```{r}
+continue_bivariate <- bivariate_df %>%
+  select(where(is.numeric))
+```
+
+```{r}
+cormat_pearson <- cor(continue_bivariate, method = "pearson")
+cormat_pearson[abs(cormat_pearson) < 0.2] <- 0
+
+pdf(file = here("media", "verklarende_variabelen", "corrmat1.pdf"))
+corrplot(cormat_pearson, method =  "circle",
+         tl.col =  "black", tl.srt = 60, tl.cex = 0.6)
+dev.off()
+```
+
+```{r}
+exclude_continue_bivars <- c("afwezig_vrtlt",
+                             "perceel_median_area", "perceel_iqr_area", 
+                             "gewas_div_n", "gewas_evenness",
+                             "n_predators_spec")
+
+continue_bivariate2 <- continue_bivariate %>%
+  select(-all_of(c(exclude_continue_bivars)))
+
+bivariate_df <- bivariate_df %>%
+   select(-all_of(c(exclude_continue_bivars)))
+```
+
+```{r}
+cormat_pearson2 <- cor(continue_bivariate2, method = "pearson")
+cormat_pearson2[abs(cormat_pearson2) < 0.2] <- 0
+pdf(file = here("media", "verklarende_variabelen", "corrmat2.pdf"))
+corrplot(cormat_pearson2, method =  "circle",
+         tl.col =  "black", tl.srt = 60, tl.cex = 0.6)
+dev.off()
 ```
 
