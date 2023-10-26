@@ -1270,7 +1270,7 @@ p <- mas_vogels %>%
                   colour = plotnaam), alpha = 0.2) +
     facet_wrap(~regio) +
     scale_colour_manual(values = palette) +
-    labs(x = "", y = "Oppervlakteaandeel soorbeschermingsmaatregelen") +
+    labs(x = "", y = "Oppervlakte-aandeel soorbeschermingsmaatregelen") +
     theme(legend.position = "",
           legend.title = element_blank())
 p
@@ -1281,6 +1281,31 @@ ggsave(here(media_folder, paste0("soortbeschermingsmaatregelen2_2018_2023.pdf"))
        width = 8,
        height = 6)
 ```
+
+```{r}
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9, name = 'Set1'))(length(unique(mas_vogels$plotnaam)))
+
+p <- mas_vogels %>%
+  distinct(plotnaam, jaar, regio, sbp, openheid, stratum, area_prop_sb) %>%
+  mutate(sbp = paste(sbp, "sbp")) %>%
+  ggplot() +
+    geom_boxplot(aes(x = factor(jaar), y = area_prop_sb)) +
+    geom_line(aes(x = factor(jaar), y = area_prop_sb, group = plotnaam,
+                  colour = plotnaam), alpha = 0.2) +
+    facet_grid(regio~sbp) +
+    scale_colour_manual(values = palette) +
+    labs(x = "", y = "Oppervlakte-aandeel soorbeschermingsmaatregelen") +
+    theme(legend.position = "",
+          legend.title = element_blank())
+p
+
+ggsave(here(media_folder, paste0("soortbeschermingsmaatregelen3_2018_2023.pdf")),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
 
 ```{r}
 p <- mas_vogels %>%
