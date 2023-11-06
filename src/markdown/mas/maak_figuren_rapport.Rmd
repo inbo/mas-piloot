@@ -601,6 +601,69 @@ beheermodel_path <- here("src/markdown/mas/analyses_cache")
 ```{r}
 dir.create("media/beheerovereenkomsten", FALSE)
 dir.create("media/beheerovereenkomsten/oostelijke_leemstreek", FALSE)
+```
+
+### Projection prediction
+
+```{r}
+projpred_path <- here("src/markdown/mas/projpred_cache")
+```
+
+```{r}
+cvvs_ol_veldleeuwerik <- readRDS(here(projpred_path,
+                                      "cvvs_olpropsb_new_veldleeuwerik.rds"))
+```
+
+```{r}
+p <- plot(cvvs_ol_veldleeuwerik,
+          stats = "mlpd",
+          deltas = TRUE,
+          ranking_nterms_max = NA) +
+  scale_x_continuous(breaks = seq(0, 20, 2), limits = c(0, 20)) +
+  labs(y = "Verschil met referentiemodel (MLPD)",
+       x = "Submodelgrootte (aantal verklarende variabelen)") +
+  theme(
+    strip.background = element_blank(),
+    strip.text.x = element_blank()
+  )
+
+ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek",
+            "cvvs_ranking_veldleeuwerik.pdf"),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+```
+
+```{r}
+rk <- ranking(cvvs_ol_veldleeuwerik)
+pr_rk <- cv_proportions(rk)
+
+p <- plot(cv_proportions(rk, cumulate = TRUE)) +
+  labs(y = "",
+       x = "Submodelgrootte (aantal verklarende variabelen)") +
+  scale_fill_gradientn(name = "Proportie\nvan CV folds",
+                       labels = scales::label_percent(suffix = " %"),
+                       limits = c(0, 1),
+                       colours = c("white", "gold", "darkgreen"))
+
+p$layers[[2]] <- NULL
+p <- p +
+  geom_text(mapping = aes(label = paste(round(100 * .data[["propcv"]]), "%"),
+                          color = I(.data[["txtcolor"]])),
+            size = 2.5)
+
+ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek",
+            "cvvs_proporties_veldleeuwerik.pdf"),
+         p,
+         dpi = 300,
+         width = 10,
+         height = 6)
+```
+
+### Beheerovereenkomsten
+
+```{r}
 mod_final_olpropsb_list <- readRDS(here(beheermodel_path,
                                         "mod_final_olpropsb_list.rds"))
 ```
