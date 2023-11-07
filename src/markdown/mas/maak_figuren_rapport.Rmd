@@ -130,7 +130,7 @@ p2 <- plot_detection_curve(ds_model, show_data = FALSE) +
 p_dist_methode <- cowplot::plot_grid(p1, p2, nrow = 1, labels = c("A.", "B."),
                                      rel_widths = c(1.5, 2))
 
-ggsave(here(out_folder_distance, "methode_distance.pdf"),
+ggsave(here(out_folder_distance, "methode_distance.png"),
        p_dist_methode,
        dpi = 300,
        width = 8,
