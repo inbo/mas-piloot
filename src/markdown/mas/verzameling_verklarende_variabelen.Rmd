@@ -2171,6 +2171,7 @@ write_csv(final_variables_df, file.path("data", "processed",
 
 ```{r}
 summary_df_out <- summary_df %>%
+  rownames_to_column(var = "id") %>%
   mutate(naam = gsub(",?\\s", "_", naam),
          naam = iconv(tolower(naam), from = "UTF-8", to = "ASCII//TRANSLIT"))
 write_csv(summary_df_out, file.path(
