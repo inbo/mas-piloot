@@ -212,10 +212,14 @@ telpunten_2018_2023_bo_soort <- add_bo_by_year(telpunten_2018_2023_df, bo_file_2
 
 ```{r}
 summary_df <- tibble(
-  categorie = "prioritair", 
-  variabele = "oppervlakte-aandeel soortbeschermingsmaatregelen", 
-  eenheid = "proportie", 
-  bron = "VLM")
+  categorie = "primair", 
+  variabele = "oppervlakte-aandeel soortbeschermingsmaatregelen",
+  naam = "area_prop_sb",
+  eenheid = "proportie",
+  kaart = "beheerovereenkomsten",
+  bron = "Vlaamse Landmaatschappij",
+  afkorting = "VLM",
+  url = "")
 ```
 
 ### Visualisatie
@@ -289,11 +293,15 @@ telpunten_2018_2023_bo_rest <- telpunten_2018_2023_bo_rest %>%
 ```
 
 ```{r}
-summary_df <- tibble(
-  categorie = "prioritair", 
-  variabele = "oppervlakte-aandeel erosiebeheer en bufferstroken", 
+summary_df <- rbind(summary_df, c(
+  categorie = "primair", 
+  variabele = "oppervlakte-aandeel erosiebeheer en bufferstroken",
+  naam = "area_prop_bo_overig",
   eenheid = "proportie", 
-  bron = "VLM")
+  kaart = "beheerovereenkomsten",
+  bron = "Vlaamse Landmaatschappij",
+  afkorting = "VLM",
+  url = ""))
 ```
 
 ### Visualisatie
@@ -390,10 +398,17 @@ telpunten_2018_2023_hfdtlt <- telpunten_2018_2023_hfdtlt_long %>%
 
 ```{r}
 summary_df <- rbind(summary_df, tibble(
-  categorie = "prioritair", 
-  variabele = tolower(unique(telpunten_2018_2023_hfdtlt_long$GEWASGROEP)), 
+  categorie = "primair", 
+  variabele = paste("hoofdtteelt", 
+    tolower(unique(telpunten_2018_2023_hfdtlt_long$GEWASGROEP))),
+  naam = telpunten_2018_2023_hfdtlt %>%
+    select(ends_with("_hfdtlt")) %>%
+    names(),
   eenheid = "proportie", 
-  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
 ```
 
 ### Visualisatie
@@ -566,10 +581,14 @@ telpunten_2018_2023_hfdtlt_div1 <- telpunten_2018_2023_hfdtlt_long_tot %>%
 
 ```{r}
 summary_df <- rbind(summary_df, c(
-  categorie = "prioritair", 
-  variabele = "effectief aantal hoofdteelten", 
-  eenheid = "continu getal", 
-  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
+  categorie = "primair", 
+  variabele = "effectief aantal hoofdteelten",
+  naam = "gewas_div_shannon",
+  eenheid = "continu", 
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
 ```
 
 ### Visualisatie
@@ -644,10 +663,14 @@ aggregate(telpunten_2018_2023_hfdtlt_div2$gewas_div_n,
 
 ```{r}
 summary_df <- rbind(summary_df, c(
-  categorie = "prioritair", 
+  categorie = "primair", 
   variabele = "absoluut aantal hoofdteelten", 
+  naam = "gewas_div_n",
   eenheid = "aantal", 
-  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
 ```
 
 ### Opmerkingen
@@ -702,10 +725,14 @@ aggregate(telpunten_2018_2023_hfdtlt_evenness$gewas_evenness,
 
 ```{r}
 summary_df <- rbind(summary_df, c(
-  categorie = "prioritair", 
+  categorie = "primair", 
   variabele = "evenness gewasdiversiteit", 
+  naam = "gewas_evenness",
   eenheid = "fractie", 
-  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
 ```
 
 ### Opmerkingen
@@ -777,10 +804,17 @@ telpunten_2018_2023_vrtlt <- telpunten_2018_2023_vrtlt_long %>%
 
 ```{r}
 summary_df <- rbind(summary_df, tibble(
-  categorie = "prioritair", 
-  variabele = tolower(unique(telpunten_2018_2023_vrtlt_long$GEWASGROEP)), 
+  categorie = "primair", 
+  variabele = paste("voorteelt",
+    tolower(unique(telpunten_2018_2023_vrtlt_long$GEWASGROEP))), 
+  naam = telpunten_2018_2023_vrtlt %>%
+    select(ends_with("_vrtlt")) %>%
+    names(),
   eenheid = "proportie",
-  bron = "verzamelaanvraag (Bron: Dept. LV)"))
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
 ```
 
 ### Visualisatie
@@ -847,9 +881,13 @@ n.v.t.
 ```{r}
 summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
-  variabele = "regio", 
+  variabele = "regio",
+  naam = "regio",
   eenheid = "categorisch", 
-  bron = "n.v.t."))
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
 ```
 
 ### Visualisatie
@@ -949,8 +987,12 @@ summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
   variabele = c("openheid landschap waarde (1000 m)",
                 "openheid landschap klasse (300 m)"),
+  naam = c("openheid_waarde_1000", "openheid_klasse_300"),
   eenheid = c("continu", "categorisch"), 
-  bron = "Digitaal Hoogtemodel Vlaanderen II"))
+  kaart = "Digitaal Hoogtemodel Vlaanderen II (5 m)",
+  bron = "Agentschap Digitaal Vlaanderen",
+  afkorting = "",
+  url = "https://www.vlaanderen.be/digitaal-vlaanderen/onze-oplossingen/earth-observation-data-science-eodas/het-digitaal-hoogtemodel/digitaal-hoogtemodel-vlaanderen-ii"))
 ```
 
 ### Visualisatie
@@ -1003,8 +1045,12 @@ telpunten_2018_2023_sbp <- add_sbp_per_regio(telpunten_2018_2022, perimeters)
 summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
   variabele = "soortbeschermingsplan", 
-  eenheid = "categorisch", 
-  bron = "VLM"))
+  naam = "sbp",
+  eenheid = "categorisch",
+  kaart = "",
+  bron = "Vlaamse Landmaatschapij",
+  afkorting = "VLM",
+  url = ""))
 ```
 
 ### Visualisatie
@@ -1074,9 +1120,13 @@ De volgende teller codes behoren tot professionele tellers: `c("WVNT00", "JJNN16
 ```{r}
 summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
-  variabele = "status teller", 
+  variabele = "status teller",
+  naam = "status_teller",
   eenheid = "categorisch", 
-  bron = "n.v.t."))
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
 ```
 
 ### Visualisatie
@@ -1154,8 +1204,12 @@ telpunten_2018_2023_kle <- telpunten_2018_2023_kle_long %>%
 summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
   variabele = tolower(unique(telpunten_2018_2023_kle_long$subklasse)), 
+  naam = tolower(unique(telpunten_2018_2023_kle_long$subklasse)),
   eenheid = "proportie", 
-  bron = "kaart landschapselementen (Bron: Dept. LV)"))
+  kaart = "kaart landschapselementen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-kaart-landschapselementen"))
 ```
 
 ### Visualisatie
@@ -1207,14 +1261,6 @@ Continue variabele. Proportie tussen 0 en 1.
 ### Hoe verzameld?
 
 ### Hoe berekend?
-
-```{r}
-summary_df <- rbind(summary_df, c(
-  categorie = "secundair", 
-  variabele = "oppervlakte-aandeel biolandbouw", 
-  eenheid = "proportie", 
-  bron = "??"))
-```
 
 ### Visualisatie
 
@@ -1303,9 +1349,13 @@ summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
   variabele = c("centrale waarde perceelsgroottes", 
                 "variabiliteit perceelsgroottes",
-                "variatiecoëfficiënt"), 
-  eenheid = c("m²", "m²", "coëfficiënt"), 
-  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
+                "variatiecoëfficiënt perceelsgroottes"),
+  naam = c("perceel_median_area", "perceel_iqr_area", "perceel_cv_area"),
+  eenheid = c("m²", "m²", "fractie"), 
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
 ```
 
 ### Visualisatie
@@ -1382,15 +1432,6 @@ n.v.t.
 
 n.v.t.
 
-```{r}
-summary_df <- rbind(summary_df, tibble(
-  categorie = "secundair", 
-  variabele = c("X-coördinaat Lambert 72", 
-                "Y-coördinaat Lambert 72"), 
-  eenheid = "m", 
-  bron = "landbouwgebruikspercelen kaart (Bron: Dept. LV)"))
-```
-
 ### Visualisatie
 
 n.v.t.
@@ -1442,10 +1483,14 @@ telpunten_2018_2023_inertia_sb <- add_bo_inertia(
 
 ```{r}
 summary_df <- rbind(summary_df, c(
-  categorie = "secundair", 
-  variabele = "inertie soortbeschermingsmaatregelen", 
+  categorie = "secundair",
+  naam = "inertie soortbeschermingsmaatregelen",
+  variabele = "inertie_sb", 
   eenheid = "aantal", 
-  bron = "VLM"))
+  kaart = "Beheerovereenkomsten",
+  bron = "Vlaamse Landmaatschappij",
+  afkorting = "VLM",
+  url = ""))
 ```
 
 ### Visualisatie
@@ -1523,8 +1568,12 @@ telpunten_2018_2023_inertia_overig <- add_bo_inertia(
 summary_df <- rbind(summary_df, c(
   categorie = "secundair", 
   variabele = "inertie erosiebeheer en bufferstroken", 
+  naam = "inertie_overig",
   eenheid = "aantal", 
-  bron = "VLM"))
+  kaart = "Beheerovereenkomsten",
+  bron = "Vlaamse Landmaatschappij",
+  afkorting = "VLM",
+  url = ""))
 ```
 
 ### Visualisatie
@@ -1583,11 +1632,15 @@ n.v.t.
 Aantal individuen van predatoren tellen per telcirkel. Berekenen bij laden van data.
 
 ```{r}
-summary_df <- rbind(summary_df, c(
+summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
-  variabele = "predatoren", 
+  variabele = c("aantal predatoren", "aantal soorten predatoren"),
+  naam = c("n_predators", "n_predators_spec"),
   eenheid = "aantal", 
-  bron = "n.v.t."))
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
 ```
 
 ### Visualisatie
@@ -1619,14 +1672,6 @@ n.v.t.
 ### Hoe berekend?
 
 n.v.t.
-
-```{r}
-summary_df <- rbind(summary_df, c(
-  categorie = "secundair", 
-  variabele = "jaar", 
-  eenheid = "jaar", 
-  bron = "n.v.t."))
-```
 
 ### Visualisatie
 
@@ -1662,14 +1707,6 @@ Er zijn vier telperiodes per jaar.
 2.  21-04 tot 10-05
 3.  11-05 tot 10-06
 4.  21-06 tot 15-07
-
-```{r}
-summary_df <- rbind(summary_df, c(
-  categorie = "secundair", 
-  variabele = "telperiode", 
-  eenheid = "categorisch", 
-  bron = "n.v.t."))
-```
 
 ### Visualisatie
 
@@ -1915,9 +1952,13 @@ telpunten_2018_2023_natuurgebieden <- distance_weights %>%
 ```{r}
 summary_df <- rbind(summary_df, tibble(
   categorie = "secundair", 
-  variabele = "gewogen oppervlakte natuurgebieden (exponentieel verval)", 
+  variabele = "aanwezigheid natuurgebieden", 
+  naam = "natuur_exp",
   eenheid = "km²", 
-  bron = "kaarten natuurgebieden Vlaanderen, Nederland, Frankrijk, Wallonië (zie tekst)"))
+  kaart = "(zie tekst)",
+  bron = "(zie tekst)",
+  afkorting = "(zie tekst)",
+  url = "(zie tekst)"))
 ```
 
 ### Visualisatie
@@ -1943,17 +1984,97 @@ aggregate(telpunten_2018_2023_natuurgebieden$natuur_exp,
 
 # Random effects
 
-## Telpunt
+## X- en Y-coördinaten
 
-Random intercepts per telpunt.
+### Beschrijving
+
+Spatiale component. We verwachten bv. hogere soortenrijkdom in oosten van Oostelijke leemstreek.
+
+### Welk datatype?
+
+Continu.
+
+### Waar verzameld?
+
+Coördinaten SOVON. Let op! Zie opmerkingen en code bij 'Inlezen data' om Amersfoort naar Lambert 72 om te zetten.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+n.v.t.
 
 ```{r}
-summary_df <- rbind(summary_df, c(
-  categorie = "random", 
-  variabele = "telpunt", 
-  eenheid = "categorisch", 
-  bron = "n.v.t."))
+summary_df <- rbind(summary_df, tibble(
+  categorie = "tertiair", 
+  variabele = c("X-coördinaat Lambert 72", 
+                "Y-coördinaat Lambert 72"), 
+  naam = c("x_plot", "y_plot"),
+  eenheid = "m", 
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
 ```
+
+### Visualisatie
+
+n.v.t.
+
+### Opmerkingen
+
+/
+
+## Telperiode
+
+### Beschrijving
+
+Tot welke telperiode behoort een waarneming.
+
+### Welk datatype?
+
+Discreet.
+
+### Waar verzameld?
+
+n.v.t.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+Er zijn vier telperiodes per jaar. 
+
+1.  01-04 tot 20-04
+2.  21-04 tot 10-05
+3.  11-05 tot 10-06
+4.  21-06 tot 15-07
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "tertiair", 
+  variabele = "telperiode", 
+  naam = c("periode_in_jaar"),
+  eenheid = "categorisch", 
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
+```
+
+### Visualisatie
+
+n.v.t.
+
+### Opmerkingen
+
+Data worden gefilterd zodat enkel waarnemingen binnen deze periodes opgenomen worden.
+Bovendien heeft elke vogelsoort bepaalde datumgrenzen waarin ze als 'mogelijk broedgeval' kan worden aanzien. Deze worden ook gebruikt om waarnemingen te filteren.
+Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
 
 ## Jaar
 
@@ -1961,10 +2082,30 @@ Jaar toevoegen als random factor? Autoregressive?
 
 ```{r}
 summary_df <- rbind(summary_df, c(
-  categorie = "random", 
-  variabele = "jaar", 
+  categorie = "tertiair", 
+  variabele = "jaar",
+  naam = "jaar",
   eenheid = "jaar", 
-  bron = "n.v.t."))
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
+```
+
+## Telpunt
+
+Random intercepts per telpunt.
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "tertiair", 
+  variabele = "telpunt id",
+  naam = "plotid",
+  eenheid = "categorisch", 
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
 ```
 
 # Samenvatting en uitschrijven data
@@ -2010,7 +2151,7 @@ names(variables_df_per_year) <- gsub(",?\\s", "_", names(variables_df_per_year))
 names(variables_df) <- gsub(",?\\s", "_", names(variables_df))
 # no special characters (maïs)
 names(variables_df_per_year) <- iconv(names(variables_df_per_year), 
-                                      from = "UTF-8",to = "ASCII//TRANSLIT")
+                                      from = "UTF-8", to = "ASCII//TRANSLIT")
 names(variables_df) <- iconv(names(variables_df), 
                              from = "UTF-8", to = "ASCII//TRANSLIT")
 
@@ -2026,6 +2167,14 @@ final_variables_df <- variables_df_per_year %>%
 ```{r}
 write_csv(final_variables_df, file.path("data", "processed", 
                                         "verklarende_variabelen_2018_2023.csv"))
+```
+
+```{r}
+summary_df_out <- summary_df %>%
+  mutate(naam = gsub(",?\\s", "_", naam),
+         naam = iconv(tolower(naam), from = "UTF-8", to = "ASCII//TRANSLIT"))
+write_csv(summary_df_out, file.path(
+  "data", "processed", "verklarende_variabelen_2018_2023_metadata.csv"))
 ```
 
 # Referenties
