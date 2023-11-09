@@ -399,7 +399,7 @@ telpunten_2018_2023_hfdtlt <- telpunten_2018_2023_hfdtlt_long %>%
 ```{r}
 summary_df <- rbind(summary_df, tibble(
   categorie = "primair", 
-  variabele = paste("hoofdtteelt", 
+  variabele = paste("hoofdteelt", 
     tolower(unique(telpunten_2018_2023_hfdtlt_long$GEWASGROEP))),
   naam = telpunten_2018_2023_hfdtlt %>%
     select(ends_with("_hfdtlt")) %>%
