@@ -73,5 +73,27 @@ mas_piloot_atlas_sf <- st_as_sf(mas_piloot_atlas,
   st_buffer(300)
 ```
 
+# MBAG (zand)leemstreek
+## Inladen data
 
+We laden de data van 2023 in.
+
+```{r}
+data_path2 <- here("data", "mas")
+file_geojson_2023 <- file.path(data_path2, 
+                               "20230810_qgis_export_sovon_wfs_2023.geojson")
+mas_geojson_2023 <- read_sf(file_geojson_2023)
+```
+
+We selecteren de data van de zandleemstreek en de westelijke leemstreek.
+We selecteren vogels met broedcode groter dan nul.
+
+```{r}
+mbag_broed_amersfoord <- mas_geojson_2023 %>%
+  filter(soortgrp == 2,
+         wrntype > 0,
+         grepl("^(Zn|Lm)", plotnaam))
+```
+
+## Zet om naar Lambert 72
 
