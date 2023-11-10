@@ -1,0 +1,254 @@
+---
+title: "MAS data voor vogelatlas"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here::here())
+```
+
+
+```{r}
+Sys.setenv("PROJ_NETWORK" = "ON")
+
+library(tidyverse)
+library(sf)
+```
+
+# MAS pilootproject
+## Inladen data
+
+We laden de data in van het MAS pilootproject.
+
+```{r}
+data_path <- here("data", "processed")
+mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
+```
+
+We selecteren vogels met broedcode groter dan nul.
+
+```{r}
+mas_piloot_broed <- mas_data_df %>%
+  filter(soortgrp == 2,
+         wrntype > 0) %>%
+  select(plotnaam, jaar, periode_in_jaar, naam, aantal, x_plot, y_plot)
+```
+
+
+## Berekening maximaal aantal
+
+We berekenen het maximum aantal individuen per jaar per telcirkel voor elke soort.
+
+```{r}
+mas_piloot_atlas <- mas_piloot_broed %>% 
+  group_by(plotnaam, jaar, periode_in_jaar, naam) %>%
+  mutate(totaal = sum(aantal)) %>%
+  group_by(plotnaam, jaar, naam, x_plot, y_plot) %>%
+  summarise(max_aantal = max(totaal), .groups = "drop") %>%
+  select(plotnaam, jaar, naam, max_aantal, x_plot, y_plot) %>%
+  mutate(x_coord = x_plot,
+         y_coord = y_plot)
+```
+
+Zet om naar sf object met telcirkels.
+
+```{r}
+mas_piloot_atlas_sf <- st_as_sf(mas_piloot_atlas,
+                                coords = c("x_plot", "y_plot"),
+                                crs = 31370) %>%
+  st_buffer(300)
+```
+
+
+# MBAG (zand)leemstreek
+## Inladen data
+
+We laden de data van 2023 in.
+
+```{r}
+data_path2 <- here("data", "mas")
+file_geojson_2023 <- file.path(data_path2, 
+                               "20230810_qgis_export_sovon_wfs_2023.geojson")
+mas_geojson_2023 <- read_sf(file_geojson_2023)
+```
+
+We selecteren de data van de zandleemstreek en de westelijke leemstreek.
+We selecteren vogels met broedcode groter dan nul.
+
+```{r}
+mbag_broed_amersfoord <- mas_geojson_2023 %>%
+  filter(soortgrp == 2,
+         wrntype > 0,
+         grepl("^(Zn|Lm)", plotnaam))
+```
+
+## Zet om naar Lambert 72
+
+```{r}
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+```
+
+```{r}
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on
+# accuracy. If the grids are installed, this should match the first line of the
+# pipelines object.
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% 
+  pull(definition)
+
+mbag_31370_pipeline <- 
+  st_transform(st_geometry(mbag_broed_amersfoord), "EPSG:31370",
+               pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(mbag_broed_amersfoord), geometry = .) %>% 
+  as_tibble() %>% 
+  st_as_sf() %>%
+  rename(x_amersfoord = x_coord,
+         y_amersfoord = y_coord) %>%
+  mutate(x_lambert = unlist(map(.data$geometry, 1)),
+         y_lambert = unlist(map(.data$geometry, 2))) %>%
+  select(oid:y_amersfoord, x_lambert, y_lambert, everything())
+```
+
+## Data selectie
+
+We selecteren eerst de data **binnen de telrondes**.
+
+```{r}
+r1_start <- "04-01"
+r1_stop  <- "04-20"
+r2_start <- "04-21"
+r2_stop  <- "05-10"
+r3_start <- "05-11"
+r3_stop  <- "06-10"
+r4_start <- "06-21"
+r4_stop  <- "07-15"
+
+mbag_telperiodes <- mbag_31370_pipeline %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    )) %>%
+  filter(!is.na(periode_in_jaar))
+```
+
+We voegen de coördinaten toe van de telpunten.
+
+```{r}
+steekproef_leemstreek_telpunten <- read_sf(
+  here(data_path, "steekproef_leemstreek_telpunten.geojson")
+  ) %>%
+  mutate(x_plot = unlist(map(.data$geometry, 1)),
+         y_plot = unlist(map(.data$geometry, 2)))
+steekproef_zandleemstreek_telpunten <- read_sf(
+  here(data_path, "steekproef_zandleemstreek_telpunten.geojson")
+  ) %>%
+  mutate(x_plot = unlist(map(.data$geometry, 1)),
+         y_plot = unlist(map(.data$geometry, 2)))
+
+steekproef_mbag <- bind_rows(steekproef_leemstreek_telpunten,
+                             steekproef_zandleemstreek_telpunten) %>%
+  rename(plotnaam = pointid) %>%
+  select(plotnaam, x_plot, y_plot)
+```
+
+
+We herberekenen de afstanden tussen de waarnemingen en de telpunten. We ronden af to 1 m nauwkeurig.
+
+```{r}
+mbag_controle_afstand <- mbag_telperiodes %>%
+  select(oid, plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
+  inner_join(steekproef_mbag %>% as_tibble(),
+             by = "plotnaam", suffix = c(".stip", ".telpunt")) %>%
+  mutate(calc_distance = st_distance(.$geometry.stip, .$geometry.telpunt,
+            by_element = TRUE),
+         calc_distance = round(units::drop_units(calc_distance))) %>%
+  st_drop_geometry()
+```
+
+We selecteren vervolgens alle waarnemingen **binnen een afstand van 300 m**.
+
+```{r}
+mbag_distance <- mbag_telperiodes %>%
+  full_join(mbag_controle_afstand, 
+            by = join_by(oid, plotnaam, naam, jaar, distance2plot)) %>%
+  select(-c(distance2plot, geometry.telpunt, waarneme)) %>%
+  rename(distance2plot = calc_distance) %>%
+  filter(distance2plot <= 300)
+```
+
+## Berekening maximaal aantal
+
+We berekenen het maximum aantal individuen per jaar per telcirkel voor elke soort.
+
+```{r}
+mbag_atlas <- mbag_distance %>%
+  st_drop_geometry() %>%
+  group_by(plotnaam, jaar, periode_in_jaar, naam) %>%
+  mutate(totaal = sum(aantal)) %>%
+  group_by(plotnaam, jaar, naam, x_plot, y_plot) %>%
+  summarise(max_aantal = max(totaal), .groups = "drop") %>%
+  select(plotnaam, jaar, naam, max_aantal, x_plot, y_plot) %>%
+  mutate(x_coord = x_plot,
+         y_coord = y_plot)
+```
+
+Zet om naar sf object met telcirkels.
+
+```{r}
+mbag_atlas_sf <- st_as_sf(mbag_atlas,
+                          coords = c("x_plot", "y_plot"),
+                          crs = 31370) %>%
+  st_buffer(300)
+```
+
+
+# Output shape files 
+
+We voegen de data samen in een bestand en selecteren jaren 2020-2023.
+
+```{r}
+vogelatlas_out_sf <- bind_rows(mas_piloot_atlas_sf, mbag_atlas_sf) %>%
+  filter(jaar %in% 2020:2023)
+```
+
+We schrijven per jaar een shape file weg.
+
+```{r}
+fs::dir_create(here("data", "vogelatlas"))
+for (j in 2020:2023) {
+  filtered_sf <- vogelatlas_out_sf %>%
+    filter(jaar == j)
+  
+  file <- here("data", "vogelatlas", paste0("mas_voor_vogelatlas_", j, ".shp"))
+  
+  st_write(filtered_sf, file)
+}
+```
