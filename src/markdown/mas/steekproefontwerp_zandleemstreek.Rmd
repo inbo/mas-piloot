@@ -39,6 +39,17 @@ source(here("src", "R", "steekproefkader.R"))
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
 targets_store <- here("src", "targets", "mas_steekproef_zavelberg", "_targets")
+
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
 ```
 
 # Vooraf
@@ -1311,4 +1322,15 @@ zandleemstreek_avimap_sf %>%
     "processed",
     "steekproef_zandleemstreek_avimap.geojson"),
     delete_dsn = TRUE)
+```
+
+Voor reproduceerbaarheid houden we deze onder versiecontrole met de **git2rdata** package.
+
+```{r}
+git2rdata::write_vc(zandleemstreek_avimap_df,
+                    file = file.path(
+                      "data",
+                      "processed",
+                      "steekproef_zandleemstreek_avimap"),
+                    sorting = "pointid")
 ```
