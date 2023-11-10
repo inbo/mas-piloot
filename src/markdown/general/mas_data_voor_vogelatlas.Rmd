@@ -25,6 +25,8 @@ opts_knit$set(root.dir = here::here())
 
 
 ```{r}
+Sys.setenv("PROJ_NETWORK" = "ON")
+
 library(tidyverse)
 library(sf)
 ```
@@ -73,6 +75,7 @@ mas_piloot_atlas_sf <- st_as_sf(mas_piloot_atlas,
   st_buffer(300)
 ```
 
+
 # MBAG (zand)leemstreek
 ## Inladen data
 
@@ -97,3 +100,114 @@ mbag_broed_amersfoord <- mas_geojson_2023 %>%
 
 ## Zet om naar Lambert 72
 
+```{r}
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+```
+
+```{r}
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on
+# accuracy. If the grids are installed, this should match the first line of the
+# pipelines object.
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% 
+  pull(definition)
+
+mbag_31370_pipeline <- 
+  st_transform(st_geometry(mbag_broed_amersfoord), "EPSG:31370",
+               pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(mbag_broed_amersfoord), geometry = .) %>% 
+  as_tibble() %>% 
+  st_as_sf() %>%
+  rename(x_amersfoord = x_coord,
+         y_amersfoord = y_coord) %>%
+  mutate(x_lambert = unlist(map(.data$geometry, 1)),
+         y_lambert = unlist(map(.data$geometry, 2))) %>%
+  select(oid:y_amersfoord, x_lambert, y_lambert, everything())
+```
+
+## Data selectie
+
+We selecteren eerst de data **binnen de telrondes**.
+
+```{r}
+r1_start <- "04-01"
+r1_stop  <- "04-20"
+r2_start <- "04-21"
+r2_stop  <- "05-10"
+r3_start <- "05-11"
+r3_stop  <- "06-10"
+r4_start <- "06-21"
+r4_stop  <- "07-15"
+
+mbag_telperiodes <- mbag_31370_pipeline %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    )) %>%
+  filter(!is.na(periode_in_jaar))
+```
+
+We voegen de coördinaten toe van de telpunten.
+
+
+
+We herberekenen de afstanden tussen de waarnemingen en de telpunten. We ronden af to 1 m nauwkeurig.
+
+```{r}
+mbag_controle_afstand <- mbag_telperiodes %>%
+  select(oid, plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
+  inner_join(mbag_design %>% as_tibble() %>% distinct(plotnaam, regio, geometry),
+             by = "plotnaam", suffix = c(".stip", ".telpunt")) %>%
+  mutate(calc_distance = st_distance(.$geometry.stip, .$geometry.telpunt,
+            by_element = TRUE),
+         calc_distance = round(units::drop_units(calc_distance))) %>%
+  st_drop_geometry()
+```
+
+We selecteren vervolgens alle waarnemingen **binnen een afstand van 300 m**.
+
+```{r}
+mbag_distance <- mbag_telperiodes %>%
+  full_join(mbag_controle_afstand, 
+            by = join_by(oid, plotnaam, naam, jaar, distance2plot)) %>%
+  select(-c(distance2plot, geometry.telpunt, waarneme)) %>%
+  rename(distance2plot = calc_distance) %>%
+  filter(distance2plot <= 300)
+```
+
+## Berekening maximaal aantal
+
+We berekenen het maximum aantal individuen per jaar per telcirkel voor elke soort.
+
+```{r}
+mbag_piloot_atlas <- mbag_distance %>%
+  st_drop_geometry() %>%
+  group_by(plotnaam, jaar, periode_in_jaar, naam) %>%
+  mutate(totaal = sum(aantal)) %>%
+  group_by(plotnaam, jaar, naam, x_plot, y_plot) %>%
+  summarise(max_aantal = max(totaal), .groups = "drop") %>%
+  select(plotnaam, jaar, naam, max_aantal, x_plot, y_plot) %>%
+  mutate(x_coord = x_plot,
+         y_coord = y_plot)
+```
+
+Zet om naar sf object met telcirkels.
+
+```{r}
+mbag_piloot_atlas_sf <- st_as_sf(mbag_piloot_atlas,
+                                coords = c("x_plot", "y_plot"),
+                                crs = 31370) %>%
+  st_buffer(300)
+```
