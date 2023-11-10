@@ -242,6 +242,7 @@ vogelatlas_out_sf <- bind_rows(mas_piloot_atlas_sf, mbag_atlas_sf) %>%
 We schrijven per jaar een shape file weg.
 
 ```{r}
+dir.create(here("data", "vogelatlas"))
 for (j in 2020:2023) {
   filtered_sf <- vogelatlas_out_sf %>%
     filter(jaar == j)
