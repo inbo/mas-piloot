@@ -36,6 +36,17 @@ library(visNetwork)
 library(GVI)
 source(here("src", "R", "wfs_wcs.R"))
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
 ```
 
 
@@ -1201,7 +1212,7 @@ sum(duplo_ids)
 
 ## Uitschrijven van veldprotocol
 
-
+...
 
 ## Wegschrijven van de data
 
@@ -1224,6 +1235,13 @@ steekproef_avimap %>%
     "data",
     "processed",
     "steekproef_piloot_avimap.geojson"
+    ))
+
+steekproef_avimap %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.gpkg"
     ))
 
 steekproef_avimap %>%
@@ -1322,3 +1340,31 @@ steekproef_piloot %>%
     "steekproef_piloot_telcirkels.kml"))
 ```
 
+Voor reproduceerbaarheid houden we deze onder versiecontrole met de **git2rdata** package.
+
+```{r}
+steekproef_avimap <- steekproef_finaal %>%
+  mutate(status_claim = ifelse(!is.na(tellercode), "geclaimd", "reserve"),
+         sample_order = as.numeric(sample_order)) %>%
+  select(definitief_punt,
+         tellercode,
+         status_claim,
+         regio = gebied,
+         stratum = openheid_sbp,
+         sample_order
+         ) %>%
+  arrange(regio, stratum, sample_order)
+
+steekproef_avimap_out <- steekproef_avimap %>%
+  st_drop_geometry() %>%
+  bind_cols(steekproef_avimap %>%
+              st_coordinates()
+            )
+
+git2rdata::write_vc(steekproef_avimap_out,
+                    file = file.path(
+                      "data",
+                      "processed",
+                      "steekproef_piloot_avimap"),
+                    sorting = "definitief_punt")
+```
