@@ -161,6 +161,23 @@ mbag_telperiodes <- mbag_31370_pipeline %>%
 
 We voegen de coördinaten toe van de telpunten.
 
+```{r}
+steekproef_leemstreek_telpunten <- read_sf(
+  here(data_path, "steekproef_leemstreek_telpunten.geojson")
+  ) %>%
+  mutate(x_plot = unlist(map(.data$geometry, 1)),
+         y_plot = unlist(map(.data$geometry, 2)))
+steekproef_zandleemstreek_telpunten <- read_sf(
+  here(data_path, "steekproef_zandleemstreek_telpunten.geojson")
+  ) %>%
+  mutate(x_plot = unlist(map(.data$geometry, 1)),
+         y_plot = unlist(map(.data$geometry, 2)))
+
+steekproef_mbag <- bind_rows(steekproef_leemstreek_telpunten,
+                             steekproef_zandleemstreek_telpunten) %>%
+  rename(plotnaam = pointid) %>%
+  select(plotnaam, x_plot, y_plot)
+```
 
 
 We herberekenen de afstanden tussen de waarnemingen en de telpunten. We ronden af to 1 m nauwkeurig.
@@ -168,7 +185,7 @@ We herberekenen de afstanden tussen de waarnemingen en de telpunten. We ronden a
 ```{r}
 mbag_controle_afstand <- mbag_telperiodes %>%
   select(oid, plotnaam, distance2plot, naam, jaar, waarnemer = waarneme) %>%
-  inner_join(mbag_design %>% as_tibble() %>% distinct(plotnaam, regio, geometry),
+  inner_join(steekproef_mbag %>% as_tibble(),
              by = "plotnaam", suffix = c(".stip", ".telpunt")) %>%
   mutate(calc_distance = st_distance(.$geometry.stip, .$geometry.telpunt,
             by_element = TRUE),
@@ -192,7 +209,7 @@ mbag_distance <- mbag_telperiodes %>%
 We berekenen het maximum aantal individuen per jaar per telcirkel voor elke soort.
 
 ```{r}
-mbag_piloot_atlas <- mbag_distance %>%
+mbag_atlas <- mbag_distance %>%
   st_drop_geometry() %>%
   group_by(plotnaam, jaar, periode_in_jaar, naam) %>%
   mutate(totaal = sum(aantal)) %>%
@@ -206,8 +223,31 @@ mbag_piloot_atlas <- mbag_distance %>%
 Zet om naar sf object met telcirkels.
 
 ```{r}
-mbag_piloot_atlas_sf <- st_as_sf(mbag_piloot_atlas,
-                                coords = c("x_plot", "y_plot"),
-                                crs = 31370) %>%
+mbag_atlas_sf <- st_as_sf(mbag_atlas,
+                          coords = c("x_plot", "y_plot"),
+                          crs = 31370) %>%
   st_buffer(300)
+```
+
+
+# Output shape files 
+
+We voegen de data samen in een bestand en selecteren jaren 2020-2023.
+
+```{r}
+vogelatlas_out_sf <- bind_rows(mas_piloot_atlas_sf, mbag_atlas_sf) %>%
+  filter(jaar %in% 2020:2023)
+```
+
+We schrijven per jaar een shape file weg.
+
+```{r}
+for (j in 2020:2023) {
+  filtered_sf <- vogelatlas_out_sf %>%
+    filter(jaar == j)
+  
+  file <- here("data", "vogelatlas", paste0("mas_voor_vogelatlas_", j, ".shp"))
+  
+  st_write(filtered_sf, file)
+}
 ```
