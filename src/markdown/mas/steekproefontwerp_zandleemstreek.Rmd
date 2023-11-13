@@ -39,6 +39,17 @@ source(here("src", "R", "steekproefkader.R"))
 source(here("src", "R", "berekening_hulpvariabelen.R"))
 source(here("src", "R", "wfs_wcs.R"))
 targets_store <- here("src", "targets", "mas_steekproef_zavelberg", "_targets")
+
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
 ```
 
 # Vooraf
@@ -307,7 +318,7 @@ mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0,
   mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
           legend = FALSE) +
   mapview(st_crop(paden, detail), legend = FALSE) +
-  mapview(st_crop(punten, detail), zcol = "value", layer = "Type weg/pad")
+  mapview(st_crop(punten, detail), zcol = "value", layer = "Type weg of pad")
 ```
 
 Overzicht aantal punten per categorie:
@@ -665,6 +676,7 @@ Deze werden tot 1 bestand samengevoegd met volgende code:
 sbp_overig <- 
   st_read(path_to_sbp_akkervogels("sbp_overige_soorten.shp"), 
           quiet = TRUE) %>%
+  st_transform(31370) %>%
   filter(soort %in% c("Hamster", "Bruine kiekendief", "Grauwe kiekendief", 
                       "Zomertortel")) %>%
   mutate(soort = ifelse(soort == "Grauwe kiekendief" & gebied == "nieuw 2023", 
@@ -673,6 +685,7 @@ sbp_overig <-
 sbp_akkergvogels <- 
   st_read(path_to_sbp_akkervogels("akkervogelgebieden2022.shp"),
           quiet = TRUE) %>%
+  st_transform(31370) %>%
   mutate(soort = "akkervogels2022") %>%
   select(soort)
 
@@ -1283,3 +1296,41 @@ Een tweede kolom wordt toegevoegd `vervangen door`. Dit is enkel ingevuld bij ee
   
 Uiteindelijk moeten we tot een CSV komen waarbij enkel de punten *behouden* van de eerste batch en *vervanging* van de reserve batch geüpload worden in Avimap (met tellerscode erbij). Overlappen met reeds getelde MAS punten worden niet meegegeven (5 punten).
 
+```{r}
+zandleemstreek_avimap_df <- read_csv(file.path(
+    "data",
+    "processed",
+    "MAS netwerk Vlaanderen- Zandleemstreek_telpunten.csv"))
+
+zandleemstreek_avimap_sf <- st_as_sf(zandleemstreek_avimap_df,
+                                 wkt  = "WKT",
+                                 crs = st_crs(4326)) %>%
+  st_zm() %>%
+  st_transform(31370) %>%
+  rename("geometry" = WKT)
+
+zandleemstreek_avimap_sf %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_zandleemstreek_avimap.gpkg"),
+    delete_dsn = TRUE)
+
+zandleemstreek_avimap_sf %>%
+  st_write(dsn = file.path(
+    "data",
+    "processed",
+    "steekproef_zandleemstreek_avimap.geojson"),
+    delete_dsn = TRUE)
+```
+
+Voor reproduceerbaarheid houden we deze onder versiecontrole met de **git2rdata** package.
+
+```{r}
+git2rdata::write_vc(zandleemstreek_avimap_df,
+                    file = file.path(
+                      "data",
+                      "processed",
+                      "steekproef_zandleemstreek_avimap"),
+                    sorting = "pointid")
+```
