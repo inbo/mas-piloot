@@ -9,6 +9,8 @@ output:
     toc: true
     toc_float: true
     toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -176,9 +178,25 @@ st_write(obj = nieuwe_perimeters,
 
 
 ```{r map-1, out.width="100%"}
-mapview(perimeters, color = "brown", alpha.regions = 0) +
-  mapview(sbp_akkervogels, col.regions = "yellow")
+mapview::mapviewOptions(fgb = FALSE) # werkt anders niet
+m <- mapview(perimeters, color = "brown", alpha.regions = 0, legend = FALSE) +
+  mapview(sbp_akkervogels, zcol = "Naam", layer.name = "SBP akkervogels")
+
+m <- m %>% leafem::addStaticLabels(label = perimeters$Naam,
+                  noHide = TRUE,
+                  direction = 'top',
+                  offset = c(0, -10),
+                  textOnly = TRUE,
+                  textsize = "12px")
+m
 ```
+
+```{r}
+dir.create("media/steekproefkader_mas", showWarnings = FALSE)
+mapview::mapshot(m, file = here("media", "steekproefkader_mas",
+                                "mas_piloot_perimeters.png"))
+```
+
 
 ```{r}
 binnen_sbp <- perimeters %>%
