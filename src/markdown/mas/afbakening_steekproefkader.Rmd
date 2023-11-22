@@ -178,7 +178,7 @@ st_write(obj = nieuwe_perimeters,
 
 
 ```{r map-1, out.width="100%"}
-mapview::mapviewOptions(fgb = FALSE) # werkt anders niet
+mapview::mapviewOptions(fgb = FALSE) # opslaan werkt anders niet
 m <- mapview(perimeters, color = "brown", alpha.regions = 0, legend = FALSE) +
   mapview(sbp_akkervogels, zcol = "Naam", layer.name = "SBP akkervogels")
 
@@ -189,12 +189,6 @@ m <- m %>% leafem::addStaticLabels(label = perimeters$Naam,
                   textOnly = TRUE,
                   textsize = "12px")
 m
-```
-
-```{r}
-dir.create("media/steekproefkader_mas", showWarnings = FALSE)
-mapview::mapshot(m, file = here("media", "steekproefkader_mas",
-                                "mas_piloot_perimeters.png"))
 ```
 
 
@@ -278,6 +272,8 @@ m <- mapview(st_crop(perimeters, detail), color = "red", col.regions = "red",
   mapview(exclusie_crop, col.regions = "green", 
           legend = FALSE)
 
+
+dir.create("media/steekproefkader_mas", showWarnings = FALSE)
 mapview::mapshot(m, file = here("media", "steekproefkader_mas",
                                 "mas_piloot_exclusie.png"))
 ```
