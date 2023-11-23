@@ -1,0 +1,38 @@
+..generic:
+  git2rdata: 0.4.0
+  optimize: yes
+  NA string: NA
+  sorting: pointid
+  hash: 0902a46e71c8fea68f120bc656f62bf07c4b148b
+  data_hash: 2d4919f9e647f493cf6db8330d8b599817844c50
+pointid:
+  class: character
+key:
+  class: character
+value:
+  class: character
+Naam:
+  class: character
+area_prop_sb:
+  class: numeric
+openheid_klasse:
+  class: factor
+  labels:
+  - GL
+  - HGL
+  - HOL
+  - OL
+  index:
+  - 1
+  - 2
+  - 3
+  - 4
+  ordered: no
+openheid_waarde:
+  class: numeric
+is_sbp:
+  class: logical
+X:
+  class: numeric
+'Y':
+  class: numeric
