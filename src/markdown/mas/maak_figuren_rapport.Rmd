@@ -1431,3 +1431,30 @@ ggsave(here("media", "steekproefkader_mas", "mas_piloot_afbakening.png"),
        width = 9,
        height = 8)
 ```
+
+# Steekproef mbag
+
+```{r}
+plot1 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_zandleem_openheid.png"))
+plot2 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_zandleem_exclusie.png"))
+plot3 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_zandleem_paden.png"))
+plot4 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_zandleem_punten.png"))
+
+p <- cowplot::plot_grid(grid::rasterGrob(plot1),
+                        grid::rasterGrob(plot2),
+                        grid::rasterGrob(plot3),
+                        grid::rasterGrob(plot4),
+                        ncol = 2,
+                        labels = c("A.", "B.", "C.", "D."))
+
+ggsave(here("media", "steekproefkader_mas", "mas_zandleem_afbakening.png"),
+       p,
+       dpi = 300,
+       width = 9,
+       height = 8)
+```
+
