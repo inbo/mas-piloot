@@ -1340,7 +1340,35 @@ steekproef_piloot %>%
     "steekproef_piloot_telcirkels.kml"))
 ```
 
-Voor reproduceerbaarheid houden we deze onder versiecontrole met de **git2rdata** package.
+Voor reproduceerbaarheid houden we het steekproefkader, de steekproef en de finale steekproef na manuele controle onder versiecontrole met de **git2rdata** package.
+
+```{r}
+steekproefkader_out <- steekproefkader %>%
+  mutate(X = st_coordinates(.data$geometry)[,1],
+         Y = st_coordinates(.data$geometry)[,2]) %>%
+  st_drop_geometry()
+
+git2rdata::write_vc(steekproefkader_out,
+                    file = file.path(
+                      "data",
+                      "processed",
+                      "steekproefkader_piloot"),
+                    sorting = "pointid")
+
+steekproef_out <- steekproef %>%
+  select(all_of(names(steekproefkader)),
+         in_sample, sample_order, batch) %>%
+  mutate(X = st_coordinates(.data$geometry)[,1],
+         Y = st_coordinates(.data$geometry)[,2]) %>%
+  st_drop_geometry()
+
+git2rdata::write_vc(steekproef_out,
+                    file = file.path(
+                      "data",
+                      "processed",
+                      "steekproef_piloot"),
+                    sorting = "pointid")
+```
 
 ```{r}
 steekproef_avimap <- steekproef_finaal %>%
