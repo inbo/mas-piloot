@@ -3918,7 +3918,7 @@ for (i in seq_along(predictors_ol_total_list)) {
   print(paste("Busy fitting", name_pois, "..."))
   assign(name_pois,
          brm(formula = predictors_ol_total_list[[spec]]$formula,
-             data = df_count_list_olnew_scaled[[spec]], 
+             data = df_count_list_oltotal_scaled[[spec]], 
              family = poisson(),
              chains = nchains, 
              warmup = burnin, 
@@ -3940,7 +3940,7 @@ for (i in seq_along(predictors_ol_total_list)) {
   print(paste("Busy fitting", name_zip, "..."))
   assign(name_zip,
          brm(formula = predictors_ol_total_list[[spec]]$formula,
-             data = df_count_list_olnew_scaled[[spec]], 
+             data = df_count_list_oltotal_scaled[[spec]], 
              family = zero_inflated_poisson(),
              chains = nchains, 
              warmup = burnin, 
@@ -4359,7 +4359,7 @@ for (i in seq_along(predictors_dm_total_list)) {
   print(paste("Busy fitting", name_pois, "..."))
   assign(name_pois,
          brm(formula = predictors_dm_total_list[[spec]]$formula,
-             data = df_count_list_dmnew_scaled[[spec]], 
+             data = df_count_list_dmtotal_scaled[[spec]], 
              family = poisson(),
              chains = nchains, 
              warmup = burnin, 
@@ -4381,7 +4381,7 @@ for (i in seq_along(predictors_dm_total_list)) {
   print(paste("Busy fitting", name_zip, "..."))
   assign(name_zip,
          brm(formula = predictors_dm_total_list[[spec]]$formula,
-             data = df_count_list_dmnew_scaled[[spec]], 
+             data = df_count_list_dmtotal_scaled[[spec]], 
              family = zero_inflated_poisson(),
              chains = nchains, 
              warmup = burnin, 
