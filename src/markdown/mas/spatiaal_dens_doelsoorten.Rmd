@@ -1,0 +1,52 @@
+---
+title: "Spatiaal model densiteit doelsoorten"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+# renv
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here())
+
+# Conflicting packages
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+
+# Packages
+library(tidyverse)
+library(INBOtheme)
+library(sf)
+library(brms)
+```
+
+# Inlezen data
+
+```{r}
+data_path <- here("data", "processed")
+mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
+```
+
+```{r}
+design <- mas_data_df %>%
+  distinct(plotnaam, regio, periode_in_jaar, jaar)
+
+mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
+                        crs = 31370)
+```
