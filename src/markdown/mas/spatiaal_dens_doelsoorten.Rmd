@@ -28,12 +28,28 @@ opts_knit$set(root.dir = here())
 # Conflicting packages
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(brms::ar)
+conflicted::conflicts_prefer(stats::lag)
 
 # Packages
 library(tidyverse)
 library(INBOtheme)
 library(sf)
 library(brms)
+library(targets)
+
+targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
 ```
 
 # Inlezen data
@@ -55,7 +71,7 @@ mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"),
 
 # Data selectie en preparatie
 
-We selecteren de data van de Oostelijke leemstreek met broedcode > 0.
+We selecteren de data van 2022-2023 in de Oostelijke leemstreek in OL en HOL met broedcode > 0.
 We sommeren de aantal per telcirkel, telperiode en jaar. We voegen ook afwezigheden (nullen) toe.
 3 doelsoorten zijn geselecteerd: (1) Veldleeuwerik, (2) Gele Kwikstaart en (3) Geelgors.
 We voegen de detectiekansen van de distance sampling modellen toe aan de dataframes.
@@ -65,6 +81,7 @@ create_species_df <- function(species, data = mas_data_df, design = design_df) {
   # Presence data
   presences_df <- data %>%
     filter(naam == species,
+           jaar %in% 2022:2023,
            regio == "Oostelijke leemstreek",
            wrntype > 0) %>%
     group_by(plotnaam, periode_in_jaar, jaar) %>%
@@ -73,14 +90,16 @@ create_species_df <- function(species, data = mas_data_df, design = design_df) {
   
   # Add absences
   out_df <- design %>%
-    filter(regio == "Oostelijke leemstreek") %>%
+    filter(jaar %in% 2022:2023,
+           regio == "Oostelijke leemstreek") %>%
     left_join(presences_df, 
               by = join_by(plotnaam, periode_in_jaar, jaar)) %>%
     replace(is.na(.), 0) %>%
     arrange(plotnaam, periode_in_jaar, jaar) %>%
     mutate(naam = species) %>%
     select(plotnaam, naam, aantal, periode_in_jaar, jaar, openheid, sbp,
-           x_plot, y_plot)
+           x_plot, y_plot) %>%
+    filter(openheid %in% c("OL", "HOL"))
   
   return(out_df)
 }
@@ -126,10 +145,137 @@ for (soort in doelsoorten) {
   df_det_prob <- get_detection_prob(soort)
   
   merged_df <- df_soort %>%
-    full_join(df_det_prob, by = join_by(jaar, openheid, sbp))
+    full_join(df_det_prob, by = join_by(jaar, openheid, sbp)) %>%
+    mutate(cirkelopp = pi * 300^2,
+           ha_100 = 10^6,
+           offset = (detectiekans * cirkelopp) / ha_100)
   
   name <- paste(gsub("\\s", "_", tolower(soort)), "df", sep = "_")
   assign(name, merged_df)
 }
+```
+
+# Veldleeuwerik
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 2000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 1
+```
+
+```{r}
+test <- brm(
+  bf(aantal ~ s(x_plot, y_plot) + (1|plotnaam) + (1|plotnaam:periode_in_jaar) +
+       offset(log(offset))),
+  data = veldleeuwerik_df,
+  family = poisson(),
+  chains = nchains, 
+  warmup = burnin, 
+  iter = niter,
+  cores = nparallel,
+  thin = thinning,
+  backend = "cmdstanr")
+```
+
+
+```{r}
+plot(test)
+pp_check(test, type = "bars", ndraws = 100)
+conditional_effects(test)
+plot(conditional_effects(test, offset = FALSE), points = F)
+```
+
+```{r}
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+  
+new_df <- steekproefkader %>%
+  filter(Naam == "Oostelijke leemstreek",
+         openheid_klasse %in% c("OL", "HOL")) %>%
+  mutate(x_plot = st_coordinates(.data$geometry)[, 1],
+         y_plot = st_coordinates(.data$geometry)[, 2],
+         sbp = ifelse(is_sbp, "binnen", "buiten")) %>%
+  select(openheid = openheid_klasse, sbp,
+         x_plot, y_plot)
+
+test_fitted <- fitted(test, new_df, re_formula = NA, offset = FALSE)
+
+new_df %>%
+  bind_cols(test_fitted) %>%
+  st_as_sf(coords = c("x_plot", "y_plot"), crs = 31370) %>%
+  st_buffer(300) %>%
+  ggplot() +
+    geom_sf(aes(fill = Estimate), colour = alpha("white", 0)) +
+    scale_fill_gradient(low = "red", high = "blue",
+                         limits = c(0, ceiling(max(test_fitted[, 1]))))
+```
+
+```{r}
+steekproefkader_buf <- steekproefkader %>%
+  filter(Naam == "Oostelijke leemstreek",
+         openheid_klasse %in% c("OL", "HOL")) %>%
+  st_buffer(300)
+grid1 <- st_make_grid(steekproefkader_buf, 100) %>%
+  as_tibble() %>%
+  rownames_to_column(var = "id") %>%
+  st_as_sf(crs = 31370)
+
+ids <- st_intersection(grid1, steekproefkader_buf) %>%
+  pull(id)
+
+grid <- grid1 %>%
+  filter(id %in% ids)
+
+new_df2 <-  grid %>%
+  st_centroid() %>%
+  as_tibble() %>%
+  mutate(x_plot = st_coordinates(.data$geometry)[, 1],
+         y_plot = st_coordinates(.data$geometry)[, 2])
+
+test_fitted2 <- fitted(test, new_df2, re_formula = NA, offset = FALSE)
+
+new_df2 %>%
+  bind_cols(test_fitted2) %>%
+  select(id, x_plot, y_plot, Estimate) %>%
+  mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4))) %>%
+  ggplot(aes(x_plot, y_plot)) +
+    geom_raster(aes(fill = Estimate), interpolate = TRUE) +
+    scale_fill_gradient(low = "red", high = "blue",
+                        limits = c(0, ceiling(max(test_fitted2[, 1])))) +
+    coord_sf(crs = 31370)
+```
+
+```{r}
+new_df2 %>%
+  bind_cols(test_fitted2) %>%
+  select(id, x_plot, y_plot, Estimate) %>%
+  mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4))) %>%
+  ggplot(aes(x_plot, y_plot)) +
+    geom_raster(aes(fill = Estimate), interpolate = TRUE) +
+    scale_fill_gradient(low = "red", high = "blue",
+                        limits = c(0, ceiling(max(test_fitted2[, 1])))) +
+    coord_sf(crs = 31370) +
+    metR::geom_contour2(
+      aes(z = Estimate, label = after_stat(level)),
+      breaks = seq(0, 16, 3),
+      label.placer = metR::label_placer_fraction(frac = 0.3, rot_adjuster = 0))
+```
+
+```{r}
+new_df2 %>%
+  bind_cols(test_fitted2) %>%
+  select(id, x_plot, y_plot, Estimate) %>%
+  mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4))) %>%
+  ggplot(aes(x_plot, y_plot)) +
+    geom_raster(aes(fill = Estimate), interpolate = TRUE) +
+    scale_fill_gradient(low = "red", high = "blue",
+                        limits = c(0, ceiling(max(test_fitted2[, 1])))) +
+    coord_sf(crs = 31370) +
+    metR::geom_contour2(
+      aes(z = Estimate, label = after_stat(level)),
+      breaks = seq(0, 16, 3),
+      label.placer = metR::label_placer_fraction(frac = 0.5, rot_adjuster = 0))
 ```
 
