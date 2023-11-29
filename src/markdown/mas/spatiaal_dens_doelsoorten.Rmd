@@ -44,9 +44,90 @@ mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
 ```
 
 ```{r}
-design <- mas_data_df %>%
-  distinct(plotnaam, regio, periode_in_jaar, jaar)
+design_df <- mas_data_df %>%
+  distinct(plotnaam, regio, periode_in_jaar, jaar,
+           openheid = openheid_klasse_300, sbp,
+           x_plot, y_plot)
 
 mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
                         crs = 31370)
 ```
+
+# Data selectie en preparatie
+
+We selecteren de data van de Oostelijke leemstreek met broedcode > 0.
+We sommeren de aantal per telcirkel, telperiode en jaar. We voegen ook afwezigheden (nullen) toe.
+3 doelsoorten zijn geselecteerd: (1) Veldleeuwerik, (2) Gele Kwikstaart en (3) Geelgors.
+We voegen de detectiekansen van de distance sampling modellen toe aan de dataframes.
+
+```{r}
+create_species_df <- function(species, data = mas_data_df, design = design_df) {
+  # Presence data
+  presences_df <- data %>%
+    filter(naam == species,
+           regio == "Oostelijke leemstreek",
+           wrntype > 0) %>%
+    group_by(plotnaam, periode_in_jaar, jaar) %>%
+    summarise(aantal = sum(aantal),
+              .groups = "drop")
+  
+  # Add absences
+  out_df <- design %>%
+    filter(regio == "Oostelijke leemstreek") %>%
+    left_join(presences_df, 
+              by = join_by(plotnaam, periode_in_jaar, jaar)) %>%
+    replace(is.na(.), 0) %>%
+    arrange(plotnaam, periode_in_jaar, jaar) %>%
+    mutate(naam = species) %>%
+    select(plotnaam, naam, aantal, periode_in_jaar, jaar, openheid, sbp,
+           x_plot, y_plot)
+  
+  return(out_df)
+}
+```
+
+```{r}
+dsmodels_2022 <- readRDS(
+  file.path("src", "markdown", "mas", "distance_models",
+            "models_2022.rds"))
+dsmodels_2023 <- readRDS(
+  file.path("src", "markdown", "mas", "distance_models",
+            "models_2023.rds"))
+```
+
+```{r}
+get_detection_prob <- function(species) {
+  ds_2022 <- dsmodels_2022[species][[1]]
+  ds_2023 <- dsmodels_2023[species][[1]]
+  
+  covars <- c("sbp", "openheid", "jaar")
+  out <- cbind(ds_2022$ddf$data,
+        "detectiekans" = predict(ds_2022)$fitted) %>%
+    mutate(jaar = 2022) %>%
+    bind_rows(
+      cbind(ds_2023$ddf$data,
+        "detectiekans" = predict(ds_2023)$fitted) %>%
+      mutate(jaar = 2023)
+    ) %>%
+    select(all_of(covars), "detectiekans") %>%
+    distinct() %>%
+    arrange(jaar, openheid)
+  
+  return(out)
+}
+```
+
+```{r}
+doelsoorten <- c("Veldleeuwerik", "Gele Kwikstaart", "Geelgors")
+for (soort in doelsoorten) {
+  df_soort <- create_species_df(soort)
+  df_det_prob <- get_detection_prob(soort)
+  
+  merged_df <- df_soort %>%
+    full_join(df_det_prob, by = join_by(jaar, openheid, sbp))
+  
+  name <- paste(gsub("\\s", "_", tolower(soort)), "df", "raw", sep = "_")
+  assign(name, merged_df)
+}
+```
+
