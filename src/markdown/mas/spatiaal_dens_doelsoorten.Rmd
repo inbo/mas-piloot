@@ -97,10 +97,10 @@ dsmodels_2023 <- readRDS(
 
 ```{r}
 get_detection_prob <- function(species) {
-  ds_2022 <- dsmodels_2022[species][[1]]
-  ds_2023 <- dsmodels_2023[species][[1]]
+  ds_2022 <- dsmodels_2022[gsub("\\s", "", species)][[1]]
+  ds_2023 <- dsmodels_2023[gsub("\\s", "", species)][[1]]
   
-  covars <- c("sbp", "openheid", "jaar")
+  covars <- c("regio", "sbp", "openheid", "jaar")
   out <- cbind(ds_2022$ddf$data,
         "detectiekans" = predict(ds_2022)$fitted) %>%
     mutate(jaar = 2022) %>%
@@ -111,6 +111,8 @@ get_detection_prob <- function(species) {
     ) %>%
     select(all_of(covars), "detectiekans") %>%
     distinct() %>%
+    filter(regio == "Oostelijke leemstreek") %>%
+    select(-regio) %>%
     arrange(jaar, openheid)
   
   return(out)
@@ -126,7 +128,7 @@ for (soort in doelsoorten) {
   merged_df <- df_soort %>%
     full_join(df_det_prob, by = join_by(jaar, openheid, sbp))
   
-  name <- paste(gsub("\\s", "_", tolower(soort)), "df", "raw", sep = "_")
+  name <- paste(gsub("\\s", "_", tolower(soort)), "df", sep = "_")
   assign(name, merged_df)
 }
 ```
