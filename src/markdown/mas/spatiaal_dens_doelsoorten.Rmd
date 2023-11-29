@@ -24,20 +24,26 @@ opts_chunk$set(
   message = FALSE,
   warning = FALSE)
 opts_knit$set(root.dir = here())
+```
 
-# Conflicting packages
-conflicted::conflicts_prefer(dplyr::filter)
-conflicted::conflicts_prefer(dplyr::select)
-conflicted::conflicts_prefer(brms::ar)
-conflicted::conflicts_prefer(stats::lag)
-
+```{r}
 # Packages
 library(tidyverse)
 library(INBOtheme)
 library(sf)
 library(brms)
 library(targets)
+library(metR)
 
+# Conflicting packages
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(brms::ar)
+conflicted::conflicts_prefer(stats::lag)
+```
+
+```{r}
+# targets
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 
 new_tar_vector <- function(value, objects) {
