@@ -160,7 +160,7 @@ for (soort in doelsoorten) {
            ha_100 = 10^6,
            offset = (detectiekans * cirkelopp) / ha_100)
   
-  name <- paste(gsub("\\s", "_", tolower(soort)), "df", sep = "_")
+  name <- paste(gsub("\\s", "", tolower(soort)), "df", sep = "_")
   assign(name, merged_df)
 }
 ```
@@ -189,6 +189,7 @@ fit_veldleeuwerik <- brm(
   cores = nparallel,
   thin = thinning,
   backend = "cmdstanr",
+  seed = 123,
   file = paste0(model_path, "fit_veldleeuwerik"),
   file_refit = "on_change")
 ```
@@ -321,6 +322,7 @@ fit_gelekwikstaart <- brm(
   cores = nparallel,
   thin = thinning,
   backend = "cmdstanr",
+  seed = 123,
   file = paste0(model_path, "fit_gelekwikstaart"),
   file_refit = "on_change")
 ```
@@ -416,6 +418,7 @@ fit_geelgors <- brm(
   cores = nparallel,
   thin = thinning,
   backend = "cmdstanr",
+  seed = 123,
   file = paste0(model_path, "fit_geelgors"),
   file_refit = "on_change")
 ```
