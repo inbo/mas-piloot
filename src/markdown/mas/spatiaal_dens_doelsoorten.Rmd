@@ -30,6 +30,7 @@ opts_knit$set(root.dir = here())
 # Packages
 library(tidyverse)
 library(INBOtheme)
+theme_set(theme_inbo(base_size = 12, transparent = TRUE))
 library(sf)
 library(brms)
 library(targets)
@@ -230,8 +231,11 @@ pp_check(fit_veldleeuwerik, type = "bars", ndraws = 100)
 We lezen het steekproefkader in.
 
 ```{r}
-steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+perimeter <- tar_read(perimeters_data, store = targets_store)
+perimeter_ol <- perimeter %>%
+  filter(Naam == "Oostelijke leemstreek")
 
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
 steekproefkader_buf <- steekproefkader %>%
   filter(Naam == "Oostelijke leemstreek",
          openheid_klasse %in% c("OL", "HOL")) %>%
@@ -260,7 +264,7 @@ new_df <-  grid %>%
          y_plot = st_coordinates(.data$geometry)[, 2])
 
 pred_veldleeuwerik <- fitted(fit_veldleeuwerik, new_df,
-                              re_formula = NA, offset = FALSE)
+                             re_formula = NA, offset = FALSE)
 ```
 
 Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
@@ -272,24 +276,40 @@ plot_veldleeuwerik <- new_df %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
 
 plot_veldleeuwerik %>%
-  ggplot(aes(x_plot, y_plot)) +
-    geom_raster(aes(fill = Estimate), interpolate = TRUE) +
-    scale_fill_gradient(low = "red", high = "blue",
-                        limits = c(0, ceiling(max(pred_veldleeuwerik[, 1])))) +
-    coord_sf(crs = 31370)
+  ggplot() +
+    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+            linewidth = 1) +
+    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
+                interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
+                                     "gold", "red"),
+                         breaks = c(0, 5, 10, 15, 20),
+                         limits = c(0, 20)) +
+    coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
+         title = "Veldleewerik") +
+    theme(legend.position = "bottom")
 ```
 
 We kunnen contourlijnen toevoegen om de figuur begrijpbaarder te maken.
 
 ```{r}
 plot_veldleeuwerik %>%
-  ggplot(aes(x_plot, y_plot)) +
-    geom_raster(aes(fill = Estimate), interpolate = TRUE) +
-    scale_fill_gradient(low = "red", high = "blue",
-                        limits = c(0, ceiling(max(pred_veldleeuwerik2[, 1])))) +
+  ggplot() +
+  geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+          linewidth = 1) +
+    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
+                interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
+                                     "gold", "red"),
+                         breaks = c(0, 5, 10, 15, 20),
+                         limits = c(0, 20)) +
     coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
+       title = "Veldleewerik") +
+    theme(legend.position = "bottom") +
     geom_contour2(
-      aes(z = Estimate, label = after_stat(level)),
+      aes(x = x_plot, y = y_plot, z = Estimate, label = after_stat(level)),
       breaks = seq(0, 16, 3),
       label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
 ```
