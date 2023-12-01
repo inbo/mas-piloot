@@ -48,7 +48,7 @@ model_path <- here("src", "markdown", "mas", "spatiale_modellen")
 dir.create(model_path, showWarnings = FALSE)
 ```
 
-```{r, message=FALSE}
+```{r, echo=FALSE}
 # targets
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 
@@ -176,13 +176,28 @@ $$
 Y_{j,t} \sim Pois(\lambda_{j,t})
 $$
 
-met 
+met
 
 $$
-\ln(\lambda_{j,t}) = \beta_0 + f(x_j, y_j) + b_{0,j} + b_{1,j:t}
+\ln(\lambda_{j,t}) = \beta_0 + f(x_j, y_j) + b_{0,j} + b_{1,j:t} + \ln(p_s) + \ln\left(\frac{A_{telcirkel}}{10^6\ \text{m}^2/100\ \text{ha}}\right)
+$$
+
+Waarbij $p_s$ de detectiekans van de soort is in stratum $s$ (per regio, jaar, openheid landschap, binnen of buiten sbp) en $A_{telcirkel}$ de oppervlakte van een telcirkel $A_{telcirkel} = \pi * 300^2 =$ `r pi * 300^2` m².
+We kunnen deze 'offset' termen samen nemen.
+
+$$
+\ln(\lambda_{j,t}) = \beta_0 + f(x_j, y_j) + b_{0,j} + b_{1,j:t} + \ln(\text{offset})
+$$
+
+zodat
+
+$$
+\ln\left(\frac{\lambda_{j,t}}{\text{offset}}\right) = \beta_0 + f(x_j, y_j) + b_{0,j} + b_{1,j:t}
 $$
 
 Waarbij $f()$ de default smoothing function is van de `s()` functie en $x_j$, $y_j$ resp. de X- en Y- coordinaten van telpunt $j$.
+$\text{offset}$ is gelijk aan de detectiekans vermenigvuldigd met een factor om het aantal individuen per telcirkel om te zetten naar aantal individuen per 100 ha.
+Zo krijgen we een model voor het gemiddeld aantal broedparen per 100 ha waarbij we corrigeren voor detectiekans.
 
 ```{r}
 # MCMC parameters
