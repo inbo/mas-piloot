@@ -84,7 +84,7 @@ mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"),
 # Data selectie en preparatie
 
 We selecteren de data van 2022-2023 in de Oostelijke leemstreek in OL en HOL met broedcode > 0.
-We sommeren de aantal per soort, telcirkel, telperiode en jaar. We voegen ook afwezigheden (nullen) toe.
+We sommeren de aantallen per soort, telcirkel, telperiode en jaar. We voegen ook afwezigheden (nullen) toe.
 3 doelsoorten zijn geselecteerd: (1) Veldleeuwerik, (2) Gele Kwikstaart en (3) Geelgors.
 We voegen de detectiekansen van de distance sampling modellen toe aan de dataframes.
 
