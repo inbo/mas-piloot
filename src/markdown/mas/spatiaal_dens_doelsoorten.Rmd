@@ -46,7 +46,7 @@ model_path <- here("src", "markdown", "mas", "spatiale_modellen")
 dir.create(model_path, showWarnings = FALSE)
 ```
 
-```{r}
+```{r, message=FALSE}
 # targets
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 
@@ -82,7 +82,7 @@ mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"),
 # Data selectie en preparatie
 
 We selecteren de data van 2022-2023 in de Oostelijke leemstreek in OL en HOL met broedcode > 0.
-We sommeren de aantal per telcirkel, telperiode en jaar. We voegen ook afwezigheden (nullen) toe.
+We sommeren de aantal per soort, telcirkel, telperiode en jaar. We voegen ook afwezigheden (nullen) toe.
 3 doelsoorten zijn geselecteerd: (1) Veldleeuwerik, (2) Gele Kwikstaart en (3) Geelgors.
 We voegen de detectiekansen van de distance sampling modellen toe aan de dataframes.
 
@@ -168,6 +168,20 @@ for (soort in doelsoorten) {
 # Veldleeuwerik
 ## Model fitten
 
+We fitten een Poisson model met $Y_{j,t}$ het aantal individuen in telcirkel $j$ in telperiode $t$
+
+$$
+Y_{j,t} \sim Pois(\lambda_{j,t})
+$$
+
+met 
+
+$$
+\ln(\lambda_{j,t}) = \beta_0 + f(x_j, y_j) + b_{0,j} + b_{1,j:t}
+$$
+
+Waarbij $f()$ de default smoothing function is van de `s()` functie en $x_j$, $y_j$ resp. de X- en Y- coordinaten van telpunt $j$.
+
 ```{r}
 # MCMC parameters
 nchains <- 3           # number of chains
@@ -196,6 +210,8 @@ fit_veldleeuwerik <- brm(
 
 ## MCMC convergentie
 
+MCMC convergentie is goed.
+
 ```{r}
 plot(fit_veldleeuwerik, ask = FALSE)
 ```
@@ -203,10 +219,11 @@ plot(fit_veldleeuwerik, ask = FALSE)
 
 ## Model fit
 
+Model fit is goed genoeg.
+
 ```{r}
 pp_check(fit_veldleeuwerik, type = "bars", ndraws = 100)
 ```
-
 
 ## Resultaten
 
@@ -221,40 +238,10 @@ steekproefkader_buf <- steekproefkader %>%
   st_buffer(300)
 ```
 
-We maken een dataframe met de coördinaten van het steekproefkader en fitten het model op deze coördinaten.
-
-```{r}
-new_df <- steekproefkader %>%
-  filter(Naam == "Oostelijke leemstreek",
-         openheid_klasse %in% c("OL", "HOL")) %>%
-  mutate(x_plot = st_coordinates(.data$geometry)[, 1],
-         y_plot = st_coordinates(.data$geometry)[, 2],
-         sbp = ifelse(is_sbp, "binnen", "buiten")) %>%
-  select(openheid = openheid_klasse, sbp,
-         x_plot, y_plot)
-
-pred_veldleeuwerik <- fitted(fit_veldleeuwerik, new_df,
-                             re_formula = NA, offset = FALSE)
-```
-
-We kunnen dit visualiseren door een buffer toe te voegen rond de punten van 300 m.
-
-```{r}
-new_df %>%
-  bind_cols(pred_veldleeuwerik) %>%
-  st_as_sf(coords = c("x_plot", "y_plot"), crs = 31370) %>%
-  st_buffer(300) %>%
-  ggplot() +
-    geom_sf(aes(fill = Estimate), colour = alpha("white", 0)) +
-    scale_fill_gradient(low = "red", high = "blue",
-                         limits = c(0, ceiling(max(pred_veldleeuwerik[, 1]))))
-```
-
-Een betere techniek is om gebruik te maken van een grid.
-We maken een grid met cellen van 100 op 100 m en leggen deze over het steekproefkader (met buffer van 300 m).
+We maken een grid met cellen van 100x100 m en leggen deze over het steekproefkader (met buffer van 300 m).
 Voor de centroïde van elke grid cell maken we een predictie o.b.v. het model.
 
-```{r}
+```{r, cache=TRUE}
 grid_total <- st_make_grid(steekproefkader_buf, 100) %>%
   as_tibble() %>%
   rownames_to_column(var = "id") %>%
@@ -266,21 +253,21 @@ ids <- st_intersection(grid_total, steekproefkader_buf) %>%
 grid <- grid_total %>%
   filter(id %in% ids)
 
-new_df2 <-  grid %>%
+new_df <-  grid %>%
   st_centroid() %>%
   as_tibble() %>%
   mutate(x_plot = st_coordinates(.data$geometry)[, 1],
          y_plot = st_coordinates(.data$geometry)[, 2])
 
-pred_veldleeuwerik2 <- fitted(fit_veldleeuwerik, new_df2,
+pred_veldleeuwerik <- fitted(fit_veldleeuwerik, new_df,
                               re_formula = NA, offset = FALSE)
 ```
 
 Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
 
 ```{r}
-plot_veldleeuwerik <- new_df2 %>%
-  bind_cols(pred_veldleeuwerik2) %>%
+plot_veldleeuwerik <- new_df %>%
+  bind_cols(pred_veldleeuwerik) %>%
   select(id, x_plot, y_plot, Estimate) %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
 
@@ -288,7 +275,7 @@ plot_veldleeuwerik %>%
   ggplot(aes(x_plot, y_plot)) +
     geom_raster(aes(fill = Estimate), interpolate = TRUE) +
     scale_fill_gradient(low = "red", high = "blue",
-                        limits = c(0, ceiling(max(pred_veldleeuwerik2[, 1])))) +
+                        limits = c(0, ceiling(max(pred_veldleeuwerik[, 1])))) +
     coord_sf(crs = 31370)
 ```
 
@@ -310,6 +297,8 @@ plot_veldleeuwerik %>%
 # Gele Kwikstaart
 ## Model fitten
 
+We fitten hetzelfde model voor Gele kwikstaart.
+
 ```{r}
 fit_gelekwikstaart <- brm(
   bf(aantal ~ s(x_plot, y_plot) + (1|plotnaam) + (1|plotnaam:periode_in_jaar) +
@@ -329,6 +318,8 @@ fit_gelekwikstaart <- brm(
 
 ## MCMC convergentie
 
+MCMC convergentie is goed.
+
 ```{r}
 plot(fit_gelekwikstaart, ask = FALSE)
 ```
@@ -336,47 +327,26 @@ plot(fit_gelekwikstaart, ask = FALSE)
 
 ## Model fit
 
+Model fit is goed genoeg.
+
 ```{r}
 pp_check(fit_gelekwikstaart, type = "bars", ndraws = 100)
 ```
 
-
 ## Resultaten
 
-We maken een dataframe met de coördinaten van het steekproefkader en fitten het model op deze coördinaten.
+Zoals voordien maken we voor de centroïde van elke grid cell een predictie o.b.v. het model.
 
 ```{r}
 pred_gelekwikstaart <- fitted(fit_gelekwikstaart, new_df,
-                             re_formula = NA, offset = FALSE)
-```
-
-We kunnen dit visualiseren door een buffer toe te voegen rond de punten van 300 m.
-
-```{r}
-new_df %>%
-  bind_cols(pred_gelekwikstaart) %>%
-  st_as_sf(coords = c("x_plot", "y_plot"), crs = 31370) %>%
-  st_buffer(300) %>%
-  ggplot() +
-    geom_sf(aes(fill = Estimate), colour = alpha("white", 0)) +
-    scale_fill_gradient(low = "red", high = "blue",
-                         limits = c(0, ceiling(max(pred_gelekwikstaart[, 1]))))
-```
-
-Een betere techniek is om gebruik te maken van een grid.
-We maken een grid met cellen van 100 op 100 m en leggen deze over het steekproefkader (met buffer van 300 m).
-Voor de centroïde van elke grid cell maken we een predictie o.b.v. het model.
-
-```{r}
-pred_gelekwikstaart2 <- fitted(fit_gelekwikstaart, new_df2,
                               re_formula = NA, offset = FALSE)
 ```
 
 Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
 
 ```{r}
-plot_gelekwikstaart <- new_df2 %>%
-  bind_cols(pred_gelekwikstaart2) %>%
+plot_gelekwikstaart <- new_df %>%
+  bind_cols(pred_gelekwikstaart) %>%
   select(id, x_plot, y_plot, Estimate) %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
 
@@ -406,6 +376,8 @@ plot_gelekwikstaart %>%
 # Geelgors
 ## Model fitten
 
+We fitten hetzelfde model voor Geelgors.
+
 ```{r}
 fit_geelgors <- brm(
   bf(aantal ~ s(x_plot, y_plot) + (1|plotnaam) + (1|plotnaam:periode_in_jaar) +
@@ -425,6 +397,8 @@ fit_geelgors <- brm(
 
 ## MCMC convergentie
 
+MCMC convergentie is goed.
+
 ```{r}
 plot(fit_geelgors, ask = FALSE)
 ```
@@ -432,47 +406,26 @@ plot(fit_geelgors, ask = FALSE)
 
 ## Model fit
 
+Model fit is goed genoeg.
+
 ```{r}
 pp_check(fit_geelgors, type = "bars", ndraws = 100)
 ```
 
-
 ## Resultaten
 
-We maken een dataframe met de coördinaten van het steekproefkader en fitten het model op deze coördinaten.
+Zoals voordien maken we voor de centroïde van elke grid cell een predictie o.b.v. het model.
 
 ```{r}
 pred_geelgors <- fitted(fit_geelgors, new_df,
-                             re_formula = NA, offset = FALSE)
-```
-
-We kunnen dit visualiseren door een buffer toe te voegen rond de punten van 300 m.
-
-```{r}
-new_df %>%
-  bind_cols(pred_geelgors) %>%
-  st_as_sf(coords = c("x_plot", "y_plot"), crs = 31370) %>%
-  st_buffer(300) %>%
-  ggplot() +
-    geom_sf(aes(fill = Estimate), colour = alpha("white", 0)) +
-    scale_fill_gradient(low = "red", high = "blue",
-                         limits = c(0, ceiling(max(pred_geelgors[, 1]))))
-```
-
-Een betere techniek is om gebruik te maken van een grid.
-We maken een grid met cellen van 100 op 100 m en leggen deze over het steekproefkader (met buffer van 300 m).
-Voor de centroïde van elke grid cell maken we een predictie o.b.v. het model.
-
-```{r}
-pred_geelgors2 <- fitted(fit_geelgors, new_df2,
-                              re_formula = NA, offset = FALSE)
+                        re_formula = NA, offset = FALSE)
 ```
 
 Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
 
 ```{r}
-plot_geelgors <- new_df2 %>%
-  bind_cols(pred_geelgors2) %>%
+plot_geelgors <- new_df %>%
+  bind_cols(pred_geelgors) %>%
   select(id, x_plot, y_plot, Estimate) %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
 
@@ -480,7 +433,7 @@ plot_geelgors %>%
   ggplot(aes(x_plot, y_plot)) +
     geom_raster(aes(fill = Estimate), interpolate = TRUE) +
     scale_fill_gradient(low = "red", high = "blue",
-                        limits = c(0, ceiling(max(pred_geelgors2[, 1])))) +
+                        limits = c(0, ceiling(max(pred_geelgors[, 1])))) +
     coord_sf(crs = 31370)
 ```
 
@@ -491,7 +444,7 @@ plot_geelgors %>%
   ggplot(aes(x_plot, y_plot)) +
     geom_raster(aes(fill = Estimate), interpolate = TRUE) +
     scale_fill_gradient(low = "red", high = "blue",
-                        limits = c(0, ceiling(max(pred_geelgors2[, 1])))) +
+                        limits = c(0, ceiling(max(pred_geelgors[, 1])))) +
     coord_sf(crs = 31370) +
     geom_contour2(
       aes(z = Estimate, label = after_stat(level)),
