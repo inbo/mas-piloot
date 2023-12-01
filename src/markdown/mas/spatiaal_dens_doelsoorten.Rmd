@@ -206,7 +206,7 @@ fit_veldleeuwerik <- brm(
   thin = thinning,
   backend = "cmdstanr",
   seed = 123,
-  file = paste0(model_path, "fit_veldleeuwerik"),
+  file = here(model_path, "fit_veldleeuwerik"),
   file_refit = "on_change")
 ```
 
@@ -349,7 +349,7 @@ fit_gelekwikstaart <- brm(
   thin = thinning,
   backend = "cmdstanr",
   seed = 123,
-  file = paste0(model_path, "fit_gelekwikstaart"),
+  file = here(model_path, "fit_gelekwikstaart"),
   file_refit = "on_change")
 ```
 
@@ -428,7 +428,6 @@ p_gelekwikstaart
 ```
 
 ```{r}
-dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
 ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_dens_ol.png"),
        p_gelekwikstaart,
        dpi = 300,
@@ -460,7 +459,7 @@ fit_geelgors <- brm(
   thin = thinning,
   backend = "cmdstanr",
   seed = 123,
-  file = paste0(model_path, "fit_geelgors"),
+  file = here(model_path, "fit_geelgors"),
   file_refit = "on_change")
 ```
 
@@ -539,7 +538,6 @@ p_geelgors
 ```
 
 ```{r}
-dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
 ggsave(here("media", "spatiale_densiteiten", "geelgors_dens_ol.png"),
        p_geelgors,
        dpi = 300,
