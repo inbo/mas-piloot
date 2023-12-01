@@ -35,6 +35,7 @@ library(sf)
 library(brms)
 library(targets)
 library(metR)
+library(mapview)
 
 # Conflicting packages
 conflicted::conflicts_prefer(dplyr::filter)
@@ -256,7 +257,7 @@ ids <- st_intersection(grid_total, steekproefkader_buf) %>%
 grid <- grid_total %>%
   filter(id %in% ids)
 
-new_df <-  grid %>%
+new_df <- grid %>%
   st_centroid() %>%
   as_tibble() %>%
   mutate(x_plot = st_coordinates(.data$geometry)[, 1],
@@ -549,4 +550,55 @@ ggsave(here("media", "spatiale_densiteiten", "geelgors_dens_ol.pdf"),
        dpi = 300,
        width = 8,
        height = 4)
+```
+
+
+# OpenStreetMap kaarten
+
+We maken een kaart voor Veldleeuwerik.
+
+```{r}
+grid_veldleeuwerik <- grid %>%
+  bind_cols(pred_veldleeuwerik) %>%
+  select(id, Estimate, geometry) %>%
+  mutate(Estimate = round(Estimate, 3)) %>%
+  st_as_sf(sf_column_name = "geometry", crs = 31370)
+
+mapview(grid_veldleeuwerik,
+        zcol = "Estimate",
+        alpha = 0,
+        layer.name = "Aantal broedparen per 100 ha",
+        map.types = "OpenStreetMap")
+```
+
+We maken een kaart voor Gele kwikstaart.
+
+```{r}
+grid_gelekwikstaart <- grid %>%
+  bind_cols(pred_gelekwikstaart) %>%
+  select(id, Estimate, geometry) %>%
+  mutate(Estimate = round(Estimate, 3)) %>%
+  st_as_sf(sf_column_name = "geometry", crs = 31370)
+
+mapview(grid_gelekwikstaart,
+        zcol = "Estimate",
+        alpha = 0,
+        layer.name = "Aantal broedparen per 100 ha",
+        map.types = "OpenStreetMap")
+```
+
+We maken een kaart voor Geelgors.
+
+```{r}
+grid_geelgors <- grid %>%
+  bind_cols(pred_geelgors) %>%
+  select(id, Estimate, geometry) %>%
+  mutate(Estimate = round(Estimate, 3)) %>%
+  st_as_sf(sf_column_name = "geometry", crs = 31370)
+
+mapview(grid_geelgors,
+        zcol = "Estimate",
+        alpha = 0,
+        layer.name = "Aantal broedparen per 100 ha",
+        map.types = "OpenStreetMap")
 ```
