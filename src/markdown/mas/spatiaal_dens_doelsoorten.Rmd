@@ -48,7 +48,7 @@ model_path <- here("src", "markdown", "mas", "spatiale_modellen")
 dir.create(model_path, showWarnings = FALSE)
 ```
 
-```{r, echo=FALSE}
+```{r}
 # targets
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
 
