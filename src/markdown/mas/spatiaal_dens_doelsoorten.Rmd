@@ -217,7 +217,6 @@ MCMC convergentie is goed.
 plot(fit_veldleeuwerik, ask = FALSE)
 ```
 
-
 ## Model fit
 
 Model fit is goed genoeg.
@@ -292,9 +291,10 @@ plot_veldleeuwerik %>%
 ```
 
 We kunnen contourlijnen toevoegen om de figuur begrijpbaarder te maken.
+We voegen contouren toe per 1, 3, 5 ... broedparen per 100 ha.
 
 ```{r}
-plot_veldleeuwerik %>%
+p_veldleeuwerik <- plot_veldleeuwerik %>%
   ggplot() +
   geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
           linewidth = 1) +
@@ -306,13 +306,29 @@ plot_veldleeuwerik %>%
                          limits = c(0, 20)) +
     coord_sf(crs = 31370) +
     labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
-       title = "Veldleewerik") +
+       title = "Veldleeuwerik") +
     theme(legend.position = "bottom") +
     geom_contour2(
       aes(x = x_plot, y = y_plot, z = Estimate, label = after_stat(level)),
-      breaks = seq(0, 16, 3),
+      breaks = seq(1, 21, 2), skip = 1,
       label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
+p_veldleeuwerik
 ```
+
+```{r}
+dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
+ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol.png"),
+       p_veldleeuwerik,
+       dpi = 300,
+       width = 8,
+       height = 4)
+ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol.pdf"),
+       p_veldleeuwerik,
+       dpi = 300,
+       width = 8,
+       height = 4)
+```
+
 
 # Gele Kwikstaart
 ## Model fitten
@@ -344,7 +360,6 @@ MCMC convergentie is goed.
 plot(fit_gelekwikstaart, ask = FALSE)
 ```
 
-
 ## Model fit
 
 Model fit is goed genoeg.
@@ -357,7 +372,7 @@ pp_check(fit_gelekwikstaart, type = "bars", ndraws = 100)
 
 Zoals voordien maken we voor de centroïde van elke grid cell een predictie o.b.v. het model.
 
-```{r}
+```{r, cache=TRUE}
 pred_gelekwikstaart <- fitted(fit_gelekwikstaart, new_df,
                               re_formula = NA, offset = FALSE)
 ```
@@ -371,27 +386,60 @@ plot_gelekwikstaart <- new_df %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
 
 plot_gelekwikstaart %>%
-  ggplot(aes(x_plot, y_plot)) +
-    geom_raster(aes(fill = Estimate), interpolate = TRUE) +
-    scale_fill_gradient(low = "red", high = "blue",
-                        limits = c(0, ceiling(max(pred_gelekwikstaart2[, 1])))) +
-    coord_sf(crs = 31370)
+  ggplot() +
+    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+            linewidth = 1) +
+    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
+                interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
+                                     "gold", "red"),
+                         breaks = c(0, 4, 8, 12, 16),
+                         limits = c(0, 16)) +
+    coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
+         title = "Gele kwikstaart") +
+    theme(legend.position = "bottom")
 ```
 
 We kunnen contourlijnen toevoegen om de figuur begrijpbaarder te maken.
+We voegen contouren toe per broedpaar per 100 ha.
 
 ```{r}
-plot_gelekwikstaart %>%
-  ggplot(aes(x_plot, y_plot)) +
-    geom_raster(aes(fill = Estimate), interpolate = TRUE) +
-    scale_fill_gradient(low = "red", high = "blue",
-                        limits = c(0, ceiling(max(pred_gelekwikstaart2[, 1])))) +
+p_gelekwikstaart <- plot_gelekwikstaart %>%
+  ggplot() +
+  geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+          linewidth = 1) +
+    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
+                interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
+                                     "gold", "red"),
+                         breaks = c(0, 4, 8, 12, 16),
+                         limits = c(0, 16)) +
     coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
+       title = "Gele kwikstaart") +
+    theme(legend.position = "bottom") +
     geom_contour2(
-      aes(z = Estimate, label = after_stat(level)),
-      breaks = seq(0, 16, 3),
+      aes(x = x_plot, y = y_plot, z = Estimate, label = after_stat(level)),
+      breaks = seq(1, 16, 1), skip = 1,
       label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
+p_gelekwikstaart
 ```
+
+```{r}
+dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
+ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_dens_ol.png"),
+       p_gelekwikstaart,
+       dpi = 300,
+       width = 8,
+       height = 4)
+ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_dens_ol.pdf"),
+       p_gelekwikstaart,
+       dpi = 300,
+       width = 8,
+       height = 4)
+```
+
 
 # Geelgors
 ## Model fitten
@@ -423,7 +471,6 @@ MCMC convergentie is goed.
 plot(fit_geelgors, ask = FALSE)
 ```
 
-
 ## Model fit
 
 Model fit is goed genoeg.
@@ -436,7 +483,7 @@ pp_check(fit_geelgors, type = "bars", ndraws = 100)
 
 Zoals voordien maken we voor de centroïde van elke grid cell een predictie o.b.v. het model.
 
-```{r}
+```{r, cache=TRUE}
 pred_geelgors <- fitted(fit_geelgors, new_df,
                         re_formula = NA, offset = FALSE)
 ```
@@ -450,24 +497,56 @@ plot_geelgors <- new_df %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
 
 plot_geelgors %>%
-  ggplot(aes(x_plot, y_plot)) +
-    geom_raster(aes(fill = Estimate), interpolate = TRUE) +
-    scale_fill_gradient(low = "red", high = "blue",
-                        limits = c(0, ceiling(max(pred_geelgors[, 1])))) +
-    coord_sf(crs = 31370)
+  ggplot() +
+    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+            linewidth = 1) +
+    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
+                interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
+                                     "gold", "red"),
+                         breaks = c(0, 3, 6, 9, 12),
+                         limits = c(0, 12)) +
+    coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
+         title = "Geelgors") +
+    theme(legend.position = "bottom")
 ```
 
 We kunnen contourlijnen toevoegen om de figuur begrijpbaarder te maken.
+We voegen contouren toe per broedpaar per 100 ha.
 
 ```{r}
-plot_geelgors %>%
-  ggplot(aes(x_plot, y_plot)) +
-    geom_raster(aes(fill = Estimate), interpolate = TRUE) +
-    scale_fill_gradient(low = "red", high = "blue",
-                        limits = c(0, ceiling(max(pred_geelgors[, 1])))) +
+p_geelgors <- plot_geelgors %>%
+  ggplot() +
+  geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+          linewidth = 1) +
+    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
+                interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
+                                     "gold", "red"),
+                         breaks = c(0, 3, 6, 9, 12),
+                         limits = c(0, 12)) +
     coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
+       title = "Geelgors") +
+    theme(legend.position = "bottom") +
     geom_contour2(
-      aes(z = Estimate, label = after_stat(level)),
-      breaks = seq(0, 16, 3),
+      aes(x = x_plot, y = y_plot, z = Estimate, label = after_stat(level)),
+      breaks = seq(1, 12, 1), skip = 1,
       label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
+p_geelgors
+```
+
+```{r}
+dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
+ggsave(here("media", "spatiale_densiteiten", "geelgors_dens_ol.png"),
+       p_geelgors,
+       dpi = 300,
+       width = 8,
+       height = 4)
+ggsave(here("media", "spatiale_densiteiten", "geelgors_dens_ol.pdf"),
+       p_geelgors,
+       dpi = 300,
+       width = 8,
+       height = 4)
 ```
