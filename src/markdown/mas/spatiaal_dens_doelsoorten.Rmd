@@ -474,7 +474,7 @@ Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
 ```{r}
 plot_gelekwikstaart <- new_df %>%
   bind_cols(pred_gelekwikstaart) %>%
-  select(id, x_plot, y_plot, Estimate) %>%
+  select(id, x_plot, y_plot, Estimate, Est.Error) %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
 
 p_gelekwikstaart1 <- plot_gelekwikstaart %>%
@@ -519,7 +519,50 @@ p_gelekwikstaart2 <- plot_gelekwikstaart %>%
 p_gelekwikstaart2
 ```
 
+We visualiseren ook de spatiale verdeling van de onzekerheid (standaard error densiteitsschattingen).
+
 ```{r}
+p_gelekwikstaart3 <- plot_gelekwikstaart %>%
+  ggplot() +
+    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+            linewidth = 1) +
+    geom_raster(aes(x = x_plot, y = y_plot, fill = Est.Error),
+                interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
+                                     "gold", "red"),
+                         breaks = c(0, 1.5, 3, 4.5, 6),
+                         limits = c(0, 6)) +
+    coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Standaard error aantal\nbroedparen per 100 ha",
+         title = "Gele kwikstaart") +
+    theme(legend.position = "bottom")
+p_gelekwikstaart3
+```
+
+```{r}
+p_gelekwikstaart4 <- plot_gelekwikstaart %>%
+  ggplot() +
+    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+            linewidth = 1) +
+    geom_raster(aes(x = x_plot, y = y_plot, fill = Est.Error),
+                interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
+                                     "gold", "red"),
+                         breaks = c(0, 1.5, 3, 4.5, 6),
+                         limits = c(0, 6)) +
+    coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Standaard error aantal\nbroedparen per 100 ha",
+         title = "Gele kwikstaart") +
+    theme(legend.position = "bottom") +
+    geom_contour2(
+        aes(x = x_plot, y = y_plot, z = Est.Error, label = after_stat(level)),
+        breaks = seq(1, 6, 1), skip = 1,
+        label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
+p_gelekwikstaart4
+```
+
+```{r}
+dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
 ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_dens_ol1.png"),
        p_gelekwikstaart1,
        dpi = 300,
@@ -538,6 +581,28 @@ ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_dens_ol2.png"),
        height = 4)
 ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_dens_ol2.pdf"),
        p_gelekwikstaart2,
+       dpi = 300,
+       width = 8,
+       height = 4)
+
+ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_se_ol1.png"),
+       p_gelekwikstaart3,
+       dpi = 300,
+       width = 8,
+       height = 4)
+ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_se_ol1.pdf"),
+       p_gelekwikstaart3,
+       dpi = 300,
+       width = 8,
+       height = 4)
+
+ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_se_ol2.png"),
+       p_gelekwikstaart4,
+       dpi = 300,
+       width = 8,
+       height = 4)
+ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_se_ol2.pdf"),
+       p_gelekwikstaart4,
        dpi = 300,
        width = 8,
        height = 4)
@@ -596,7 +661,7 @@ Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
 ```{r}
 plot_geelgors <- new_df %>%
   bind_cols(pred_geelgors) %>%
-  select(id, x_plot, y_plot, Estimate) %>%
+  select(id, x_plot, y_plot, Estimate, Est.Error) %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
 
 p_geelgors1 <- plot_geelgors %>%
@@ -641,7 +706,50 @@ p_geelgors2 <- plot_geelgors %>%
 p_geelgors2
 ```
 
+We visualiseren ook de spatiale verdeling van de onzekerheid (standaard error densiteitsschattingen).
+
 ```{r}
+p_geelgors3 <- plot_geelgors %>%
+  ggplot() +
+    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+            linewidth = 1) +
+    geom_raster(aes(x = x_plot, y = y_plot, fill = Est.Error),
+                interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
+                                     "gold", "red"),
+                         breaks = c(0, 2, 4, 6, 8),
+                         limits = c(0, 8)) +
+    coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Standaard error aantal\nbroedparen per 100 ha",
+         title = "Geelgors") +
+    theme(legend.position = "bottom")
+p_geelgors3
+```
+
+```{r}
+p_geelgors4 <- plot_geelgors %>%
+  ggplot() +
+    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+            linewidth = 1) +
+    geom_raster(aes(x = x_plot, y = y_plot, fill = Est.Error),
+                interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
+                                     "gold", "red"),
+                         breaks = c(0, 2, 4, 6, 8),
+                         limits = c(0, 8)) +
+    coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Standaard error aantal\nbroedparen per 100 ha",
+         title = "Geelgors") +
+    theme(legend.position = "bottom") +
+    geom_contour2(
+        aes(x = x_plot, y = y_plot, z = Est.Error, label = after_stat(level)),
+        breaks = seq(1, 8, 1), skip = 1,
+        label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
+p_geelgors4
+```
+
+```{r}
+dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
 ggsave(here("media", "spatiale_densiteiten", "geelgors_dens_ol1.png"),
        p_geelgors1,
        dpi = 300,
@@ -663,6 +771,28 @@ ggsave(here("media", "spatiale_densiteiten", "geelgors_dens_ol2.pdf"),
        dpi = 300,
        width = 8,
        height = 4)
+
+ggsave(here("media", "spatiale_densiteiten", "geelgors_se_ol1.png"),
+       p_geelgors3,
+       dpi = 300,
+       width = 8,
+       height = 4)
+ggsave(here("media", "spatiale_densiteiten", "geelgors_se_ol1.pdf"),
+       p_geelgors3,
+       dpi = 300,
+       width = 8,
+       height = 4)
+
+ggsave(here("media", "spatiale_densiteiten", "geelgors_se_ol2.png"),
+       p_geelgors4,
+       dpi = 300,
+       width = 8,
+       height = 4)
+ggsave(here("media", "spatiale_densiteiten", "geelgors_se_ol2.pdf"),
+       p_geelgors4,
+       dpi = 300,
+       width = 8,
+       height = 4)
 ```
 
 
@@ -673,14 +803,24 @@ We maken een kaart voor Veldleeuwerik.
 ```{r}
 grid_veldleeuwerik <- grid %>%
   bind_cols(pred_veldleeuwerik) %>%
-  select(id, Estimate, geometry) %>%
+  select(id, Estimate, Est.Error, geometry) %>%
   mutate(Estimate = round(Estimate, 3)) %>%
   st_as_sf(sf_column_name = "geometry", crs = 31370)
+```
 
+```{r}
 mapview(grid_veldleeuwerik,
         zcol = "Estimate",
         alpha = 0,
         layer.name = "Aantal broedparen per 100 ha",
+        map.types = "OpenStreetMap")
+```
+
+```{r}
+mapview(grid_veldleeuwerik,
+        zcol = "Est.Error",
+        alpha = 0,
+        layer.name = "SE aantal broedparen per 100 ha",
         map.types = "OpenStreetMap")
 ```
 
@@ -689,14 +829,24 @@ We maken een kaart voor Gele kwikstaart.
 ```{r}
 grid_gelekwikstaart <- grid %>%
   bind_cols(pred_gelekwikstaart) %>%
-  select(id, Estimate, geometry) %>%
+  select(id, Estimate, Est.Error, geometry) %>%
   mutate(Estimate = round(Estimate, 3)) %>%
   st_as_sf(sf_column_name = "geometry", crs = 31370)
+```
 
+```{r}
 mapview(grid_gelekwikstaart,
         zcol = "Estimate",
         alpha = 0,
         layer.name = "Aantal broedparen per 100 ha",
+        map.types = "OpenStreetMap")
+```
+
+```{r}
+mapview(grid_gelekwikstaart,
+        zcol = "Est.Error",
+        alpha = 0,
+        layer.name = "SE aantal broedparen per 100 ha",
         map.types = "OpenStreetMap")
 ```
 
@@ -705,13 +855,23 @@ We maken een kaart voor Geelgors.
 ```{r}
 grid_geelgors <- grid %>%
   bind_cols(pred_geelgors) %>%
-  select(id, Estimate, geometry) %>%
+  select(id, Estimate, Est.Error, geometry) %>%
   mutate(Estimate = round(Estimate, 3)) %>%
   st_as_sf(sf_column_name = "geometry", crs = 31370)
+```
 
+```{r}
 mapview(grid_geelgors,
         zcol = "Estimate",
         alpha = 0,
         layer.name = "Aantal broedparen per 100 ha",
+        map.types = "OpenStreetMap")
+```
+
+```{r}
+mapview(grid_geelgors,
+        zcol = "Est.Error",
+        alpha = 0,
+        layer.name = "SE aantal broedparen per 100 ha",
         map.types = "OpenStreetMap")
 ```
