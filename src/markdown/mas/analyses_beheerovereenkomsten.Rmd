@@ -214,7 +214,6 @@ pred_vars <- c("area_prop_sb",
                "zomergranen_hfdtlt2",
                "vergroening_hfdtlt",
                "zaden_hfdtlt",
-               "landbouwinfrastructuur_hfdtlt_pre",
                "grasland_hfdtlt_pre",
                "aardappelen_hfdtlt_pre",
                "wintergranen_hfdtlt_pre",
@@ -2097,7 +2096,8 @@ create_data_list <- function(soorten, region, year = 2022) {
          zomergranen_hfdtlt_pre2 = rowSums(across(
            c(andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
       select(-c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt,
-                andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre))
+                andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre,
+                landbouwinfrastructuur_hfdtlt_pre))
     
     # Aggregate counts by plot and year
     mas_data_df_agg <- mas_data_df_full %>%
