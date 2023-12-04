@@ -287,8 +287,9 @@ Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
 ```{r}
 plot_veldleeuwerik <- new_df %>%
   bind_cols(pred_veldleeuwerik) %>%
-  select(id, x_plot, y_plot, Estimate, Est.Error) %>%
-  mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
+  select(id, x_plot, y_plot, Estimate, Q2.5, Q97.5) %>%
+  mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)),
+         rel_fout = (Q97.5 - Q2.5) / (2 * Estimate))
 
 p_veldleeuwerik1 <- plot_veldleeuwerik %>%
   ggplot() +
@@ -474,8 +475,9 @@ Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
 ```{r}
 plot_gelekwikstaart <- new_df %>%
   bind_cols(pred_gelekwikstaart) %>%
-  select(id, x_plot, y_plot, Estimate, Est.Error) %>%
-  mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
+  select(id, x_plot, y_plot, Estimate, Q2.5, Q97.5) %>%
+  mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)),
+         rel_fout = (Q97.5 - Q2.5) / (2 * Estimate))
 
 p_gelekwikstaart1 <- plot_gelekwikstaart %>%
   ggplot() +
@@ -661,8 +663,9 @@ Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
 ```{r}
 plot_geelgors <- new_df %>%
   bind_cols(pred_geelgors) %>%
-  select(id, x_plot, y_plot, Estimate, Est.Error) %>%
-  mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)))
+  select(id, x_plot, y_plot, Estimate, Q2.5, Q97.5) %>%
+  mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)),
+         rel_fout = (Q97.5 - Q2.5) / (2 * Estimate))
 
 p_geelgors1 <- plot_geelgors %>%
   ggplot() +
