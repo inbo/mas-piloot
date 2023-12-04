@@ -2378,7 +2378,8 @@ indices_to_remove_sbp <- which(names(df_count_list_olnew$GeleKwikstaart) %in% c(
 predictors_sbp <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_sbp]
 
 form_refmod_sbp <- bf(paste("aantal", "~", paste(predictors_sbp,
-                                                 collapse = " + ")))
+                                                 collapse = " + "), 
+                            "+ (1|plotnaam)"))
 form_refmod_sbp
 ```
 
@@ -2400,7 +2401,8 @@ indices_to_remove_propsb <- which(names(df_count_list_olnew$GeleKwikstaart) %in%
 predictors_propsb <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_propsb]
 
 form_refmod_propsb <- bf(paste("aantal", "~", paste(predictors_propsb,
-                                                    collapse = " + ")))
+                                                    collapse = " + "), 
+                            "+ (1|plotnaam)"))
 form_refmod_propsb
 ```
 
