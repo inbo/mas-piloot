@@ -842,8 +842,9 @@ We maken een kaart voor Gele kwikstaart.
 ```{r}
 grid_gelekwikstaart <- grid %>%
   bind_cols(pred_gelekwikstaart) %>%
-  select(id, Estimate, rel_fout, geometry) %>%
-  mutate(Estimate = round(Estimate, 3)) %>%
+  select(id, Estimate, Q2.5, Q97.5, geometry) %>%
+  mutate(Estimate = round(Estimate, 3),
+         rel_fout = (Q97.5 - Q2.5) / (2 * Estimate)) %>%
   st_as_sf(sf_column_name = "geometry", crs = 31370)
 ```
 
@@ -868,8 +869,9 @@ We maken een kaart voor Geelgors.
 ```{r}
 grid_geelgors <- grid %>%
   bind_cols(pred_geelgors) %>%
-  select(id, Estimate, rel_fout, geometry) %>%
-  mutate(Estimate = round(Estimate, 3)) %>%
+  select(id, Estimate, Q2.5, Q97.5, geometry) %>%
+  mutate(Estimate = round(Estimate, 3),
+         rel_fout = (Q97.5 - Q2.5) / (2 * Estimate)) %>%
   st_as_sf(sf_column_name = "geometry", crs = 31370)
 ```
 
