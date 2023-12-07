@@ -2378,8 +2378,7 @@ indices_to_remove_sbp <- which(names(df_count_list_olnew$GeleKwikstaart) %in% c(
 predictors_sbp <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_sbp]
 
 form_refmod_sbp <- bf(paste("aantal", "~", paste(predictors_sbp,
-                                                 collapse = " + "), 
-                            "+ (1|plotnaam)"))
+                                                 collapse = " + ")))
 form_refmod_sbp
 ```
 
@@ -2401,8 +2400,7 @@ indices_to_remove_propsb <- which(names(df_count_list_olnew$GeleKwikstaart) %in%
 predictors_propsb <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_propsb]
 
 form_refmod_propsb <- bf(paste("aantal", "~", paste(predictors_propsb,
-                                                    collapse = " + "), 
-                            "+ (1|plotnaam)"))
+                                                    collapse = " + ")))
 form_refmod_propsb
 ```
 
@@ -2701,7 +2699,7 @@ for (i in seq_along(cvvs_olpropsb_new_list)) {
 Manual choices for model size:
 
 ```{r}
-size_decided_olpropsb_new_list <- list(4, 5, 7, NA, 14, 5, 13, 3, 8, 6)
+size_decided_olpropsb_new_list <- list(8, 5, 5, NA, 12, 14, 19, 8, 9, 5)
 names(size_decided_olpropsb_new_list) <- names(cvvs_olpropsb_new_list)
 size_decided_olpropsb_new_list
 ```
@@ -2771,7 +2769,7 @@ for (i in seq_along(cvvs_dmpropsb_new_list)) {
 Manual choices for model size:
 
 ```{r}
-size_decided_dmpropsb_new_list <- list(13, 6, NA, 3, 6, 6, 7, 9, 2, 4)
+size_decided_dmpropsb_new_list <- list(13, 9, 7, 10, 6, 6, 7, 9, 2, 4)
 names(size_decided_dmpropsb_new_list) <- names(cvvs_dmpropsb_new_list)
 size_decided_dmpropsb_new_list
 ```
@@ -2838,7 +2836,7 @@ for (i in seq_along(cvvs_ol_total_list)) {
 Manual choices for model size:
 
 ```{r}
-size_decided_ol_total_list <- list(NA, NA, NA, NA, NA, 5, 4, NA, 12, 12)
+size_decided_ol_total_list <- list(12, NA, NA, 3, NA, 10, 5, 3, 10, 8)
 names(size_decided_ol_total_list) <- names(cvvs_ol_total_list)
 size_decided_ol_total_list
 ```
@@ -2846,7 +2844,7 @@ size_decided_ol_total_list
 
 ### De Moeren 2018-2023
 
-```{r, eval=FALSE}
+```
 cvvs_dm_total_list <- vector("list", length = length(refmod_dm_total_list))
 cvvs_dm_total_names <- vector(length = length(refmod_dm_total_list))
 
@@ -2902,7 +2900,7 @@ cvvs_dm_total_list <- list("Veldleeuwerik" = get(name))
 ```
 
 
-```{r, eval=FALSE}
+```{r}
 for (i in seq_along(cvvs_dm_total_list)) {
   title <- names(cvvs_dm_total_list)[i]
   if (!title == "FALSE") {
@@ -2930,7 +2928,7 @@ for (i in seq_along(cvvs_dm_total_list)) {
 Choose model sizes.
 
 ```{r}
-size_decided_dm_total_list <- list(2)
+size_decided_dm_total_list <- list(10)
 size_decided_dm_total_list
 ```
 
@@ -3483,9 +3481,16 @@ for (i in seq_along(cvvs_ol_total_list)) {
     preds <- head(rk[["fulldata"]], mod_size)
     
     predictors_ol_total_list[[i]]$predictors <- preds
-    predictors_ol_total_list[[i]]$formula <- bf(paste("aantal", "~", 
+    if ("jaar.f" %in% preds) {
+      predictors_ol_total_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_ol_total_list[[i]]$formula <- bf(paste("aantal", "~", 
                                                    paste(preds, 
                                                          collapse = " + ")))
+    }
+    
   }
   
   predictors_ol_total_names[i] <- spec
@@ -3678,9 +3683,16 @@ for (i in seq_along(cvvs_dmpropsb_new_list)) {
     preds <- head(rk[["fulldata"]], mod_size)
     
     predictors_dmpropsb_new_list[[i]]$predictors <- preds
-    predictors_dmpropsb_new_list[[i]]$formula <- bf(paste("aantal", "~", 
-                                                   paste(preds, 
-                                                         collapse = " + ")))
+    if ("jaar.f" %in% preds) {
+      predictors_dmpropsb_new_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_dmpropsb_new_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "))
+        )
+    }
+    
   }
   
   predictors_dmpropsb_new_names[i] <- spec
@@ -3924,9 +3936,15 @@ for (i in seq_along(cvvs_dm_total_list)) {
     preds <- head(rk[["fulldata"]], mod_size)
     
     predictors_dm_total_list[[i]]$predictors <- preds
-    predictors_dm_total_list[[i]]$formula <- bf(paste("aantal", "~", 
-                                                   paste(preds, 
-                                                         collapse = " + ")))
+    if ("jaar.f" %in% preds) {
+      predictors_dm_total_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_dm_total_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "))
+        )
+    }
   }
   
   predictors_dm_total_names[i] <- spec
