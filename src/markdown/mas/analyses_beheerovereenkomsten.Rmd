@@ -3602,8 +3602,11 @@ for (i in seq_along(predictors_ol_total_list)) {
 
 ```{r}
 mod_final_oltotal_list <- list(
+  mod_final_pois_oltotal_list$Geelgors,
+  mod_final_zip_oltotal_list$Haas,
   mod_final_pois_oltotal_list$Kneu,
   mod_final_pois_oltotal_list$Kwartel,
+  mod_final_pois_oltotal_list$Torenvalk,
   mod_final_pois_oltotal_list$Veldleeuwerik,
   mod_final_pois_oltotal_list$WitteKwikstaart
   )
@@ -3804,9 +3807,14 @@ for (i in seq_along(predictors_dmpropsb_new_list)) {
 
 ```{r}
 mod_final_dmpropsb_list <- list(
+  mod_final_pois_dmpropsb_list$GeleKwikstaart,
+  mod_final_zip_dmpropsb_list$Haas,
+  mod_final_pois_dmpropsb_list$Kievit,
+  mod_final_pois_dmpropsb_list$Kneu,
   mod_final_pois_dmpropsb_list$Veldleeuwerik
   )
-names(mod_final_dmpropsb_list) <- "Veldleeuwerik"
+names(mod_final_dmpropsb_list) <- c("GeleKwikstaart", "Haas", "Kievit", "Kneu",
+                                    "Veldleeuwerik")
 
 saveRDS(mod_final_dmpropsb_list,
         here("src", "markdown", "mas", "analyses_cache",
