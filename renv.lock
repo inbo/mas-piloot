@@ -1097,6 +1097,13 @@
       ],
       "Hash": "bb097fccb22d156624fd07cd2894ddb6"
     },
+    "corrplot": {
+      "Package": "corrplot",
+      "Version": "0.92",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "fcf11a91936fd5047b2ee9bc00595e36"
+    },
     "countrycode": {
       "Package": "countrycode",
       "Version": "1.4.0",
@@ -1413,18 +1420,19 @@
     },
     "effectclass": {
       "Package": "effectclass",
-      "Version": "0.1.3",
+      "Version": "0.1.4",
       "Source": "Repository",
       "Repository": "https://inbo.r-universe.dev",
       "RemoteUrl": "https://github.com/inbo/effectclass",
       "RemoteRef": "HEAD",
-      "RemoteSha": "30cff661c76b3c0e40e8a86a3ac094564a2eab04",
+      "RemoteSha": "fa4324092315d6a224985e1b809adb9bf178b486",
       "Requirements": [
         "R",
         "assertthat",
-        "ggplot2"
+        "ggplot2",
+        "plotly"
       ],
-      "Hash": "31b9eed0012dc117f1cf9fd1f70e8294"
+      "Hash": "a1c04d4caef6a252ef59cd9a02d6638d"
     },
     "ellipsis": {
       "Package": "ellipsis",
