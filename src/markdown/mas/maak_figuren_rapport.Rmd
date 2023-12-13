@@ -35,6 +35,7 @@ library(GVI)
 library(inbospatial)
 library(terra)
 library(corrplot)
+library(effectclass)
 
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(base::intersect)
@@ -211,6 +212,7 @@ for (spec in names(dsmodels_per_jaar)) {
 }
 ```
 
+
 ```{r}
 df_obs_list <- readRDS(here("output", "results", "distance_sampling",
                             "df_obs_list.rds"))
@@ -233,6 +235,122 @@ for (spec in names(dsmodels_per_jaar)) {
 }
 ```
 
+We kunnen ook het verschil berekenen met de baseline 2018.
+
+```{r}
+get_summary_ds <- function(dsmodel, var = "density") {
+  summary_dsmodel <- summary(dsmodel)
+  
+  summary_results_dsmodel <- summary_dsmodel$dht$individuals$D %>%
+    mutate(variable = var) %>%
+    filter(Label != "Total") %>%
+    rename_all(tolower)
+  
+  return(summary_results_dsmodel)
+}
+```
+
+
+```{r}
+for (spec in names(dsmodels_per_jaar)) {
+  file <- paste0("verschil_per_jaar_", tolower(spec), ".pdf")
+  dsmodel <- dsmodels_per_jaar[[spec]]
+  summary_ds <- get_summary_ds(dsmodel)
+  
+  # Create an empty data frame
+  result_df <- data.frame(matrix(ncol = 0, nrow = 0))
+  years <- 2019:2023
+  for (i in seq_along(years)) {
+    year <- years[i]
+    for (regio in c("De Moeren", "Oostelijke leemstreek")) {
+      label1 <- paste(regio, year, sep = " - ")
+      label2 <- paste(regio, 2018, sep = " - ")
+      
+      result_df <- rbind(result_df, compare_from_df(summary_ds, label1, label2))
+    }
+  }
+  
+  result_df <- result_df %>%
+    separate(label, into = c("regio", "jaar"), sep = " - ")
+  
+  effects_df <- get_effects(result_df)
+  
+  min_threshold <- log(0.8)
+  max_threshold <- log(1.25)
+  
+  p <- effects_df %>%
+    ggplot(aes(x = jaar, y = log_diff_mean, 
+               ymin = lcl, ymax = ucl, link_sd = log_diff_se)) +
+      geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+      geom_hline(yintercept = c(min_threshold, max_threshold),
+                 linetype = "dotdash") +
+      stat_fan(aes(fill = trend_coarse), geom = "rect", max_prob = 0.95, step = 0.025) +
+      scale_fill_manual(values =  c("chartreuse3",
+                                    "gold",
+                                    "firebrick1",
+                                    "skyblue"),
+                        drop = FALSE) +
+      labs(y = "Procentuele wijziging t.o.v. 2018",
+           x = "",
+           fill = "Verschil") +
+      scale_y_continuous(
+        breaks = index_breaks(),
+        labels = index_labels,
+        minor_breaks = minor_breaks(),
+        sec.axis = sec_axis(~ exp(.),
+          breaks = index_breaks_rev(),
+          labels = index_labels_rev(),
+          name = "Relatieve wijziging t.o.v. 2018")
+        ) +
+      theme(
+        legend.position = "right",
+        legend.background = element_rect(fill = "white", color = "darkgrey"),
+        legend.margin = margin(6, 6, 6, 6)
+        ) +
+      facet_wrap(~regio)
+  
+  ggsave(here(out_folder_distance, "per_jaar", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+Kan ook via error bars.
+
+```
+effects_df %>%
+  ggplot(aes(x = jaar, colour = trend_coarse)) +
+    geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+    geom_hline(yintercept = c(min_threshold, max_threshold),
+               linetype = "dotdash") +
+    geom_errorbar(aes(ymin = lcl, ymax = ucl), linewidth = 1, width = 0.5) +
+    geom_point(aes(y = log_diff_mean), size = 2.2) +
+    scale_colour_manual(values =  c("chartreuse3",
+                                  "gold",
+                                  "firebrick1",
+                                  "skyblue"),
+                      drop = FALSE) +
+    labs(y = "Procentuele wijziging t.o.v. 2018",
+         x = "",
+         colour = "Verschil") +
+    scale_y_continuous(
+      breaks = index_breaks(),
+      labels = index_labels,
+      minor_breaks = minor_breaks(),
+      sec.axis = sec_axis(~ exp(.),
+        breaks = index_breaks_rev(),
+        labels = index_labels_rev(),
+        name = "Relatieve wijziging t.o.v. 2018")
+      ) +
+    theme(
+      legend.position = "right",
+      legend.background = element_rect(fill = "white", color = "darkgrey"),
+      legend.margin = margin(6, 6, 6, 6)
+      ) +
+    facet_wrap(~regio)
+```
 
 ### Detectiekans
 
