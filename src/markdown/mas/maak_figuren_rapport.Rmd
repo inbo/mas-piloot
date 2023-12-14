@@ -238,24 +238,15 @@ for (spec in names(dsmodels_per_jaar)) {
 We kunnen ook het verschil berekenen met de baseline 2018.
 
 ```{r}
-get_summary_ds <- function(dsmodel, var = "density") {
-  summary_dsmodel <- summary(dsmodel)
+min_threshold <- log(0.8)
+max_threshold <- log(1.25)
   
-  summary_results_dsmodel <- summary_dsmodel$dht$individuals$D %>%
-    mutate(variable = var) %>%
-    filter(Label != "Total") %>%
-    rename_all(tolower)
-  
-  return(summary_results_dsmodel)
-}
-```
-
-
-```{r}
 for (spec in names(dsmodels_per_jaar)) {
   file <- paste0("verschil_per_jaar_", tolower(spec), ".pdf")
   dsmodel <- dsmodels_per_jaar[[spec]]
-  summary_ds <- get_summary_ds(dsmodel)
+  summary_ds <- summarise_dsmodels(dsmodel) %>%
+    mutate(variable = "density") %>%
+    rename_all(tolower)
   
   # Create an empty data frame
   result_df <- data.frame(matrix(ncol = 0, nrow = 0))
@@ -271,49 +262,49 @@ for (spec in names(dsmodels_per_jaar)) {
   }
   
   result_df <- result_df %>%
+    filter(complete.cases(.)) %>%
     separate(label, into = c("regio", "jaar"), sep = " - ")
   
   effects_df <- get_effects(result_df)
-  
-  min_threshold <- log(0.8)
-  max_threshold <- log(1.25)
-  
-  p <- effects_df %>%
-    ggplot(aes(x = jaar, y = log_diff_mean, 
-               ymin = lcl, ymax = ucl, link_sd = log_diff_se)) +
-      geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
-      geom_hline(yintercept = c(min_threshold, max_threshold),
-                 linetype = "dotdash") +
-      stat_fan(aes(fill = trend_coarse), geom = "rect", max_prob = 0.95, step = 0.025) +
-      scale_fill_manual(values =  c("chartreuse3",
-                                    "gold",
-                                    "firebrick1",
-                                    "skyblue"),
-                        drop = FALSE) +
-      labs(y = "Procentuele wijziging t.o.v. 2018",
-           x = "",
-           fill = "Verschil") +
-      scale_y_continuous(
-        breaks = index_breaks(),
-        labels = index_labels,
-        minor_breaks = minor_breaks(),
-        sec.axis = sec_axis(~ exp(.),
-          breaks = index_breaks_rev(),
-          labels = index_labels_rev(),
-          name = "Relatieve wijziging t.o.v. 2018")
-        ) +
-      theme(
-        legend.position = "right",
-        legend.background = element_rect(fill = "white", color = "darkgrey"),
-        legend.margin = margin(6, 6, 6, 6)
-        ) +
-      facet_wrap(~regio)
-  
-  ggsave(here(out_folder_distance, "per_jaar", file),
+
+  if (nrow(effects_df) != 0) {
+    p <- effects_df %>%
+      ggplot(aes(x = jaar, y = log_diff_mean, 
+                 ymin = lcl, ymax = ucl, link_sd = log_diff_se)) +
+        geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+        geom_hline(yintercept = c(min_threshold, max_threshold),
+                   linetype = "dotdash") +
+        stat_fan(aes(fill = trend_coarse), geom = "rect", max_prob = 0.95, step = 0.025) +
+        scale_fill_manual(values =  c("chartreuse3",
+                                      "gold",
+                                      "firebrick1",
+                                      "skyblue"),
+                          drop = FALSE) +
+        labs(y = "Procentueel verschil t.o.v. 2018",
+             x = "",
+             fill = "Verschil") +
+        scale_y_continuous(
+          breaks = index_breaks(),
+          labels = index_labels,
+          minor_breaks = minor_breaks(),
+          sec.axis = sec_axis(~ exp(.),
+            breaks = index_breaks_rev(),
+            labels = index_labels_rev(),
+            name = "Relatief verschil t.o.v. 2018")
+          ) +
+        theme(
+          legend.position = "right",
+          legend.background = element_rect(fill = "white", color = "darkgrey"),
+          legend.margin = margin(6, 6, 6, 6)
+          ) +
+        facet_wrap(~regio)
+    
+    ggsave(here(out_folder_distance, "per_jaar", file),
          p,
          dpi = 300,
          width = 8,
          height = 6)
+  }
 }
 ```
 
@@ -565,7 +556,6 @@ for (spec in species) {
 
 ### Densiteitschattingen
 
-
 ```{r}
 species <- sort(union(names(dsmodels_per_stratum2022),
                       names(dsmodels_per_stratum2023)))
@@ -610,6 +600,241 @@ for (spec in species) {
          dpi = 300,
          width = 8,
          height = 6)
+}
+```
+
+We kunnen ook het verschil berekenen binnen en buiten SBP.
+
+```{r}
+min_threshold <- log(0.8)
+max_threshold <- log(1.25)
+  
+species <- sort(union(names(dsmodels_per_stratum2022),
+                      names(dsmodels_per_stratum2023)))
+for (spec in species[-match("Kievit", species)]) {
+  file <- paste0("verschil_per_stratum_", tolower(spec), ".pdf")
+  ds_model2022 <- dsmodels_per_stratum2022[[spec]]
+  ds_model2023 <- dsmodels_per_stratum2023[[spec]]
+  
+  if (is.null(ds_model2022)) {
+    summary_ds <- summarise_dsmodels(ds_model2023) %>%
+      filter(variable == "density") %>%
+      rename_all(tolower) %>%
+      mutate(label = paste(label, 2023, sep = " - "))
+  
+    # Create an empty data frame
+    result_df <- data.frame(matrix(ncol = 0, nrow = 0))
+    years <- 2023
+    for (i in seq_along(years)) {
+      year <- years[i]
+      for (regio in c("De Moeren", "Oostelijke leemstreek")) {
+        openheid <- unique(ifelse(rep(regio == "De Moeren", 2),
+                                  yes = c("OL"), no = c("HOL", "OL")))
+        for (op in openheid) {
+          label1 <- paste(regio, op, "binnen", year, sep = " - ")
+          label2 <- paste(regio, op, "buiten", year, sep = " - ")
+          result_df <- rbind(result_df,
+                             compare_from_df(summary_ds, label1, label2))
+        }
+      }
+    }
+    
+    result_df <- result_df %>%
+      filter(complete.cases(.)) %>%
+      separate(label, into = c("regio", "openheid", "sbp", "jaar"),
+               sep = " - ")
+    
+    effects_df <- get_effects(result_df)
+  
+    if (nrow(effects_df) != 0) {
+      p <- effects_df %>%
+        ggplot(aes(x = openheid, y = log_diff_mean, 
+                   ymin = lcl, ymax = ucl, link_sd = log_diff_se)) +
+          geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+          geom_hline(yintercept = c(min_threshold, max_threshold),
+                     linetype = "dotdash") +
+          stat_fan(aes(fill = trend_coarse), geom = "rect",
+                   max_prob = 0.95, step = 0.025) +
+          scale_fill_manual(values =  c("chartreuse3",
+                                        "gold",
+                                        "firebrick1",
+                                        "skyblue"),
+                            drop = FALSE) +
+          labs(y = "Procentueel verschil t.o.v. buiten SBP",
+               x = "",
+               fill = "Verschil") +
+          scale_y_continuous(
+            breaks = index_breaks(),
+            labels = index_labels,
+            minor_breaks = minor_breaks(),
+            sec.axis = sec_axis(~ exp(.),
+              breaks = index_breaks_rev(),
+              labels = index_labels_rev(),
+              name = "Relatief verschil t.o.v. buiten SBP")
+            ) +
+          ggh4x::facet_nested(~regio+jaar, scales = "free_x") +
+          theme(
+            legend.position = "right",
+            legend.background = element_rect(fill = "white",
+                                             color = "darkgrey"),
+            legend.margin = margin(6, 6, 6, 6),
+            panel.spacing = unit(0, "lines"),
+            strip.background = element_rect(color = "grey30"),
+            panel.border = element_rect(color = "grey90")
+            )
+      
+      ggsave(here(out_folder_distance, "per_stratum", file),
+           p,
+           dpi = 300,
+           width = 8,
+           height = 6)
+    }
+  } else if (is.null(ds_model2023)) {
+    summary_ds <- summarise_dsmodels(ds_model2022) %>%
+      filter(variable == "density") %>%
+      rename_all(tolower) %>%
+      mutate(label = paste(label, 2022, sep = " - "))
+  
+    # Create an empty data frame
+    result_df <- data.frame(matrix(ncol = 0, nrow = 0))
+    years <- 2022
+    for (i in seq_along(years)) {
+      year <- years[i]
+      for (regio in c("De Moeren", "Oostelijke leemstreek")) {
+        openheid <- unique(ifelse(rep(regio == "De Moeren", 2),
+                                  yes = c("OL"), no = c("HOL", "OL")))
+        for (op in openheid) {
+          label1 <- paste(regio, op, "binnen", year, sep = " - ")
+          label2 <- paste(regio, op, "buiten", year, sep = " - ")
+          result_df <- rbind(result_df,
+                             compare_from_df(summary_ds, label1, label2))
+        }
+      }
+    }
+    
+    result_df <- result_df %>%
+      filter(complete.cases(.)) %>%
+      separate(label, into = c("regio", "openheid", "sbp", "jaar"),
+               sep = " - ")
+    
+    effects_df <- get_effects(result_df)
+  
+    if (nrow(effects_df) != 0) {
+      p <- effects_df %>%
+        ggplot(aes(x = openheid, y = log_diff_mean, 
+                   ymin = lcl, ymax = ucl, link_sd = log_diff_se)) +
+          geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+          geom_hline(yintercept = c(min_threshold, max_threshold),
+                     linetype = "dotdash") +
+          stat_fan(aes(fill = trend_coarse), geom = "rect",
+                   max_prob = 0.95, step = 0.025) +
+          scale_fill_manual(values =  c("chartreuse3",
+                                        "gold",
+                                        "firebrick1",
+                                        "skyblue"),
+                            drop = FALSE) +
+          labs(y = "Procentueel verschil t.o.v. buiten SBP",
+               x = "",
+               fill = "Verschil") +
+          scale_y_continuous(
+            breaks = index_breaks(),
+            labels = index_labels,
+            minor_breaks = minor_breaks(),
+            sec.axis = sec_axis(~ exp(.),
+              breaks = index_breaks_rev(),
+              labels = index_labels_rev(),
+              name = "Relatief verschil t.o.v. buiten SBP")
+            ) +
+          ggh4x::facet_nested(~regio+jaar, scales = "free_x") +
+          theme(
+            legend.position = "right",
+            legend.background = element_rect(fill = "white",
+                                             color = "darkgrey"),
+            legend.margin = margin(6, 6, 6, 6),
+            panel.spacing = unit(0, "lines"),
+            strip.background = element_rect(color = "grey30"),
+            panel.border = element_rect(color = "grey90")
+            )
+      
+      ggsave(here(out_folder_distance, "per_stratum", file),
+           p,
+           dpi = 300,
+           width = 8,
+           height = 6)
+    }
+  } else {
+    summary_ds <- summarise_dsmodels(ds_model2022, ds_model2023, 2022:2023) %>%
+    filter(variable == "density") %>%
+    rename_all(tolower)
+  
+    # Create an empty data frame
+    result_df <- data.frame(matrix(ncol = 0, nrow = 0))
+    years <- 2022:2023
+    for (i in seq_along(years)) {
+      year <- years[i]
+      for (regio in c("De Moeren", "Oostelijke leemstreek")) {
+        openheid <- unique(ifelse(rep(regio == "De Moeren", 2),
+                                  yes = c("OL"), no = c("HOL", "OL")))
+        for (op in openheid) {
+          label1 <- paste(regio, op, "binnen", year, sep = " - ")
+          label2 <- paste(regio, op, "buiten", year, sep = " - ")
+          result_df <- rbind(result_df,
+                             compare_from_df(summary_ds, label1, label2))
+        }
+      }
+    }
+    
+    result_df <- result_df %>%
+      filter(complete.cases(.)) %>%
+      separate(label, into = c("regio", "openheid", "sbp", "jaar"),
+               sep = " - ")
+    
+    effects_df <- get_effects(result_df)
+  
+    if (nrow(effects_df) != 0) {
+      p <- effects_df %>%
+        ggplot(aes(x = openheid, y = log_diff_mean, 
+                   ymin = lcl, ymax = ucl, link_sd = log_diff_se)) +
+          geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+          geom_hline(yintercept = c(min_threshold, max_threshold),
+                     linetype = "dotdash") +
+          stat_fan(aes(fill = trend_coarse), geom = "rect",
+                   max_prob = 0.95, step = 0.025) +
+          scale_fill_manual(values =  c("chartreuse3",
+                                        "gold",
+                                        "firebrick1",
+                                        "skyblue"),
+                            drop = FALSE) +
+          labs(y = "Procentueel verschil t.o.v. buiten SBP",
+               x = "",
+               fill = "Verschil") +
+          scale_y_continuous(
+            breaks = index_breaks(),
+            labels = index_labels,
+            minor_breaks = minor_breaks(),
+            sec.axis = sec_axis(~ exp(.),
+              breaks = index_breaks_rev(),
+              labels = index_labels_rev(),
+              name = "Relatief verschil t.o.v. buiten SBP")
+            ) +
+          ggh4x::facet_nested(~regio+jaar, scales = "free_x") +
+          theme(
+            legend.position = "right",
+            legend.background = element_rect(fill = "white",
+                                             color = "darkgrey"),
+            legend.margin = margin(6, 6, 6, 6),
+            panel.spacing = unit(0, "lines"),
+            strip.background = element_rect(color = "grey30"),
+            panel.border = element_rect(color = "grey90")
+            )
+      
+      ggsave(here(out_folder_distance, "per_stratum", file),
+           p,
+           dpi = 300,
+           width = 8,
+           height = 6)
+    }
+  }
 }
 ```
 
