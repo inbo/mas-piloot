@@ -277,10 +277,10 @@ compare_from_df <- function(x, label1, label2) {
 diff_lognormal <- function(mean1, se1, mean2, se2) {
   # Calculate log-transformed values for each group
   log_mean1 <- log(mean1)
-  log_se1 <- se1 / mean1
+  log_se1 <- sqrt(log(1 + (se1 / mean1)^2))
 
   log_mean2 <- log(mean2)
-  log_se2 <- se2 / mean2
+  log_se2 <- sqrt(log(1 + (se2 / mean2)^2))
 
   # Set confidence level (e.g., 95%)
   confidence_level <- 0.95
