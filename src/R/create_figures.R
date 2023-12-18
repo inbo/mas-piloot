@@ -286,24 +286,12 @@ diff_lognormal <- function(mean1, se1, mean2, se2) {
   confidence_level <- 0.95
   z_score <- qnorm((1 + confidence_level) / 2)  # Two-tailed Z-score
 
-  # Calculate log-transformed confidence intervals for each group
-  log_CI_lower1 <- log_mean1 - z_score * log_se1
-  log_CI_upper1 <- log_mean1 + z_score * log_se1
-
-  log_CI_lower2 <- log_mean2 - z_score * log_se2
-  log_CI_upper2 <- log_mean2 + z_score * log_se2
-
   # Calculate the log-transformed confidence interval for the difference
   log_diff_mean <- log_mean1 - log_mean2
   log_diff_se <- sqrt(log_se1^2 + log_se2^2)
 
   log_CI_lower_diff <- log_diff_mean - z_score * log_diff_se
   log_CI_upper_diff <- log_diff_mean + z_score * log_diff_se
-
-  # Back-transform to original scale
-  CI_lower_diff <- exp(log_CI_lower_diff)
-  CI_upper_diff <- exp(log_CI_upper_diff)
-  diff_geom_mean <- exp(log_diff_mean)
 
   return(tibble(log_diff_mean = log_diff_mean,
                 log_diff_se = log_diff_se,
