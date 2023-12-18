@@ -240,19 +240,21 @@ We kunnen ook het verschil berekenen met de baseline 2018.
 ```{r}
 min_threshold <- log(0.8)
 max_threshold <- log(1.25)
-  
-for (spec in names(dsmodels_per_jaar)) {
+
+sci_list <- vector("list", length = length(names(dsmodels_per_jaar)))
+for (i in seq_along(names(dsmodels_per_jaar))) {
+  spec <- names(dsmodels_per_jaar)[i]
   file <- paste0("verschil_per_jaar_", tolower(spec), ".pdf")
   dsmodel <- dsmodels_per_jaar[[spec]]
   summary_ds <- summarise_dsmodels(dsmodel) %>%
-    mutate(variable = "density") %>%
+    filter(variable == "density") %>%
     rename_all(tolower)
   
   # Create an empty data frame
   result_df <- data.frame(matrix(ncol = 0, nrow = 0))
   years <- 2019:2023
-  for (i in seq_along(years)) {
-    year <- years[i]
+  for (j in seq_along(years)) {
+    year <- years[j]
     for (regio in c("De Moeren", "Oostelijke leemstreek")) {
       label1 <- paste(regio, year, sep = " - ")
       label2 <- paste(regio, 2018, sep = " - ")
@@ -266,7 +268,8 @@ for (spec in names(dsmodels_per_jaar)) {
     separate(label, into = c("regio", "jaar"), sep = " - ")
   
   effects_df <- get_effects(result_df)
-
+  
+  # visualisation
   if (nrow(effects_df) != 0) {
     p <- effects_df %>%
       ggplot(aes(x = jaar, y = log_diff_mean, 
@@ -274,7 +277,8 @@ for (spec in names(dsmodels_per_jaar)) {
         geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
         geom_hline(yintercept = c(min_threshold, max_threshold),
                    linetype = "dotdash") +
-        stat_fan(aes(fill = trend_coarse), geom = "rect", max_prob = 0.95, step = 0.025) +
+        stat_fan(aes(fill = trend_coarse), geom = "rect", max_prob = 0.95,
+                 step = 0.025) +
         scale_fill_manual(values =  c("chartreuse3",
                                       "gold",
                                       "firebrick1",
@@ -305,7 +309,23 @@ for (spec in names(dsmodels_per_jaar)) {
          width = 8,
          height = 6)
   }
+  
+  #output in df
+  sci_list[[i]] <- effects_df %>%
+    mutate(soort = spec,
+           sci = exp(log_diff_mean) - 1,
+           sci_lcl = exp(lcl) - 1,
+           sci_ucl = exp(ucl) - 1) %>%
+    select(soort, regio, jaar, log_diff = log_diff_mean, log_diff_se,
+           sci, sci_lcl, sci_ucl, verschil = trend_coarse) %>%
+    arrange(soort, regio, jaar)
 }
+```
+
+```{r}
+out_df <- do.call(rbind.data.frame, sci_list)
+write_csv(out_df, here(out_folder_distance, "per_jaar",
+                       "sci_trends_per_jaar.csv"))
 ```
 
 Kan ook via error bars.
@@ -611,7 +631,11 @@ max_threshold <- log(1.25)
   
 species <- sort(union(names(dsmodels_per_stratum2022),
                       names(dsmodels_per_stratum2023)))
-for (spec in species[-match("Kievit", species)]) {
+species <- species[-match("Kievit", species)]
+
+sci_list <- vector("list", length = length(species))
+for (i in seq_along(species)) {
+  spec <- species[i]
   file <- paste0("verschil_per_stratum_", tolower(spec), ".pdf")
   ds_model2022 <- dsmodels_per_stratum2022[[spec]]
   ds_model2023 <- dsmodels_per_stratum2023[[spec]]
@@ -625,8 +649,8 @@ for (spec in species[-match("Kievit", species)]) {
     # Create an empty data frame
     result_df <- data.frame(matrix(ncol = 0, nrow = 0))
     years <- 2023
-    for (i in seq_along(years)) {
-      year <- years[i]
+    for (j in seq_along(years)) {
+      year <- years[j]
       for (regio in c("De Moeren", "Oostelijke leemstreek")) {
         openheid <- unique(ifelse(rep(regio == "De Moeren", 2),
                                   yes = c("OL"), no = c("HOL", "OL")))
@@ -698,8 +722,8 @@ for (spec in species[-match("Kievit", species)]) {
     # Create an empty data frame
     result_df <- data.frame(matrix(ncol = 0, nrow = 0))
     years <- 2022
-    for (i in seq_along(years)) {
-      year <- years[i]
+    for (j in seq_along(years)) {
+      year <- years[j]
       for (regio in c("De Moeren", "Oostelijke leemstreek")) {
         openheid <- unique(ifelse(rep(regio == "De Moeren", 2),
                                   yes = c("OL"), no = c("HOL", "OL")))
@@ -764,14 +788,14 @@ for (spec in species[-match("Kievit", species)]) {
     }
   } else {
     summary_ds <- summarise_dsmodels(ds_model2022, ds_model2023, 2022:2023) %>%
-    filter(variable == "density") %>%
-    rename_all(tolower)
+      filter(variable == "density") %>%
+      rename_all(tolower)
   
     # Create an empty data frame
     result_df <- data.frame(matrix(ncol = 0, nrow = 0))
     years <- 2022:2023
-    for (i in seq_along(years)) {
-      year <- years[i]
+    for (j in seq_along(years)) {
+      year <- years[j]
       for (regio in c("De Moeren", "Oostelijke leemstreek")) {
         openheid <- unique(ifelse(rep(regio == "De Moeren", 2),
                                   yes = c("OL"), no = c("HOL", "OL")))
@@ -835,7 +859,23 @@ for (spec in species[-match("Kievit", species)]) {
            height = 6)
     }
   }
+  
+  #output in df
+  sci_list[[i]] <- effects_df %>%
+    mutate(soort = spec,
+           sci = exp(log_diff_mean) - 1,
+           sci_lcl = exp(lcl) - 1,
+           sci_ucl = exp(ucl) - 1) %>%
+    select(soort, regio, jaar, openheid, log_diff = log_diff_mean, log_diff_se,
+           sci, sci_lcl, sci_ucl, verschil = trend_coarse) %>%
+    arrange(soort, regio, jaar, openheid)
 }
+```
+
+```{r}
+out_df <- do.call(rbind.data.frame, sci_list)
+write_csv(out_df, here(out_folder_distance, "per_stratum",
+                       "sci_trends_per_stratum.csv"))
 ```
 
 ### Detectiekans
