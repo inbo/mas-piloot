@@ -214,7 +214,6 @@ pred_vars <- c("area_prop_sb",
                "zomergranen_hfdtlt2",
                "vergroening_hfdtlt",
                "zaden_hfdtlt",
-               "landbouwinfrastructuur_hfdtlt_pre",
                "grasland_hfdtlt_pre",
                "aardappelen_hfdtlt_pre",
                "wintergranen_hfdtlt_pre",
@@ -2097,7 +2096,8 @@ create_data_list <- function(soorten, region, year = 2022) {
          zomergranen_hfdtlt_pre2 = rowSums(across(
            c(andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
       select(-c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt,
-                andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre))
+                andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre,
+                landbouwinfrastructuur_hfdtlt_pre))
     
     # Aggregate counts by plot and year
     mas_data_df_agg <- mas_data_df_full %>%
@@ -2405,42 +2405,6 @@ form_refmod_propsb
 ```
 
 ### Oostelijke leemstreek 2022-2023
-#### sbp
-
-```{r}
-refmod_olsbp_new_list <- vector("list",
-                                length = length(df_count_list_olnew_scaled))
-refmod_olsbp_new_names <- vector(length = length(df_count_list_olnew_scaled))
-
-for (i in seq_along(df_count_list_olnew_scaled)) {
-  spec <- names(df_count_list_olnew_scaled)[i]
-  name <- paste0("refmod_olsbp_new_", spec)
-  print(paste("Busy fitting", name, "..."))
-  assign(name,
-         brm(formula = form_refmod_sbp,
-             data = df_count_list_olnew_scaled[[i]], 
-               family = poisson(),
-               prior = R2D2_prior,
-               chains = nchains, 
-               warmup = burnin, 
-               iter = niter,
-               cores = nparallel,
-               thin = thinning,
-               sample_prior = TRUE,
-               backend = "cmdstanr",
-               file = paste0(model_path, name),
-               file_refit = "on_change"))
-  
-  refmod_olsbp_new_list[[i]] <- get(name)
-  refmod_olsbp_new_names[i] <- spec
-  rm(list = name)
-}
-
-names(refmod_olsbp_new_list) <- refmod_olsbp_new_names
-gc()
-```
-
-
 #### area_prop_sb (categorised)
 
 ```{r}
@@ -2478,41 +2442,6 @@ gc()
 
 
 ### De Moeren 2022-2023
-#### sbp
-
-```{r}
-refmod_dmsbp_new_list <- vector("list",
-                                length = length(df_count_list_dmnew_scaled))
-refmod_dmsbp_new_names <- vector(length = length(df_count_list_dmnew_scaled))
-
-for (i in seq_along(df_count_list_dmnew_scaled)) {
-  spec <- names(df_count_list_dmnew_scaled)[i]
-  name <- paste0("refmod_dmsbp_new_", spec)
-  print(paste("Busy fitting", name, "..."))
-  assign(name,
-         brm(formula = form_refmod_sbp,
-             data = df_count_list_dmnew_scaled[[i]], 
-               family = poisson(),
-               prior = R2D2_prior,
-               chains = nchains, 
-               warmup = burnin, 
-               iter = niter,
-               cores = nparallel,
-               thin = thinning,
-               sample_prior = TRUE,
-               backend = "cmdstanr",
-               file = paste0(model_path, name),
-               file_refit = "on_change"))
-  
-  refmod_dmsbp_new_list[[i]] <- get(name)
-  refmod_dmsbp_new_names[i] <- spec
-  rm(list = name)
-}
-
-names(refmod_dmsbp_new_list) <- refmod_dmsbp_new_names
-gc()
-```
-
 #### area_prop_sb (categorised)
 
 ```{r}
@@ -2547,7 +2476,6 @@ for (i in seq_along(df_count_list_dmnew_scaled)) {
 names(refmod_dmpropsb_new_list) <- refmod_dmpropsb_new_names
 gc()
 ```
-
 
 ### Oostelijke leemstreek 2018-2023
 
@@ -2669,9 +2597,7 @@ Niet altijd een goede fit:
 
 ```{r}
 refmodel_meta_list <- list(
-  "Oostelijke leemstreek 2022-2023 (sbp)" = refmod_olsbp_new_list,
   "Oostelijke leemstreek 2022-2023 (prop sb)" = refmod_olpropsb_new_list,
-  "De Moeren 2022-2023 (sbp)" = refmod_dmsbp_new_list,
   "De Moeren 2022-2023 (prop sb)" = refmod_dmpropsb_new_list,
   "Oostelijke leemstreek 2018-2023" = refmod_ol_total_list,
   "De Moeren 2018-2023" = refmod_dm_total_list)
@@ -2708,76 +2634,6 @@ search_terms_propsb <- get_search_terms(
 ```
 
 ### Oostelijke leemstreek 2022-2023
-#### sbp
-
-```{r}
-cvvs_olsbp_new_list <- vector("list", length = length(refmod_olsbp_new_list))
-cvvs_olsbp_new_names <- vector(length = length(refmod_olsbp_new_list))
-
-for (i in seq_along(refmod_olsbp_new_list)) {
-  spec <- names(refmod_olsbp_new_list)[i]
-  name <- paste0("cvvs_olsbp_new_", spec)
-  print(paste("Busy with", name, "..."))
-  
-  cvvs_file <- paste0(projpred_path, name, ".rds")
-  if (!file.exists(cvvs_file)) {
-    assign(name, 
-           cv_varsel(
-             object          = refmod_olsbp_new_list[[i]],
-             method          = "forward",
-             cv_method       = "kfold",
-             K               = 5,
-             search_terms    = search_terms_sbp,
-             validate_search = TRUE))
-    saveRDS(get(name), cvvs_file)
-  } else {
-    assign(name, readRDS(cvvs_file))
-  }
-  
-  cvvs_olsbp_new_list[[i]] <- get(name)
-  cvvs_olsbp_new_names[i] <- spec
-  rm(list = name)
-}
-
-names(cvvs_olsbp_new_list) <- cvvs_olsbp_new_names
-gc()
-```
-
-```{r}
-for (i in seq_along(cvvs_olsbp_new_list)) {
-  title <- names(cvvs_olsbp_new_list)[i]
-  if (!title == "FALSE") {
-    print(plot(cvvs_olsbp_new_list[[i]], stats = "mlpd", deltas = TRUE, 
-               ranking_abbreviate = TRUE, 
-               ranking_abbreviate_args = list(minlength = 4)) +
-             ggtitle(title))
-    
-    smmry <- summary(cvvs_olsbp_new_list[[i]], stats = "mlpd", 
-                 type = c("mean", "lower", "upper"),
-                 deltas = TRUE)
-    print(smmry, digits = 1)
-    
-    rk <- ranking(cvvs_olsbp_new_list[[i]])
-    pr_rk <- cv_proportions(rk)
-    
-    print(plot(pr_rk) +
-             ggtitle(title))
-    print(plot(cv_proportions(rk, cumulate = TRUE)) +
-             ggtitle(title))
-  }
-}
-
-```
-
-Manual choices for model size:
-
-```{r}
-size_decided_olsbp_new_list <- list(5, 12, 12, NA, NA, 9, 16, 6, 9, 3)
-names(size_decided_olsbp_new_list) <- names(cvvs_olsbp_new_list)
-size_decided_olsbp_new_list
-```
-
-
 #### area prop sb (categorised)
 
 ```{r}
@@ -2843,80 +2699,13 @@ for (i in seq_along(cvvs_olpropsb_new_list)) {
 Manual choices for model size:
 
 ```{r}
-size_decided_olpropsb_new_list <- list(4, 5, 7, NA, 14, 5, 13, 3, 8, 6)
+size_decided_olpropsb_new_list <- list(8, 5, 5, NA, 12, 14, 19, 8, 9, 5)
 names(size_decided_olpropsb_new_list) <- names(cvvs_olpropsb_new_list)
 size_decided_olpropsb_new_list
 ```
 
 
 ### De Moeren 2022-2023
-#### sbp
-
-```{r, eval=FALSE}
-cvvs_dmsbp_new_list <- vector("list", length = length(refmod_dmsbp_new_list))
-cvvs_dmsbp_new_names <- vector(length = length(refmod_dmsbp_new_list))
-
-for (i in seq_along(refmod_dmsbp_new_list)) {
-  spec <- names(refmod_dmsbp_new_list)[i]
-  name <- paste0("cvvs_dmsbp_new_", spec)
-  print(paste("Busy with", name, "..."))
-  
-  cvvs_file <- paste0(projpred_path, name, ".rds")
-  if (!file.exists(cvvs_file)) {
-    assign(name, 
-           try(cv_varsel(
-             object          = refmod_dmsbp_new_list[[i]],
-             method          = "forward",
-             cv_method       = "LOO",
-             search_terms    = search_terms_sbp,
-             validate_search = TRUE)))
-    saveRDS(get(name), cvvs_file)
-  } else {
-    assign(name, readRDS(cvvs_file))
-  }
-  
-  cvvs_dmsbp_new_list[[i]] <- get(name)
-  cvvs_dmsbp_new_names[i] <- spec
-  rm(list = name)
-}
-
-names(cvvs_dmsbp_new_list) <- cvvs_dmsbp_new_names
-gc()
-```
-
-```{r, eval=FALSE}
-for (i in seq_along(cvvs_dmsbp_new_list)) {
-  title <- names(cvvs_dmsbp_new_list)[i]
-  if (!title == "FALSE") {
-    print(plot(cvvs_dmsbp_new_list[[i]], stats = "mlpd", deltas = TRUE, 
-               ranking_abbreviate = TRUE, 
-               ranking_abbreviate_args = list(minlength = 4)) +
-             ggtitle(title))
-    
-    smmry <- summary(cvvs_dmsbp_new_list[[i]], stats = "mlpd", 
-                 type = c("mean", "lower", "upper"),
-                 deltas = TRUE)
-    print(smmry, digits = 1)
-    
-    rk <- ranking(cvvs_dmsbp_new_list[[i]])
-    pr_rk <- cv_proportions(rk)
-    
-    print(plot(pr_rk) +
-             ggtitle(title))
-    print(plot(cv_proportions(rk, cumulate = TRUE)) +
-             ggtitle(title))
-  }
-}
-```
-
-Manual choices for model size:
-
-```{r, eval=FALSE}
-size_decided_dmsbp_new_list <- list(5, 12, 12, NA, NA, 9, 16, 6, 9, 3)
-names(size_decided_dmsbp_new_list) <- names(cvvs_dmsbp_new_list)
-size_decided_dmsbp_new_list
-```
-
 #### area prop sb (categorised)
 
 ```{r}
@@ -2980,11 +2769,10 @@ for (i in seq_along(cvvs_dmpropsb_new_list)) {
 Manual choices for model size:
 
 ```{r}
-size_decided_dmpropsb_new_list <- list(13, 6, NA, 3, 6, 6, 7, 9, 2, 4)
+size_decided_dmpropsb_new_list <- list(13, 9, 7, 10, 6, 6, 7, 9, 2, 4)
 names(size_decided_dmpropsb_new_list) <- names(cvvs_dmpropsb_new_list)
 size_decided_dmpropsb_new_list
 ```
-
 
 ### Oostelijke leemstreek 2018-2023
 
@@ -3048,7 +2836,7 @@ for (i in seq_along(cvvs_ol_total_list)) {
 Manual choices for model size:
 
 ```{r}
-size_decided_ol_total_list <- list(NA, NA, NA, NA, NA, 5, 4, NA, 12, 12)
+size_decided_ol_total_list <- list(12, NA, NA, 3, NA, 10, 5, 3, 10, 8)
 names(size_decided_ol_total_list) <- names(cvvs_ol_total_list)
 size_decided_ol_total_list
 ```
@@ -3056,7 +2844,7 @@ size_decided_ol_total_list
 
 ### De Moeren 2018-2023
 
-```{r, eval=FALSE}
+```
 cvvs_dm_total_list <- vector("list", length = length(refmod_dm_total_list))
 cvvs_dm_total_names <- vector(length = length(refmod_dm_total_list))
 
@@ -3112,7 +2900,7 @@ cvvs_dm_total_list <- list("Veldleeuwerik" = get(name))
 ```
 
 
-```{r, eval=FALSE}
+```{r}
 for (i in seq_along(cvvs_dm_total_list)) {
   title <- names(cvvs_dm_total_list)[i]
   if (!title == "FALSE") {
@@ -3140,210 +2928,13 @@ for (i in seq_along(cvvs_dm_total_list)) {
 Choose model sizes.
 
 ```{r}
-size_decided_dm_total_list <- list(2)
+size_decided_dm_total_list <- list(10)
 size_decided_dm_total_list
 ```
 
 
 ## Fit finale modellen
 ### Oostelijke leemstreek
-#### sbp
-
-Create list with model structure
-
-```{r}
-predictors_olsbp_new_list <- vector("list",
-                                       length = length(cvvs_olsbp_new_list))
-predictors_olsbp_new_names <- vector(length = length(cvvs_olsbp_new_list))
-
-for (i in seq_along(cvvs_olsbp_new_list)) {
-  mod_size <- size_decided_olsbp_new_list[[i]]
-  spec <- names(cvvs_olsbp_new_list)[i]
-  
-  if (is.na(mod_size)) {
-    predictors_olsbp_new_list[[i]] <- NA
-  } else {
-    cvvs <- cvvs_olsbp_new_list[[i]]
-    
-    rk <- ranking(cvvs)
-    preds <- head(rk[["fulldata"]], mod_size)
-    
-    predictors_olsbp_new_list[[i]]$predictors <- preds
-    predictors_olsbp_new_list[[i]]$formula <- bf(paste("aantal", "~", 
-                                                   paste(preds, 
-                                                         collapse = " + ")))
-  }
-  
-  predictors_olsbp_new_names[i] <- spec
-}
-names(predictors_olsbp_new_list) <- predictors_olsbp_new_names
-predictors_olsbp_new_list <- predictors_olsbp_new_list[!is.na(predictors_olsbp_new_list)]
-```
-
-Fit models for both Poisson and Zero-inflated Poisson.
-
-```{r}
-# MCMC parameters
-nchains <- 3           # number of chains
-niter <- 8000         # number of iterations (incl. burn-in)
-burnin <- niter / 4    # number of initial samples to discard (burn-in)
-nparallel <- nchains   # number of cores used for parallel computing
-thinning <- 2
-```
-
-```{r}
-mod_final_pois_olsbp_list <- vector("list", length = length(predictors_olsbp_new_list))
-mod_final_zip_olsbp_list <- vector("list", length = length(predictors_olsbp_new_list))
-
-for (i in seq_along(predictors_olsbp_new_list)) {
-  spec <- names(predictors_olsbp_new_list)[i]
-  
-  # Poisson
-  name_pois <- paste0("mod_final_pois_olsbp_", spec)
-  print(paste("Busy fitting", name_pois, "..."))
-  assign(name_pois,
-         brm(formula = predictors_olsbp_new_list[[spec]]$formula,
-             data = df_count_list_olnew_scaled[[spec]], 
-             family = poisson(),
-             chains = nchains, 
-             warmup = burnin, 
-             iter = niter,
-             cores = nparallel,
-             thin = thinning,
-             backend = "cmdstanr",
-             file = paste0(model_path, name_pois),
-             file_refit = "on_change"))
-  
-  ## Perform K-fold cross-validation
-  assign(name_pois,
-         add_criterion(get(name_pois), c("kfold"), K = 5, cores = 5))
-  
-  mod_final_pois_olsbp_list[[i]] <- get(name_pois)
-  
-  # Zero-inflated Poisson
-  name_zip <- paste0("mod_final_zip_olsbp_", spec)
-  print(paste("Busy fitting", name_zip, "..."))
-  assign(name_zip,
-         brm(formula = predictors_olsbp_new_list[[spec]]$formula,
-             data = df_count_list_olnew_scaled[[spec]], 
-             family = zero_inflated_poisson(),
-             chains = nchains, 
-             warmup = burnin, 
-             iter = niter,
-             cores = nparallel,
-             thin = thinning,
-             backend = "cmdstanr",
-             file = paste0(model_path, name_zip),
-             file_refit = "on_change"))
-  
-  ## Perform K-fold cross-validation
-  assign(name_zip,
-         add_criterion(get(name_zip), c("kfold"), K = 5, cores = 5))
-  
-  mod_final_zip_olsbp_list[[i]] <- get(name_zip)
-}
-
-names(mod_final_pois_olsbp_list) <- names(predictors_olsbp_new_list)
-names(mod_final_zip_olsbp_list) <- names(predictors_olsbp_new_list)
-```
-
-Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
-
-```{r, results="asis"}
-for (i in seq_along(predictors_olsbp_new_list)) {
-  spec <- names(predictors_olsbp_new_list)[i]
-  model_pois <- mod_final_pois_olsbp_list[[i]]
-  model_zip <- mod_final_zip_olsbp_list[[i]]
-  
-  print(paste("Model selection", spec, "(Oostelijke leemstreek - sbp)"))
-  
-  # Comparison among models
-  comparisons <- loo_compare(model_pois, model_zip,
-                             criterion = "kfold")[, c(1, 2)]
-  
-  comparisons %>%
-    as.data.frame() %>%
-    rownames_to_column("model") %>%
-    mutate(CI_ll = elpd_diff  + qnorm(0.10) * se_diff,
-           CI_ul = elpd_diff  + qnorm(0.90) * se_diff,
-           width = 0.9 - 0.1) %>%
-    arrange(desc(elpd_diff)) %>%
-    kable(digits = 3) %>%
-    print()
-  
-  p1 <- pp_check(model_pois, type = "bars_grouped", ndraws = 100, group = "sbp",
-                 facet_args = list(ncol = 1, scales = "free_y")) +
-    ggtitle(paste("Poisson model", spec, "(Oostelijke leemstreek - sbp)"))
-  p2 <- pp_check(model_zip, type = "bars_grouped", ndraws = 100, group = "sbp",
-                 facet_args = list(ncol = 1, scales = "free_y")) +
-    ggtitle(paste("ZIP model", spec, "(Oostelijke leemstreek - sbp)"))
-  print(p1)
-  print(p2)
-}
-```
-
-
-```{r}
-mod_final_olsbp_list <- list(
-  mod_final_zip_olsbp_list$Geelgors,
-  mod_final_pois_olsbp_list$GeleKwikstaart,
-  mod_final_pois_olsbp_list$Grasmus,
-  mod_final_pois_olsbp_list$Kneu,
-  mod_final_pois_olsbp_list$Kwartel,
-  mod_final_pois_olsbp_list$Torenvalk,
-  mod_final_pois_olsbp_list$Veldleeuwerik,
-  mod_final_pois_olsbp_list$WitteKwikstaart
-  )
-names(mod_final_olsbp_list) <- names(predictors_olsbp_new_list)
-```
-
-```{r}
-rm(list = c("mod_final_pois_olsbp_list", "mod_final_zip_olsbp_list"))
-gc()
-```
-
-MCMC convergence and model fit.
-
-```{r}
-for (i in seq_along(mod_final_olsbp_list)) {
-  spec <- names(mod_final_olsbp_list)[i]
-  model <- mod_final_olsbp_list[[i]]
-  
-  # MCMC convergence
-  print(paste("MCMC convergence", spec, "(Oostelijke leemstreek - sbp)"))
-  plot(model, ask = FALSE)
-  
-  # Model fit
-  print(paste("Model fit", spec, "(Oostelijke leemstreek - sbp)"))
-  pp_check(model, type = "bars_grouped", ndraws = 100, 
-           group = "sbp",
-           facet_args = list(ncol = 1, scales = "free_y")) %>%
-    print()
-}
-```
-
-Results:
-
-```{r}
-for (i in seq_along(mod_final_olsbp_list)) {
-  spec <- names(mod_final_olsbp_list)[i]
-  model <- mod_final_olsbp_list[[spec]]
-  
-  # Print summary
-  print(paste("Results", spec, "(Oostelijke leemstreek - sbp)"))
-  print(summary(model))
-  
-  # Visualise results
-  for (pred in predictors_olsbp_new_list[[spec]]$predictors) {
-    p <- plot_brms_fit(model, pred) +
-      ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
-    print(p)
-    gc()
-  }
-}
-```
-
-
 #### area prop sb (categorised)
 
 Create list with model structure
@@ -3366,9 +2957,15 @@ for (i in seq_along(cvvs_olpropsb_new_list)) {
     preds <- head(rk[["fulldata"]], mod_size)
     
     predictors_olpropsb_new_list[[i]]$predictors <- preds
-    predictors_olpropsb_new_list[[i]]$formula <- bf(paste("aantal", "~", 
-                                                   paste(preds, 
-                                                         collapse = " + ")))
+    if ("jaar.f" %in% preds) {
+      predictors_olpropsb_new_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_olpropsb_new_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "))
+        )
+    }
   }
   
   predictors_olpropsb_new_names[i] <- spec
@@ -3884,9 +3481,16 @@ for (i in seq_along(cvvs_ol_total_list)) {
     preds <- head(rk[["fulldata"]], mod_size)
     
     predictors_ol_total_list[[i]]$predictors <- preds
-    predictors_ol_total_list[[i]]$formula <- bf(paste("aantal", "~", 
+    if ("jaar.f" %in% preds) {
+      predictors_ol_total_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_ol_total_list[[i]]$formula <- bf(paste("aantal", "~", 
                                                    paste(preds, 
                                                          collapse = " + ")))
+    }
+    
   }
   
   predictors_ol_total_names[i] <- spec
@@ -3998,8 +3602,11 @@ for (i in seq_along(predictors_ol_total_list)) {
 
 ```{r}
 mod_final_oltotal_list <- list(
+  mod_final_pois_oltotal_list$Geelgors,
+  mod_final_zip_oltotal_list$Haas,
   mod_final_pois_oltotal_list$Kneu,
   mod_final_pois_oltotal_list$Kwartel,
+  mod_final_pois_oltotal_list$Torenvalk,
   mod_final_pois_oltotal_list$Veldleeuwerik,
   mod_final_pois_oltotal_list$WitteKwikstaart
   )
@@ -4079,9 +3686,16 @@ for (i in seq_along(cvvs_dmpropsb_new_list)) {
     preds <- head(rk[["fulldata"]], mod_size)
     
     predictors_dmpropsb_new_list[[i]]$predictors <- preds
-    predictors_dmpropsb_new_list[[i]]$formula <- bf(paste("aantal", "~", 
-                                                   paste(preds, 
-                                                         collapse = " + ")))
+    if ("jaar.f" %in% preds) {
+      predictors_dmpropsb_new_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_dmpropsb_new_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "))
+        )
+    }
+    
   }
   
   predictors_dmpropsb_new_names[i] <- spec
@@ -4193,9 +3807,14 @@ for (i in seq_along(predictors_dmpropsb_new_list)) {
 
 ```{r}
 mod_final_dmpropsb_list <- list(
+  mod_final_pois_dmpropsb_list$GeleKwikstaart,
+  mod_final_zip_dmpropsb_list$Haas,
+  mod_final_pois_dmpropsb_list$Kievit,
+  mod_final_pois_dmpropsb_list$Kneu,
   mod_final_pois_dmpropsb_list$Veldleeuwerik
   )
-names(mod_final_dmpropsb_list) <- "Veldleeuwerik"
+names(mod_final_dmpropsb_list) <- c("GeleKwikstaart", "Haas", "Kievit", "Kneu",
+                                    "Veldleeuwerik")
 
 saveRDS(mod_final_dmpropsb_list,
         here("src", "markdown", "mas", "analyses_cache",
@@ -4325,9 +3944,15 @@ for (i in seq_along(cvvs_dm_total_list)) {
     preds <- head(rk[["fulldata"]], mod_size)
     
     predictors_dm_total_list[[i]]$predictors <- preds
-    predictors_dm_total_list[[i]]$formula <- bf(paste("aantal", "~", 
-                                                   paste(preds, 
-                                                         collapse = " + ")))
+    if ("jaar.f" %in% preds) {
+      predictors_dm_total_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_dm_total_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "))
+        )
+    }
   }
   
   predictors_dm_total_names[i] <- spec
