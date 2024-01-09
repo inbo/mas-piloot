@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.3.0",
+    "Version": "4.3.2",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -1645,6 +1645,20 @@
       ],
       "Hash": "e76426c4a99a1798a9376c6fe9070a68"
     },
+    "gamm4": {
+      "Package": "gamm4",
+      "Version": "0.2-6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "Matrix",
+        "R",
+        "lme4",
+        "methods",
+        "mgcv"
+      ],
+      "Hash": "07fd04f71ff5fbf2a69c74e4ec128d65"
+    },
     "gargle": {
       "Package": "gargle",
       "Version": "1.4.0",
@@ -1770,6 +1784,24 @@
         "withr"
       ],
       "Hash": "a06503f54e227f79b45a72df2946a2d2"
+    },
+    "ggh4x": {
+      "Package": "ggh4x",
+      "Version": "0.2.6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "cli",
+        "ggplot2",
+        "grid",
+        "gtable",
+        "lifecycle",
+        "rlang",
+        "scales",
+        "stats",
+        "vctrs"
+      ],
+      "Hash": "e82e0bef5e2db1243060afcb8be499ee"
     },
     "ggplot2": {
       "Package": "ggplot2",
@@ -2857,6 +2889,19 @@
       ],
       "Hash": "57af0c3da1f1a50680b186591c3359af"
     },
+    "mclogit": {
+      "Package": "mclogit",
+      "Version": "0.9.6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "Matrix",
+        "memisc",
+        "methods",
+        "stats"
+      ],
+      "Hash": "a940a79acafab3eeb07fa8d632ea55fa"
+    },
     "mclust": {
       "Package": "mclust",
       "Version": "6.0.0",
@@ -2870,6 +2915,25 @@
         "utils"
       ],
       "Hash": "a42d1a95e400fcd75294b1464d1a84ac"
+    },
+    "memisc": {
+      "Package": "memisc",
+      "Version": "0.99.31.6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "MASS",
+        "R",
+        "data.table",
+        "grid",
+        "jsonlite",
+        "lattice",
+        "methods",
+        "stats",
+        "utils",
+        "yaml"
+      ],
+      "Hash": "9c1078f27f76f909655f4d5b689f9875"
     },
     "memoise": {
       "Package": "memoise",
@@ -3121,6 +3185,23 @@
         "numDeriv"
       ],
       "Hash": "deee0d9b5a41a4a356974254f5fe828a"
+    },
+    "ordinal": {
+      "Package": "ordinal",
+      "Version": "2022.11-16",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "MASS",
+        "Matrix",
+        "R",
+        "methods",
+        "nlme",
+        "numDeriv",
+        "stats",
+        "ucminf"
+      ],
+      "Hash": "47be9c32eb004c1945307eb318a6ef98"
     },
     "osmextract": {
       "Package": "osmextract",
@@ -3429,6 +3510,33 @@
         "prettyunits"
       ],
       "Hash": "14dc9f7a3c91ebb14ec5bb9208a07061"
+    },
+    "projpred": {
+      "Package": "projpred",
+      "Version": "2.6.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "MASS",
+        "R",
+        "Rcpp",
+        "RcppArmadillo",
+        "abind",
+        "gamm4",
+        "ggplot2",
+        "lme4",
+        "loo",
+        "mclogit",
+        "methods",
+        "mgcv",
+        "mvtnorm",
+        "nnet",
+        "ordinal",
+        "rstantools",
+        "scales",
+        "utils"
+      ],
+      "Hash": "7f7f8f64e4f40da5ff5ab951f6afd374"
     },
     "promises": {
       "Package": "promises",
@@ -4701,6 +4809,16 @@
         "cpp11"
       ],
       "Hash": "b2e1cbce7c903eaf23ec05c58e59fb5e"
+    },
+    "ucminf": {
+      "Package": "ucminf",
+      "Version": "1.2.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "892048d061cd01149ba86d9e841297ae"
     },
     "units": {
       "Package": "units",
