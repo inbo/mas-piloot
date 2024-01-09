@@ -36,6 +36,7 @@ library(inbospatial)
 library(terra)
 library(corrplot)
 library(effectclass)
+library(projpred)
 
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(base::intersect)
