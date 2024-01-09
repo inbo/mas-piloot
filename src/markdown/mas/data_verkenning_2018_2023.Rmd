@@ -318,20 +318,26 @@ for (spec in sort(doelsoorten)) {
            wrntype_omschrijving2 = reorder(wrntype_omschrijving2, wrntype,
                                            decreasing = TRUE)) %>%
     filter(naam == spec) %>%
-    select(jaar, stratum, regio, wrntype_omschrijving2) %>%
-    group_by(jaar, stratum, regio, wrntype_omschrijving2) %>%
+    select(jaar, regio, wrntype_omschrijving2) %>%
+    group_by(jaar, regio, wrntype_omschrijving2) %>%
     summarise(N = n(), .groups = "drop") %>%
-    full_join(strata_df, by = join_by(stratum, regio, jaar)) %>%
-    mutate(stratum = gsub(" - ", " -\n", stratum)) %>%
-    mutate(regio = ifelse(regio =="Oostelijke leemstreek",
+    full_join(strata_df %>% select(-stratum) %>% distinct(),
+              by = join_by(regio, jaar)) %>%
+    mutate(regio = ifelse(regio == "Oostelijke leemstreek",
                           gsub("\\s", "\n", regio),
                           regio)) %>%
-    ggplot(aes(x = stratum, y = N, fill = wrntype_omschrijving2)) +
+    ggplot(aes(x = factor(jaar), y = N, fill = wrntype_omschrijving2)) +
       geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
       geom_bar(stat = "identity") +
       scale_fill_discrete(drop = FALSE) +
       labs(y = "Aantal tellingen", x = "", title = spec, fill = "Broedcode") +
-      facet_grid(regio~jaar, scales = "free")
+      facet_wrap(~regio, scales = "free_y") +
+      ggh4x::facetted_pos_scales(
+        y = list(
+          regio == "Oostelijke\nleemstreek" ~ scale_y_continuous(
+            position = "right"
+            )
+        ))
   
   print(p)
   legend <- cowplot::get_legend(
@@ -348,9 +354,7 @@ for (spec in sort(doelsoorten)) {
                  axis.text = element_text(size = 6),
                  plot.title = element_text(size = 8),
                  strip.text = element_text(size = 8),
-                 legend.position = "",
-                 axis.text.x = element_text(angle = 90, vjust = 0.5,
-                                            hjust = 1)))
+                 legend.position = ""))
 }
 
 lay <- rbind(c(1, 2, 3),
@@ -360,53 +364,38 @@ lay <- rbind(c(1, 2, 3),
 
 p_summ <- gridExtra::grid.arrange(
   p1 +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
+    theme(plot.margin = unit(c(5.5, -2, 5.5, 5.5), "pt")),
   p2 + 
     labs(y = "") +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
-  p3 + labs(y = ""),
-  p4 + 
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
-  p5 + labs(y = "") + 
+    theme(plot.margin = unit(c(5.5, -2, 5.5, -2), "pt")),
+  p3 +
     labs(y = "") +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
-  p6 + labs(y = ""),
+    theme(plot.margin = unit(c(5.5, 5.5, 5.5, -2), "pt")),
+  p4 +
+    theme(plot.margin = unit(c(5.5, -2, 5.5, 5.5), "pt")),
+  p5 + 
+    labs(y = "") +
+    theme(plot.margin = unit(c(5.5, -2, 5.5, -2), "pt")),
+  p6 +
+    labs(y = "") +
+    theme(plot.margin = unit(c(5.5, 5.5, 5.5, -2), "pt")),
   p7 +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
-  p8 + labs(y = "") + 
+    theme(plot.margin = unit(c(5.5, -2, 5.5, 5.5), "pt")),
+  p8 + 
     labs(y = "") +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
-  p9 + labs(y = ""),
-  p10 +
-    theme(
-      strip.background.y = element_blank(),
-      strip.text.y = element_blank()
-      ),
+    theme(plot.margin = unit(c(5.5, -2, 5.5, -2), "pt")),
+  p9 +
+    labs(y = "") +
+    theme(plot.margin = unit(c(5.5, 5.5, 5.5, -2), "pt")),
+  p10  +
+    theme(plot.margin = unit(c(5.5, -2, 5.5, 5.5), "pt")),
   legend,
   ncol = 3, nrow = 4, layout_matrix = lay)
 
 ggsave(here(media_folder, "broedcode_mas_2022_2023.pdf"),
        p_summ,
        dpi = 300,
-       width = 8,
+       width = 6,
        height = 10)
 ```
 
@@ -426,6 +415,48 @@ for (spec in sort(doelsoorten)) {
       scale_y_continuous(limits = c(0, NA))
   print(p)
 }
+```
+
+```{r}
+p <- doel_df %>% 
+  st_drop_geometry() %>%
+  mutate(plotnaam = paste(plotnaam, jaar, sep = "_")) %>%
+  group_by(regio, plotnaam, stratum, openheid, sbp, periode_in_jaar, naam) %>%
+  summarise(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  full_join(bezoekenlijst_2022_2023 %>% 
+              mutate(plotnaam = paste(plotnaam, jaar, sep = "_")),
+            by = join_by(regio, plotnaam, stratum, openheid, sbp,
+                         periode_in_jaar)) %>%
+  replace(is.na(.), 0) %>%
+  group_by(periode_in_jaar, regio, stratum, openheid, sbp) %>%
+  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+            n = n(),
+            .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq") %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  ggplot() +
+    geom_vline(xintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = relfreq, y = naam, colour = stratum),
+               size = 1, position = position_dodge(width = 0.4)) +
+    scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+    labs(y = "", x = "Relatieve frequentie", colour = "Stratum") +
+    facet_grid(~regio) +
+    theme(legend.position = "top") +
+    guides(colour = guide_legend(override.aes = list(size = 2)))
+
+ggsave(here(media_folder, "soortenfreqs_doel_per_strat.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
 ```
 
 
@@ -546,6 +577,71 @@ relfreqs_z %>%
   write_csv(here(media_folder, "verschilfreq_zoogdieren_2022_2023.csv"))
 ```
 
+## Haas
+
+```{r}
+p <- zoogdieren %>%
+  st_drop_geometry() %>%
+  filter(naam == "Haas") %>%
+  group_by(regio, jaar, periode_in_jaar) %>%
+  summarise(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = totaal_aantal, fill = factor(jaar))) +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_bar(stat = "identity", position = "dodge") +
+    facet_wrap(~regio) +
+    labs(y = "Aantal individuen", x = "Telperiode", fill = "Jaar")
+p
+
+ggsave(here(media_folder, "aantallen_haas.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+```{r}
+p <- zoogdieren %>%
+  st_drop_geometry() %>%
+  filter(naam == "Haas") %>%
+  mutate(plotnaam = paste(plotnaam, jaar, sep = "_")) %>%
+  group_by(regio, plotnaam, stratum, openheid, sbp, periode_in_jaar, naam) %>%
+  summarise(totaal_aantal = sum(aantal),
+            .groups = "drop") %>%
+  pivot_wider(names_from = naam,
+              values_from = totaal_aantal,
+              values_fill = list(totaal_aantal = 0)) %>%
+  full_join(bezoekenlijst_2022_2023 %>% 
+              mutate(plotnaam = paste(plotnaam, jaar, sep = "_")),
+            by = join_by(regio, plotnaam, stratum, openheid, sbp,
+                         periode_in_jaar)) %>%
+  replace(is.na(.), 0) %>%
+  group_by(periode_in_jaar, regio, stratum, openheid, sbp) %>%
+  summarise(across(.cols = where(~ is.numeric(.x) && min(.x) == 0),
+                   .fns = ~sum(.x > 0) / n()),
+            n = n(),
+            .groups = "drop") %>%
+  pivot_longer(cols = where(is.double),
+               names_to = "naam",
+               values_to = "relfreq") %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  ggplot() +
+    geom_hline(yintercept = 0, alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(y = relfreq, x = stratum, shape = periode_in_jaar),
+               size = 3, position = position_dodge(width = 0.3)) +
+    scale_y_continuous(limits = c(0, NA)) +
+    labs(y = "Relatieve frequentie", x = "", shape = "Telperiode") +
+    facet_grid(~regio, scales = "free_x") +
+    theme(legend.position = "top")
+p
+
+ggsave(here(media_folder, "soortenfreqs_haas_per_strat.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
 
 # Resultaten vogels 2018--2023
 
@@ -761,8 +857,12 @@ highlight <- function(x, pat, color="black", family="") {
 
 ```{r soortenfreqs-langetermijn, fig.height = 200/25.4}
 freq_to_plot <- relfreqs_vogels %>%
-  mutate(naam = reorder(naam, relfreq, FUN = "mean",
-                        decreasing = FALSE)) %>%
+  group_by(regio, naam) %>%
+  mutate(
+    w = n / sum(n),
+    gemiddelde_freq = weighted.mean(relfreq, w)) %>%
+  ungroup() %>%
+  mutate(naam = reorder(naam, gemiddelde_freq, decreasing = FALSE)) %>%
   filter(as.numeric(naam) > length(unique(naam)) - 20 |
            naam %in% doelsoorten)
 p <- freq_to_plot %>%
@@ -787,6 +887,71 @@ ggsave(here(media_folder, "soortenfreqs_mas_2018_2023.pdf"),
        dpi = 300,
        width = 6,
        height = 10)
+```
+
+```{r}
+freq_to_plot2 <- relfreqs_vogels %>%
+  filter(jaar %in% 2018:2021) %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 20 |
+           naam %in% doelsoorten)
+
+p_freq_to_plot2 <- freq_to_plot2 %>%
+  ggplot() +
+  geom_vline(xintercept = 0, alpha = 0.2, linetype = "dashed") +
+  geom_hline(yintercept = length(unique(freq_to_plot2$naam)) - 20 + 0.5,
+             alpha = 0.2, linetype = "dashed") +
+  geom_point(aes(x = relfreq, y = naam, colour = regio),
+             size = 1) +
+  labs(y = "", x = "Relatieve frequentie", colour = "Regio") +
+  facet_wrap(~jaar, nrow = 2) +
+  scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  theme(legend.position = "top",
+        axis.text = element_text(size = 8),
+        axis.text.y = element_markdown(),
+        panel.spacing = unit(0.7, "lines"),
+        plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")) +
+  guides(colour = guide_legend(override.aes = list(size = 2)))
+
+ggsave(here(media_folder, "soortenfreqs_mas_2018_2021.pdf"),
+       p_freq_to_plot2,
+       dpi = 300,
+       width = 8,
+       height = 8)
+
+freq_to_plot3 <- relfreqs_vogels %>%
+  filter(jaar %in% 2022:2023) %>%
+  mutate(naam = reorder(naam, relfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 20 |
+           naam %in% doelsoorten)
+
+p_freq_to_plot3 <- freq_to_plot3 %>%
+  ggplot() +
+  geom_vline(xintercept = 0, alpha = 0.2, linetype = "dashed") +
+  geom_hline(yintercept = length(unique(freq_to_plot3$naam)) - 20 + 0.5,
+             alpha = 0.2, linetype = "dashed") +
+  geom_point(aes(x = relfreq, y = naam, colour = regio),
+             size = 1) +
+  labs(y = "", x = "Relatieve frequentie", colour = "Regio") +
+  facet_wrap(~jaar, nrow = 1) +
+  scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  theme(legend.position = "top",
+        axis.text = element_text(size = 8),
+        axis.text.y = element_markdown(),
+        panel.spacing = unit(0.7, "lines"),
+        plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")) +
+  guides(colour = guide_legend(override.aes = list(size = 2)))
+
+
+ggsave(here(media_folder, "soortenfreqs_mas_2022_2023.pdf"),
+       p_freq_to_plot3,
+       dpi = 300,
+       width = 8,
+       height = 6)
 ```
 
 > Opgepast! In de volgende tabellen wordt de gemiddelde relatieve frequentie berekend door een gemiddelde te nemen over de telperiodes en over de jaren (per regio en per soort). Het is mogelijks niet correct een ongewogen gemiddelde te nemen over de jaren heen. Dit moet verder uitgezocht worden. Over de telperiodes is op zich wel correct want dit zijn replicaten.
@@ -1012,6 +1177,134 @@ ggsave(here(media_folder, "verschilfreq_total_mas_2018_2023.pdf"),
        dpi = 300,
        width = 6,
        height = 10)
+```
+
+```{r}
+relfreq_diff_total2 <- relfreqs_vogels %>%
+  select(-n) %>%
+  filter(jaar %in% 2018:2021) %>%
+  pivot_wider(names_from = regio,
+              values_from = relfreq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  mutate(naam = reorder(naam, verschilfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 10 |
+           as.numeric(naam) <= 10|
+           naam %in% doelsoorten)
+
+p_relfreq_diff_total2 <- relfreq_diff_total2 %>%
+  ggplot() +
+    geom_vline(xintercept = 0,
+               colour = "lightgrey") +
+    geom_hline(yintercept = c(10.5,
+                length(unique(relfreq_diff_total2$naam)) - 10 + 0.5),
+               alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = verschilfreq, y = naam),
+               size = 1) +
+    labs(y = "", x = "Verschil in relatieve frequentie") +
+    facet_wrap(~jaar, nrow = 3) +
+    scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+    coord_cartesian(xlim = c(0 - abs(max(relfreq_diff_dm$verschilfreq)),
+                             0 + abs(max(relfreq_diff_dm$verschilfreq)))) +
+    scale_x_continuous(breaks = seq(-1, 1, 0.25)) +
+    theme(legend.position = "top",
+          axis.text = element_text(size = 8),
+          axis.text.y = element_markdown(),
+          panel.spacing = unit(1.2, "lines")) +
+    guides(colour = guide_legend(override.aes = list(size = 3))) +
+    annotate("segment",
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+             y = c(length(unique(relfreq_diff_total2$naam)) - 10 + 1),
+             xend = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+             yend = c(length(unique(relfreq_diff_total2$naam)) - 10 + 3),
+             arrow = arrow(type = "closed", length = unit(0.015, "npc")),
+             colour = "black") +
+    annotate("segment",
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+           y = c(10.5 - 0.5),
+           xend = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+           yend = c(10.5 - 2.5),
+           arrow = arrow(type = "closed", length = unit(0.015, "npc")),
+           colour = "black") +
+    annotate("text", label = c("De Moeren"),
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.03),
+             y = c(length(unique(relfreq_diff_total2$naam)) - 10 + 1),
+             size = 2, hjust = "left", colour = "black", angle = 90) +
+    annotate("text", label = c("Oostelijke leemstreek"),
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.03),
+           y = c(10.5 - 0.5),
+           size = 2, hjust = "right", colour = "black", angle = 90)
+
+ggsave(here(media_folder, "verschilfreq_total_mas_2018_2021.pdf"),
+       p_relfreq_diff_total2 +
+         theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
+       dpi = 300,
+       width = 8,
+       height = 8)
+
+relfreq_diff_total3 <- relfreqs_vogels %>%
+  select(-n) %>%
+  filter(jaar %in% 2022:2023) %>%
+  pivot_wider(names_from = regio,
+              values_from = relfreq,
+              values_fill = 0) %>%
+  mutate(verschilfreq = `De Moeren` - `Oostelijke leemstreek`) %>%
+  mutate(naam = reorder(naam, verschilfreq, FUN = "mean",
+                        decreasing = FALSE)) %>%
+  filter(as.numeric(naam) > length(unique(naam)) - 10 |
+           as.numeric(naam) <= 10|
+           naam %in% doelsoorten)
+
+p_relfreq_diff_total3 <- relfreq_diff_total3 %>%
+  ggplot() +
+    geom_vline(xintercept = 0,
+               colour = "lightgrey") +
+    geom_hline(yintercept = c(10.5,
+                length(unique(relfreq_diff_total3$naam)) - 10 + 0.5),
+               alpha = 0.2, linetype = "dashed") +
+    geom_point(aes(x = verschilfreq, y = naam),
+               size = 1) +
+    labs(y = "", x = "Verschil in relatieve frequentie") +
+    facet_wrap(~jaar, nrow = 1) +
+    scale_y_discrete(labels = function(x) highlight(x, doelsoorten, "red")) +
+    coord_cartesian(xlim = c(0 - abs(max(relfreq_diff_dm$verschilfreq)),
+                             0 + abs(max(relfreq_diff_dm$verschilfreq)))) +
+    scale_x_continuous(breaks = seq(-1, 1, 0.25)) +
+    theme(legend.position = "top",
+          axis.text = element_text(size = 8),
+          axis.text.y = element_markdown(),
+          panel.spacing = unit(1.2, "lines")) +
+    guides(colour = guide_legend(override.aes = list(size = 3))) +
+    annotate("segment",
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+             y = c(length(unique(relfreq_diff_total3$naam)) - 10 + 1),
+             xend = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+             yend = c(length(unique(relfreq_diff_total3$naam)) - 10 + 3),
+             arrow = arrow(type = "closed", length = unit(0.015, "npc")),
+             colour = "black") +
+    annotate("segment",
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+           y = c(10.5 - 0.5),
+           xend = c(abs(max(relfreq_diff_dm$verschilfreq)) - 0.03),
+           yend = c(10.5 - 2.5),
+           arrow = arrow(type = "closed", length = unit(0.015, "npc")),
+           colour = "black") +
+    annotate("text", label = c("De Moeren"),
+             x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.03),
+             y = c(length(unique(relfreq_diff_total3$naam)) - 10 + 1),
+             size = 2, hjust = "left", colour = "black", angle = 90) +
+    annotate("text", label = c("Oostelijke leemstreek"),
+           x = c(abs(max(relfreq_diff_dm$verschilfreq)) + 0.03),
+           y = c(10.5 - 0.5),
+           size = 2, hjust = "right", colour = "black", angle = 90)
+
+ggsave(here(media_folder, "verschilfreq_total_mas_2022_2023.pdf"),
+       p_relfreq_diff_total3 +
+         theme(plot.margin = unit(c(5.5, 15.5, 5.5, -10), "pt")),
+       dpi = 300,
+       width = 8,
+       height = 6)
 ```
 
 
