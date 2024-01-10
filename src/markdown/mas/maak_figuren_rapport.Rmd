@@ -990,6 +990,8 @@ dir.create("media/beheerovereenkomsten/oostelijke_leemstreek", FALSE)
 
 ### Projection prediction
 
+Model met jaren 2022-2023.
+
 ```{r}
 cvvs_ol_veldleeuwerik <- readRDS(here(projpred_path,
                                       "cvvs_olpropsb_new_veldleeuwerik.rds"))
@@ -1036,6 +1038,60 @@ p <- p +
 
 ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek",
             "cvvs_proporties_veldleeuwerik.pdf"),
+         p,
+         dpi = 300,
+         width = 10,
+         height = 6)
+```
+
+Model met alle jaren.
+
+```{r}
+cvvs_ol_total_veldleeuwerik <- readRDS(here(projpred_path,
+                                            "cvvs_ol_total_veldleeuwerik.rds"))
+```
+
+```{r}
+p <- plot(cvvs_ol_total_veldleeuwerik,
+          stats = "mlpd",
+          deltas = TRUE,
+          ranking_nterms_max = NA) +
+  scale_x_continuous(breaks = seq(0, 20, 2), limits = c(0, 20)) +
+  labs(y = "Verschil met referentiemodel (MLPD)",
+       x = "Submodelgrootte (aantal verklarende variabelen)") +
+  theme(
+    strip.background = element_blank(),
+    strip.text.x = element_blank()
+  )
+
+ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek",
+            "cvvs_ranking_total_veldleeuwerik.pdf"),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+```
+
+```{r}
+rk <- ranking(cvvs_ol_total_veldleeuwerik)
+pr_rk <- cv_proportions(rk)
+
+p <- plot(cv_proportions(rk, cumulate = TRUE)) +
+  labs(y = "",
+       x = "Submodelgrootte (aantal verklarende variabelen)") +
+  scale_fill_gradientn(name = "Proportie\nvan CV folds",
+                       labels = scales::label_percent(suffix = " %"),
+                       limits = c(0, 1),
+                       colours = c("white", "gold", "darkgreen"))
+
+p$layers[[2]] <- NULL
+p <- p +
+  geom_text(mapping = aes(label = paste(round(100 * .data[["propcv"]]), "%"),
+                          color = I(.data[["txtcolor"]])),
+            size = 2.5)
+
+ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek",
+            "cvvs_proporties_total_veldleeuwerik.pdf"),
          p,
          dpi = 300,
          width = 10,
@@ -1171,6 +1227,145 @@ for (spec in names(draws_olpropsb_list_wt)) {
          height = 6)
 }
 ```
+
+### Andere variabelen
+
+```{r}
+plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
+                          factor = 1, n = 100, show_data = FALSE,
+                          interval = c(0.6, 0.95)) {
+  require(tidybayes)
+  require(modelr)
+  
+  if (is.null(axis_label)) {
+    axis_label <- x
+  }
+  
+  cat_vars <- model$data %>%
+    select(!where(is.numeric)) %>%
+    names()
+  
+  if (x %in% cat_vars) {
+    plot_df <- model$data %>%
+      select(-aantal) %>%
+      group_by_at(cat_vars) %>%
+      mutate(across(where(is.numeric), FUN)) %>%
+      ungroup() %>%
+      distinct() %>%
+      add_epred_draws(model, ndraws = 3000)
+    
+    out <- plot_df %>%
+      ggplot(aes(x = .data[[x]]))
+    
+    if (isTRUE(show_data)) {
+      out <- out +
+        geom_jitter(data = model$data,  aes(y = aantal), colour = "firebrick",
+                    alpha = 0.1, width = 0.2, height = 0) +
+        scale_y_continuous(limits = c(0, NA),
+                           trans = scales::pseudo_log_trans())
+    } else {
+      out <- out +
+        scale_y_continuous(limits = c(0, NA))
+    }
+    
+    out <- out +
+      stat_eye(aes(y = .epred), alpha = 1,
+                   .width = interval) +
+      labs(x = axis_label,
+           y = paste("aantal broedparen", species)) +
+      theme(legend.position = "")
+    
+    if (length(cat_vars)  == 2) {
+      facet_var <- setdiff(cat_vars, x)
+      out <- out +
+        facet_wrap(vars(!!sym(facet_var)))
+    } else if (length(cat_vars) > 2) {
+      facet_var <- setdiff(cat_vars, x)
+      out <- out +
+          facet_grid(vars(!!sym(facet_var[1])), vars(!!sym(facet_var[2])))
+    }
+      
+  } else {
+    means_df <- model$data %>%
+      select_at(vars(-"aantal", -x)) %>%
+      group_by_at(cat_vars) %>%
+      mutate(across(where(is.numeric), ~FUN(.x))) %>%
+      ungroup() %>%
+      distinct()
+    
+    range_df <- model$data %>%
+      group_by_at(cat_vars) %>%
+      summarize(min_var = min(!!sym(x)), max_var = max(!!sym(x)))
+    
+    # Create a sequence of 100 values for each group
+    range_df <- range_df %>%
+      rowwise() %>%
+      mutate(value_range = list(seq(min_var, max_var, length.out = n))) %>%
+      select(-c(max_var, min_var))
+    
+    # Expand the grid with combinations of categories and the corresponding range values
+    plot_df <- full_join(means_df, range_df) %>%
+      unnest(value_range) %>%
+      `colnames<-`(c(names(model$data)[-match(c("aantal", x), 
+                                              names(model$data))], x)) %>%
+      add_epred_draws(model, ndraws = 3000)
+    
+    out <- plot_df %>%
+      ggplot(aes(x = .data[[x]]*factor))
+    
+    if (isTRUE(show_data)) {
+      out <- out +
+        geom_point(data = model$data, aes(y = aantal), colour = "firebrick",
+                   alpha = 0.1) +
+        scale_y_continuous(limits = c(0, NA),
+                           trans = scales::pseudo_log_trans())
+    } else {
+      out <- out +
+        scale_y_continuous(limits = c(0, NA))
+    }
+    
+    out <- out +
+      stat_lineribbon(aes(y = .epred), point_interval = "median_qi",
+                      show.legend = FALSE, .width = interval, alpha = 0.5) +
+      labs(x = axis_label,
+           y = paste("aantal broedparen", species),
+           fill = "credible\nlevel")
+    
+    if (length(cat_vars) == 1) {
+      out <- out +
+        facet_wrap(vars(!!sym(cat_vars)), scales = "free_x")
+    } else if (length(cat_vars) > 2) {
+      out <- out +
+        facet_grid(vars(!!sym(cat_vars[1])), vars(!!sym(cat_vars[2])),
+                   scales = "free_x")
+    }
+  }
+  return(out)
+}
+```
+
+```{r}
+cont_vars <- mod_final_olpropsb_list$Veldleeuwerik$data %>%
+    select(-aantal) %>%
+    select(where(is.numeric)) %>%
+    names()
+
+for (pred in cont_vars) {
+  plot_brms_fit(mod_final_olpropsb_list$Veldleeuwerik, pred,
+                interval = c(0, 0.95)) %>%
+    print()
+}
+
+plot_brms_fit(mod_final_olpropsb_list$Veldleeuwerik, "area_prop_sb_cat",
+              interval = c(0, 0.95))
+
+plot_brms_fit(mod_final_olpropsb_list$Veldleeuwerik, "boom",
+              interval = c(0, 0.95), show_data = TRUE)
+
+plot_brms_fit(mod_final_olpropsb_list$Veldleeuwerik, "area_prop_sb_cat",
+              interval = c(0, 0.95), show_data = TRUE)
+```
+
 
 ## De Moeren
 
