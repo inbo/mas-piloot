@@ -3131,13 +3131,13 @@ for (i in seq_along(mod_final_olpropsb_list)) {
   print(summary(model))
   
   # Visualise results
-  for (pred in predictors_olpropsb_new_list[[spec]]$predictors) {
-    p <- plot_brms_fit(model, pred) +
-      ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
-    print(p)
-    rm(p)
-    gc()
-  }
+  #for (pred in predictors_olpropsb_new_list[[spec]]$predictors) {
+    #p <- plot_brms_fit(model, pred) +
+    #  ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
+    #print(p)
+    #rm(p)
+    #gc()
+  #}
 }
 ```
 
@@ -3652,13 +3652,13 @@ for (i in seq_along(mod_final_oltotal_list)) {
   print(summary(model))
   
   # Visualise results
-  for (pred in predictors_ol_total_list[[spec]]$predictors) {
-    p <- plot_brms_fit(model, pred) +
-      ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
-    print(p)
-    rm(p)
-    gc()
-  }
+  #for (pred in predictors_ol_total_list[[spec]]$predictors) {
+    #p <- plot_brms_fit(model, pred) +
+      #ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
+    #print(p)
+    #rm(p)
+    #gc()
+  #}
 }
 ```
 
