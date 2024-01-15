@@ -1,0 +1,1951 @@
+---
+title: "Maak figuren voor rapport"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here::here())
+
+# Packages
+library(tidyverse)
+library(INBOtheme)
+library(gridExtra)
+library(Distance)
+library(targets)
+library(sf)
+library(GVI)
+library(inbospatial)
+library(terra)
+library(corrplot)
+library(effectclass)
+library(projpred)
+
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(base::intersect)
+conflicted::conflicts_prefer(base::union)
+theme_set(theme_inbo(transparent = TRUE))
+
+# Source
+dir.create("media", FALSE)
+media_folder <- here("media")
+
+source(here("src", "R", "plot_detection_curve.R"))
+source(here("src", "R", "create_figures.R"))
+source(here("src", "R", "sim.pdata.R"))
+
+targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+mbag_dir <- here()
+
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
+```
+
+```{r}
+data_path <- here("data", "processed")
+mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
+mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
+                        crs = 31370)
+plot_data_sf <- st_as_sf(mas_data_df, coords = c("x_plot", "y_plot"), 
+                         crs = 31370)
+```
+
+# Distance sampling
+
+```{r}
+dir.create("media/distance", FALSE)
+out_folder_distance <- here("media/distance")
+dsmodel_path <- here("src/markdown/mas/distance_models")
+```
+
+## Methodes
+
+Punttransect.
+
+```{r}
+circle_fun <- function(center = c(0, 0), diameter = 600, npoints = 100) {
+    r <- diameter / 2
+    tt <- seq(0, 2 * pi, length.out = npoints)
+    xx <- center[1] + r * cos(tt)
+    yy <- center[2] + r * sin(tt)
+    return(data.frame(x = xx, y = yy))
+}
+
+p1 <- ggplot(data = circle_fun()) +
+    geom_segment(aes(x = 0, y = 0, xend = 300, yend = 0)) +
+    geom_text(aes(x = 150, y = 0, label = "w"), nudge_y = 25) +
+    geom_segment(aes(x = 0, y = 0, xend = -100, yend = 200)) +
+    geom_point(aes(x = -100, y = 200), shape = "\U1F986", size = 10) +
+    geom_text(aes(x = -50, y = 100), label = "r[i]", nudge_y = 20,
+              nudge_x = 20, parse = TRUE) +
+    geom_path(aes(x, y), colour = "red") + 
+    geom_point(aes(x = 0, y = 0), colour = "red", size = 2) +
+    labs(x = "", y = "") +
+    coord_fixed() +
+    theme_void()
+```
+
+Detectiefunctie:
+
+```{r}
+set.seed(1234)
+dist_data <- sim.pdata(N = 1000, sigma = 120, B = 300)
+
+# Fit model
+ds_model <- ds(dist_data$d, key = "hn", truncation = 300, transect = "point", 
+               dht_group = FALSE, convert_units = conversion_factor)
+
+# Plot detection curve
+p2 <- plot_detection_curve(ds_model, show_data = FALSE) +
+    geom_rect(aes(xmin = 0, xmax = 300, ymin = 0, ymax = 1),
+              colour = "red", fill = alpha("white", 0)) +
+    geom_text(aes(x = 150, y = 0.6),
+              label = expression(italic("g(r;"*theta*")")))
+```
+
+```{r}
+p_dist_methode <- cowplot::plot_grid(p1, p2, nrow = 1, labels = c("A.", "B."),
+                                     rel_widths = c(1.5, 2))
+
+ggsave(here(out_folder_distance, "methode_distance.png"),
+       p_dist_methode,
+       dpi = 300,
+       width = 8,
+       height = 4)
+```
+
+
+## Per jaar
+
+```{r}
+dir.create("media/distance/per_jaar", FALSE)
+dsmodels_per_jaar <- readRDS(here(dsmodel_path, "models_2018_2023.rds"))
+```
+
+### Strata oppervlakte
+
+```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+# Selectie en buffer
+perimeters_strata <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  st_buffer(dist = 300) %>%
+  group_by(Naam) %>%
+  summarise(geometry = st_union(geometry)) %>%
+  ungroup()
+
+# Visualisatie
+p_moeren <- perimeters_strata %>%
+  filter(Naam == "De Moeren") %>%
+  ggplot() +
+    geom_sf() +
+    facet_grid(~Naam)
+
+p_leemstreek <- perimeters_strata %>%
+  filter(Naam == "Oostelijke leemstreek") %>%
+  ggplot() +
+    geom_sf() +
+    facet_grid(~Naam)
+
+# Bereken oppervlaktes van de regio's
+areas <- perimeters_strata %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
+  select(regio = Naam, Area) %>%
+  st_drop_geometry()
+table_area <- areas %>%
+  rename(`oppervlakte (km²)` = Area) %>%
+  tableGrob(rows = NULL)
+
+# Plot
+p <- grid.arrange(p_moeren, p_leemstreek, table_area, 
+                  layout_matrix = rbind(c(1, 2), c(1, 3)))
+
+ggsave(here(out_folder_distance, "per_jaar", "oppervlakte_strata.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+
+### Densiteitschattingen
+
+```{r}
+for (spec in names(dsmodels_per_jaar)) {
+  file <- paste0("densiteit_per_jaar_", tolower(spec), ".pdf")
+  ds_model <- dsmodels_per_jaar[[spec]]
+  p <- plot_densiteit(ds_model, spec, show_data = FALSE) +
+    ggtitle("")
+  
+  ggsave(here(out_folder_distance, "per_jaar", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+
+```{r}
+df_obs_list <- readRDS(here("output", "results", "distance_sampling",
+                            "df_obs_list.rds"))
+design_2018_2023_mas <- readRDS(file.path("output", "results",
+                                          "distance_sampling",
+                                          "design_2018_2023_mas.rds"))
+
+for (spec in names(dsmodels_per_jaar)) {
+  file <- paste0("densiteit_per_jaar_", tolower(spec), "_data", ".pdf")
+  ds_model <- dsmodels_per_jaar[[spec]]
+  p <- plot_densiteit(ds_model, spec, show_data = TRUE,
+                      design = design_2018_2023_mas,
+                      obs_df = df_obs_list[[spec]])
+  
+  ggsave(here(out_folder_distance, "per_jaar", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+We kunnen ook het verschil berekenen met de baseline 2018.
+
+```{r}
+min_threshold <- log(0.8)
+max_threshold <- log(1.25)
+
+sci_list <- vector("list", length = length(names(dsmodels_per_jaar)))
+for (i in seq_along(names(dsmodels_per_jaar))) {
+  spec <- names(dsmodels_per_jaar)[i]
+  file <- paste0("verschil_per_jaar_", tolower(spec), ".pdf")
+  dsmodel <- dsmodels_per_jaar[[spec]]
+  summary_ds <- summarise_dsmodels(dsmodel) %>%
+    filter(variable == "density") %>%
+    rename_all(tolower)
+  
+  # Create an empty data frame
+  result_df <- data.frame(matrix(ncol = 0, nrow = 0))
+  years <- 2019:2023
+  for (j in seq_along(years)) {
+    year <- years[j]
+    for (regio in c("De Moeren", "Oostelijke leemstreek")) {
+      label1 <- paste(regio, year, sep = " - ")
+      label2 <- paste(regio, 2018, sep = " - ")
+      
+      result_df <- rbind(result_df, compare_from_df(summary_ds, label1, label2))
+    }
+  }
+  
+  result_df <- result_df %>%
+    filter(complete.cases(.)) %>%
+    separate(label, into = c("regio", "jaar"), sep = " - ")
+  
+  effects_df <- get_effects(result_df)
+  
+  # visualisation
+  if (nrow(effects_df) != 0) {
+    p <- effects_df %>%
+      ggplot(aes(x = jaar, y = log_diff_mean, 
+                 ymin = lcl, ymax = ucl, link_sd = log_diff_se)) +
+        geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+        geom_hline(yintercept = c(min_threshold, max_threshold),
+                   linetype = "dotdash") +
+        stat_fan(aes(fill = trend_coarse), geom = "rect", max_prob = 0.95,
+                 step = 0.025) +
+        scale_fill_manual(values =  c("chartreuse3",
+                                      "gold",
+                                      "firebrick1",
+                                      "skyblue"),
+                          drop = FALSE) +
+        labs(y = "Procentueel verschil t.o.v. 2018",
+             x = "",
+             fill = "Verschil") +
+        scale_y_continuous(
+          breaks = index_breaks(),
+          labels = index_labels,
+          minor_breaks = minor_breaks(),
+          sec.axis = sec_axis(~ exp(.),
+            breaks = index_breaks_rev(),
+            labels = index_labels_rev(),
+            name = "Relatief verschil t.o.v. 2018")
+          ) +
+        theme(
+          legend.position = "right",
+          legend.background = element_rect(fill = "white", color = "darkgrey"),
+          legend.margin = margin(6, 6, 6, 6)
+          ) +
+        facet_wrap(~regio)
+    
+    ggsave(here(out_folder_distance, "per_jaar", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+  }
+  
+  #output in df
+  sci_list[[i]] <- effects_df %>%
+    mutate(soort = spec,
+           sci = exp(log_diff_mean) - 1,
+           sci_lcl = exp(lcl) - 1,
+           sci_ucl = exp(ucl) - 1) %>%
+    select(soort, regio, jaar, log_diff = log_diff_mean, log_diff_se,
+           sci, sci_lcl, sci_ucl, verschil = trend_coarse) %>%
+    arrange(soort, regio, jaar)
+}
+```
+
+```{r}
+out_df <- do.call(rbind.data.frame, sci_list)
+write_csv(out_df, here(out_folder_distance, "per_jaar",
+                       "sci_trends_per_jaar.csv"))
+```
+
+Kan ook via error bars.
+
+```
+effects_df %>%
+  ggplot(aes(x = jaar, colour = trend_coarse)) +
+    geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+    geom_hline(yintercept = c(min_threshold, max_threshold),
+               linetype = "dotdash") +
+    geom_errorbar(aes(ymin = lcl, ymax = ucl), linewidth = 1, width = 0.5) +
+    geom_point(aes(y = log_diff_mean), size = 2.2) +
+    scale_colour_manual(values =  c("chartreuse3",
+                                  "gold",
+                                  "firebrick1",
+                                  "skyblue"),
+                      drop = FALSE) +
+    labs(y = "Procentuele wijziging t.o.v. 2018",
+         x = "",
+         colour = "Verschil") +
+    scale_y_continuous(
+      breaks = index_breaks(),
+      labels = index_labels,
+      minor_breaks = minor_breaks(),
+      sec.axis = sec_axis(~ exp(.),
+        breaks = index_breaks_rev(),
+        labels = index_labels_rev(),
+        name = "Relatieve wijziging t.o.v. 2018")
+      ) +
+    theme(
+      legend.position = "right",
+      legend.background = element_rect(fill = "white", color = "darkgrey"),
+      legend.margin = margin(6, 6, 6, 6)
+      ) +
+    facet_wrap(~regio)
+```
+
+### Detectiekans
+
+```{r}
+spec <- "Veldleeuwerik"
+file <- paste0("detectiekans_per_jaar_simple_", tolower(spec), ".pdf")
+ds_model <- dsmodels_per_jaar[[spec]]
+p <- plot_detection_curve(ds_model)
+
+ggsave(here(out_folder_distance, "per_jaar", file),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+```{r}
+p1 <- plot_detection_curve(dsmodels_per_jaar[["Kneu"]]) +
+  ggtitle("Kneu")
+
+p2 <- plot_detection_curve(dsmodels_per_jaar[["Kievit"]]) +
+  labs(title = "Kievit",
+       y = "")
+
+ymax_lim <- max(max(p1$plot_env$hist_df$counts),
+                    max(p2$plot_env$hist_df$counts),
+                    1)
+p1 <- p1 +
+  scale_y_continuous(limits = c(0, ymax_lim),
+                     breaks = seq(0, 100, by = 0.25))
+p2 <- p2 +
+  scale_y_continuous(limits = c(0, ymax_lim),
+                     breaks = seq(0, 100, by = 0.25))
+
+p <- grid.arrange(p1, p2, ncol = 2)
+
+ggsave(here(out_folder_distance, "per_jaar",
+            "detectiekans_per_jaar_vergelijking.pdf"),
+         p,
+         dpi = 300,
+         width = 10,
+         height = 6)
+```
+
+
+```{r}
+for (i in seq_along(dsmodels_per_jaar)) {
+  spec <- names(dsmodels_per_jaar)[i]
+  file <- paste0("detectiekans_per_jaar_", tolower(spec), ".pdf")
+  ds_model <- dsmodels_per_jaar[[spec]] 
+  variables <- names(ds_model$ddf$ds$aux$ddfobj$scale$parameters)
+  
+  if (any(grepl("regio", variables)) && any(grepl("jaar", variables))) {
+    design_plot <- matrix(rep(0, 12 * 7), ncol = 7, byrow = TRUE)
+    design_plot[, 1] <- 1
+    design_plot[2, 2] <- 1
+    design_plot[3, 3] <- 1
+    design_plot[4, 4] <- 1
+    design_plot[5, 5] <- 1
+    design_plot[6, 6] <- 1
+    design_plot[7, 7] <- 1
+    design_plot[8:12, 2] <- 1
+    design_plot[8, 3] <- 1
+    design_plot[9, 4] <- 1
+    design_plot[10, 5] <- 1
+    design_plot[11, 6] <- 1
+    design_plot[12, 7] <- 1
+    
+    labels_plot <- paste(c("De Moeren", "Oostelijke leemstreek", 
+                           rep(c("De Moeren", "Oostelijke leemstreek"), each = 5)),
+                         c(2018, 2018, rep(2019:2023, 2)), sep = " - ")
+    
+    mytheme <- theme(legend.position = "right")
+  } else if (any(grepl("regio", variables))) {
+    design_plot <- matrix(c(1, 0, 1, 1), ncol = 2, byrow = TRUE)
+    labels_plot <- c("De Moeren", "Oostelijke leemstreek")
+    mytheme <- theme()
+  } else if (any(grepl("jaar", variables))) {
+    labels_plot <- as.numeric(unique(ds_model$ddf$data$jaar))
+    
+    dim_design <- length(labels_plot)
+    design_plot <- matrix(rep(1, dim_design), ncol = 1,
+                          byrow = TRUE)
+    design_plot <- cbind(design_plot, contr.treatment(dim_design))
+    
+    mytheme <- theme()
+  } else {
+    design_plot <- NULL
+    labels_plot <- NULL
+    mytheme <- theme()
+  }
+  palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(labels_plot))
+  
+  p <- plot_detection_curve(ds_model, design_mat = design_plot, 
+                            labels = labels_plot) +
+    scale_colour_manual(values = palette) +
+    mytheme
+  
+  ggsave(here(out_folder_distance, "per_jaar", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+## Per stratum
+
+```{r}
+dir.create("media/distance/per_stratum", FALSE)
+dsmodels_per_stratum2022 <- readRDS(here(dsmodel_path, "models_2022.rds"))
+dsmodels_per_stratum2023 <- readRDS(here(dsmodel_path, "models_2023.rds"))
+```
+
+### Strata oppervlakte
+
+```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+perimeters_strata <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  group_by(Naam, openheid_klasse, is_sbp) %>%
+  st_buffer(dist = 300) %>%
+  summarize() %>%
+  mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
+                         sep = " - "))
+
+# Visualisatie
+p_moeren <- perimeters_strata %>%
+  filter(Naam == "De Moeren") %>%
+  mutate(stratum = factor(stratum, levels = c("OL - binnen", "OL - buiten",
+                                              "HOL - binnen", "HOL - buiten"))) %>%
+  ggplot(aes(fill = stratum)) +
+    geom_sf(alpha = 0.8) +
+    facet_grid(~Naam) +
+    theme(legend.position = "",
+          axis.text = element_text(size = 4),
+          axis.ticks.length = unit(0.05, "cm"))
+
+p_leemstreek <- perimeters_strata %>%
+  filter(Naam == "Oostelijke leemstreek") %>%
+  mutate(stratum = factor(stratum, levels = c("OL - binnen", "OL - buiten",
+                                              "HOL - binnen", "HOL - buiten"))) %>%
+  ggplot(aes(fill = stratum)) +
+    geom_sf(alpha = 0.8) +
+    facet_grid(~Naam) +
+    labs(fill = "Stratum") +
+    theme(legend.position = "right",
+          axis.text = element_text(size = 6),
+          legend.key.size = unit(0.5, 'cm'),
+          legend.text = element_text(size = 8),
+          axis.ticks.length = unit(0.05, "cm"))
+
+# Bereken oppervlaktes van de strata
+areas <- perimeters_strata %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
+  select(regio = Naam, stratum, Area) %>%
+  st_drop_geometry()
+table_area <- areas %>%
+  rename(`oppervlakte (km²)` = Area) %>%
+  tableGrob(rows = NULL)
+
+# Plot
+p <- grid.arrange(table_area, p_moeren, p_leemstreek, 
+                  layout_matrix = rbind(c(2, 3, 3), c(1, 1, 1)))
+
+ggsave(here(out_folder_distance, "per_stratum", "oppervlakte_strata.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 4)
+```
+
+### Methodes vergelijken
+
+Vergelijken maxima en distance sampling.
+
+```{r}
+df_obs_list <- readRDS(here("output", "results", "distance_sampling",
+                              "df_obs_list.rds"))
+  
+design_2018_2023_mas <- readRDS(file.path("output", "results",
+                                          "distance_sampling",
+                                          "design_2018_2023_mas.rds"))
+  
+species <- sort(intersect(names(dsmodels_per_stratum2022),
+                          names(dsmodels_per_stratum2023)))
+
+for (spec in species) {
+  file <- paste0("densiteit_per_stratum_methods_", tolower(spec), ".pdf")
+  ds_model2022 <- dsmodels_per_stratum2022[[spec]]
+  ds_model2023 <- dsmodels_per_stratum2023[[spec]]
+  
+  
+  p <- plot_densiteit_methods(ds_model2022, spec,
+                 show_data = TRUE,
+                 year = 2022:2023,
+                 dsmodel2 = ds_model2023,
+                 obs_df = df_obs_list[[spec]],
+                 design = design_2018_2023_mas) +
+        theme(axis.title.y = element_text(margin = margin(r = 10)))
+  
+  ggsave(here(out_folder_distance, "per_stratum", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 8)
+}
+```
+
+### Densiteitschattingen
+
+```{r}
+species <- sort(union(names(dsmodels_per_stratum2022),
+                      names(dsmodels_per_stratum2023)))
+for (spec in species) {
+  file <- paste0("densiteit_per_stratum_", tolower(spec), ".pdf")
+  file2 <- paste0("densiteit_per_stratum_", tolower(spec), "_data" , ".pdf")
+  ds_model2022 <- dsmodels_per_stratum2022[[spec]]
+  ds_model2023 <- dsmodels_per_stratum2023[[spec]]
+  
+  if (is.null(ds_model2022)) {
+    p <- plot_densiteit(ds_model2023, spec, show_data = FALSE, year = 2023) +
+      ggtitle("2023")
+    
+    p2 <- plot_densiteit(ds_model2023, spec, show_data = TRUE, year = 2023,
+                         obs_df = df_obs_list[[spec]],
+                         design = design_2018_2023_mas)
+  } else if (is.null(ds_model2023)) {
+    p <- plot_densiteit(ds_model2022, spec, show_data = FALSE, year = 2022) +
+      ggtitle("2022")
+    
+    p2 <- plot_densiteit(ds_model2022, spec, show_data = TRUE, year = 2022,
+                         obs_df = df_obs_list[[spec]],
+                         design = design_2018_2023_mas)
+  } else {
+    p <- plot_densiteit(ds_model2022, spec, show_data = FALSE, year = 2022:2023,
+                        dsmodel2 = ds_model2023)
+    
+    p2 <- plot_densiteit(ds_model2022, spec, show_data = TRUE, year = 2022:2023,
+                         dsmodel2 = ds_model2023,
+                         obs_df = df_obs_list[[spec]],
+                         design = design_2018_2023_mas)
+  }
+  
+  ggsave(here(out_folder_distance, "per_stratum", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+  
+  ggsave(here(out_folder_distance, "per_stratum", file2),
+         p2,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+We kunnen ook het verschil berekenen binnen en buiten SBP.
+
+```{r}
+min_threshold <- log(0.8)
+max_threshold <- log(1.25)
+  
+species <- sort(union(names(dsmodels_per_stratum2022),
+                      names(dsmodels_per_stratum2023)))
+species <- species[-match("Kievit", species)]
+
+sci_list <- vector("list", length = length(species))
+for (i in seq_along(species)) {
+  spec <- species[i]
+  file <- paste0("verschil_per_stratum_", tolower(spec), ".pdf")
+  ds_model2022 <- dsmodels_per_stratum2022[[spec]]
+  ds_model2023 <- dsmodels_per_stratum2023[[spec]]
+  
+  if (is.null(ds_model2022)) {
+    summary_ds <- summarise_dsmodels(ds_model2023) %>%
+      filter(variable == "density") %>%
+      rename_all(tolower) %>%
+      mutate(label = paste(label, 2023, sep = " - "))
+  
+    # Create an empty data frame
+    result_df <- data.frame(matrix(ncol = 0, nrow = 0))
+    years <- 2023
+    for (j in seq_along(years)) {
+      year <- years[j]
+      for (regio in c("De Moeren", "Oostelijke leemstreek")) {
+        openheid <- unique(ifelse(rep(regio == "De Moeren", 2),
+                                  yes = c("OL"), no = c("HOL", "OL")))
+        for (op in openheid) {
+          label1 <- paste(regio, op, "binnen", year, sep = " - ")
+          label2 <- paste(regio, op, "buiten", year, sep = " - ")
+          result_df <- rbind(result_df,
+                             compare_from_df(summary_ds, label1, label2))
+        }
+      }
+    }
+    
+    result_df <- result_df %>%
+      filter(complete.cases(.)) %>%
+      separate(label, into = c("regio", "openheid", "sbp", "jaar"),
+               sep = " - ")
+    
+    effects_df <- get_effects(result_df)
+  
+    if (nrow(effects_df) != 0) {
+      p <- effects_df %>%
+        ggplot(aes(x = openheid, y = log_diff_mean, 
+                   ymin = lcl, ymax = ucl, link_sd = log_diff_se)) +
+          geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+          geom_hline(yintercept = c(min_threshold, max_threshold),
+                     linetype = "dotdash") +
+          stat_fan(aes(fill = trend_coarse), geom = "rect",
+                   max_prob = 0.95, step = 0.025) +
+          scale_fill_manual(values =  c("chartreuse3",
+                                        "gold",
+                                        "firebrick1",
+                                        "skyblue"),
+                            drop = FALSE) +
+          labs(y = "Procentueel verschil t.o.v. buiten SBP",
+               x = "",
+               fill = "Verschil") +
+          scale_y_continuous(
+            breaks = index_breaks(),
+            labels = index_labels,
+            minor_breaks = minor_breaks(),
+            sec.axis = sec_axis(~ exp(.),
+              breaks = index_breaks_rev(),
+              labels = index_labels_rev(),
+              name = "Relatief verschil t.o.v. buiten SBP")
+            ) +
+          ggh4x::facet_nested(~regio+jaar, scales = "free_x") +
+          theme(
+            legend.position = "right",
+            legend.background = element_rect(fill = "white",
+                                             color = "darkgrey"),
+            legend.margin = margin(6, 6, 6, 6),
+            panel.spacing = unit(0, "lines"),
+            strip.background = element_rect(color = "grey30"),
+            panel.border = element_rect(color = "grey90")
+            )
+      
+      ggsave(here(out_folder_distance, "per_stratum", file),
+           p,
+           dpi = 300,
+           width = 8,
+           height = 6)
+    }
+  } else if (is.null(ds_model2023)) {
+    summary_ds <- summarise_dsmodels(ds_model2022) %>%
+      filter(variable == "density") %>%
+      rename_all(tolower) %>%
+      mutate(label = paste(label, 2022, sep = " - "))
+  
+    # Create an empty data frame
+    result_df <- data.frame(matrix(ncol = 0, nrow = 0))
+    years <- 2022
+    for (j in seq_along(years)) {
+      year <- years[j]
+      for (regio in c("De Moeren", "Oostelijke leemstreek")) {
+        openheid <- unique(ifelse(rep(regio == "De Moeren", 2),
+                                  yes = c("OL"), no = c("HOL", "OL")))
+        for (op in openheid) {
+          label1 <- paste(regio, op, "binnen", year, sep = " - ")
+          label2 <- paste(regio, op, "buiten", year, sep = " - ")
+          result_df <- rbind(result_df,
+                             compare_from_df(summary_ds, label1, label2))
+        }
+      }
+    }
+    
+    result_df <- result_df %>%
+      filter(complete.cases(.)) %>%
+      separate(label, into = c("regio", "openheid", "sbp", "jaar"),
+               sep = " - ")
+    
+    effects_df <- get_effects(result_df)
+  
+    if (nrow(effects_df) != 0) {
+      p <- effects_df %>%
+        ggplot(aes(x = openheid, y = log_diff_mean, 
+                   ymin = lcl, ymax = ucl, link_sd = log_diff_se)) +
+          geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+          geom_hline(yintercept = c(min_threshold, max_threshold),
+                     linetype = "dotdash") +
+          stat_fan(aes(fill = trend_coarse), geom = "rect",
+                   max_prob = 0.95, step = 0.025) +
+          scale_fill_manual(values =  c("chartreuse3",
+                                        "gold",
+                                        "firebrick1",
+                                        "skyblue"),
+                            drop = FALSE) +
+          labs(y = "Procentueel verschil t.o.v. buiten SBP",
+               x = "",
+               fill = "Verschil") +
+          scale_y_continuous(
+            breaks = index_breaks(),
+            labels = index_labels,
+            minor_breaks = minor_breaks(),
+            sec.axis = sec_axis(~ exp(.),
+              breaks = index_breaks_rev(),
+              labels = index_labels_rev(),
+              name = "Relatief verschil t.o.v. buiten SBP")
+            ) +
+          ggh4x::facet_nested(~regio+jaar, scales = "free_x") +
+          theme(
+            legend.position = "right",
+            legend.background = element_rect(fill = "white",
+                                             color = "darkgrey"),
+            legend.margin = margin(6, 6, 6, 6),
+            panel.spacing = unit(0, "lines"),
+            strip.background = element_rect(color = "grey30"),
+            panel.border = element_rect(color = "grey90")
+            )
+      
+      ggsave(here(out_folder_distance, "per_stratum", file),
+           p,
+           dpi = 300,
+           width = 8,
+           height = 6)
+    }
+  } else {
+    summary_ds <- summarise_dsmodels(ds_model2022, ds_model2023, 2022:2023) %>%
+      filter(variable == "density") %>%
+      rename_all(tolower)
+  
+    # Create an empty data frame
+    result_df <- data.frame(matrix(ncol = 0, nrow = 0))
+    years <- 2022:2023
+    for (j in seq_along(years)) {
+      year <- years[j]
+      for (regio in c("De Moeren", "Oostelijke leemstreek")) {
+        openheid <- unique(ifelse(rep(regio == "De Moeren", 2),
+                                  yes = c("OL"), no = c("HOL", "OL")))
+        for (op in openheid) {
+          label1 <- paste(regio, op, "binnen", year, sep = " - ")
+          label2 <- paste(regio, op, "buiten", year, sep = " - ")
+          result_df <- rbind(result_df,
+                             compare_from_df(summary_ds, label1, label2))
+        }
+      }
+    }
+    
+    result_df <- result_df %>%
+      filter(complete.cases(.)) %>%
+      separate(label, into = c("regio", "openheid", "sbp", "jaar"),
+               sep = " - ")
+    
+    effects_df <- get_effects(result_df)
+  
+    if (nrow(effects_df) != 0) {
+      p <- effects_df %>%
+        ggplot(aes(x = openheid, y = log_diff_mean, 
+                   ymin = lcl, ymax = ucl, link_sd = log_diff_se)) +
+          geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+          geom_hline(yintercept = c(min_threshold, max_threshold),
+                     linetype = "dotdash") +
+          stat_fan(aes(fill = trend_coarse), geom = "rect",
+                   max_prob = 0.95, step = 0.025) +
+          scale_fill_manual(values =  c("chartreuse3",
+                                        "gold",
+                                        "firebrick1",
+                                        "skyblue"),
+                            drop = FALSE) +
+          labs(y = "Procentueel verschil t.o.v. buiten SBP",
+               x = "",
+               fill = "Verschil") +
+          scale_y_continuous(
+            breaks = index_breaks(),
+            labels = index_labels,
+            minor_breaks = minor_breaks(),
+            sec.axis = sec_axis(~ exp(.),
+              breaks = index_breaks_rev(),
+              labels = index_labels_rev(),
+              name = "Relatief verschil t.o.v. buiten SBP")
+            ) +
+          ggh4x::facet_nested(~regio+jaar, scales = "free_x") +
+          theme(
+            legend.position = "right",
+            legend.background = element_rect(fill = "white",
+                                             color = "darkgrey"),
+            legend.margin = margin(6, 6, 6, 6),
+            panel.spacing = unit(0, "lines"),
+            strip.background = element_rect(color = "grey30"),
+            panel.border = element_rect(color = "grey90")
+            )
+      
+      ggsave(here(out_folder_distance, "per_stratum", file),
+           p,
+           dpi = 300,
+           width = 8,
+           height = 6)
+    }
+  }
+  
+  #output in df
+  sci_list[[i]] <- effects_df %>%
+    mutate(soort = spec,
+           sci = exp(log_diff_mean) - 1,
+           sci_lcl = exp(lcl) - 1,
+           sci_ucl = exp(ucl) - 1) %>%
+    select(soort, regio, jaar, openheid, log_diff = log_diff_mean, log_diff_se,
+           sci, sci_lcl, sci_ucl, verschil = trend_coarse) %>%
+    arrange(soort, regio, jaar, openheid)
+}
+```
+
+```{r}
+out_df <- do.call(rbind.data.frame, sci_list)
+write_csv(out_df, here(out_folder_distance, "per_stratum",
+                       "sci_trends_per_stratum.csv"))
+```
+
+### Detectiekans
+
+```{r}
+spec <- "Veldleeuwerik"
+file <- paste0("detectiekans_per_stratum_", tolower(spec), ".pdf")
+ds_model2022 <- dsmodels_per_stratum2022[[spec]]
+ds_model2023 <- dsmodels_per_stratum2023[[spec]]
+
+design_plot <- matrix(c(1, 0, 1, 1), ncol = 2, byrow = TRUE)
+labels_plot <- c("HOL", "OL")
+
+# 2022
+p1 <- plot_detection_curve(ds_model2022,
+                           design_mat = design_plot,
+                           labels = labels_plot,
+                           plot_average_fit = TRUE)
+
+# 2023
+p2 <- plot_detection_curve(ds_model2023,
+                           design_mat = design_plot,
+                           labels = labels_plot,
+                           plot_average_fit = TRUE)
+
+# adjust y-limits
+ymax_lim <- max(max(p1$plot_env$hist_df$counts),
+                max(p2$plot_env$hist_df$counts),
+                1)
+p1 <- p1 +
+  scale_y_continuous(limits = c(0, ymax_lim),
+                     breaks = seq(0, 100, by = 0.25)) +
+  ggtitle("2022") +
+  theme(legend.position = "")
+  
+p2 <- p2 +
+  scale_y_continuous(limits = c(0, ymax_lim),
+                     breaks = seq(0, 100, by = 0.25)) +
+  labs(y = "") +
+  ggtitle("2023")
+
+p <- grid.arrange(p1, p2, ncol = 2)
+
+ggsave(here(out_folder_distance, "per_stratum", file),
+       p,
+       dpi = 300,
+       width = 10,
+       height = 6)
+```
+
+
+```{r}
+for (spec in species) {
+  file <- paste0("detectiekans_per_stratum_simple_", tolower(spec), ".pdf")
+  ds_model2022 <- dsmodels_per_stratum2022[[spec]]
+  ds_model2023 <- dsmodels_per_stratum2023[[spec]]
+  
+  if (is.null(ds_model2022)) {
+    p <- plot_detection_curve(ds_model2023) +
+      ggtitle("2023")
+  } else if (is.null(ds_model2023)) {
+    p <- plot_detection_curve(ds_model2022) +
+      ggtitle("2022")
+  } else {
+    # 2022
+    p1 <- plot_detection_curve(ds_model2022)
+    
+    # 2023
+    p2 <- plot_detection_curve(ds_model2023)
+    
+    # adjust y-limits
+    ymax_lim <- max(max(p1$plot_env$hist_df$counts),
+                    max(p2$plot_env$hist_df$counts),
+                    1)
+    p1 <- p1 +
+      scale_y_continuous(limits = c(0, ymax_lim),
+                         breaks = seq(0, 100, by = 0.25)) +
+      ggtitle("2022")
+    p2 <- p2 +
+      scale_y_continuous(limits = c(0, ymax_lim),
+                         breaks = seq(0, 100, by = 0.25)) +
+      labs(y = "") +
+      ggtitle("2023")
+    
+    p <- grid.arrange(p1, p2, ncol = 2)
+  }
+  
+  ggsave(here(out_folder_distance, "per_stratum", file),
+         p,
+         dpi = 300,
+         width = 10,
+         height = 6)
+}
+```
+
+
+# Beheerovereenkomsten
+
+```{r}
+beheermodel_path <- here("src/markdown/mas/analyses_cache")
+projpred_path <- here("src/markdown/mas/projpred_cache")
+```
+
+
+## Oostelijke leemstreek
+
+```{r}
+dir.create("media/beheerovereenkomsten", FALSE)
+dir.create("media/beheerovereenkomsten/oostelijke_leemstreek", FALSE)
+```
+
+### Projection prediction
+
+Model met jaren 2022-2023.
+
+```{r}
+cvvs_ol_veldleeuwerik <- readRDS(here(projpred_path,
+                                      "cvvs_olpropsb_new_veldleeuwerik.rds"))
+```
+
+```{r}
+p <- plot(cvvs_ol_veldleeuwerik,
+          stats = "mlpd",
+          deltas = TRUE,
+          ranking_nterms_max = NA) +
+  scale_x_continuous(breaks = seq(0, 20, 2), limits = c(0, 20)) +
+  labs(y = "Verschil met referentiemodel (MLPD)",
+       x = "Submodelgrootte (aantal verklarende variabelen)") +
+  theme(
+    strip.background = element_blank(),
+    strip.text.x = element_blank()
+  )
+
+ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek",
+            "cvvs_ranking_veldleeuwerik.pdf"),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+```
+
+```{r}
+rk <- ranking(cvvs_ol_veldleeuwerik)
+pr_rk <- cv_proportions(rk)
+
+p <- plot(cv_proportions(rk, cumulate = TRUE)) +
+  labs(y = "",
+       x = "Submodelgrootte (aantal verklarende variabelen)") +
+  scale_fill_gradientn(name = "Proportie\nvan CV folds",
+                       labels = scales::label_percent(suffix = " %"),
+                       limits = c(0, 1),
+                       colours = c("white", "gold", "darkgreen"))
+
+p$layers[[2]] <- NULL
+p <- p +
+  geom_text(mapping = aes(label = paste(round(100 * .data[["propcv"]]), "%"),
+                          color = I(.data[["txtcolor"]])),
+            size = 2.5)
+
+ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek",
+            "cvvs_proporties_veldleeuwerik.pdf"),
+         p,
+         dpi = 300,
+         width = 10,
+         height = 6)
+```
+
+Model met alle jaren.
+
+```{r}
+cvvs_ol_total_veldleeuwerik <- readRDS(here(projpred_path,
+                                            "cvvs_ol_total_veldleeuwerik.rds"))
+```
+
+```{r}
+p <- plot(cvvs_ol_total_veldleeuwerik,
+          stats = "mlpd",
+          deltas = TRUE,
+          ranking_nterms_max = NA) +
+  scale_x_continuous(breaks = seq(0, 20, 2), limits = c(0, 20)) +
+  labs(y = "Verschil met referentiemodel (MLPD)",
+       x = "Submodelgrootte (aantal verklarende variabelen)") +
+  theme(
+    strip.background = element_blank(),
+    strip.text.x = element_blank()
+  )
+
+ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek",
+            "cvvs_ranking_total_veldleeuwerik.pdf"),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+```
+
+```{r}
+rk <- ranking(cvvs_ol_total_veldleeuwerik)
+pr_rk <- cv_proportions(rk)
+
+p <- plot(cv_proportions(rk, cumulate = TRUE)) +
+  labs(y = "",
+       x = "Submodelgrootte (aantal verklarende variabelen)") +
+  scale_fill_gradientn(name = "Proportie\nvan CV folds",
+                       labels = scales::label_percent(suffix = " %"),
+                       limits = c(0, 1),
+                       colours = c("white", "gold", "darkgreen"))
+
+p$layers[[2]] <- NULL
+p <- p +
+  geom_text(mapping = aes(label = paste(round(100 * .data[["propcv"]]), "%"),
+                          color = I(.data[["txtcolor"]])),
+            size = 2.5)
+
+ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek",
+            "cvvs_proporties_total_veldleeuwerik.pdf"),
+         p,
+         dpi = 300,
+         width = 10,
+         height = 6)
+```
+
+### Beheerovereenkomsten
+
+```{r}
+mod_final_olpropsb_list <- readRDS(here(beheermodel_path,
+                                        "mod_final_olpropsb_list.rds"))
+```
+
+```{r}
+# get posterior draws for parameters of interest
+draws_olpropsb_list <- lapply(mod_final_olpropsb_list, create_draws_df)
+draws_olpropsb_list_wt <- lapply(mod_final_olpropsb_list,
+                                 create_weighted_draws_df)
+```
+
+```{r}
+min_threshold <- log(0.8)
+max_threshold <- log(1.25)
+
+area_prop_cats <- tibble(
+  area_prop_sb_cat = c("nulbeleid", "laagbeleid", "middellaagbeleid",
+                       "middelhoogbeleid", "hoogbeleid"),
+  prop_area_sb = c("0", "<0.04", "0.04-0.07", "0.07-0.1", ">0.1")
+  ) %>%
+  rowid_to_column("order")
+
+area_prop_cats2 <- tibble(
+  area_prop_sb_cat = c("nulbeleid", "laagbeleid", "hoogbeleid"),
+  prop_area_sb = c("0", "<0.07", ">0.07")
+  ) %>%
+  rowid_to_column("order")
+```
+
+```{r}
+for (spec in names(draws_olpropsb_list)) {
+  file <- paste0("beleidstoestand_", tolower(spec), "_fine.pdf")
+  
+  p <- draws_olpropsb_list[[spec]] %>%
+    left_join(area_prop_cats, by = join_by(area_prop_sb_cat)) %>%
+    mutate(label = paste0(area_prop_sb_cat, "\n(", prop_area_sb, ")"),
+           label = reorder(label, order, decreasing = FALSE)) %>%
+    ggplot(aes(x = label)) +
+      geom_violin(aes(y = value_log, fill = trend_coarse),
+                  colour = alpha("white", 0)) +
+      geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+      geom_hline(yintercept = c(min_threshold, max_threshold),
+                 linetype = "dotdash") +
+      geom_errorbar(aes(ymin = lcl_log, ymax = ucl_log),
+                    linewidth = 1, colour = "black", width = 0.1) +
+      geom_point(aes(y = median_log),
+                 size = 2.2, colour = "black") +
+      scale_fill_manual(values =  c("chartreuse3",
+                                    "gold",
+                                    "firebrick1",
+                                    "skyblue"),
+                        drop = FALSE) +
+      labs(y = "Procentueel verschil met telpunten zonder maatregelen",
+           x = "",
+           fill = "Verschil") +
+      scale_y_continuous(
+        breaks = index_breaks(),
+        labels = index_labels,
+        minor_breaks = minor_breaks(),
+        sec.axis = sec_axis(~ exp(.),
+          breaks = index_breaks_rev(),
+          labels = index_labels_rev(),
+          name = "Relatief verschil met telpunten zonder maatregelen")
+        ) +
+      theme(
+        legend.position = "right",
+        legend.background = element_rect(fill = "white", color = "darkgrey"),
+        legend.margin = margin(6, 6, 6, 6)
+        )
+  
+  ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+```{r}
+for (spec in names(draws_olpropsb_list_wt)) {
+  file <- paste0("beleidstoestand_", tolower(spec), "_coarse.pdf")
+  
+  p <- draws_olpropsb_list_wt[[spec]] %>%
+    left_join(area_prop_cats2, by = join_by(area_prop_sb_cat)) %>%
+    mutate(label = paste0(area_prop_sb_cat, "\n(", prop_area_sb, ")"),
+           label = reorder(label, order, decreasing = FALSE)) %>%
+    ggplot(aes(x = label)) +
+      geom_violin(aes(y = value_log, fill = trend_coarse),
+                  colour = alpha("white", 0)) +
+      geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+      geom_hline(yintercept = c(min_threshold, max_threshold),
+                 linetype = "dotdash") +
+      geom_errorbar(aes(ymin = lcl_log, ymax = ucl_log),
+                    linewidth = 1, colour = "black", width = 0.1) +
+      geom_point(aes(y = median_log),
+                 size = 2.2, colour = "black") +
+      scale_fill_manual(values =  c("chartreuse3",
+                                    "gold",
+                                    "firebrick1",
+                                    "skyblue"),
+                        drop = FALSE) +
+      labs(y = "Procentueel verschil met telpunten zonder maatregelen",
+           x = "",
+           fill = "Verschil") +
+      scale_y_continuous(
+        breaks = index_breaks(),
+        labels = index_labels,
+        minor_breaks = minor_breaks(),
+        sec.axis = sec_axis(~ exp(.),
+          breaks = index_breaks_rev(),
+          labels = index_labels_rev(),
+          name = "Relatief verschil met telpunten zonder maatregelen")
+        ) +
+      theme(
+        legend.position = "right",
+        legend.background = element_rect(fill = "white", color = "darkgrey"),
+        legend.margin = margin(6, 6, 6, 6)
+        )
+  
+  ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+### Andere variabelen
+
+```{r}
+cont_vars <- mod_final_olpropsb_list$Veldleeuwerik$data %>%
+    select(-aantal) %>%
+    select(where(is.numeric)) %>%
+    names()
+
+for (pred in cont_vars) {
+  p <- plot_brms_fit(mod_final_olpropsb_list$Veldleeuwerik, pred,
+                interval = c(0, 0.95), show_data = TRUE)
+  file <- paste(pred, "veldleeuwerik_data.pdf", sep = "_")
+  ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+```{r}
+out_list_olpropsb <- vector("list", 
+                          length = length(mod_final_olpropsb_list))
+for (i in seq_along(mod_final_olpropsb_list)) {
+  spec <- names(mod_final_olpropsb_list)[i]
+  df_out_spec <- mod_final_olpropsb_list[[spec]] %>%
+    gather_draws(`b_.*`, regex = TRUE) %>%
+    filter(!grepl("(Intercept)", .variable)) %>%
+    mutate(.value = exp(.value) - 1) %>%
+    summarise(
+      schatting = median(.value),
+      standaardfout = sd(.value),
+      lcl = quantile(.value, 0.025),
+      ucl = quantile(.value, 0.975)
+    ) %>%
+    mutate(variabele = gsub("b_", "", .variable),
+           soort = spec,
+           regio = "Oostelijke leemstreek") %>%
+    select(-.variable) %>%
+    select(soort, regio, variabele, everything()) %>%
+    arrange(desc(schatting))
+  
+  out_list_olpropsb[[i]] <- df_out_spec
+}
+
+# add effects
+out_df_olpropsb <- do.call(rbind.data.frame,
+                           lapply(out_list_olpropsb, get_effects))
+draws_olpropsb_list_wt
+```
+
+## De Moeren
+
+```{r}
+dir.create("media/beheerovereenkomsten", FALSE)
+dir.create("media/beheerovereenkomsten/de_moeren", FALSE)
+```
+
+### Projection prediction
+
+```{r}
+cvvs_dm_veldleeuwerik <- readRDS(here(projpred_path,
+                                      "cvvs_dmpropsb_new_veldleeuwerik.rds"))
+```
+
+```{r}
+p <- plot(cvvs_dm_veldleeuwerik,
+          stats = "mlpd",
+          deltas = TRUE,
+          ranking_nterms_max = NA) +
+  scale_x_continuous(breaks = seq(0, 20, 2), limits = c(0, 20)) +
+  labs(y = "Verschil met referentiemodel (MLPD)",
+       x = "Submodelgrootte (aantal verklarende variabelen)") +
+  theme(
+    strip.background = element_blank(),
+    strip.text.x = element_blank()
+  )
+
+ggsave(here("media", "beheerovereenkomsten", "de_moeren",
+            "cvvs_ranking_veldleeuwerik.pdf"),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+```
+
+```{r}
+rk <- ranking(cvvs_dm_veldleeuwerik)
+pr_rk <- cv_proportions(rk)
+
+p <- plot(cv_proportions(rk, cumulate = TRUE)) +
+  labs(y = "",
+       x = "Submodelgrootte (aantal verklarende variabelen)") +
+  scale_fill_gradientn(name = "Proportie\nvan CV folds",
+                       labels = scales::label_percent(suffix = " %"),
+                       limits = c(0, 1),
+                       colours = c("white", "gold", "darkgreen"))
+
+p$layers[[2]] <- NULL
+p <- p +
+  geom_text(mapping = aes(label = paste(round(100 * .data[["propcv"]]), "%"),
+                          color = I(.data[["txtcolor"]])),
+            size = 2.5)
+
+ggsave(here("media", "beheerovereenkomsten", "de_moeren",
+            "cvvs_proporties_veldleeuwerik.pdf"),
+         p,
+         dpi = 300,
+         width = 10,
+         height = 6)
+```
+
+### Beheerovereenkomsten
+
+```{r}
+mod_final_dmpropsb_list <- readRDS(here(beheermodel_path,
+                                        "mod_final_dmpropsb_list.rds"))
+```
+
+```{r}
+# get posterior draws for parameters of interest
+draws_dmpropsb_list <- lapply(mod_final_dmpropsb_list, create_draws_df)
+draws_dmpropsb_list_wt <- lapply(mod_final_dmpropsb_list,
+                                 create_weighted_draws_df)
+```
+
+```{r}
+min_threshold <- log(0.8)
+max_threshold <- log(1.25)
+
+area_prop_cats <- tibble(
+  area_prop_sb_cat = c("nulbeleid", "laagbeleid", "middellaagbeleid",
+                       "middelhoogbeleid", "hoogbeleid"),
+  prop_area_sb = c("0", "<0.04", "0.04-0.07", "0.07-0.1", ">0.1")
+  ) %>%
+  rowid_to_column("order")
+
+area_prop_cats2 <- tibble(
+  area_prop_sb_cat = c("nulbeleid", "laagbeleid", "hoogbeleid"),
+  prop_area_sb = c("0", "<0.07", ">0.07")
+  ) %>%
+  rowid_to_column("order")
+```
+
+```{r}
+for (spec in names(draws_dmpropsb_list)) {
+  file <- paste0("beleidstoestand_", tolower(spec), "_fine.pdf")
+  
+  p <- draws_dmpropsb_list[[spec]] %>%
+    left_join(area_prop_cats, by = join_by(area_prop_sb_cat)) %>%
+    mutate(label = paste0(area_prop_sb_cat, "\n(", prop_area_sb, ")"),
+           label = reorder(label, order, decreasing = FALSE)) %>%
+    ggplot(aes(x = label)) +
+      geom_violin(aes(y = value_log, fill = trend_coarse),
+                  colour = alpha("white", 0)) +
+      geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+      geom_hline(yintercept = c(min_threshold, max_threshold),
+                 linetype = "dotdash") +
+      geom_errorbar(aes(ymin = lcl_log, ymax = ucl_log),
+                    linewidth = 1, colour = "black", width = 0.1) +
+      geom_point(aes(y = median_log),
+                 size = 2.2, colour = "black") +
+      scale_fill_manual(values =  c("chartreuse3",
+                                    "gold",
+                                    "firebrick1",
+                                    "skyblue"),
+                        drop = FALSE) +
+      labs(y = "Procentueel verschil met telpunten zonder maatregelen",
+           x = "",
+           fill = "Verschil") +
+      scale_y_continuous(
+        breaks = index_breaks(),
+        labels = index_labels,
+        minor_breaks = minor_breaks(),
+        sec.axis = sec_axis(~ exp(.),
+          breaks = index_breaks_rev(),
+          labels = index_labels_rev(),
+          name = "Relatief verschil met telpunten zonder maatregelen")
+        ) +
+      theme(
+        legend.position = "right",
+        legend.background = element_rect(fill = "white", color = "darkgrey"),
+        legend.margin = margin(6, 6, 6, 6)
+        )
+  
+  ggsave(here("media", "beheerovereenkomsten", "de_moeren", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+```{r}
+for (spec in names(draws_dmpropsb_list_wt)) {
+  file <- paste0("beleidstoestand_", tolower(spec), "_coarse.pdf")
+  
+  p <- draws_dmpropsb_list_wt[[spec]] %>%
+    left_join(area_prop_cats2, by = join_by(area_prop_sb_cat)) %>%
+    mutate(label = paste0(area_prop_sb_cat, "\n(", prop_area_sb, ")"),
+           label = reorder(label, order, decreasing = FALSE)) %>%
+    ggplot(aes(x = label)) +
+      geom_violin(aes(y = value_log, fill = trend_coarse),
+                  colour = alpha("white", 0)) +
+      geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+      geom_hline(yintercept = c(min_threshold, max_threshold),
+                 linetype = "dotdash") +
+      geom_errorbar(aes(ymin = lcl_log, ymax = ucl_log),
+                    linewidth = 1, colour = "black", width = 0.1) +
+      geom_point(aes(y = median_log),
+                 size = 2.2, colour = "black") +
+      scale_fill_manual(values =  c("chartreuse3",
+                                    "gold",
+                                    "firebrick1",
+                                    "skyblue"),
+                        drop = FALSE) +
+      labs(y = "Procentueel verschil met telpunten zonder maatregelen",
+           x = "",
+           fill = "Verschil") +
+      scale_y_continuous(
+        breaks = index_breaks(),
+        labels = index_labels,
+        minor_breaks = minor_breaks(),
+        sec.axis = sec_axis(~ exp(.),
+          breaks = index_breaks_rev(),
+          labels = index_labels_rev(),
+          name = "Relatief verschil met telpunten zonder maatregelen")
+        ) +
+      theme(
+        legend.position = "right",
+        legend.background = element_rect(fill = "white", color = "darkgrey"),
+        legend.margin = margin(6, 6, 6, 6)
+        )
+  
+  ggsave(here("media", "beheerovereenkomsten", "de_moeren", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+
+# Zichtbaarheid
+
+```{r}
+dir.create("media/visibility", FALSE)
+```
+
+```{r}
+steekproef <- tar_read(steekproef_zichtbaarheid, store = targets_store) %>%
+  mutate(openheid_sbp = paste(openheid_klasse,
+                             ifelse(is_sbp,
+                                    "binnen plan",
+                                    "buiten plan"))
+         )
+```
+
+```{r bereken-zichtbaarheid}
+bereken_vvi <- function(point,
+                       dist = 300,
+                       obs_height = 1.7,
+                       resolution = 1,
+                       spacing = 5,
+                       dsm_offset = 0,
+                       output_type) {
+
+  bbox_buffer <- point %>% st_buffer(dist = dist + 10) %>% st_bbox()
+
+  dsm_r1 <- inbospatial::get_coverage_wcs(wcs = "dsm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DSM",
+                             resolution = resolution)
+  dtm_r1 <- inbospatial::get_coverage_wcs(wcs = "dtm",
+                             bbox = bbox_buffer,
+                             layername = "EL.GridCoverage.DTM",
+                             resolution = resolution)
+  
+  poly25 <- point %>% st_buffer(dist = 25)
+
+  vvi_from_sf(
+    observer = poly25,
+    spacing = spacing,
+    cores = 1,
+    progress = TRUE,
+    max_distance = dist,
+    dsm_rast = dsm_r1 + dsm_offset,
+    dtm_rast = dtm_r1,
+    observer_height = obs_height,
+    raster_res = resolution,
+    output_type = output_type)
+}
+```
+
+```{r}
+vvi_res5sp10 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "VVI", resolution = 5, spacing = 10)
+
+cvvi_res5sp10 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "cumulative", resolution = 5, spacing = 10)
+
+sviewshed_res5sp10 <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  bereken_vvi(output_type = "viewshed", resolution = 5, spacing = 10)
+
+cirkel_25m <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  st_buffer(25)
+
+cirkel_300m <- steekproef %>%
+  filter(pointid == "Ol_4269.12") %>%
+  st_buffer(300)
+
+p1 <- ggplot() +
+  tidyterra::geom_spatraster(data = sviewshed_res5sp10) +
+  geom_sf(data = cirkel_300m, alpha = 0, colour = "firebrick") +
+  geom_sf(data = cirkel_25m, alpha = 0, colour = "firebrick") +
+  geom_sf(data = vvi_res5sp10, aes(colour =  VVI)) +
+  tidyterra::scale_fill_terrain_c() +
+  labs(title = paste0("Telpunt Ol_4269.12 (CVVI = ",
+                      round(cvvi_res5sp10, 2), ")"),
+       fill = "Aantal")
+
+ggsave(here("media", "visibility", "voorbeeld_zichtbaarheid.pdf"),
+       p1,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+# Perceelsgroottes
+
+```{r}
+dir.create("media/verklarende_variabelen", FALSE)
+```
+
+```{r}
+# Filter and load
+testcase <- plot_data_sf %>%
+  filter(plotnaam %in% c("DM_386.7", "DM_44.45"),
+         jaar == 2022) %>%
+  distinct(plotnaam, geometry)
+lbg_binding <- st_read(file.path("data", "landbouwgebruikspercelen", 
+                        "Shapefile", "Lbgbrprc22.shp")) %>%
+  st_transform(crs = 31370)
+```
+
+```{r}
+# Intersection
+intersect <- st_intersection(testcase %>% st_buffer(300), lbg_binding)
+
+out_df_testcase <- lbg_binding %>% 
+  filter(REF_ID %in% intersect$REF_ID) %>%       # Filter percelen
+  full_join(st_drop_geometry(intersect)) %>% # Get point ids back
+  filter(!is.na(GWSNAM_H)) %>%
+  
+  # Join neighbouring polygons by main crop
+  group_by(plotnaam, GWSNAM_H) %>%
+  summarise() %>%
+  st_cast("MULTIPOLYGON") %>%
+  st_cast("POLYGON") %>%
+  ungroup()
+```
+
+```{r}
+# Visualise
+p <- ggplot() +
+  geom_sf(data = out_df_testcase, fill = alpha("cornflowerblue", 0.5)) +
+  geom_sf(data = st_buffer(testcase, 300), fill = alpha("white", 0),
+          linewidth = 1.5, colour = "firebrick") +
+  geom_sf(data = testcase, colour = "firebrick", size = 2) +
+  theme(plot.margin = unit(c(5.5, 18.5, 5.5, 5.5), "pt"))
+
+ggsave(here("media", "verklarende_variabelen", "perceelsgroottes.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+# Nabijheid natuurgebieden
+## Kaartje
+
+```{r}
+buffer_km <- 20
+```
+
+```{r}
+# Inlezen kaarten
+nb_vlaanderen <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Vlaanderen/ps_nbhp.shp"))
+nb_nederland  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Nederland/inspire-pv-ps.nlps-nnn.gml")) %>%
+  st_transform(31370)
+nb_frankrijk  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Frankrijk/znieff1/znieff1.shp")) %>%
+  st_transform(31370)
+nb_wallonie_1  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__ZHIB.shp"))
+nb_wallonie_2  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RN_DOM.shp"))
+nb_wallonie_3  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RN_AGR.shp"))
+nb_wallonie_4  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RES_FOR.shp"))
+nb_wallonie_5  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__CSIS.shp"))
+nb_wallonie_6  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/NATURA_2000_SHAPE_31370/NATURA2000__PERIMETRES.shp"))
+
+nb_wallonie <- bind_rows(nb_wallonie_1,
+                         nb_wallonie_2,
+                         nb_wallonie_3,
+                         nb_wallonie_4,
+                         nb_wallonie_5, 
+                         nb_wallonie_6) %>%
+  st_transform(31370)
+```
+
+```{r}
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
+
+# Selecteer (multi)polygonen binnen buffered perimeter (ev. per gebied)
+buffer_layers_to_perimeter <- function(layer, buffer_km, group_var = NULL) {
+  buffer_to_meters <- buffer_km * 1000
+
+  if (is.null(group_var)) {
+    layer <- layer %>%
+      rownames_to_column("id")
+
+    polygons <- perimeters %>%
+      st_buffer(buffer_to_meters) %>%
+      st_intersection(layer) %>%
+      pull(id)
+
+    out <- layer %>%
+      filter(id %in% polygons) %>%
+      select(-id)
+  } else {
+    polygons <- perimeters %>%
+      st_buffer(buffer_to_meters) %>%
+      st_intersection(layer) %>%
+      pull(group_var)
+
+    out <- layer %>%
+      filter(!!sym(group_var) %in% polygons)
+  }
+  return(out)
+}
+
+# Opsplitsen in aparte polygonen (ev. mergen per gebied eerst)
+splits_polys <- function(layer, id_name, group_var = NULL) {
+  if (is.null(group_var)) {
+    out <- layer %>%
+      st_cast("POLYGON") %>%
+      rownames_to_column("id") %>%
+      mutate(id = paste(id_name, id, sep = "_")) %>%
+      select(id)
+  } else {
+    out <- layer %>%
+      group_by_at(group_var) %>%
+      summarise() %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON") %>%
+      rownames_to_column("id") %>%
+      mutate(id = paste(id_name, id, sep = "_")) %>%
+      select(id)
+  }
+  return(out)
+}
+```
+
+```{r}
+nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, buffer_km, 
+                                             group_var = "naamdossie")
+nb_nederland1  <- buffer_layers_to_perimeter(nb_nederland, buffer_km)
+nb_frankrijk1  <- buffer_layers_to_perimeter(nb_frankrijk, buffer_km, 
+                                             group_var = "NOM")
+nb_wallonie1   <- buffer_layers_to_perimeter(nb_wallonie, buffer_km)
+```
+
+```{r}
+nb_vlaanderen2 <- splits_polys(nb_vlaanderen1, "VL", group_var = "naamdossie")
+nb_nederland2  <- splits_polys(nb_nederland1, "NL")
+nb_frankrijk2  <- splits_polys(nb_frankrijk1, "FR", group_var = "NOM")
+nb_wallonie2   <- nb_wallonie1 %>%
+  summarise(geometry = st_union(geometry)) %>%
+  splits_polys("WAL")
+```
+
+
+```{r}
+# Visualise
+map1 <- st_buffer(perimeters, buffer_km * 1000)
+mapview::mapviewOptions(fgb = FALSE) # werkt anders niet
+m <- mapview::mapview(map1, color = "red", 
+                 alpha.regions = 0, legend = FALSE) + 
+  mapview::mapview(select(nb_vlaanderen2, geometry), layer = "Vlaanderen",
+                   col.regions = "darkgreen", color = "darkgreen") + 
+  mapview::mapview(select(nb_nederland2, geometry), layer = "Nederland", 
+                   col.regions = "orange", color = "orange") + 
+  mapview::mapview(select(nb_frankrijk2, geometry), layer = "Frankrijk", 
+                   col.regions = "blue", color = "blue") +
+  mapview::mapview(select(nb_wallonie2, geometry), layer = "Wallonië",
+                   col.regions = "red", color = "red")
+
+
+mapview::mapshot(m, file = here("media", "verklarende_variabelen",
+                                "natuurgebieden_perimeters.png"))
+```
+
+## Vervalfuncties
+
+```{r}
+# Calculate weights for exponential and logistic decay functions
+calc_weights <- function(x, max_dist, m = NULL, b = NULL, mode = "logistic") {
+  if (mode == "logistic") {
+    # Parameters
+    if (is.null(m)) {
+      m <- 0.5
+    }
+    if (is.null(b)) {
+      b <- 8
+    }
+
+    # Rescale
+    m <- m * max_dist
+    b <- b / max_dist
+
+    # Function
+    out <- 1 / (1 + exp((b) * (x - m)))
+
+  } else if (mode == "exponential") {
+    # Parameters
+    if (is.null(m)) {
+      m <- 1
+    }
+    if (is.null(b)) {
+      b <- 6
+    }
+
+    # Rescale
+    b <- b / max_dist
+
+    # Function
+    out <- 1 / (1 + ((b) * x^(m)))
+
+  } else {
+    stop("Currently only logistic and exponential are supported", call. = FALSE)
+  }
+
+  return(out)
+}
+```
+
+```{r}
+max_distance <- 3000
+p <- tibble(dist = seq(0, max_distance, 1)) %>% 
+  mutate("exponentieel\n(m = 1.3, b = 1)" = calc_weights(
+    dist, max_distance, b = 1, m = 1.3, mode = "exponential")) %>%
+  mutate("logistisch\n(m = 0.5, b = 8)" = calc_weights(
+    dist, max_distance, mode = "logistic")) %>%
+  pivot_longer(cols = c("exponentieel\n(m = 1.3, b = 1)", 
+                        "logistisch\n(m = 0.5, b = 8)"), 
+               names_to = "Vervalfunctie", values_to = "w") %>%
+  ggplot() +
+    geom_line(aes(x = dist, y = w, colour = Vervalfunctie), linewidth = 2) +
+    coord_cartesian(ylim = c(0, 1)) +
+    labs(x = "Afstand tot telpunt (m)", y = "Gewichten") +
+    theme(legend.spacing.y = unit(0.2, 'cm'),
+      legend.position = c(1, 1),
+      legend.justification = c(1, 1),
+      legend.background = element_rect(fill = "white", color = "darkgrey"),
+      legend.margin = margin(6, 6, 6, 6)
+      ) +
+    guides(colour = guide_legend(byrow = TRUE))
+
+ggsave(here("media", "verklarende_variabelen", "distance_decay.pdf"),
+       p,
+       dpi = 300,
+       width = 8,
+       height = 6)
+```
+
+# Exploratie verklarende variabelen
+
+```{r}
+kle_vars <- c("haag", "houtkant", "boom", "bomengroep", "bomenrij", "bosrand")
+plot_vars <- c("openheid_waarde_1000", "natuur_exp",
+               kle_vars)
+hfdtlt_vars <- sort(names(mas_data_df)[grep("hfdtlt$", 
+                                            names(mas_data_df))])
+hfdtlt_pre_vars <- sort(names(mas_data_df)[grep("hfdtlt_pre$", 
+                                                names(mas_data_df))])
+vrtlt_vars <- sort(names(mas_data_df)[grep("vrtlt$", names(mas_data_df))])
+plotjaar_vars <- c("area_prop_sb", "area_prop_bo_overig",
+                   hfdtlt_vars, hfdtlt_pre_vars,
+                   "gewas_div_shannon", "gewas_div_n", "gewas_evenness",
+                   vrtlt_vars, "perceel_median_area", "perceel_iqr_area", 
+                   "perceel_cv_area", "inertie_sb", "inertie_overig", 
+                   "status_teller", "sbp")
+telling_vars <- c("n_predators", "n_predators_spec")
+```
+
+```{r}
+exclude_hfdtlt <- c("andere_hfdtlt", "braakland_hfdtlt", "houtachtige_gewassen", 
+                    "water_hfdtlt")
+exclude_hfdtlt <- c(exclude_hfdtlt, paste(exclude_hfdtlt, "pre", sep = "_"))
+exclude_vrtlt <- setdiff(vrtlt_vars, "afwezig_vrtlt")
+exclude_univars <- c(exclude_hfdtlt, exclude_vrtlt)
+```
+
+```{r}
+bivar_vars <- setdiff(c(plot_vars, plotjaar_vars, telling_vars), 
+                      exclude_univars)
+
+bivariate_df <- mas_data_df %>%
+  select(plotnaam, regio, jaar, periode_in_jaar, all_of(bivar_vars)) %>%
+  mutate(jaar = factor(jaar),
+         zomergranen_hfdtlt2 = rowSums(across(
+           c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt))),
+         zomergranen_hfdtlt_pre2 = rowSums(across(
+           c(andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
+  select(-c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt,
+            andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)) %>%
+  distinct() %>%
+  arrange(regio, jaar, plotnaam, periode_in_jaar)
+```
+
+```{r}
+continue_bivariate <- bivariate_df %>%
+  select(where(is.numeric))
+```
+
+```{r}
+cormat_pearson <- cor(continue_bivariate, method = "pearson")
+cormat_pearson[abs(cormat_pearson) < 0.2] <- 0
+
+pdf(file = here("media", "verklarende_variabelen", "corrmat1.pdf"))
+corrplot(cormat_pearson, method =  "circle",
+         tl.col =  "black", tl.srt = 60, tl.cex = 0.6)
+dev.off()
+```
+
+```{r}
+exclude_continue_bivars <- c("afwezig_vrtlt",
+                             "perceel_median_area", "perceel_iqr_area", 
+                             "gewas_div_n", "gewas_evenness",
+                             "n_predators_spec")
+
+continue_bivariate2 <- continue_bivariate %>%
+  select(-all_of(c(exclude_continue_bivars)))
+
+bivariate_df <- bivariate_df %>%
+   select(-all_of(c(exclude_continue_bivars)))
+```
+
+```{r}
+cormat_pearson2 <- cor(continue_bivariate2, method = "pearson")
+cormat_pearson2[abs(cormat_pearson2) < 0.2] <- 0
+pdf(file = here("media", "verklarende_variabelen", "corrmat2.pdf"))
+corrplot(cormat_pearson2, method =  "circle",
+         tl.col =  "black", tl.srt = 60, tl.cex = 0.6)
+dev.off()
+```
+
+# Steekproef piloot
+
+```{r}
+plot1 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_piloot_exclusie.png"))
+plot2 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_piloot_paden.png"))
+plot3 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_piloot_punten.png"))
+plot4 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "landgebruik_selectie.png"))
+
+p <- cowplot::plot_grid(grid::rasterGrob(plot1),
+                        grid::rasterGrob(plot2),
+                        grid::rasterGrob(plot3),
+                        grid::rasterGrob(plot4),
+                        ncol = 2,
+                        labels = c("A.", "B.", "C.", "D."))
+
+ggsave(here("media", "steekproefkader_mas", "mas_piloot_afbakening.png"),
+       p,
+       dpi = 300,
+       width = 9,
+       height = 8)
+```
+
+# Steekproef mbag
+
+```{r}
+plot1 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_zandleem_openheid.png"))
+plot2 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_zandleem_exclusie.png"))
+plot3 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_zandleem_paden.png"))
+plot4 <- png::readPNG(here("media", "steekproefkader_mas",
+                           "mas_zandleem_punten.png"))
+
+p <- cowplot::plot_grid(grid::rasterGrob(plot1),
+                        grid::rasterGrob(plot2),
+                        grid::rasterGrob(plot3),
+                        grid::rasterGrob(plot4),
+                        ncol = 2,
+                        labels = c("A.", "B.", "C.", "D."))
+
+ggsave(here("media", "steekproefkader_mas", "mas_zandleem_afbakening.png"),
+       p,
+       dpi = 300,
+       width = 9,
+       height = 8)
+```
+
