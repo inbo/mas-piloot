@@ -42,6 +42,8 @@ conflicted::conflicts_prefer(brms::pstudent_t)
 conflicted::conflicts_prefer(brms::qstudent_t)
 conflicted::conflicts_prefer(brms::rstudent_t)
 conflicted::conflicts_prefer(stats::var)
+conflicted::conflicts_prefer(base::`%in%`)
+conflicted::conflicts_prefer(projpred::project)
 
 # Packages
 library(tidyverse)
@@ -59,6 +61,7 @@ library(modelr)
 model_path <- "./src/markdown/mas/brms_models/"
 cache_path <- "./src/markdown/mas/analyses_cache/"
 projpred_path <- "./src/markdown/mas/projpred_cache/"
+source("./src/R/create_figures.R")
 ```
 
 # Inlezen data
@@ -1855,95 +1858,6 @@ final <- brm(formula = formula_final1,
              backend = "cmdstanr")
 
 final
-```
-
-```{r}
-plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
-                          factor = 1, n = 100, show_data = FALSE,
-                          interval = c(0.6, 0.95)) {
-  
-  if (is.null(axis_label)) {
-    axis_label <- x
-  }
-  
-  cat_vars <- model$data %>%
-    select(!where(is.numeric)) %>%
-    names()
-  
-  if (x %in% cat_vars) {
-    plot_df <- model$data %>%
-      select(-aantal) %>%
-      mutate(across(where(is.numeric), FUN)) %>%
-      distinct() %>%
-      add_epred_draws(model, ndraws = 3000)
-    
-    out <- plot_df %>%
-      ggplot(aes(x = .data[[x]], y = aantal))
-    
-    if (isTRUE(show_data)) {
-      out <- out +
-        geom_jitter(data = model$data, colour = "firebrick", alpha = 0.3,
-                    width = 0.2, height = 0)
-    } else {
-      out <- out +
-        scale_y_continuous(limits = c(0, NA))
-    }
-    
-    out <- out +
-      stat_eye(aes(y = .epred), alpha = 0.5,
-                   .width = interval) +
-      labs(x = axis_label,
-           y = paste("aantal broedparen", species)) +
-      theme(legend.position = "")
-    
-    if (length(cat_vars)  == 2) {
-      facet_var <- setdiff(cat_vars, x)
-      out <- out +
-        facet_wrap(vars(!!sym(facet_var)))
-    } else if (length(cat_vars) > 2) {
-      facet_var <- setdiff(cat_vars, x)
-      out <- out +
-          facet_grid(vars(!!sym(facet_var[1])), vars(!!sym(facet_var[2])))
-    }
-      
-  } else {
-    plot_df <- model$data %>%
-      select_at(vars(-"aantal", -x)) %>%
-      mutate(across(where(is.numeric), ~FUN(.x))) %>%
-      distinct() %>%
-      expand_grid(range = seq_range(model$data[[x]], n = n)) %>%
-      `colnames<-`(c(names(model$data)[-match(c("aantal", x), 
-                                              names(model$data))], x)) %>%
-      add_epred_draws(model, ndraws = 3000)
-    
-    out <- plot_df %>%
-      ggplot(aes(x = .data[[x]]*factor, y = aantal))
-    
-    if (isTRUE(show_data)) {
-      out <- out +
-        geom_point(data = model$data, colour = "firebrick", alpha = 0.3) 
-    } else {
-      out <- out +
-        scale_y_continuous(limits = c(0, NA))
-    }
-    
-    out <- out +
-      stat_lineribbon(aes(y = .epred), alpha = 0.5,
-                      .width = interval) +
-      labs(x = axis_label,
-           y = paste("aantal broedparen", species),
-           fill = "credible\nlevel")
-    
-    if (length(cat_vars) == 1) {
-      out <- out +
-        facet_wrap(vars(!!sym(cat_vars)))
-    } else if (length(cat_vars) > 2) {
-      out <- out +
-        facet_grid(vars(!!sym(cat_vars[1])), vars(!!sym(cat_vars[2])))
-    }
-  }
-  return(out)
-}
 ```
 
 ```{r}
@@ -4108,13 +4022,99 @@ for (i in seq_along(mod_final_dmtotal_list)) {
   print(summary(model))
   
   # Visualise results
-  for (pred in predictors_dm_total_list[[spec]]$predictors) {
-    p <- plot_brms_fit(model, pred) +
-      ggtitle(paste(spec, "De Moeren", sep = " - "))
-    print(p)
-    rm(p)
-    gc()
-  }
+  #for (pred in predictors_dm_total_list[[spec]]$predictors) {
+  #  p <- plot_brms_fit(model, pred) +
+  #    ggtitle(paste(spec, "De Moeren", sep = " - "))
+  #  print(p)
+  #  rm(p)
+  #  gc()
+  #}
+}
+```
+
+# Output figuren
+
+Resultaten Veldleeuwerik 2022-2023.
+We willen figuren voor de continue variabelen.
+
+```{r}
+cont_vars_ol <- mod_final_olpropsb_list$Veldleeuwerik$data %>%
+    select(-aantal) %>%
+    select(where(is.numeric)) %>%
+    names()
+cont_vars_dm <- mod_final_dmpropsb_list$Veldleeuwerik$data %>%
+    select(-aantal) %>%
+    select(where(is.numeric)) %>%
+    names()
+```
+
+Continue variabelen in de Oostelijke leemstreek: `r cont_vars_ol`
+Continue variabelen in De Moeren: `r cont_vars_dm`
+
+```{r}
+label_list <- list(
+  "openheid_waarde_1000" = list(
+    "label" = "openheid landschap waarde (1000 m)",
+    "factor" = 1),
+  "haag" = list(
+    "label" = "oppervlakte haag binnen telcirkel (%)",
+    "factor" = 100),
+  "houtkant" = list(
+    "label" = "oppervlakte houtkant binnen telcirkel (%)",
+    "factor" = 100),
+  "bomenrij" = list(
+    "label" = "oppervlakte bomenrij binnen telcirkel (%)",
+    "factor" = 100),
+  "meerjarige_fruitteelt_hfdtlt" = list(
+    "label" = paste("oppervlakte hoofdteelt meerjarige fruitteelt",
+                    "binnen telcirkel (%)", sep = "\n"),
+    "factor" = 100),
+  "grasland_hfdtlt_pre" = list(
+    "label" = paste("oppervlakte hoofdteelt grasland (jaar ervoor)",
+                    "binnen telcirkel (%)", sep = "\n"),
+    "factor" = 100),
+  "bosrand" = list(
+    "label" = "oppervlakte bosrand binnen telcirkel (%)",
+    "factor" = 100),
+  "boom" = list(
+    "label" = "oppervlakte boom binnen telcirkel (%)",
+    "factor" = 100)
+)
+
+for (pred in cont_vars_ol) {
+  p <- plot_brms_fit(
+    mod_final_olpropsb_list$Veldleeuwerik,
+    pred,
+    species = "Veldleeuwerik",
+    axis_label = label_list[[pred]]$label,
+    factor = label_list[[pred]]$factor,
+    interval = c(0, 0.95),
+    show_data = TRUE,
+    scale_data = df_count_list_olnew$Veldleeuwerik)
+  file <- paste(pred, "veldleeuwerik_data.pdf", sep = "_")
+  ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+
+for (pred in cont_vars_dm) {
+  p <- plot_brms_fit(
+    mod_final_dmpropsb_list$Veldleeuwerik,
+    pred,
+    species = "Veldleeuwerik",
+    axis_label = label_list[[pred]]$label,
+    factor = label_list[[pred]]$factor,
+    interval = c(0, 0.95),
+    show_data = TRUE,
+    scale_data = df_count_list_dmnew$Veldleeuwerik)
+  file <- paste(pred, "veldleeuwerik_data.pdf", sep = "_")
+  ggsave(here("media", "beheerovereenkomsten", "de_moeren", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
 }
 ```
 
