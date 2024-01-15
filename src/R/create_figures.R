@@ -579,6 +579,7 @@ create_weighted_draws_df <- function(model, ll = 0.025, ul = 0.975,
            lcl_log = quantile(value_log, ll),
            ucl_log = quantile(value_log, ul)) %>%
     mutate(median = median(value),
+           standaardfout = sd(value),
            lcl = quantile(value, ll),
            ucl = quantile(value, ul)) %>%
     ungroup() %>%
