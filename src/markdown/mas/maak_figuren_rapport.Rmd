@@ -1469,6 +1469,67 @@ for (spec in names(draws_dmpropsb_list_wt)) {
 }
 ```
 
+### Andere variabelen
+
+```{r}
+out_list_dmpropsb <- vector("list",
+                            length = length(mod_final_dmpropsb_list))
+for (i in seq_along(mod_final_dmpropsb_list)) {
+  spec <- names(mod_final_dmpropsb_list)[i]
+  df_out_spec <- mod_final_dmpropsb_list[[spec]] %>%
+    gather_draws(`b_.*`, regex = TRUE) %>%
+    filter(!grepl("(Intercept)", .variable)) %>%
+    mutate(.value = exp(.value) - 1) %>%
+    summarise(
+      schatting = median(.value),
+      standaardfout = sd(.value),
+      lcl = quantile(.value, 0.025),
+      ucl = quantile(.value, 0.975)
+    ) %>%
+    mutate(variabele = gsub("b_", "", .variable),
+           soort = spec,
+           regio = "De Moeren") %>%
+    select(-.variable) %>%
+    select(soort, regio, variabele, everything()) %>%
+    arrange(desc(schatting))
+  
+  out_list_dmpropsb[[i]] <- df_out_spec
+}
+
+# add effects
+out_df_dmpropsb <- do.call(rbind.data.frame,
+                           lapply(out_list_dmpropsb, get_effects))
+
+# add weighted results
+combined_df <- do.call(rbind.data.frame,
+                       Map(cbind, draws_dmpropsb_list_wt,
+                           soort = names(draws_dmpropsb_list_wt)))
+rownames(combined_df) <- NULL
+out_df_dmpropsb2 <- combined_df %>%
+  mutate(regio = "De Moeren",
+         variabele = paste0("area_prop_sbcat", area_prop_sb_cat,
+                            "_weighted")) %>%
+  select(soort, regio, variabele, schatting = median, standaardfout, lcl, ucl,
+         trend_fine, trend_coarse, trend_simple) %>%
+  distinct()
+
+out_df_dmpropsb_final <- bind_rows(
+  out_df_dmpropsb,
+  out_df_dmpropsb2
+)
+```
+
+Voeg resultaten Oostelijke leemstreek en De Moeren samen en exporteer als CSV.
+
+```{r}
+out_df_propsb <- bind_rows(
+  out_df_olpropsb_final,
+  out_df_dmpropsb_final
+)
+write_csv(out_df_propsb, here("media", "beheerovereenkomsten",
+                              "model_output_2022_2023.csv"))
+```
+
 
 # Zichtbaarheid
 
