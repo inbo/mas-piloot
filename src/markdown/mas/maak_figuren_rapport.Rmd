@@ -1231,26 +1231,8 @@ for (spec in names(draws_olpropsb_list_wt)) {
 ### Andere variabelen
 
 ```{r}
-cont_vars <- mod_final_olpropsb_list$Veldleeuwerik$data %>%
-    select(-aantal) %>%
-    select(where(is.numeric)) %>%
-    names()
-
-for (pred in cont_vars) {
-  p <- plot_brms_fit(mod_final_olpropsb_list$Veldleeuwerik, pred,
-                interval = c(0, 0.95), show_data = TRUE)
-  file <- paste(pred, "veldleeuwerik_data.pdf", sep = "_")
-  ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek", file),
-         p,
-         dpi = 300,
-         width = 8,
-         height = 6)
-}
-```
-
-```{r}
-out_list_olpropsb <- vector("list", 
-                          length = length(mod_final_olpropsb_list))
+out_list_olpropsb <- vector("list",
+                            length = length(mod_final_olpropsb_list))
 for (i in seq_along(mod_final_olpropsb_list)) {
   spec <- names(mod_final_olpropsb_list)[i]
   df_out_spec <- mod_final_olpropsb_list[[spec]] %>%
@@ -1276,7 +1258,24 @@ for (i in seq_along(mod_final_olpropsb_list)) {
 # add effects
 out_df_olpropsb <- do.call(rbind.data.frame,
                            lapply(out_list_olpropsb, get_effects))
-draws_olpropsb_list_wt
+
+# add weighted results
+combined_df <- do.call(rbind.data.frame,
+                       Map(cbind, draws_olpropsb_list_wt,
+                           soort = names(draws_olpropsb_list_wt)))
+rownames(combined_df) <- NULL
+out_df_olpropsb2 <- combined_df %>%
+  mutate(regio = "Oostelijke leemstreek",
+         variabele = paste0("area_prop_sbcat", area_prop_sb_cat,
+                            "_weighted")) %>%
+  select(soort, regio, variabele, schatting = median, standaardfout, lcl, ucl,
+         trend_fine, trend_coarse, trend_simple) %>%
+  distinct()
+
+out_df_olpropsb_final <- bind_rows(
+  out_df_olpropsb,
+  out_df_olpropsb2
+)
 ```
 
 ## De Moeren
