@@ -628,7 +628,7 @@ index_labels_rev <- function(digits = 2) {
 
 plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
                           factor = 1, n = 100, show_data = FALSE,
-                          interval = c(0.6, 0.95)) {
+                          interval = c(0.6, 0.95), scale_data = NULL) {
   require(tidybayes)
   require(modelr)
 
@@ -738,19 +738,22 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
         add_epred_draws(model, ndraws = 3000)
     }
 
-
-    out <- plot_df %>%
-      ggplot(aes(x = .data[[x]]*factor))
+    if (!is.null(scale_data)) {
+      out <- plot_df %>%
+        ggplot(aes(x = ((.data[[x]] * sd(scale_data[[x]]))
+                        + mean(scale_data[[x]])) * factor)) +
+        coord_cartesian(ylim = c(0, NA))
+    } else {
+      out <- plot_df %>%
+        ggplot(aes(x = .data[[x]]*factor)) +
+        coord_cartesian(ylim = c(0, NA))
+    }
 
     if (isTRUE(show_data)) {
       out <- out +
         geom_point(data = model$data, aes(y = aantal), colour = "firebrick",
                    alpha = 0.1) +
-        scale_y_continuous(limits = c(0, NA),
-                           trans = scales::pseudo_log_trans())
-    } else {
-      out <- out +
-        scale_y_continuous(limits = c(0, NA))
+        scale_y_continuous(trans = scales::pseudo_log_trans())
     }
 
     out <- out +
