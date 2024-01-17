@@ -1245,7 +1245,7 @@ for (i in seq_along(mod_final_olpropsb_list)) {
       lcl = quantile(.value, 0.025),
       ucl = quantile(.value, 0.975)
     ) %>%
-    mutate(variabele = gsub("b_", "", .variable),
+    mutate(variabele = gsub("^b_", "", .variable),
            soort = spec,
            regio = "Oostelijke leemstreek") %>%
     select(-.variable) %>%
@@ -1266,7 +1266,7 @@ combined_df <- do.call(rbind.data.frame,
 rownames(combined_df) <- NULL
 out_df_olpropsb2 <- combined_df %>%
   mutate(regio = "Oostelijke leemstreek",
-         variabele = paste0("area_prop_sbcat", area_prop_sb_cat,
+         variabele = paste0("area_prop_sb_cat", area_prop_sb_cat,
                             "_weighted")) %>%
   select(soort, regio, variabele, schatting = median, standaardfout, lcl, ucl,
          trend_fine, trend_coarse, trend_simple) %>%
@@ -1486,7 +1486,7 @@ for (i in seq_along(mod_final_dmpropsb_list)) {
       lcl = quantile(.value, 0.025),
       ucl = quantile(.value, 0.975)
     ) %>%
-    mutate(variabele = gsub("b_", "", .variable),
+    mutate(variabele = gsub("^b_", "", .variable),
            soort = spec,
            regio = "De Moeren") %>%
     select(-.variable) %>%
@@ -1507,7 +1507,7 @@ combined_df <- do.call(rbind.data.frame,
 rownames(combined_df) <- NULL
 out_df_dmpropsb2 <- combined_df %>%
   mutate(regio = "De Moeren",
-         variabele = paste0("area_prop_sbcat", area_prop_sb_cat,
+         variabele = paste0("area_prop_sb_cat", area_prop_sb_cat,
                             "_weighted")) %>%
   select(soort, regio, variabele, schatting = median, standaardfout, lcl, ucl,
          trend_fine, trend_coarse, trend_simple) %>%
