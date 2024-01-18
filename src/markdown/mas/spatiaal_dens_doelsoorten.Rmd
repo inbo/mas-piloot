@@ -300,7 +300,8 @@ p_veldleeuwerik1 <- plot_veldleeuwerik %>%
             linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 5, 10, 15, 20),
                          limits = c(0, 20)) +
     coord_sf(crs = 31370) +
@@ -320,7 +321,7 @@ p_veldleeuwerik2 <- plot_veldleeuwerik %>%
           linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "gold", "orange",
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 5, 10, 15, 20),
                          limits = c(0, 20)) +
@@ -347,8 +348,8 @@ p_veldleeuwerik3 <- plot_veldleeuwerik %>%
             linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 0.4, 0.6, 0.8, 1.2),
                          limits = c(0, 1.2)) +
     coord_sf(crs = 31370) +
@@ -365,8 +366,8 @@ p_veldleeuwerik4 <- plot_veldleeuwerik %>%
             linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 0.4, 0.6, 0.8, 1.2),
                          limits = c(0, 1.2)) +
     coord_sf(crs = 31370) +
@@ -490,8 +491,8 @@ p_gelekwikstaart1 <- plot_gelekwikstaart %>%
             linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 4, 8, 12, 16),
                          limits = c(0, 16)) +
     coord_sf(crs = 31370) +
@@ -511,8 +512,8 @@ p_gelekwikstaart2 <- plot_gelekwikstaart %>%
           linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 4, 8, 12, 16),
                          limits = c(0, 16)) +
     coord_sf(crs = 31370) +
@@ -538,8 +539,8 @@ p_gelekwikstaart3 <- plot_gelekwikstaart %>%
             linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 0.4, 0.6, 0.8, 1.2),
                          limits = c(0, 1.2)) +
     coord_sf(crs = 31370) +
@@ -556,8 +557,8 @@ p_gelekwikstaart4 <- plot_gelekwikstaart %>%
             linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 0.4, 0.6, 0.8, 1.2),
                          limits = c(0, 1.2)) +
     coord_sf(crs = 31370) +
@@ -681,8 +682,8 @@ p_geelgors1 <- plot_geelgors %>%
             linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 3, 6, 9, 12),
                          limits = c(0, 12)) +
     coord_sf(crs = 31370) +
@@ -702,8 +703,8 @@ p_geelgors2 <- plot_geelgors %>%
           linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 3, 6, 9, 12),
                          limits = c(0, 12)) +
     coord_sf(crs = 31370) +
@@ -729,8 +730,8 @@ p_geelgors3 <- plot_geelgors %>%
             linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 0.4, 0.8, 1.2, 1.6),
                          limits = c(0, 1.6)) +
     coord_sf(crs = 31370) +
@@ -747,8 +748,8 @@ p_geelgors4 <- plot_geelgors %>%
             linewidth = 1) +
     geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
                 interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
+                                     "red"),
                          breaks = c(0, 0.4, 0.8, 1.2, 1.6),
                          limits = c(0, 1.6)) +
     coord_sf(crs = 31370) +
