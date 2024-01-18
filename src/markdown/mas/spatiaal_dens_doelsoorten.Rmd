@@ -261,19 +261,21 @@ We maken een hexagonaal grid met cellen van met gelijkaardige grootte als de tel
 Voor de centroïde van elke grid cell maken we een predictie o.b.v. het model.
 
 ```{r}
-# Function to calculate hexagon vertices
-hexagon_vertices <- function(radius) {
+radius <- 300
+
+# Calculate side length of hexagon with the same area as the circle
+side_length <- sqrt((2 * pi * radius^2) / (3 * sqrt(3)))
+
+# Function to calculate hexagon vertices with adjusted side length
+hexagon_vertices <- function(side_length) {
   angles <- seq(0, 2 * pi, length.out = 7)
-  x <- radius * cos(angles)
-  y <- radius * sin(angles)
+  x <- side_length * cos(angles)
+  y <- side_length * sin(angles)
   return(data.frame(x, y))
 }
 
-# Given radius
-radius <- 300
-
-# Calculate hexagon vertices
-hexagon_data <- hexagon_vertices(radius)
+# Calculate hexagon vertices with adjusted side length
+hexagon_data <- hexagon_vertices(side_length)
 
 # Function to calculate circle points
 circle_points <- function(radius, n_points = 100) {
@@ -286,20 +288,22 @@ circle_points <- function(radius, n_points = 100) {
 # Calculate circle points
 circle_data <- circle_points(radius)
 
-# Plot hexagon and circumscribed circle
+# Plot hexagon with adjusted side length and circumscribed circle
 ggplot() +
-  geom_polygon(data = hexagon_data, aes(x, y), fill = "lightblue", color = "black") +
-  geom_path(data = circle_data, aes(x, y), color = "red", size = 1) +
+  geom_polygon(data = hexagon_data, aes(x, y),
+               fill = "lightblue", color = "black") +
+  geom_path(data = circle_data, aes(x, y),
+            color = "red", size = 1) +
   coord_equal() +
   xlim(-400, 400) +
   ylim(-400, 400) +
-  ggtitle("Hexagon and Circumscribed Circle")
+  ggtitle("Hexagon with Adjusted Side Length and Circumscribed Circle")
 ```
 
 ```{r, cache=TRUE}
 # Create grid
 grid_total <- st_make_grid(steekproefkader_buf,
-                           cellsize = radius * sqrt(3),
+                           cellsize = units::set_units(300*300*pi, "m^2"),
                            square = FALSE) %>%
   as_tibble() %>%
   rownames_to_column(var = "id") %>%
