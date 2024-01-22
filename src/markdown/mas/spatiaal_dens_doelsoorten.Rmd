@@ -257,15 +257,19 @@ steekproefkader_buf <- steekproefkader %>%
   st_buffer(300)
 ```
 
-We maken een grid met cellen van 200x200 m en leggen deze over het steekproefkader (met buffer van 300 m).
+We maken een grid met cellen van dezelfde oppervlakte als de telcirkels en leggen deze over het steekproefkader (= telpunten steekproefkader met buffer van 300 m).
 Voor de centroïde van elke grid cell maken we een predictie o.b.v. het model.
 
-```{r, cache=TRUE}
-grid_total <- st_make_grid(steekproefkader_buf, 200) %>%
+```{r}
+# Maak grid over bounding box steekproefkader
+grid_total <- st_make_grid(steekproefkader_buf,
+                           cellsize = units::set_units(300*300*pi, "m^2"),
+                           square = TRUE) %>%
   as_tibble() %>%
   rownames_to_column(var = "id") %>%
   st_as_sf(crs = 31370)
 
+# Selecteer enkel gridcellen die overlappen met steekproefkader
 ids <- st_intersection(grid_total, steekproefkader_buf) %>%
   pull(id)
 
@@ -278,11 +282,12 @@ new_df <- grid %>%
   mutate(x_plot = st_coordinates(.data$geometry)[, 1],
          y_plot = st_coordinates(.data$geometry)[, 2])
 
-pred_veldleeuwerik <- fitted(fit_veldleeuwerik, new_df,
+# Maak predicties op basis van model
+pred_veldleeuwerik <- fitted(fit_veldleeuwerik, new_df, robust = TRUE,
                              re_formula = NA, offset = FALSE)
 ```
 
-Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
+We visualiseren de gemiddelde densiteiten (mediaan) via `geom_tile()`.
 
 ```{r}
 plot_veldleeuwerik <- new_df %>%
@@ -291,95 +296,74 @@ plot_veldleeuwerik <- new_df %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)),
          rel_fout = (Q97.5 - Q2.5) / (2 * Estimate))
 
-p_veldleeuwerik1 <- plot_veldleeuwerik %>%
+plot_veldleeuwerik %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
+    scale_fill_gradientn(colours = rainbow(5),
                          breaks = c(0, 5, 10, 15, 20),
                          limits = c(0, 20)) +
     coord_sf(crs = 31370) +
     labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
          title = "Veldleeuwerik") +
     theme(legend.position = "bottom")
-p_veldleeuwerik1
 ```
 
 We kunnen contourlijnen toevoegen om de figuur begrijpbaarder te maken.
 We voegen contouren toe per 1, 3, 5 ... broedparen per 100 ha.
 
 ```{r}
-p_veldleeuwerik2 <- plot_veldleeuwerik %>%
+p_veldleeuwerik1 <- plot_veldleeuwerik %>%
   ggplot() +
   geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
           linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
+    scale_fill_gradientn(colours = rainbow(5),
                          breaks = c(0, 5, 10, 15, 20),
                          limits = c(0, 20)) +
     coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
-       title = "Veldleeuwerik") +
+    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha") +
     theme(legend.position = "bottom") +
     geom_contour2(
       aes(x = x_plot, y = y_plot, z = Estimate, label = after_stat(level)),
       breaks = seq(1, 21, 2), skip = 1,
       label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
-p_veldleeuwerik2
+p_veldleeuwerik1
 ```
 
 We visualiseren ook de spatiale verdeling van de onzekerheid.
-Dit doen we aan de hand van de helft van het 95 % credible interval.
-De helft van deze lengte heet de foutmarge.
-De relatieve foutenmarge is dan deze foutmarge gedeeld door de schatting van de densiteit in die grid cell.
+Dit doen we door het 95 % credible interval toe te voegen.
 
 ```{r}
-p_veldleeuwerik3 <- plot_veldleeuwerik %>%
+p_veldleeuwerik2 <- plot_veldleeuwerik %>%
+  rename(mediaan = Estimate) %>%
+  pivot_longer(cols = c("mediaan",  "Q2.5", "Q97.5"), names_to = "statistiek",
+               values_to = "waarde") %>%
+  mutate(statistiek = factor(statistiek, levels = c("Q2.5", "mediaan", "Q97.5"))) %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
-                         breaks = c(0, 0.4, 0.6, 0.8, 1.2),
-                         limits = c(0, 1.2)) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = waarde)) +
+    scale_fill_gradientn(colours = rainbow(5),
+                         breaks = c(0, 6, 12, 18, 24, 30, 36),
+                         limits = c(0, 36)) +
     coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Rel. foutenmarge aantal\nbroedparen per 100 ha",
-         title = "Veldleeuwerik") +
-    theme(legend.position = "bottom")
-p_veldleeuwerik3
-```
-
-```{r}
-p_veldleeuwerik4 <- plot_veldleeuwerik %>%
-  ggplot() +
-    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
-            linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
-                         breaks = c(0, 0.4, 0.6, 0.8, 1.2),
-                         limits = c(0, 1.2)) +
-    coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Rel. foutenmarge aantal\nbroedparen per 100 ha",
-         title = "Veldleeuwerik") +
-    theme(legend.position = "bottom") +
+    labs(x = "", y = "",
+         fill = "Aantal broedparen\nper 100 ha") +
+    theme(legend.position = "right") +
+    facet_wrap(~statistiek, ncol = 1) +
     geom_contour2(
-        aes(x = x_plot, y = y_plot, z = rel_fout, label = after_stat(level)),
-        breaks = seq(0, 1.2, 0.1), skip = 1,
+        aes(x = x_plot, y = y_plot, z = waarde, label = after_stat(level)),
+        breaks = seq(1, 36, 2), skip = 1,
         label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
-p_veldleeuwerik4
+p_veldleeuwerik2
 ```
 
+
 ```{r}
-dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
+dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE,
+           recursive = TRUE)
 ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol1.png"),
        p_veldleeuwerik1,
        dpi = 300,
@@ -394,35 +378,62 @@ ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol1.pdf"),
 ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol2.png"),
        p_veldleeuwerik2,
        dpi = 300,
-       width = 8,
-       height = 4)
+       width = 10,
+       height = 8)
 ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol2.pdf"),
        p_veldleeuwerik2,
        dpi = 300,
-       width = 8,
-       height = 4)
+       width = 10,
+       height = 8)
+```
 
-ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_fout_ol1.png"),
-       p_veldleeuwerik3,
-       dpi = 300,
-       width = 8,
-       height = 4)
-ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_fout_ol1.pdf"),
-       p_veldleeuwerik3,
-       dpi = 300,
-       width = 8,
-       height = 4)
+## Interactieve kaarten
 
-ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_fout_ol2.png"),
-       p_veldleeuwerik4,
-       dpi = 300,
-       width = 8,
-       height = 4)
-ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_fout_ol2.pdf"),
-       p_veldleeuwerik4,
-       dpi = 300,
-       width = 8,
-       height = 4)
+We maken een interactieve kaart kaart voor Veldleeuwerik.
+
+```{r}
+grid_veldleeuwerik <- grid %>%
+  bind_cols(pred_veldleeuwerik) %>%
+  select(id, Estimate, Q2.5, Q97.5, geometry) %>%
+  mutate(Estimate = round(Estimate, 3),
+         rel_fout = (Q97.5 - Q2.5) / (2 * Estimate)) %>%
+  st_as_sf(sf_column_name = "geometry", crs = 31370)
+```
+
+```{r}
+m1 <- mapview(grid_veldleeuwerik,
+        zcol = "Estimate",
+        alpha = 0,
+        layer.name = "Mediaan",
+        map.types = "OpenStreetMap")
+
+m2 <- mapview(grid_veldleeuwerik,
+              zcol = "Q2.5",
+        alpha = 0,
+        layer.name = "Q2.5",
+        map.types = "OpenStreetMap")
+
+m3 <- mapview(grid_veldleeuwerik,
+        zcol = "Q97.5",
+        alpha = 0,
+        layer.name = "Q97.5",
+        map.types = "OpenStreetMap")
+
+m4 <- mapview(grid_veldleeuwerik,
+        zcol = "Q97.5",
+        alpha = 0,
+        layer.name = "Rel. foutenmarge",
+        map.types = "OpenStreetMap")
+
+leafsync::sync(
+  leaflet::addControl(m1@map, "Aantal broedparen Veldleeuwerik per 100 ha",
+                      position = "bottomleft"),
+  leaflet::addControl(m2@map, "Aantal broedparen Veldleeuwerik per 100 ha",
+                      position = "bottomleft"),
+  leaflet::addControl(m3@map, "Aantal broedparen Veldleeuwerik per 100 ha",
+                      position = "bottomleft"),
+  leaflet::addControl(m4@map, "Rel. fout Veldleeuwerik per 100 ha",
+                      position = "bottomleft"))
 ```
 
 
@@ -468,12 +479,12 @@ pp_check(fit_gelekwikstaart, type = "bars", ndraws = 100)
 
 Zoals voordien maken we voor de centroïde van elke grid cell een predictie o.b.v. het model.
 
-```{r, cache=TRUE}
-pred_gelekwikstaart <- fitted(fit_gelekwikstaart, new_df,
+```{r}
+pred_gelekwikstaart <- fitted(fit_gelekwikstaart, new_df, robust = TRUE,
                               re_formula = NA, offset = FALSE)
 ```
 
-Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
+We visualiseren de gemiddelde densiteiten (mediaan) via `geom_tile()`.
 
 ```{r}
 plot_gelekwikstaart <- new_df %>%
@@ -482,95 +493,72 @@ plot_gelekwikstaart <- new_df %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)),
          rel_fout = (Q97.5 - Q2.5) / (2 * Estimate))
 
-p_gelekwikstaart1 <- plot_gelekwikstaart %>%
+plot_gelekwikstaart %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
+    scale_fill_gradientn(colours = rainbow(5),
                          breaks = c(0, 4, 8, 12, 16),
                          limits = c(0, 16)) +
     coord_sf(crs = 31370) +
     labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
          title = "Gele kwikstaart") +
     theme(legend.position = "bottom")
-p_gelekwikstaart1
 ```
 
 We kunnen contourlijnen toevoegen om de figuur begrijpbaarder te maken.
 We voegen contouren toe per broedpaar per 100 ha.
 
 ```{r}
-p_gelekwikstaart2 <- plot_gelekwikstaart %>%
+p_gelekwikstaart1 <- plot_gelekwikstaart %>%
   ggplot() +
   geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
           linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
+    scale_fill_gradientn(colours = rainbow(5),
                          breaks = c(0, 4, 8, 12, 16),
                          limits = c(0, 16)) +
     coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
-       title = "Gele kwikstaart") +
+    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha") +
     theme(legend.position = "bottom") +
     geom_contour2(
       aes(x = x_plot, y = y_plot, z = Estimate, label = after_stat(level)),
       breaks = seq(1, 16, 1), skip = 1,
       label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
+p_gelekwikstaart1
+```
+
+We visualiseren ook de spatiale verdeling van de onzekerheid. Dit doen we door het 95 % credible interval toe te voegen.
+
+```{r}
+p_gelekwikstaart2 <- plot_gelekwikstaart %>%
+  rename(mediaan = Estimate) %>%
+  pivot_longer(cols = c("mediaan",  "Q2.5", "Q97.5"), names_to = "statistiek",
+               values_to = "waarde") %>%
+  mutate(statistiek = factor(statistiek, levels = c("Q2.5", "mediaan", "Q97.5"))) %>%
+  ggplot() +
+    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+            linewidth = 1) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = waarde)) +
+    scale_fill_gradientn(colours = rainbow(5),
+                         breaks = c(0, 4, 8, 12, 16, 20, 24),
+                         limits = c(0, 24)) +
+    coord_sf(crs = 31370) +
+    labs(x = "", y = "",
+         fill = "Aantal broedparen\nper 100 ha") +
+    theme(legend.position = "right") +
+    facet_wrap(~statistiek, ncol = 1) +
+    geom_contour2(
+        aes(x = x_plot, y = y_plot, z = waarde, label = after_stat(level)),
+        breaks = seq(1, 24, 2), skip = 1,
+        label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
 p_gelekwikstaart2
 ```
 
-We visualiseren ook de spatiale verdeling van de onzekerheid.
-Dit doen we aan de hand van de helft van het 95 % credible interval.
-De helft van deze lengte heet de foutmarge.
-De relatieve foutenmarge is dan deze foutmarge gedeeld door de schatting van de densiteit in die grid cell.
-
 ```{r}
-p_gelekwikstaart3 <- plot_gelekwikstaart %>%
-  ggplot() +
-    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
-            linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
-                         breaks = c(0, 0.4, 0.6, 0.8, 1.2),
-                         limits = c(0, 1.2)) +
-    coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Rel. foutenmarge aantal\nbroedparen per 100 ha",
-         title = "Gele kwikstaart") +
-    theme(legend.position = "bottom")
-p_gelekwikstaart3
-```
-
-```{r}
-p_gelekwikstaart4 <- plot_gelekwikstaart %>%
-  ggplot() +
-    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
-            linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
-                         breaks = c(0, 0.4, 0.6, 0.8, 1.2),
-                         limits = c(0, 1.2)) +
-    coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Rel. foutenmarge aantal\nbroedparen per 100 ha",
-         title = "Gele kwikstaart") +
-    theme(legend.position = "bottom") +
-    geom_contour2(
-        aes(x = x_plot, y = y_plot, z = rel_fout, label = after_stat(level)),
-        breaks = seq(0, 1.2, 0.1), skip = 1,
-        label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
-p_gelekwikstaart4
-```
-
-```{r}
-dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
+dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE,
+           recursive = TRUE)
 ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_dens_ol1.png"),
        p_gelekwikstaart1,
        dpi = 300,
@@ -585,35 +573,62 @@ ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_dens_ol1.pdf"),
 ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_dens_ol2.png"),
        p_gelekwikstaart2,
        dpi = 300,
-       width = 8,
-       height = 4)
+       width = 10,
+       height = 8)
 ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_dens_ol2.pdf"),
        p_gelekwikstaart2,
        dpi = 300,
-       width = 8,
-       height = 4)
+       width = 10,
+       height = 8)
+```
 
-ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_fout_ol1.png"),
-       p_gelekwikstaart3,
-       dpi = 300,
-       width = 8,
-       height = 4)
-ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_fout_ol1.pdf"),
-       p_gelekwikstaart3,
-       dpi = 300,
-       width = 8,
-       height = 4)
+## Interactieve kaarten
 
-ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_fout_ol2.png"),
-       p_gelekwikstaart4,
-       dpi = 300,
-       width = 8,
-       height = 4)
-ggsave(here("media", "spatiale_densiteiten", "gelekwikstaart_fout_ol2.pdf"),
-       p_gelekwikstaart4,
-       dpi = 300,
-       width = 8,
-       height = 4)
+We maken een interactieve kaart kaart voor Gele kwikstaart.
+
+```{r}
+grid_gelekwikstaart <- grid %>%
+  bind_cols(pred_gelekwikstaart) %>%
+  select(id, Estimate, Q2.5, Q97.5, geometry) %>%
+  mutate(Estimate = round(Estimate, 3),
+         rel_fout = (Q97.5 - Q2.5) / (2 * Estimate)) %>%
+  st_as_sf(sf_column_name = "geometry", crs = 31370)
+```
+
+```{r}
+m1 <- mapview(grid_gelekwikstaart,
+        zcol = "Estimate",
+        alpha = 0,
+        layer.name = "Mediaan",
+        map.types = "OpenStreetMap")
+
+m2 <- mapview(grid_gelekwikstaart,
+              zcol = "Q2.5",
+        alpha = 0,
+        layer.name = "Q2.5",
+        map.types = "OpenStreetMap")
+
+m3 <- mapview(grid_gelekwikstaart,
+        zcol = "Q97.5",
+        alpha = 0,
+        layer.name = "Q97.5",
+        map.types = "OpenStreetMap")
+
+m4 <- mapview(grid_gelekwikstaart,
+        zcol = "Q97.5",
+        alpha = 0,
+        layer.name = "Rel. foutenmarge",
+        map.types = "OpenStreetMap")
+
+leafsync::sync(
+  leaflet::addControl(m1@map, "Aantal broedparen Gele kwikstaart per 100 ha",
+                      position = "bottomleft"),
+  leaflet::addControl(m2@map, "Aantal broedparen Gele kwikstaart per 100 ha",
+                      position = "bottomleft"),
+  leaflet::addControl(m3@map, "Aantal broedparen Gele kwikstaart per 100 ha",
+                      position = "bottomleft"),
+  leaflet::addControl(m4@map, "Rel. fout Gele kwikstaart per 100 ha",
+                      position = "bottomleft"))
 ```
 
 
@@ -659,12 +674,12 @@ pp_check(fit_geelgors, type = "bars", ndraws = 100)
 
 Zoals voordien maken we voor de centroïde van elke grid cell een predictie o.b.v. het model.
 
-```{r, cache=TRUE}
-pred_geelgors <- fitted(fit_geelgors, new_df,
+```{r}
+pred_geelgors <- fitted(fit_geelgors, new_df, robust = TRUE,
                         re_formula = NA, offset = FALSE)
 ```
 
-Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
+We visualiseren de gemiddelde densiteiten (mediaan) via `geom_tile()`.
 
 ```{r}
 plot_geelgors <- new_df %>%
@@ -673,35 +688,31 @@ plot_geelgors <- new_df %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)),
          rel_fout = (Q97.5 - Q2.5) / (2 * Estimate))
 
-p_geelgors1 <- plot_geelgors %>%
+plot_geelgors %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
+    scale_fill_gradientn(colours = rainbow(5),
                          breaks = c(0, 3, 6, 9, 12),
                          limits = c(0, 12)) +
     coord_sf(crs = 31370) +
     labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
          title = "Geelgors") +
     theme(legend.position = "bottom")
-p_geelgors1
+
 ```
 
 We kunnen contourlijnen toevoegen om de figuur begrijpbaarder te maken.
 We voegen contouren toe per broedpaar per 100 ha.
 
 ```{r}
-p_geelgors2 <- plot_geelgors %>%
+p_geelgors1 <- plot_geelgors %>%
   ggplot() +
   geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
           linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
+    scale_fill_gradientn(colours = rainbow(5),
                          breaks = c(0, 3, 6, 9, 12),
                          limits = c(0, 12)) +
     coord_sf(crs = 31370) +
@@ -712,56 +723,39 @@ p_geelgors2 <- plot_geelgors %>%
       aes(x = x_plot, y = y_plot, z = Estimate, label = after_stat(level)),
       breaks = seq(1, 12, 1), skip = 1,
       label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
+p_geelgors1
+```
+
+We visualiseren ook de spatiale verdeling van de onzekerheid. Dit doen we door het 95 % credible interval toe te voegen.
+
+```{r}
+p_geelgors2 <- plot_geelgors %>%
+  rename(mediaan = Estimate) %>%
+  pivot_longer(cols = c("mediaan",  "Q2.5", "Q97.5"), names_to = "statistiek",
+               values_to = "waarde") %>%
+  mutate(statistiek = factor(statistiek, levels = c("Q2.5", "mediaan", "Q97.5"))) %>%
+  ggplot() +
+    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+            linewidth = 1) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = waarde)) +
+    scale_fill_gradientn(colours = rainbow(5),
+                         breaks = c(0, 5, 10, 15, 20, 25, 30),
+                         limits = c(0, 30)) +
+    coord_sf(crs = 31370) +
+    labs(x = "", y = "",
+         fill = "Aantal broedparen\nper 100 ha") +
+    theme(legend.position = "right") +
+    facet_wrap(~statistiek, ncol = 1) +
+    geom_contour2(
+        aes(x = x_plot, y = y_plot, z = waarde, label = after_stat(level)),
+        breaks = seq(1, 30, 2), skip = 1,
+        label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
 p_geelgors2
 ```
 
-We visualiseren ook de spatiale verdeling van de onzekerheid.
-Dit doen we aan de hand van de helft van het 95 % credible interval.
-De helft van deze lengte heet de foutmarge.
-De relatieve foutenmarge is dan deze foutmarge gedeeld door de schatting van de densiteit in die grid cell.
-
 ```{r}
-p_geelgors3 <- plot_geelgors %>%
-  ggplot() +
-    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
-            linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
-                         breaks = c(0, 0.4, 0.8, 1.2, 1.6),
-                         limits = c(0, 1.6)) +
-    coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Rel. foutenmarge aantal\nbroedparen per 100 ha",
-         title = "Geelgors") +
-    theme(legend.position = "bottom")
-p_geelgors3
-```
-
-```{r}
-p_geelgors4 <- plot_geelgors %>%
-  ggplot() +
-    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
-            linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
-    scale_fill_gradientn(colours = c("darkblue", "lightblue", "white",
-                                     "gold", "red"),
-                         breaks = c(0, 0.4, 0.8, 1.2, 1.6),
-                         limits = c(0, 1.6)) +
-    coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Rel. foutenmarge aantal\nbroedparen per 100 ha",
-         title = "Geelgors") +
-    theme(legend.position = "bottom") +
-    geom_contour2(
-        aes(x = x_plot, y = y_plot, z = rel_fout, label = after_stat(level)),
-        breaks = seq(0, 1.6, 0.2), skip = 1,
-        label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
-p_geelgors4
-```
-
-```{r}
-dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
+dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE,
+           recursive = TRUE)
 ggsave(here("media", "spatiale_densiteiten", "geelgors_dens_ol1.png"),
        p_geelgors1,
        dpi = 300,
@@ -776,95 +770,18 @@ ggsave(here("media", "spatiale_densiteiten", "geelgors_dens_ol1.pdf"),
 ggsave(here("media", "spatiale_densiteiten", "geelgors_dens_ol2.png"),
        p_geelgors2,
        dpi = 300,
-       width = 8,
-       height = 4)
+       width = 10,
+       height = 8)
 ggsave(here("media", "spatiale_densiteiten", "geelgors_dens_ol2.pdf"),
        p_geelgors2,
        dpi = 300,
-       width = 8,
-       height = 4)
-
-ggsave(here("media", "spatiale_densiteiten", "geelgors_fout_ol1.png"),
-       p_geelgors3,
-       dpi = 300,
-       width = 8,
-       height = 4)
-ggsave(here("media", "spatiale_densiteiten", "geelgors_fout_ol1.pdf"),
-       p_geelgors3,
-       dpi = 300,
-       width = 8,
-       height = 4)
-
-ggsave(here("media", "spatiale_densiteiten", "geelgors_fout_ol2.png"),
-       p_geelgors4,
-       dpi = 300,
-       width = 8,
-       height = 4)
-ggsave(here("media", "spatiale_densiteiten", "geelgors_fout_ol2.pdf"),
-       p_geelgors4,
-       dpi = 300,
-       width = 8,
-       height = 4)
+       width = 10,
+       height = 8)
 ```
 
+## Interactieve kaarten
 
-# OpenStreetMap kaarten
-
-We maken een kaart voor Veldleeuwerik.
-
-```{r}
-grid_veldleeuwerik <- grid %>%
-  bind_cols(pred_veldleeuwerik) %>%
-  select(id, Estimate, Q2.5, Q97.5, geometry) %>%
-  mutate(Estimate = round(Estimate, 3),
-         rel_fout = (Q97.5 - Q2.5) / (2 * Estimate)) %>%
-  st_as_sf(sf_column_name = "geometry", crs = 31370)
-```
-
-```{r}
-mapview(grid_veldleeuwerik,
-        zcol = "Estimate",
-        alpha = 0,
-        layer.name = "Aantal broedparen per 100 ha",
-        map.types = "OpenStreetMap")
-```
-
-```{r}
-mapview(grid_veldleeuwerik,
-        zcol = "rel_fout",
-        alpha = 0,
-        layer.name = "Rel. foutenmarge aantal broedparen per 100 ha",
-        map.types = "OpenStreetMap")
-```
-
-We maken een kaart voor Gele kwikstaart.
-
-```{r}
-grid_gelekwikstaart <- grid %>%
-  bind_cols(pred_gelekwikstaart) %>%
-  select(id, Estimate, Q2.5, Q97.5, geometry) %>%
-  mutate(Estimate = round(Estimate, 3),
-         rel_fout = (Q97.5 - Q2.5) / (2 * Estimate)) %>%
-  st_as_sf(sf_column_name = "geometry", crs = 31370)
-```
-
-```{r}
-mapview(grid_gelekwikstaart,
-        zcol = "Estimate",
-        alpha = 0,
-        layer.name = "Aantal broedparen per 100 ha",
-        map.types = "OpenStreetMap")
-```
-
-```{r}
-mapview(grid_gelekwikstaart,
-        zcol = "rel_fout",
-        alpha = 0,
-        layer.name = "Rel. foutenmarge aantal broedparen per 100 ha",
-        map.types = "OpenStreetMap")
-```
-
-We maken een kaart voor Geelgors.
+We maken een interactieve kaart kaart voor Geelgors.
 
 ```{r}
 grid_geelgors <- grid %>%
@@ -876,17 +793,48 @@ grid_geelgors <- grid %>%
 ```
 
 ```{r}
-mapview(grid_geelgors,
+m1 <- mapview(grid_geelgors,
         zcol = "Estimate",
         alpha = 0,
-        layer.name = "Aantal broedparen per 100 ha",
+        layer.name = "Mediaan",
         map.types = "OpenStreetMap")
+
+m2 <- mapview(grid_geelgors,
+              zcol = "Q2.5",
+        alpha = 0,
+        layer.name = "Q2.5",
+        map.types = "OpenStreetMap")
+
+m3 <- mapview(grid_geelgors,
+        zcol = "Q97.5",
+        alpha = 0,
+        layer.name = "Q97.5",
+        map.types = "OpenStreetMap")
+
+m4 <- mapview(grid_geelgors,
+        zcol = "Q97.5",
+        alpha = 0,
+        layer.name = "Rel. foutenmarge",
+        map.types = "OpenStreetMap")
+
+leafsync::sync(
+  leaflet::addControl(m1@map, "Aantal broedparen Geelgors per 100 ha",
+                      position = "bottomleft"),
+  leaflet::addControl(m2@map, "Aantal broedparen Geelgors per 100 ha",
+                      position = "bottomleft"),
+  leaflet::addControl(m3@map, "Aantal broedparen Geelgors per 100 ha",
+                      position = "bottomleft"),
+  leaflet::addControl(m4@map, "Rel. fout Geelgors per 100 ha",
+                      position = "bottomleft"))
 ```
 
-```{r}
-mapview(grid_geelgors,
-        zcol = "rel_fout",
-        alpha = 0,
-        layer.name = "Rel. foutenmarge aantal broedparen per 100 ha",
-        map.types = "OpenStreetMap")
-```
+
+# Discussie
+
+Er zijn een aantal factoren die de methode kunnen verbeteren zoals de keuze voor de smoothing function $f()$.
+Indien we subgebieden willen afbakenen, kunnen we gridcellen clusteren en daarna de predictie van de cluster vergelijken met een vooraf afgesproken waarde (bv. is het aantal broedparen per 100 ha significant meer dan 10?).
+Hierbij moeten we een een methode vinden waarbij we op correcte wijze de onzekerheid berekenen op clusterniveau.
+Een eerste mogelijkheid is om een variogram op te stellen o.b.v. de fitted values om een idee te krijgen van spatiale autocorrelatie.
+Deze info kan dan gebruikt worden om de onzekerheid op clusterniveau te bepalen.
+Een tweede mogelijkheid is om andere methodes en R packages te bekijken die dergelijke berekeningen incorporeren.
+Deze mogelijkheden zullen in een later stadium onderzocht worden.
