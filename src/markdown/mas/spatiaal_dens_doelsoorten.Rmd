@@ -285,7 +285,7 @@ pred_veldleeuwerik <- fitted(fit_veldleeuwerik, new_df,
                              re_formula = NA, offset = FALSE)
 ```
 
-Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
+Dit visualiseren we.
 
 ```{r}
 plot_veldleeuwerik <- new_df %>%
@@ -298,8 +298,7 @@ p_veldleeuwerik1 <- plot_veldleeuwerik %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 5, 10, 15, 20),
@@ -319,8 +318,7 @@ p_veldleeuwerik2 <- plot_veldleeuwerik %>%
   ggplot() +
   geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
           linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 5, 10, 15, 20),
@@ -346,8 +344,7 @@ p_veldleeuwerik3 <- plot_veldleeuwerik %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 0.4, 0.6, 0.8, 1.2),
@@ -364,8 +361,7 @@ p_veldleeuwerik4 <- plot_veldleeuwerik %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 0.4, 0.6, 0.8, 1.2),
@@ -476,7 +472,7 @@ pred_gelekwikstaart <- fitted(fit_gelekwikstaart, new_df,
                               re_formula = NA, offset = FALSE)
 ```
 
-Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
+Dit visualiseren we.
 
 ```{r}
 plot_gelekwikstaart <- new_df %>%
@@ -489,8 +485,7 @@ p_gelekwikstaart1 <- plot_gelekwikstaart %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 4, 8, 12, 16),
@@ -510,8 +505,7 @@ p_gelekwikstaart2 <- plot_gelekwikstaart %>%
   ggplot() +
   geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
           linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 4, 8, 12, 16),
@@ -537,8 +531,7 @@ p_gelekwikstaart3 <- plot_gelekwikstaart %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 0.4, 0.6, 0.8, 1.2),
@@ -555,8 +548,7 @@ p_gelekwikstaart4 <- plot_gelekwikstaart %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 0.4, 0.6, 0.8, 1.2),
@@ -667,7 +659,7 @@ pred_geelgors <- fitted(fit_geelgors, new_df,
                         re_formula = NA, offset = FALSE)
 ```
 
-Dit visualiseren we met `geom_raster()` met argument `interpolate = TRUE`.
+Dit visualiseren we.
 
 ```{r}
 plot_geelgors <- new_df %>%
@@ -680,8 +672,7 @@ p_geelgors1 <- plot_geelgors %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 3, 6, 9, 12),
@@ -701,8 +692,7 @@ p_geelgors2 <- plot_geelgors %>%
   ggplot() +
   geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
           linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = Estimate),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 3, 6, 9, 12),
@@ -728,8 +718,7 @@ p_geelgors3 <- plot_geelgors %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 0.4, 0.8, 1.2, 1.6),
@@ -746,8 +735,7 @@ p_geelgors4 <- plot_geelgors %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_raster(aes(x = x_plot, y = y_plot, fill = rel_fout),
-                interpolate = TRUE) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
     scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
                                      "red"),
                          breaks = c(0, 0.4, 0.8, 1.2, 1.6),
