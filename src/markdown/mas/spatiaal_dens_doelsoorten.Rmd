@@ -727,7 +727,7 @@ leafsync::sync(
                       position = "bottomleft"),
   leaflet::addControl(m3@map, "Aantal broedparen Veldleeuwerik per 100 ha",
                       position = "bottomleft"),
-  leaflet::addControl(m4@map, "Aantal broedparen Veldleeuwerik per 100 ha",
+  leaflet::addControl(m4@map, "Rel. fout Veldleeuwerik per 100 ha",
                       position = "bottomleft"))
 ```
 
@@ -774,7 +774,7 @@ leafsync::sync(
                       position = "bottomleft"),
   leaflet::addControl(m3@map, "Aantal broedparen Gele kwikstaart per 100 ha",
                       position = "bottomleft"),
-  leaflet::addControl(m4@map, "Aantal broedparen Gele kwikstaart per 100 ha",
+  leaflet::addControl(m4@map, "Rel. fout Gele kwikstaart per 100 ha",
                       position = "bottomleft"))
 ```
 
@@ -821,6 +821,17 @@ leafsync::sync(
                       position = "bottomleft"),
   leaflet::addControl(m3@map, "Aantal broedparen Geelgors per 100 ha",
                       position = "bottomleft"),
-  leaflet::addControl(m4@map, "Aantal broedparen Geelgors per 100 ha",
+  leaflet::addControl(m4@map, "Rel. fout Geelgors per 100 ha",
                       position = "bottomleft"))
 ```
+
+
+# Discussie
+
+Er zijn een aantal factoren die de methode kunnen verbeteren zoals de keuze voor de smoothing function $f()$.
+Indien we subgebieden willen afbakenen, kunnen we gridcellen clusteren en daarna de predictie van de cluster vergelijken met een vooraf afgesproken waarde (bv. is het aantal broedparen per 100 ha significant meer dan 10?).
+Hierbij moeten we een een methode vinden waarbij we op correcte wijze de onzekerheid berekenen op clusterniveau.
+Een eerste mogelijkheid is om een variogram op te stellen o.b.v. de fitted values om een idee te krijgen van spatiale autocorrelatie.
+Deze info kan dan gebruikt worden om de onzekerheid op clusterniveau te bepalen.
+Een tweede mogelijkheid is om andere methodes en R packages te bekijken die dergelijke berekeningen incorporeren.
+Deze mogelijkheden zullen in een later stadium onderzocht worden.
