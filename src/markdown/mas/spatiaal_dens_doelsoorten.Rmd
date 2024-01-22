@@ -257,11 +257,11 @@ steekproefkader_buf <- steekproefkader %>%
   st_buffer(300)
 ```
 
-We maken een grid met cellen van met dezelfde oppervlakte als de telcirkels en leggen deze over het steekproefkader (met buffer van 300 m).
+We maken een grid met cellen van met dezelfde oppervlakte als de telcirkels en leggen deze over het steekproefkader (= telpunten steekproefkader met buffer van 300 m).
 Voor de centroïde van elke grid cell maken we een predictie o.b.v. het model.
 
 ```{r, cache=TRUE}
-# Create grid
+# Maak grid over bounding box steekproefkader
 grid_total <- st_make_grid(steekproefkader_buf,
                            cellsize = units::set_units(300*300*pi, "m^2"),
                            square = TRUE) %>%
@@ -269,6 +269,7 @@ grid_total <- st_make_grid(steekproefkader_buf,
   rownames_to_column(var = "id") %>%
   st_as_sf(crs = 31370)
 
+# Selecteer enkel gridcellen die overlappen met steekproefkader
 ids <- st_intersection(grid_total, steekproefkader_buf) %>%
   pull(id)
 
@@ -281,11 +282,12 @@ new_df <- grid %>%
   mutate(x_plot = st_coordinates(.data$geometry)[, 1],
          y_plot = st_coordinates(.data$geometry)[, 2])
 
-pred_veldleeuwerik <- fitted(fit_veldleeuwerik, new_df,
+# Maak predicties op basis van model
+pred_veldleeuwerik <- fitted(fit_veldleeuwerik, new_df, robust = TRUE,
                              re_formula = NA, offset = FALSE)
 ```
 
-Dit visualiseren we.
+Dit visualiseren we via `geom_tile()`.
 
 ```{r}
 plot_veldleeuwerik <- new_df %>%
@@ -294,91 +296,74 @@ plot_veldleeuwerik <- new_df %>%
   mutate(across(c(x_plot, y_plot), ~ round(.x, digits = 4)),
          rel_fout = (Q97.5 - Q2.5) / (2 * Estimate))
 
-p_veldleeuwerik1 <- plot_veldleeuwerik %>%
+plot_veldleeuwerik %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
     geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
-    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
-                                     "red"),
+    scale_fill_gradientn(colours = rainbow(5),
                          breaks = c(0, 5, 10, 15, 20),
                          limits = c(0, 20)) +
     coord_sf(crs = 31370) +
     labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
          title = "Veldleeuwerik") +
     theme(legend.position = "bottom")
-p_veldleeuwerik1
 ```
 
 We kunnen contourlijnen toevoegen om de figuur begrijpbaarder te maken.
 We voegen contouren toe per 1, 3, 5 ... broedparen per 100 ha.
 
 ```{r}
-p_veldleeuwerik2 <- plot_veldleeuwerik %>%
+p_veldleeuwerik1 <- plot_veldleeuwerik %>%
   ggplot() +
   geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
           linewidth = 1) +
     geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
-    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
-                                     "red"),
+    scale_fill_gradientn(colours = rainbow(5),
                          breaks = c(0, 5, 10, 15, 20),
                          limits = c(0, 20)) +
     coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha",
-       title = "Veldleeuwerik") +
+    labs(x = "", y = "", fill = "Aantal broedparen\nper 100 ha") +
     theme(legend.position = "bottom") +
     geom_contour2(
       aes(x = x_plot, y = y_plot, z = Estimate, label = after_stat(level)),
       breaks = seq(1, 21, 2), skip = 1,
       label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
-p_veldleeuwerik2
+p_veldleeuwerik1
 ```
 
 We visualiseren ook de spatiale verdeling van de onzekerheid.
-Dit doen we aan de hand van de helft van het 95 % credible interval.
-De helft van deze lengte heet de foutmarge.
-De relatieve foutenmarge is dan deze foutmarge gedeeld door de schatting van de densiteit in die grid cell.
+Dit doen we door het 95 % credible interval toe te voegen.
 
 ```{r}
-p_veldleeuwerik3 <- plot_veldleeuwerik %>%
+p_veldleeuwerik2 <- plot_veldleeuwerik %>%
+  rename(gemiddelde = Estimate) %>%
+  pivot_longer(cols = c("gemiddelde",  "Q2.5", "Q97.5"), names_to = "statistiek",
+               values_to = "waarde") %>%
+  mutate(statistiek = factor(statistiek, levels = c("Q2.5", "gemiddelde", "Q97.5"))) %>%
   ggplot() +
     geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
             linewidth = 1) +
-    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
-    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
-                                     "red"),
-                         breaks = c(0, 0.4, 0.6, 0.8, 1.2),
-                         limits = c(0, 1.2)) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = waarde)) +
+    scale_fill_gradientn(colours = rainbow(5),
+                         breaks = c(0, 6, 12, 18, 24, 30, 36),
+                         limits = c(0, 36)) +
     coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Rel. foutenmarge aantal\nbroedparen per 100 ha",
-         title = "Veldleeuwerik") +
-    theme(legend.position = "bottom")
-p_veldleeuwerik3
-```
-
-```{r}
-p_veldleeuwerik4 <- plot_veldleeuwerik %>%
-  ggplot() +
-    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
-            linewidth = 1) +
-    geom_tile(aes(x = x_plot, y = y_plot, fill = Estimate)) +
-    scale_fill_gradientn(colours = c("blue", "purple", "gold", "orange",
-                                     "red"),
-                         breaks = c(0, 0.4, 0.6, 0.8, 1.2),
-                         limits = c(0, 1.2)) +
-    coord_sf(crs = 31370) +
-    labs(x = "", y = "", fill = "Rel. foutenmarge aantal\nbroedparen per 100 ha",
-         title = "Veldleeuwerik") +
-    theme(legend.position = "bottom") +
+    labs(x = "", y = "",
+         fill = "Aantal broedparen\nper 100 ha") +
+    theme(legend.position = "right") +
+    facet_wrap(~statistiek, ncol = 1) +
     geom_contour2(
-        aes(x = x_plot, y = y_plot, z = rel_fout, label = after_stat(level)),
-        breaks = seq(0, 1.2, 0.1), skip = 1,
+        aes(x = x_plot, y = y_plot, z = waarde, label = after_stat(level)),
+        breaks = seq(1, 36, 2), skip = 1,
         label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
-p_veldleeuwerik4
+p_veldleeuwerik2
 ```
 
+
 ```{r}
-dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE)
+dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE,
+           recursive = TRUE)
 ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol1.png"),
        p_veldleeuwerik1,
        dpi = 300,
@@ -393,35 +378,13 @@ ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol1.pdf"),
 ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol2.png"),
        p_veldleeuwerik2,
        dpi = 300,
-       width = 8,
-       height = 4)
+       width = 10,
+       height = 8)
 ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol2.pdf"),
        p_veldleeuwerik2,
        dpi = 300,
-       width = 8,
-       height = 4)
-
-ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_fout_ol1.png"),
-       p_veldleeuwerik3,
-       dpi = 300,
-       width = 8,
-       height = 4)
-ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_fout_ol1.pdf"),
-       p_veldleeuwerik3,
-       dpi = 300,
-       width = 8,
-       height = 4)
-
-ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_fout_ol2.png"),
-       p_veldleeuwerik4,
-       dpi = 300,
-       width = 8,
-       height = 4)
-ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_fout_ol2.pdf"),
-       p_veldleeuwerik4,
-       dpi = 300,
-       width = 8,
-       height = 4)
+       width = 10,
+       height = 8)
 ```
 
 
