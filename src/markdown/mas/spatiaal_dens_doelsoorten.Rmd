@@ -257,7 +257,7 @@ steekproefkader_buf <- steekproefkader %>%
   st_buffer(300)
 ```
 
-We maken een grid met cellen van met dezelfde oppervlakte als de telcirkels en leggen deze over het steekproefkader (= telpunten steekproefkader met buffer van 300 m).
+We maken een grid met cellen van dezelfde oppervlakte als de telcirkels en leggen deze over het steekproefkader (= telpunten steekproefkader met buffer van 300 m).
 Voor de centroïde van elke grid cell maken we een predictie o.b.v. het model.
 
 ```{r}
