@@ -1228,6 +1228,7 @@ for (spec in names(draws_olpropsb_list_wt)) {
 }
 ```
 
+
 ### Andere variabelen
 
 ```{r}
