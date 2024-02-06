@@ -220,7 +220,7 @@ telpunten_avimap %>%
   mapview(alpha.regions = 0) +
 tellingen_haas %>%
   st_buffer(dist = 10 * .$aantal) %>%
-  mapview(zcol = "jaar", burst = TRUE)
+  mapview(zcol = "jaar")
 ```
 
 Niet altijd duidelijk of elke haas afzonderlijk is ingevoerd, dan wel een benaderende locatie voor een cluster van hazen.
@@ -426,7 +426,7 @@ haas_hn <- ds(
   data = tellingen_haas_nulw,
   formula = ~ regio,
   key = "hn",
-  convert.units = conversion_factor,
+  convert_units = conversion_factor,
   adjustment = NULL,
   transect = "point",
   truncation = 300)
