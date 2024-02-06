@@ -61,7 +61,7 @@ library(modelr)
 model_path <- "./src/markdown/mas/brms_models/"
 cache_path <- "./src/markdown/mas/analyses_cache/"
 projpred_path <- "./src/markdown/mas/projpred_cache/"
-source("./src/R/create_figures.R")
+source(here("src/R/create_figures.R"))
 ```
 
 # Inlezen data
@@ -4140,8 +4140,8 @@ bind_rows(
   summarise(across(where(is.numeric), list(gemiddelde = mean,
                                            standaarddeviatie = sd,
                                            mediaan = median,
-                                           Q25 = q025_f,
-                                           Q75 = q975_f),
+                                           Q25 = q25_f,
+                                           Q75 = q75_f),
                    .names = "{.fn}"),
             .groups = "drop") %>%
   select(naam, regio, everything()) %>%
