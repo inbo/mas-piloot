@@ -4118,5 +4118,35 @@ for (pred in cont_vars_dm) {
 }
 ```
 
+# Output tabellen
+
+mean en sd voor ol en dm cont vars
+
+```{r}
+cont_vars_total <- unique(c(cont_vars_ol, cont_vars_dm))
+
+q25_f <- function(x) quantile(x, 0.25)
+q75_f <- function(x) quantile(x, 0.75)
+
+bind_rows(
+  df_count_list_olnew$Veldleeuwerik %>%
+    select(regio, all_of(cont_vars_ol)),
+  df_count_list_dmnew$Veldleeuwerik %>%
+    select(regio, all_of(cont_vars_dm))
+  ) %>%
+  pivot_longer(cols = -"regio", names_to = "naam", values_to = "waarde") %>%
+  drop_na() %>%
+  group_by(regio, naam) %>%
+  summarise(across(where(is.numeric), list(gemiddelde = mean,
+                                           standaarddeviatie = sd,
+                                           mediaan = median,
+                                           Q25 = q025_f,
+                                           Q75 = q975_f),
+                   .names = "{.fn}"),
+            .groups = "drop") %>%
+  select(naam, regio, everything()) %>%
+  write_csv(here("media", "beheerovereenkomsten", "data_stats_veldleeuwerik.csv"))
+```
+
 
 # Referenties
