@@ -724,7 +724,7 @@ plot_brms_fit <- function(model, x, species = "", axis_label = NULL, FUN = mean,
         group_by_at(cat_vars) %>%
         summarize(min_var = min(!!sym(x)), max_var = max(!!sym(x)))
 
-      # Create a sequence of 100 values for each group
+      # Create a sequence of n values for each group
       range_df <- range_df %>%
         rowwise() %>%
         mutate(value_range = list(seq(min_var, max_var, length.out = n))) %>%
