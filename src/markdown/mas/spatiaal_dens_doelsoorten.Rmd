@@ -360,6 +360,24 @@ p_veldleeuwerik2 <- plot_veldleeuwerik %>%
 p_veldleeuwerik2
 ```
 
+```{r}
+p_veldleeuwerik3 <- plot_veldleeuwerik %>%
+    ggplot() +
+    geom_sf(data = perimeter_ol, fill = "lightgrey", colour = "darkgrey",
+            linewidth = 1) +
+    geom_tile(aes(x = x_plot, y = y_plot, fill = rel_fout)) +
+    scale_fill_gradientn(colours = rainbow(5),
+                         breaks = c(0, 0.4, 0.8, 1.2, 1.6),
+                         limits = c(0, 1.6)) +
+    coord_sf(crs = 31370) +
+    labs(x = "", y = "", fill = "Rel. fout aantal broed-\nparen per 100 ha") +
+    theme(legend.position = "bottom") +
+    geom_contour2(
+        aes(x = x_plot, y = y_plot, z = rel_fout, label = after_stat(level)),
+        breaks = seq(0, 1.6, 0.1), skip = 1,
+        label.placer = label_placer_fraction(frac = 0.5, rot_adjuster = 0))
+p_veldleeuwerik3
+```
 
 ```{r}
 dir.create(here("media", "spatiale_densiteiten"), showWarnings = FALSE,
@@ -385,6 +403,17 @@ ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol2.pdf"),
        dpi = 300,
        width = 10,
        height = 8)
+
+ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol3.png"),
+       p_veldleeuwerik3,
+       dpi = 300,
+       width = 8,
+       height = 4)
+ggsave(here("media", "spatiale_densiteiten", "veldleeuwerik_dens_ol3.pdf"),
+       p_veldleeuwerik3,
+       dpi = 300,
+       width = 8,
+       height = 4)
 ```
 
 ## Interactieve kaarten
