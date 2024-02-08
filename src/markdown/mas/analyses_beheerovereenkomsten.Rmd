@@ -1753,7 +1753,7 @@ plot(cvvs_refmodel1, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE,
 Op basis van deze plot bepalen we submodelgrootte.
 Meestal is het de bedoeling om de kleinste submodelgrootte te vinden waarbij de voorspellende prestaties van de submodellen afvlakken en dicht genoeg in de buurt komen van de voorspellende prestaties van het referentiemodel (de gestippelde rode horizontale lijn).
 Dit blijft min of meer een subjectieve beslissing.
-Er moet er een geschikte afweging worden gemaakt tussen voorspellende prestaties (nauwkeurigheid) en modelgrootte.
+Er moet een geschikte afweging worden gemaakt tussen voorspellende prestaties (nauwkeurigheid) en modelgrootte.
 We zien na de vierde predictor geen sterke stijgingen meer.
 Wel is er nog een kleine stijging tot en met 7 à 8.
 
