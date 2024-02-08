@@ -437,5 +437,256 @@
         "title": "Improving Estimates of Bird Density Using Multiple- Covariate Distance Sampling",
         "type": "article-journal",
         "volume": "124"
+    },
+    {
+        "author": [
+            {
+                "family": "Klaassen",
+                "given": "Raymond"
+            },
+            {
+                "family": "Schultinga",
+                "given": "Marjon"
+            },
+            {
+                "family": "Sirks",
+                "given": "Aniëla"
+            },
+            {
+                "family": "Kleyheeg",
+                "given": "Erik"
+            },
+            {
+                "family": "Wiersma",
+                "given": "Popko"
+            }
+        ],
+        "genre": "GKA-rapport 2022-01",
+        "id": "klaassen2022",
+        "issued": {
+            "date-parts": [
+                [
+                    2022
+                ]
+            ]
+        },
+        "key": "P7DDYTLK",
+        "language": "nl",
+        "libraryid": "1",
+        "page": "60",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Grauwe Kiekendief – Kenniscentrum Akkervogels",
+        "publisher-place": "Scheemda",
+        "source": "Zotero",
+        "title": "Evaluatie van de effecten van het agrarisch natuurbeheer op voorkomen en trends van akkervogels in de provincie Groningen 2015 - 2020",
+        "type": "report"
+    },
+    {
+        "DOI": "10.48550/ARXIV.2306.15581",
+        "URL": "https://arxiv.org/abs/2306.15581",
+        "author": [
+            {
+                "family": "McLatchie",
+                "given": "Yann"
+            },
+            {
+                "family": "Rögnvaldsson",
+                "given": "Sölvi"
+            },
+            {
+                "family": "Weber",
+                "given": "Frank"
+            },
+            {
+                "family": "Vehtari",
+                "given": "Aki"
+            }
+        ],
+        "copyright": "Creative Commons Attribution 4.0 International",
+        "id": "mclatchie2023",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "providerkey": "doi",
+        "publisher": "arXiv",
+        "title": "Robust and efficient projection predictive inference",
+        "type": "article",
+        "version": "1"
+    },
+    {
+        "DOI": "10.48550/ARXIV.1609.00046",
+        "URL": "https://arxiv.org/abs/1609.00046",
+        "author": [
+            {
+                "family": "Zhang",
+                "given": "Yan Dora"
+            },
+            {
+                "family": "Naughton",
+                "given": "Brian P."
+            },
+            {
+                "family": "Bondell",
+                "given": "Howard D."
+            },
+            {
+                "family": "Reich",
+                "given": "Brian J."
+            }
+        ],
+        "copyright": "arXiv.org perpetual, non-exclusive license",
+        "id": "zhang2016",
+        "issued": {
+            "date-parts": [
+                [
+                    2016
+                ]
+            ]
+        },
+        "providerkey": "doi",
+        "publisher": "arXiv",
+        "title": "Bayesian Regression Using a Prior on the Model Fit: The R2-D2 Shrinkage Prior",
+        "type": "article",
+        "version": "3"
+    },
+    {
+        "DOI": "10.48550/ARXIV.2111.10718",
+        "URL": "https://arxiv.org/abs/2111.10718",
+        "author": [
+            {
+                "family": "Yanchenko",
+                "given": "Eric"
+            },
+            {
+                "family": "Bondell",
+                "given": "Howard D."
+            },
+            {
+                "family": "Reich",
+                "given": "Brian J."
+            }
+        ],
+        "copyright": "arXiv.org perpetual, non-exclusive license",
+        "id": "yanchenko2021",
+        "issued": {
+            "date-parts": [
+                [
+                    2021
+                ]
+            ]
+        },
+        "providerkey": "doi",
+        "publisher": "arXiv",
+        "title": "The R2D2 Prior for Generalized Linear Mixed Models",
+        "type": "article",
+        "version": "2"
+    },
+    {
+        "URL": "https://mc-stan.org/projpred/",
+        "author": [
+            {
+                "family": "Piironen",
+                "given": "Juho"
+            },
+            {
+                "family": "Paasiniemi",
+                "given": "Markus"
+            },
+            {
+                "family": "Catalina",
+                "given": "Alejandro"
+            },
+            {
+                "family": "Weber",
+                "given": "Frank"
+            },
+            {
+                "family": "Vehtari",
+                "given": "Aki"
+            }
+        ],
+        "id": "projpred",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "providerkey": "Packages",
+        "title": "{{projpred}}: {{Projection}} Predictive Feature Selection",
+        "type": "article"
+    },
+    {
+        "DOI": "10.1111/1365-2664.14338",
+        "ISSN": "0021-8901",
+        "URL": "http://dx.doi.org/10.1111/1365-2664.14338",
+        "author": [
+            {
+                "family": "Sharps",
+                "given": "Elwyn"
+            },
+            {
+                "family": "Hawkes",
+                "given": "Robert W."
+            },
+            {
+                "family": "Bladon",
+                "given": "Andrew J."
+            },
+            {
+                "family": "Buckingham",
+                "given": "David L."
+            },
+            {
+                "family": "Border",
+                "given": "Jennifer"
+            },
+            {
+                "family": "Morris",
+                "given": "Antony J."
+            },
+            {
+                "family": "Grice",
+                "given": "Philip V."
+            },
+            {
+                "family": "Peach",
+                "given": "Will J."
+            }
+        ],
+        "container-title": "Journal of Applied Ecology",
+        "container-title-short": "Journal of Applied Ecology",
+        "id": "sharps2023",
+        "is-referenced-by-count": "1",
+        "issue": "4",
+        "issued": {
+            "date-parts": [
+                [
+                    2023,
+                    1,
+                    4
+                ]
+            ]
+        },
+        "language": "en",
+        "member": "311",
+        "page": "568-580",
+        "prefix": "10.1111",
+        "providerkey": "doi",
+        "publisher": "Wiley",
+        "reference-count": "42",
+        "references-count": "42",
+        "score": "1",
+        "source": "Crossref",
+        "subject": "Ecology",
+        "title": "Reversing declines in farmland birds: How much agri‐environment provision is needed at farm and landscape scales?",
+        "type": "article-journal",
+        "update-policy": "http://dx.doi.org/10.1002/crossmark_policy",
+        "volume": "60"
     }
 ]

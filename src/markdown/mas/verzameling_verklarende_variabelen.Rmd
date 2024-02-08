@@ -1,0 +1,2181 @@
+---
+title: "Verzameling verklarende variabelen"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+bibliography: references.json
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here())
+
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(base::`%in%`)
+
+Sys.setenv("PROJ_NETWORK" = "ON")
+
+# Packages
+library(tidyverse)
+library(INBOtheme)
+
+library(sf)
+library(terra)
+library(nngeo)
+library(lubridate)
+
+# Source
+mbag_dir <- here()
+
+source(here("src", "R", "geocomputations.R"))
+source(here("src", "R", "berekening_hulpvariabelen.R"))
+source(here("src", "R", "berekening_verklarende_variabelen.R"))
+```
+
+# Kadering
+
+We willen een evaluatie van het effect van de maatregelen die getroffen worden binnen het agrarisch natuurbeleid op de trends en het voorkomen van akkervogels.
+Dit per soort, en op plotniveau (telcirkelniveau).
+
+Dit document geeft een overzicht van de verklarende variabelen die we gaan gebruiken in de modellen die we gaan fitten om bovenstaande te onderzoeken.
+
+1.  Welke variabelen?
+2.  Welk datatype (continu, categorisch, proporties, compositioneel ...)?
+3.  Waar verzameld?
+4.  Hoe verzameld?
+5.  Hoe berekend?
+6.  Verdere bedenkingen/opmerkingen. Zijn er bijvoorbeeld transformaties nodig?
+
+# Inlezen data
+
+We moeten de variabelen bepalen/berekenen op plotniveau (= telcirkelniveau).
+We hebben dus een lijst nodig met alle plots die geteld zijn met coördinaten.
+
+De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON.
+Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn.
+Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest).
+
+```{r}
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# If the grids are installed, this should match the first line of the pipelines object.
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% 
+  pull(definition)
+
+telpunten_2018_2021_raw <- read_sf(
+  here("data", "mas",
+       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")) %>%
+  rename(teller_2021 = teller) %>%
+  mutate(
+    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
+    type_teller_2021 = case_when(
+      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
+        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
+      is.na(teller_2021) &
+        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
+      TRUE ~ "vrijwilliger"))
+
+telpunten_2018_2021_amersfoort <- telpunten_2018_2021_raw %>%
+  st_drop_geometry() %>%
+  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
+
+telpunten_2018_2021 <- st_transform(
+  st_geometry(telpunten_2018_2021_amersfoort), "EPSG:31370",
+  pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(telpunten_2018_2021_raw), geometry = .) %>% 
+  as_tibble %>% 
+  st_as_sf %>%
+  mutate(regio = gsub("Vlaanderen - ", "", regio),
+         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio),
+         regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio))
+
+design_2018_2021 <- telpunten_2018_2021 %>%
+  select(plotnaam = naam)
+```
+
+Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden.
+Wel zijn de locaties in 2022 verkeerd voor VL plots.
+Dit zijn reeds bestaande plots en zitten dus al in de lijst van 2018-2021.
+We selecteren voor 2022 dus enkel de nieuwe plots.
+
+```{r}
+design_2022_raw <- read_csv(here(
+    "data",
+    "processed",
+    "steekproef_piloot_avimap.csv")) %>%
+  select(plotnaam = definitief_punt,
+         regio,
+         stratum,
+         X, Y) %>%
+  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
+         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
+         stratum = gsub("L\\s{1}", "L\\\n", stratum),
+         jaar = 2022L) %>%
+  st_as_sf(coords = c("X", "Y"), crs = 31370)
+
+design_2022 <- design_2022_raw %>%
+  filter(!grepl("^VL", plotnaam)) %>%
+  select(plotnaam)
+```
+
+Finaal voegen we alles samen.
+We behouden enkel plots binnen de perimeters van de pilootstudie: De Moeren en Oostelijke leemstreek.
+
+```{r}
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
+
+telpunten_2018_2022 <- bind_rows(design_2018_2021, design_2022) %>%
+  st_intersection(perimeters) %>%
+  select(pointid = plotnaam, regio = Naam)
+```
+
+In totaal gaat het om `r nrow(telpunten_2018_2022)` telpunten.
+`r nrow(filter(telpunten_2018_2022, regio == "De Moeren"))` in De Moeren en `r nrow(filter(telpunten_2018_2022, regio == "Oostelijke leemstreek"))` in de Oostelijke leemstreek.
+
+```{r}
+ggplot() +
+  geom_sf(data = perimeters, colour = "firebrick") +
+  geom_sf(data = telpunten_2018_2022, size = 0.5)
+```
+
+Ook gaan we er voorlopig van uit dat elke plot in elk jaar geteld is.
+Beter voorlopig te veel variabelen berekenen en achteraf filteren dan te weinig.
+
+```{r}
+jaar <- 2018:2023
+telpunten_2018_2023_df <- merge(telpunten_2018_2022, as.data.frame(jaar))
+```
+
+# Verklarende variabelen van prioritair belang
+
+## Oppervlakte-aandeel soortbeschermingsmaatregelen
+
+### Beschrijving
+
+Het aandeel oppervlakte aan beheerovereenkomsten binnen de telcirkel.
+
+Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
+
+-   soortbeschermingsmaatregelen
+    -   perceelsniveau
+    -   randen
+-   erosiemaatregelen
+-   bufferstroken
+
+We maken zowel een variabele aan voor soortbeschermingsmaatregelen als voor erosiebeheer en bufferstroken.
+
+### Welk datatype?
+
+Continue variabele tussen 0 en 1. Proportie.
+
+### Waar verzameld?
+
+Bestand aangeleverd door VLM: `BO_2022_VLM_EXTERN.shp`
+
+### Hoe verzameld?
+
+Aangevraagd.
+
+### Hoe berekend?
+
+Elke overeenkomst is een polygoon met informatie over begin en einde van de beheerovereenkomst.
+Start is steeds op 1 januari en stop is steeds op 31 december.
+We filteren dus telkens de punten per jaar en we filteren de beheerovereenkomsten zodat ze reeds in werking waren in dat jaar.
+Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirkel te berekenen.
+
+```{r}
+# Path to bo file
+bo_file_2022 <- path_to_bo(jaar = 2022)
+
+# Add proportion bo per year
+telpunten_2018_2023_bo_soort <- add_bo_by_year(telpunten_2018_2023_df, bo_file_2022)
+```
+
+```{r}
+summary_df <- tibble(
+  categorie = "primair", 
+  variabele = "oppervlakte-aandeel soortbeschermingsmaatregelen",
+  naam = "area_prop_sb",
+  eenheid = "proportie",
+  kaart = "beheerovereenkomsten",
+  bron = "Vlaamse Landmaatschappij",
+  afkorting = "VLM",
+  url = "")
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_bo_soort %>%
+  ggplot() +
+    geom_histogram(aes(x = area_prop_sb)) +
+    labs(
+      title = "Oppervlakte-aandeel soortbeschermingsmaatregelen",
+      x = "Oppervlakte-aandeel",
+      y = "Aantal telpunten") +
+    facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2023_bo_soort$area_prop_sb, 
+          by = list(telpunten_2018_2023_bo_soort$jaar), FUN = summary)
+```
+
+### Opmerkingen
+
+In model of visualisatie eventueel transformeren (logit + klein getal?).
+
+## Oppervlakte-aandeel erosiebeheer en bufferstroken
+
+### Beschrijving
+
+Het aandeel oppervlakte aan beheerovereenkomsten binnen de telcirkel.
+
+Indeling voor niet-productieve gewassen/beheerovereenkomsten (instrumenten):
+
+-   soortbeschermingsmaatregelen
+    -   perceelsniveau
+    -   randen
+-   erosiemaatregelen
+-   bufferstroken
+
+We maken zowel een variabele aan voor soortbeschermingsmaatregelen als voor erosiebeheer en bufferstroken.
+
+### Welk datatype?
+
+Continue variabele tussen 0 en 1. Proportie.
+
+### Waar verzameld?
+
+Bestand aangeleverd door VLM: `BO_2022_VLM_EXTERN.shp`
+
+### Hoe verzameld?
+
+Aangevraagd.
+
+### Hoe berekend?
+
+Elke overeenkomst is een polygoon met informatie over begin en einde van de beheerovereenkomst.
+Start is steeds op 1 januari en stop is steeds op 31 december.
+We filteren dus telkens de punten per jaar en we filteren de beheerovereenkomsten zodat ze reeds in werking waren in dat jaar.
+Daarna gebruiken we de `add_bo_to_frame()` functie om de proporties per telcirkel te berekenen.
+
+```{r}
+# Add proportion bo per year
+telpunten_2018_2023_bo_rest <- add_bo_by_year(
+  telpunten_2018_2023_df, 
+  bo_file_2022,
+  bh_doel = c("erosiebestrijding (ER)",
+              "perceelsrandenbeheer (PR)"))
+
+telpunten_2018_2023_bo_rest <- telpunten_2018_2023_bo_rest %>%
+  st_drop_geometry() %>%
+  rename(area_prop_bo_overig = area_prop_sb)
+```
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "primair", 
+  variabele = "oppervlakte-aandeel erosiebeheer en bufferstroken",
+  naam = "area_prop_bo_overig",
+  eenheid = "proportie", 
+  kaart = "beheerovereenkomsten",
+  bron = "Vlaamse Landmaatschappij",
+  afkorting = "VLM",
+  url = ""))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_bo_rest %>%
+  ggplot() +
+    geom_histogram(aes(x = area_prop_bo_overig)) +
+    labs(
+      title = "Oppervlakte-aandeel erosiebeheer en bufferstroken",
+      x = "Oppervlakte-aandeel",
+      y = "Aantal telpunten") +
+    facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2023_bo_rest$area_prop_bo_overig, 
+          by = list(telpunten_2018_2023_bo_rest$jaar), FUN = summary)
+```
+
+### Opmerkingen
+
+-  In model of visualisatie eventueel transformeren (logit + klein getal?).
+-  Zeer kleine getallen
+
+## Oppervlakte-aandeel hoofdteelten {#opp-hfdtlt}
+
+### Beschrijving
+
+Het aandeel oppervlakte aan verschillende hoofdteelten binnen de telcirkel.
+Gegroepeerd volgens gewasgroep.
+
+### Welk datatype?
+
+Continue variabelen tussen 0 en 1. Proporties.
+
+### Waar verzameld?
+
+Verzamelaanvraag:
+<https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>
+
+2023: voorlopige kaart.
+
+### Hoe verzameld?
+
+Download van url's.
+
+### Hoe berekend?
+
+Voor elk jaar hebben we een aparte file.
+We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
+We verwijderen de polygonen die tot de beheerovereenkomstenlaag horen.
+We voegen gewichten toe aan polygonen die overlappen.
+Indien twee polygonen met verschillende teelten overlappen, zal de oppervlakte van elke teelt een gewicht van $\frac{1}{2}$ krijgen.
+
+```{r}
+hftlt_groepen_raw <- read_csv2(file.path(mbag_dir, "data", "gewasgroepen", 
+                                         "hoofdteelten_groep.csv"))
+```
+
+We groeperen per gewasgroep.
+
+```{r}
+hftlt_groepen <- hftlt_groepen_raw %>%
+  select(GWSNAM_H = LBLHFDTLT, GEWASGROEP = nieuwe_groep) %>%
+  drop_na(GEWASGROEP)
+
+hftlt_groepen %>%
+  arrange(GEWASGROEP, GWSNAM_H) %>%
+  kable()
+```
+
+```{r}
+telpunten_2018_2023_hfdtlt_long_tot <- calc_vzml_by_year(
+  telpunten_2018_2023_df,
+  group_by_col = "GWSNAM_H",
+  clip_bo = path_to_bo(2022))
+
+telpunten_2018_2023_hfdtlt_long <- telpunten_2018_2023_hfdtlt_long_tot %>%
+  left_join(hftlt_groepen, by = join_by(GWSNAM_H)) %>%
+  # necessary for weird unicode character
+  mutate(GEWASGROEP = ifelse(grepl("^Loods", GWSNAM_H),
+                             "Landbouwinfrastructuur",
+                             GEWASGROEP))
+
+telpunten_2018_2023_hfdtlt <- telpunten_2018_2023_hfdtlt_long %>%
+  pivot_wider(id_cols = c(pointid, jaar), 
+              names_from = GEWASGROEP, 
+              values_from = area_prop, 
+              values_fill = 0,
+              values_fn = sum,
+              names_glue  = "{GEWASGROEP}_hfdtlt")
+```
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "primair", 
+  variabele = paste("hoofdteelt", 
+    tolower(unique(telpunten_2018_2023_hfdtlt_long$GEWASGROEP))),
+  naam = telpunten_2018_2023_hfdtlt %>%
+    select(ends_with("_hfdtlt")) %>%
+    names(),
+  eenheid = "proportie", 
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_hfdtlt_long %>%
+  group_by(jaar, GEWASGROEP) %>%
+  summarise(area_prop_hfdtlt = median(area_prop), .groups = "drop") %>%
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), area_prop_hfdtlt, sum,
+                              decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = GEWASGROEP, y = area_prop_hfdtlt, 
+                 fill = factor(jaar, ordered = TRUE)), 
+             stat = "identity") +
+    labs(title = "Oppervlakte-aandeel gewasgroepen", fill = "Jaar",
+         x = "", y = "Mediaan proportie over telcirkels") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+```{r}
+telpunten_2018_2023_hfdtlt_long %>%
+  group_by(jaar, GEWASGROEP) %>%
+  summarise(mediaan = median(area_prop), 
+            gemiddelde = mean(area_prop),
+            min = min(area_prop),
+            max =  max(area_prop), 
+            .groups = "drop") %>%
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), mediaan, sum,
+                              decreasing = TRUE)) %>%
+  arrange(jaar, GEWASGROEP) %>%
+  kable()
+```
+
+### Opmerkingen
+
+-   Compositionele variabele somt niet to 1 $\rightarrow$ gebruiken als proporties
+
+## Oppervlakte-aandeel hoofdteelten vorig jaar
+
+### Beschrijving
+
+Het aandeel oppervlakte aan verschillende hoofdteelten binnen de telcirkel in het jaar ervoor.
+Gegroepeerd volgens gewasgroep.
+Kan van belang zijn voor bepaalde soorten, bv. Kievit die broed op maïsstoppels van teelt vorig jaar.
+
+### Welk datatype?
+
+Continue variabelen tussen 0 en 1. Proporties.
+
+### Waar verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+### Hoe verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+### Hoe berekend?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+Voor 2019-2023 kunnen we de waardes gebruiken van de vorige jaren.
+Voor 2018 moeten we de berekingen van hierboven opniew doen o.b.v. de kaartlaag van 2017.
+
+```{r}
+# Add proportion main crop of the year before 2018
+telpunten_2017 <- telpunten_2018_2023_df %>%
+  filter(jaar == 2018) %>%
+  mutate(jaar = jaar - 1)
+telpunten_2017_hfdtlt_pre_long_tot <- calc_vzml_by_year(
+  telpunten_2017,
+  group_by_col = "GWSNAM_H",
+  clip_bo = path_to_bo(2022))
+telpunten_2017_hfdtlt_pre_long <- telpunten_2017_hfdtlt_pre_long_tot %>%
+  left_join(hftlt_groepen, by = join_by(GWSNAM_H))
+
+# Combine proportions of all years
+telpunten_2018_2023_hfdtlt_pre_long <- bind_rows(
+  telpunten_2017_hfdtlt_pre_long, telpunten_2018_2023_hfdtlt_long) %>%
+  mutate(jaar = jaar + 1) %>%
+  filter(jaar <= max(telpunten_2018_2023_hfdtlt$jaar)) # Filter year too much
+  
+telpunten_2018_2023_hfdtlt_pre <- telpunten_2018_2023_hfdtlt_pre_long %>%
+  pivot_wider(id_cols = c(pointid, jaar), 
+              names_from = GEWASGROEP, 
+              values_from = area_prop, 
+              values_fill = 0,
+              values_fn = sum,
+              names_glue  = "{GEWASGROEP}_hfdtlt_pre")
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_hfdtlt_pre_long %>%
+  group_by(jaar, GEWASGROEP) %>%
+  summarise(area_prop_hfdtlt = median(area_prop), .groups = "drop") %>%
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), area_prop_hfdtlt, sum,
+                              decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = GEWASGROEP, y = area_prop_hfdtlt, 
+                 fill = factor(jaar, ordered = TRUE)), 
+             stat = "identity") +
+    labs(title = "Oppervlakte-aandeel gewasgroepen vorig jaar", fill = "Jaar",
+         x = "", y = "Mediaan proportie over telcirkels") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+```{r}
+telpunten_2018_2023_hfdtlt_pre_long %>%
+  group_by(jaar, GEWASGROEP) %>%
+  summarise(mediaan = median(area_prop), 
+            gemiddelde = mean(area_prop),
+            min = min(area_prop),
+            max =  max(area_prop), 
+            .groups = "drop") %>%
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), mediaan, sum,
+                              decreasing = TRUE)) %>%
+  arrange(jaar, GEWASGROEP) %>%
+  kable()
+```
+
+### Opmerkingen
+
+-   Compositionele variabele somt niet to 1 $\rightarrow$ gebruiken als proporties
+
+
+## Effectief aantal hoofdteelten
+
+### Beschrijving
+
+Shannon index als maat voor diversiteit aan hoofdteelten binnen een telcirkel.
+
+### Welk datatype?
+
+Continu.
+
+### Waar verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+### Hoe verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+### Hoe berekend?
+
+We berekenen de Shannon index $H'$ per telcirkel $t$ als volgt:
+
+$$
+H'(t) = - \sum_{i=1}^{C(t)}(p_i(t)*\ln[p_i(t)])
+$$
+
+Met $p_i(t)$ de proportie van teelt $i$ ($i = 1, ..., C(t)$) in telcirkel $t$.
+We herschalen wel zodat de proporties opsommen tot 1 per telcirkel per jaar.
+
+Daarna nemen we de exponent zodat dit getal te interpreteren is als het aantal teelten moest elke teelt eenzelfde oppervlakte hebben (= effectief aantal teelten: <https://en.wikipedia.org/wiki/Diversity_index#Effective_number_of_species_or_Hill_numbers>).
+
+Voor berekening zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+```{r}
+telpunten_2018_2023_hfdtlt_div1 <- telpunten_2018_2023_hfdtlt_long_tot %>%
+    group_by(pointid, jaar) %>%
+    mutate(sum = sum(area_prop)) %>%
+    ungroup() %>%
+    mutate(area_prop_new = area_prop / sum,
+           calc = area_prop_new * log(area_prop_new)) %>%
+    group_by(pointid, jaar) %>%
+    summarise(gewas_div_shannon = exp(-sum(calc)), .groups = "drop")
+```
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "primair", 
+  variabele = "effectief aantal hoofdteelten",
+  naam = "gewas_div_shannon",
+  eenheid = "continu", 
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_hfdtlt_div1 %>%
+  ggplot() +
+    geom_histogram(aes(x = gewas_div_shannon)) +
+    labs(title = "Effectief aantal hoofdteelten",
+         x = "Effectief aantal hoofdteelten per plot", 
+         y = "Frequentie") +
+    facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2023_hfdtlt_div1$gewas_div_shannon, 
+          by = list(telpunten_2018_2023_hfdtlt_div1$jaar), FUN = summary)
+```
+
+### Opmerkingen
+
+/
+
+## Absoluut aantal hoofdteelten
+
+### Beschrijving
+
+Aantal hoofdteelten per telcirkel.
+
+### Welk datatype?
+
+Discreet positief.
+Count data.
+
+### Waar verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+### Hoe verzameld?
+
+Zie oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+### Hoe berekend?
+
+Tel het aantal verschillende hoofdteelten per plot per jaar.
+
+Op basis van dataframe oppervlakte-aandeel hoofdteelten (\@ref(opp-hfdtlt)).
+
+```{r}
+telpunten_2018_2023_hfdtlt_div2 <- telpunten_2018_2023_hfdtlt_long_tot %>%
+  count(pointid, jaar, name = "gewas_div_n")
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_hfdtlt_div2 %>%
+  ggplot() +
+    geom_bar(aes(x = gewas_div_n)) +
+    scale_x_continuous(breaks = seq(0, 20, 2),
+                       limits = c(0, NA)) +
+    labs(title = "Diversiteit aan hoofdteelten (aantal)",
+         x = "Aantal verschillende hoofdteelten per plot", 
+         y = "Frequentie") +
+    facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2023_hfdtlt_div2$gewas_div_n, 
+          by = list(telpunten_2018_2023_hfdtlt_div2$jaar), FUN = summary)
+```
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "primair", 
+  variabele = "absoluut aantal hoofdteelten", 
+  naam = "gewas_div_n",
+  eenheid = "aantal", 
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
+```
+
+### Opmerkingen
+
+Deze variabele wordt gebruikt als 'gewasdiversiteit' door @klaassen2022.
+
+## Evenness aan hoofdteelten
+
+### Beschrijving
+
+Evenness hoofdteelten per telcirkel.
+
+### Welk datatype?
+
+Fractie tussen 0 en 1.
+
+### Waar verzameld?
+
+n.v.t.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+We delen het effectief aantal hoofdteelten (als alle proporties gelijk zouden zijn) door het absoluut aantal hoofdteelten. Deze maat is dus 1 als alle hoofteelten binnen de telcirkel in eenzelfde proportie voorkomen.
+
+```{r}
+telpunten_2018_2023_hfdtlt_evenness <- telpunten_2018_2023_hfdtlt_div2 %>%
+  full_join(telpunten_2018_2023_hfdtlt_div1, by = join_by(pointid, jaar)) %>%
+  mutate(gewas_evenness = gewas_div_shannon / gewas_div_n) %>%
+  select(-c(gewas_div_shannon, gewas_div_n))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_hfdtlt_evenness %>%
+  ggplot() +
+    geom_histogram(aes(x = gewas_evenness)) +
+    labs(title = "Evenness hoofdteelten",
+         x = "Evenness", 
+         y = "Frequentie") +
+    facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2023_hfdtlt_evenness$gewas_evenness, 
+          by = list(telpunten_2018_2023_hfdtlt_evenness$jaar), FUN = summary)
+```
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "primair", 
+  variabele = "evenness gewasdiversiteit", 
+  naam = "gewas_evenness",
+  eenheid = "fractie", 
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
+```
+
+### Opmerkingen
+
+/
+
+## Oppervlakte aandeel voorteelten
+
+### Beschrijving
+
+Het aandeel oppervlakte aan verschillende voorteelten binnen de telcirkel.
+
+### Welk datatype?
+
+Continue variabelen tussen 0 en 1. Proporties.
+
+### Waar verzameld?
+
+Verzamelaanvraag:
+<https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>
+
+2023: voorlopige kaart.
+
+### Hoe verzameld?
+
+Download van url.
+
+### Hoe berekend?
+
+Voor elk jaar hebben we een aparte file.
+We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
+Indien twee polygonen met verschillende teelten overlappen, zal de oppervlakte van elke teelt een gewicht van $\frac{1}{2}$ krijgen.
+We verwijderen de polygonen die tot de beheerovereenkomstenlaag horen.
+
+```{r}
+vrtlt_groepen_raw <- read_csv2(file.path(mbag_dir, "data", "gewasgroepen", 
+                                         "voorteelten_groep.csv"))
+```
+
+We groeperen per gewasgroep.
+
+```{r}
+vrtlt_groepen <- vrtlt_groepen_raw %>%
+  select(GWSNAM_V, GEWASGROEP = nieuwe_groep) %>%
+  drop_na(GEWASGROEP)
+
+vrtlt_groepen %>%
+  arrange(GEWASGROEP, GWSNAM_V) %>%
+  kable()
+```
+
+```{r}
+telpunten_2018_2023_vrtlt_long_tot <- calc_vzml_by_year(
+  telpunten_2018_2023_df,
+  group_by_col = "GWSNAM_V",
+  clip_bo = path_to_bo(2022))
+
+telpunten_2018_2023_vrtlt_long <- telpunten_2018_2023_vrtlt_long_tot %>%
+  left_join(vrtlt_groepen, by = join_by(GWSNAM_V))
+
+telpunten_2018_2023_vrtlt <- telpunten_2018_2023_vrtlt_long %>%
+  pivot_wider(id_cols = c(pointid, jaar), 
+              names_from = GEWASGROEP, 
+              values_from = area_prop,
+              values_fn = sum,
+              values_fill = 0,
+              names_glue  = "{GEWASGROEP}_vrtlt")
+```
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "primair", 
+  variabele = paste("voorteelt",
+    tolower(unique(telpunten_2018_2023_vrtlt_long$GEWASGROEP))), 
+  naam = telpunten_2018_2023_vrtlt %>%
+    select(ends_with("_vrtlt")) %>%
+    names(),
+  eenheid = "proportie",
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_vrtlt_long %>%
+  group_by(jaar, GEWASGROEP) %>%
+  summarise(area_prop_vrtlt = median(area_prop), .groups = "drop") %>%
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), area_prop_vrtlt, sum,
+                              decreasing = TRUE)) %>%
+  ggplot() +
+    geom_bar(aes(x = GEWASGROEP, y = area_prop_vrtlt, 
+                 fill = factor(jaar, ordered = TRUE)), 
+             stat = "identity") +
+    labs(title = "Oppervlakte-aandeel gewasgroepen voorteelt", fill = "Jaar",
+         x = "", y = "Mediaan proportie over telcirkels") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+```{r}
+telpunten_2018_2023_vrtlt_long %>%
+  group_by(jaar, GEWASGROEP) %>%
+  summarise(mediaan = median(area_prop), 
+            gemiddelde = mean(area_prop),
+            min = min(area_prop),
+            max =  max(area_prop), 
+            .groups = "drop") %>%
+  mutate(GEWASGROEP = reorder(factor(GEWASGROEP), mediaan, sum,
+                              decreasing = TRUE)) %>%
+  arrange(jaar, GEWASGROEP) %>%
+  kable()
+```
+
+### Opmerkingen
+
+-   Veel `NA`. Variabele bruikbaar?
+
+
+# Verklarende variabelen van secundair belang
+
+## Regio
+
+### Beschrijving
+
+Regio's van pilootmeetnet.
+
+### Welk datatype?
+
+Categorisch.
+
+### Waar verzameld?
+
+Steekproefdesign.
+
+### Hoe verzameld?
+
+Intersectie landbouwstreek België met contour Vlaanderen en overlappend met prioritaire gebieden voor akkervogels.
+Zie `piloot_perimeters.gpkg`.
+
+### Hoe berekend?
+
+n.v.t.
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "regio",
+  naam = "regio",
+  eenheid = "categorisch", 
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
+```
+
+### Visualisatie
+
+```{r}
+perimeters %>%
+  rename(regio = Naam) %>%
+  filter(regio == "De Moeren") %>%
+  ggplot() +
+    geom_sf(colour = "firebrick") +
+    geom_sf(data = telpunten_2018_2022 %>% 
+              filter(regio == "De Moeren")) +
+    facet_wrap(~regio) +
+    labs(title = "Regio")
+
+perimeters %>%
+  rename(regio = Naam) %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  ggplot() +
+    geom_sf(colour = "firebrick") +
+    geom_sf(data = telpunten_2018_2022 %>% 
+              filter(regio == "Oostelijke leemstreek")) +
+    facet_wrap(~regio)
+```
+
+### Opmerkingen
+
+/
+
+## Openheid landschap
+
+### Beschrijving
+
+We maken gebruik van het DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie. Werkwijze:
+
+-  berekening “canopy height model” (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, …)
+-  berekening van “positive topographic openness” (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 1000 m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians)
+-  met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 1000 m
+
+We voegen ook de categorische variabele toe gebaseerd op 300 m.
+
+-   berekening "canopy height model" (CHM) door verschil te berekenen tussen DSM en DTM. Dit geeft dan hoogte boven het maaiveld (gebouwen, bodem, struiken, ...).
+-   berekening van "positive topographic openness" (dit is een waarde tussen 0 en 2 in radians) door voor elke rastercel van het CHM in 8 kijkrichtingen na te gaan wat de gemiddelde hoek is t.o.v. zenith binnen een straal van 300m. Deze hoek geeft aan hoe plat het landschap is. Indien volledig plat is de hoek 90° (of 1.57 radians).
+-   met dit resultaat de gemiddelde (van de gemiddelde) topografische openheid berekenen in een cirkelvormig landschap rond elke cel met straal 300 m.
+-   deze gemiddelden zijn daarna ingedeeld in drie klassen:
+    -   OL open landschap (\> 86,5°),
+    -   HOL halfopen landschap (77,3° - 86,5°),
+    -   HGL halfgesloten landschap (71,6° - 77,3°)
+    -   GL (\< 71,6°) gesloten landschap
+
+### Welk datatype?
+
+Continu.
+
+### Waar verzameld?
+
+DSM (digitaal oppervlakte model - DHMV II Vlaanderen) en DTM (digitaal terrein model) op 5 m resolutie.  
+https://www.vlaanderen.be/digitaal-vlaanderen/onze-oplossingen/earth-observation-data-science-eodas/het-digitaal-hoogtemodel/digitaal-hoogtemodel-vlaanderen-ii
+
+### Hoe verzameld?
+
+download van url
+
+### Hoe berekend?
+
+zie file `landschap_chm_openheid_1000m.R`
+
+Met de functie `add_openheid_landschap_to_frame()` kunnen we deze categoriën toevoegen aan de telpunten.
+
+Per punt is openheid landschap berekend in een straal van 300 vanuit het centrum van de telcirkel.
+
+```{r}
+openheid_landschap_file <- path_to_openheid_landschap(
+  "openness1000m_chm_res25_c1000_mean_vlaanderen.tif"
+)
+telpunten_2018_2023_openheid_1000 <- add_openheid_landschap_to_frame(
+    path = openheid_landschap_file,
+    punten_sf = telpunten_2018_2022,
+    gebied = perimeters) %>%
+  rename(openheid_waarde_1000 = openheid_waarde) %>%
+  select(-openheid_klasse)
+
+telpunten_2018_2023_openheid_300 <- add_openheid_landschap_to_frame(
+    path = path_to_openheid_landschap(),
+    punten_sf = telpunten_2018_2022,
+    gebied = perimeters) %>%
+  rename(openheid_klasse_300 = openheid_klasse) %>%
+  select(-openheid_waarde)
+
+telpunten_2018_2023_openheid <- telpunten_2018_2023_openheid_1000 %>%
+  full_join(st_drop_geometry(telpunten_2018_2023_openheid_300),
+            by = join_by(pointid, regio))
+```
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "secundair", 
+  variabele = c("openheid landschap waarde (1000 m)",
+                "openheid landschap klasse (300 m)"),
+  naam = c("openheid_waarde_1000", "openheid_klasse_300"),
+  eenheid = c("continu", "categorisch"), 
+  kaart = "Digitaal Hoogtemodel Vlaanderen II (5 m)",
+  bron = "Agentschap Digitaal Vlaanderen",
+  afkorting = "",
+  url = "https://www.vlaanderen.be/digitaal-vlaanderen/onze-oplossingen/earth-observation-data-science-eodas/het-digitaal-hoogtemodel/digitaal-hoogtemodel-vlaanderen-ii"))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_openheid %>%
+  ggplot() +
+    geom_histogram(aes(x = openheid_waarde_1000)) +
+    facet_wrap(~regio) +
+    labs(x = "Openheid waarde (1000 m)", y = "Aantal telcirkels",
+         title = "Openheid landschap")
+```
+
+```{r}
+aggregate(telpunten_2018_2023_openheid$openheid_waarde_1000, 
+          by = list(telpunten_2018_2023_openheid$regio), FUN = summary)
+```
+
+### Opmerkingen
+
+Voor de modellen zijn we geïnteresseerd in de continue openheidswaardes op 1000 m. De categorische waarden op 300 m worden hier toegevoegd ter compleetheid. Deze kunnen eventueel ook nog gebruikt worden om de data te filteren.
+
+## Soortbeschermingsplan
+
+### Beschrijving
+
+Zowel binnen kerngebied als zoekzones zijn er soortbeschermende maatregelen (SB BO’s) gelegd (zie kaart VLM BO’s). In theorie waren deze maatregelen vooral bedoeld voor kerngebied, en zal daar een hogere dichtheid (bedekkingsgraad) liggen, maar de VLM heeft het toegelaten om ook in zoekzones deze maatregelen te sluiten (al was dat minder de prioriteit). Daar werd bv. in de Moeren geen rekening mee gehouden, en werden erg veel SB BO’s gelegd, ook omdat dit gebied wél kerngebied was van plan kiekendief (SBP Grauwe Kiekendief) waardoor er wel veel BO’s gesloten zijn. In de toekomst heeft VLM beloofd om meer/enkel rekening te houden met kerngebied.
+
+Voor het pilootmeetnet namen we de kerngebieden samen als onderzoeksgebied (binnen sbp) en alles hierbuiten beschouwen we als controle (buiten sbp).
+
+### Welk datatype?
+
+Categorisch.
+
+### Waar verzameld?
+
+https://www.vlaanderen.be/datavindplaats/catalogus/beheergebieden-akkervogelsoorten-toestand-11-8-2017
+
+### Hoe verzameld?
+
+url
+
+### Hoe berekend?
+
+```{r}
+telpunten_2018_2023_sbp <- add_sbp_per_regio(telpunten_2018_2022, perimeters)
+```
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "soortbeschermingsplan", 
+  naam = "sbp",
+  eenheid = "categorisch",
+  kaart = "",
+  bron = "Vlaamse Landmaatschapij",
+  afkorting = "VLM",
+  url = ""))
+```
+
+### Visualisatie
+
+```{r}
+perimeters %>%
+  rename(regio = Naam) %>%
+  filter(regio == "De Moeren") %>%
+  ggplot() +
+    geom_sf(colour = "firebrick", fill = alpha("lightblue", 0.2)) +
+    geom_sf(data = 
+              read_sbp_akkervogels(
+                path = path_to_sbp_akkervogels(), 
+                gebied = perimeters %>% 
+                  filter(Naam == "De Moeren")),
+            fill = alpha("green", 0.2)) +
+    geom_sf(data = telpunten_2018_2023_sbp %>% 
+              filter(regio == "De Moeren"),
+            aes(colour = sbp)) +
+
+      facet_wrap(~regio) +
+    labs(title = "Regio")
+
+perimeters %>%
+  rename(regio = Naam) %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  ggplot() +
+    geom_sf(colour = "firebrick", fill = alpha("lightblue", 0.2)) +
+    geom_sf(data = 
+                read_sbp_akkervogels(
+                  path = path_to_sbp_akkervogels(), 
+                  gebied = perimeters %>% 
+                    filter(Naam == "Oostelijke leemstreek")),
+              fill = alpha("green", 0.2)) +
+    geom_sf(data = telpunten_2018_2023_sbp %>% 
+              filter(regio == "Oostelijke leemstreek"),
+            aes(colour = sbp)) +
+    facet_wrap(~regio)
+```
+
+### Opmerkingen
+
+Deze variabele is waarschijnlijk sterk collineair met aandeel beheerovereenkomsten. Bovendien varieert deze variabele niet met jaar, terwijl het beheer wel veranderde over de jaren. Dit is ook in aandeel beheerovereenkomsten opgenomen. Mogelijks is het dus niet nuttig deze variabele op te nemen.
+
+## Status teller
+
+### Beschrijving
+
+Analyses van telpunten die zowel door vrijwilligers als professionele teller zijn geteld, gaven duidelijk aan dat vrijwilligers een significant lager aantal waarnemingen en soorten zien dan de professionele teller. Voor elk telpunt willen we dus ook weten of de plot geteld is door een professionele teller of een vrijwilliger.
+
+### Welk datatype?
+
+Categorisch.
+
+### Waar verzameld?
+
+n.v.t.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+De volgende teller codes behoren tot professionele tellers: `c("WVNT00", "JJNN16", "NOVN00", "ETBX00")` en `"RPLT02"` vanaf 2022. Zolang het niet duidelijk is welke punten wanneer geteld zijn (incl. nulwaarnemingen) zullen we de berekeningen hier niet doen. Bovendien zijn dus enkele punten zowel door vrijwilligers als professionelen geteld en soms ook buiten telperiodes. Deze variabele moet dus berekend worden na filtering van de data.
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "status teller",
+  naam = "status_teller",
+  eenheid = "categorisch", 
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
+```
+
+### Visualisatie
+
+n.v.t.
+
+### Opmerkingen
+
+/
+
+## Oppervlakte-aandeel kleine landschapselementen
+
+### Beschrijving
+
+Het aandeel oppervlakte aan kleine landschapselementen binnen de telcirkel.
+
+Landschapselementen op of aangrenzend aan landbouwgebruikspercelen in Vlaanderen (onderzoek 2017 op basis van gegevens 2015).
+
+### Welk datatype?
+
+Continue variabele. Proportie tussen 0 en 1.
+
+### Waar verzameld?
+
+https://landbouwcijfers.vlaanderen.be/open-geodata-kaart-landschapselementen
+
+### Hoe verzameld?
+
+Download shapefiles van link.
+
+### Hoe berekend?
+
+We berekenen de oppervlakte per subklasse binnen de telcirkel.
+
+```{r}
+kle_path <- file.path("data", 
+  "Landschapselementen_rond_binnen_landbouwgebruikspercelen_2017",
+  "Landschapselementen_rond_binnen_landbouwgebruikspercelen_2017.gpkg")
+kle_layer <- st_read(kle_path)
+
+kle_layer %>% st_drop_geometry() %>% 
+  distinct(topklasse, subklasse, klasse) %>% 
+  arrange(topklasse, subklasse, klasse) %>%
+  kable()
+```
+
+```{r}
+# Bereken proportie kle's per subklasse
+prop_kle <- landusemetrics_grid_cell(
+  grid_cell = telpunten_2018_2022 %>% st_buffer(dist = 300),
+  layer = kle_layer %>% rename(geometry = geom),
+  grid_group_by_col = "pointid",
+  layer_group_by_col = "subklasse") %>%
+  ungroup()
+
+# Voeg afwezige kle's toe aan dataframes
+design_kle <- expand.grid(pointid = unique(telpunten_2018_2022$pointid), 
+                          subklasse = unique(kle_layer$subklasse))
+
+telpunten_2018_2023_kle_long <- telpunten_2018_2022 %>%
+  full_join(design_kle, by = c("pointid")) %>%
+  full_join(prop_kle, by = c("pointid", "subklasse")) %>%
+  mutate(area_prop_kle = area_prop) %>%
+  select(-c(cell_area, area_m2, area_prop)) %>%
+  replace(is.na(.), 0)
+
+telpunten_2018_2023_kle <- telpunten_2018_2023_kle_long %>%
+  st_drop_geometry() %>%
+  pivot_wider(id_cols = c("pointid", "regio"), 
+              names_from = "subklasse", 
+              values_from = "area_prop_kle")
+```
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "secundair", 
+  variabele = tolower(unique(telpunten_2018_2023_kle_long$subklasse)), 
+  naam = tolower(unique(telpunten_2018_2023_kle_long$subklasse)),
+  eenheid = "proportie", 
+  kaart = "kaart landschapselementen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-kaart-landschapselementen"))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_kle_long %>%
+  ggplot() +
+    geom_histogram(aes(x = area_prop_kle)) +
+    labs(
+      title = "Oppervlakte-aandeel kleine landschapselementen",
+      x = "Oppervlakte-aandeel",
+      y = "Aantal telpunten") +
+    facet_wrap(~subklasse)
+```
+
+```{r}
+telpunten_2018_2023_kle_long %>%
+  st_drop_geometry() %>%
+  group_by(subklasse) %>%
+  summarise(mediaan = median(area_prop_kle), 
+            gemiddelde = mean(area_prop_kle),
+            min = min(area_prop_kle),
+            max =  max(area_prop_kle), 
+            .groups = "drop") %>%
+  mutate(subklasse = reorder(factor(subklasse), mediaan, sum,
+                              decreasing = TRUE)) %>%
+  arrange(subklasse) %>%
+  kable()
+```
+
+### Opmerkingen
+
+Gebruiken we oppervlakte aandeel kleine landschapselementen of splitsen we op via de klasses cf. hoofdteelten?
+
+## Oppervlakte-aandeel biolandbouw
+
+### Beschrijving
+
+Het aandeel oppervlakte aan kleine landschapselementen binnen de telcirkel.
+
+### Welk datatype?
+
+Continue variabele. Proportie tussen 0 en 1.
+
+### Waar verzameld?
+
+??
+
+### Hoe verzameld?
+
+### Hoe berekend?
+
+### Visualisatie
+
+### Opmerkingen
+
+Geen kaartlaag beschikbaar. Bovendien is er niet veel biolandbouw in ons gebied. We verwachten ook niet dat dit een belangrijke factor zal zijn.
+
+## Perceelsgroottes
+
+### Beschrijving
+
+Mediaan en interkwartielafstand van groottes van percelen die overlappen met telcirkels. Een perceel is de combinatie van aaneenliggende landbouwgebruikspercelen met dezelfde hoofdteelt.
+
+We berekenen ook de variatiecoëfficiënt (<https://en.wikipedia.org/wiki/Coefficient_of_variation>)
+
+### Welk datatype?
+
+Continu.
+
+### Waar verzameld?
+
+Belangrijkste teelten 2018-2021:\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2018>\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2019>\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2020>\
+<https://www.vlaanderen.be/datavindplaats/catalogus/landbouwgebruikspercelen-lv-2021>
+
+Belangrijkste teelten in 2022:\
+<https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>\
+Voorlopige kaart.
+Finale kaart wordt eind april gepubliceerd (?).
+
+### Hoe verzameld?
+
+Download van url's.
+
+### Hoe berekend?
+
+We selecteren alle landbouwgebruikspercelen die overlappen met de telcirkels. We aggregeren aaneenliggende percelen indien ze dezelfde hoofdteelt hebben. Per telcirkel berekenen we de oppervlaktes van bijbehorende percelen. We nemen finaal de mediaan en interkwartielafstand van de oppervlaktes.  
+Zoals voordien zijn er enkele `NA`'s in de `LBLHFDTLT` kolom van de laag van 2019 die effectief niet met landbouwpercelen lijken overeen te komen (vaak smalle stroken tussenin). Deze worden weggefilterd.
+
+> Doordat de lagen van 2022 en 2023 van een andere bron komen zit er een if statement in de functie `calc_perceelsgrootte_by_year()` die hiermee reking houdt, maar dit is geen mooie code
+
+```{r}
+telpunten_2018_2023_prcl <- calc_perceelsgrootte_by_year(telpunten_2018_2023_df)
+```
+
+Een voorbeeld:
+
+```{r testcase-perceelsgroottes, cache=TRUE}
+# Filter and load
+testcase <- telpunten_2018_2023_df %>%
+  filter(pointid %in% c("DM_386.7", "DM_44.45"),
+         jaar == 2021)
+lbg_binding <- st_read(file.path("data", "landbouwgebruikspercelen", 
+                        "Shapefile", "Lbgbrprc21.shp")) %>%
+  st_transform(crs = 31370)
+
+# Intersection
+intersect <- st_intersection(testcase %>% st_buffer(300), lbg_binding)
+
+out_df_testcase <- lbg_binding %>% 
+  filter(OIDN %in% intersect$OIDN) %>%       # Filter percelen
+  full_join(st_drop_geometry(intersect), by = c("OIDN", "UIDN", "ALVID",
+              "HFDTLT", "LBLHFDTLT", "GEWASGROEP", "PM", "LBLPM", "LENGTE",
+              "OPPERVL")) %>% # Get point ids back
+  filter(!is.na(LBLHFDTLT)) %>%
+  
+  # Join neighbouring polygons by main crop
+  group_by(pointid, LBLHFDTLT) %>%
+  summarise() %>%
+  st_cast("MULTIPOLYGON") %>%
+  st_cast("POLYGON") %>%
+  ungroup()
+
+# Visualise
+ggplot() +
+  geom_sf(data = out_df_testcase, fill = alpha("cornflowerblue", 0.5)) +
+  geom_sf(data = st_buffer(testcase, 300), fill = alpha("white", 0),
+          linewidth = 2) +
+  geom_sf(data = testcase, colour = "firebrick", size = 2)
+```
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "secundair", 
+  variabele = c("centrale waarde perceelsgroottes", 
+                "variabiliteit perceelsgroottes",
+                "variatiecoëfficiënt perceelsgroottes"),
+  naam = c("perceel_median_area", "perceel_iqr_area", "perceel_cv_area"),
+  eenheid = c("m²", "m²", "fractie"), 
+  kaart = "landbouwgebruikspercelen",
+  bron = "Departement Landbouw en Visserij",
+  afkorting = "Dept. LV",
+  url = "https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen"))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_prcl %>%
+  ggplot() +
+    geom_histogram(aes(x = perceel_median_area)) +
+    labs(title = "Perceelsgroottes (mediaan)",
+         x = "Mediaan perceelsgroottes (m²)",
+         y = "Aantal telpunten") +
+  facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2023_prcl$perceel_median_area, 
+          by = list(telpunten_2018_2023_prcl$jaar), FUN = summary)
+```
+
+```{r}
+telpunten_2018_2023_prcl %>%
+  ggplot() +
+    geom_histogram(aes(x = perceel_iqr_area)) +
+    labs(title = "Perceelsgroottes (IQR)",
+         x = "IQR perceelsgroottes (m²)",
+         y = "Aantal telpunten") +
+  facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2023_prcl$perceel_iqr_area, 
+          by = list(telpunten_2018_2023_prcl$jaar), FUN = summary)
+```
+
+```{r}
+telpunten_2018_2023_prcl %>%
+  ggplot() +
+    geom_histogram(aes(x = perceel_cv_area)) +
+    labs(title = "Perceelsgroottes (CV)",
+         x = "Variatiecoëfficiënt",
+         y = "Aantal telpunten") +
+  facet_wrap(~jaar)
+```
+
+```{r}
+aggregate(telpunten_2018_2023_prcl$perceel_cv_area, 
+          by = list(telpunten_2018_2023_prcl$jaar), FUN = summary)
+```
+
+### Opmerkingen
+
+-  Collineariteit mediaan en IQR onderzoeken. Enkel CV gebruiken?
+-  Log-transformatie?
+
+## X- en Y-coördinaten
+
+### Beschrijving
+
+Spatiale component. We verwachten bv. hogere soortenrijkdom in oosten van Oostelijke leemstreek.
+
+### Welk datatype?
+
+Continu.
+
+### Waar verzameld?
+
+Coördinaten SOVON. Let op! Zie opmerkingen en code bij 'Inlezen data' om Amersfoort naar Lambert 72 om te zetten.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+n.v.t.
+
+### Visualisatie
+
+n.v.t.
+
+### Opmerkingen
+
+/
+
+## Inertie soortbeschermingsmaatregelen
+
+### Beschrijving
+
+Gewogen gemiddelde van jaar sinds implementatie soortbeschermingsmaatregelen per telcirkel.  
+  
+-  Geen beheerovereenkomst: 0
+-  Wel beheerovereekomst: Gewogen (oppervlakte beheerovereenkomst) gemiddelde van ...
+   -  1: start beheerovereenkomst in zelfde jaar als telling
+   -  2: start beheerovereenkomst 1 jaar vóór telling
+   -  3: start beheerovereenkomst 2 jaar vóór telling
+   -  ...
+
+We categoriseren de gemiddeldes door af te ronden naar een geheel getal.
+
+### Welk datatype?
+
+Continu.
+
+### Waar verzameld?
+
+Bestand aangeleverd door VLM: `BO_2022_VLM_EXTERN.shp`
+
+### Hoe verzameld?
+
+Aangevraagd.
+
+### Hoe berekend?
+
+```{r}
+# Path to bo file
+bo_file_2022 <- path_to_bo(jaar = 2022)
+
+# Add proportion bo per year
+telpunten_2018_2023_inertia_sb <- add_bo_inertia(
+    punten_df = telpunten_2018_2023_df, 
+    path_bo = bo_file_2022, 
+    bh_doel = "soortenbescherming (SB)") %>%
+  rename(inertie_sb = inertia)
+```
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair",
+  naam = "inertie soortbeschermingsmaatregelen",
+  variabele = "inertie_sb", 
+  eenheid = "aantal", 
+  kaart = "Beheerovereenkomsten",
+  bron = "Vlaamse Landmaatschappij",
+  afkorting = "VLM",
+  url = ""))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_inertia_sb %>%
+  ggplot() +
+    geom_bar(aes(x = inertie_sb)) +
+    scale_x_continuous(breaks = 
+                         unique(telpunten_2018_2023_inertia_sb$inertie_sb)) +
+    labs(
+      title = "Implementatie soortbeschermingsmaatregelen",
+      x = "Gemiddeld jaar sinds soortbeschermingsmaatregelen (gecategoriseerd)",
+      y = "Aantal telpunten") +
+    facet_wrap(~jaar)
+```
+
+```{r}
+telpunten_2018_2023_inertia_sb %>% 
+  st_drop_geometry() %>% 
+  mutate(cat = ifelse(inertie_sb == 0, "0", ">0")) %>% 
+  count(jaar, cat) %>%
+  pivot_wider(names_from = cat, values_from = n) %>%
+  kable()
+```
+
+```{r}
+aggregate(telpunten_2018_2023_inertia_sb$inertie_sb, 
+          by = list(telpunten_2018_2023_inertia_sb$jaar), FUN = summary)
+```
+
+### Opmerkingen
+
+/
+
+## Inertie erosiebeheer en bufferstroken
+
+### Beschrijving
+
+Gewogen gemiddelde van jaar sinds implementatie erosiebeheer en bufferstroken per telcirkel.  
+  
+-  Geen beheerovereenkomst: 0
+-  Wel beheerovereekomst: Gewogen (oppervlakte beheerovereenkomst) gemiddelde van ...
+   -  1: start beheerovereenkomst in zelfde jaar als telling
+   -  2: start beheerovereenkomst 1 jaar vóór telling
+   -  3: start beheerovereenkomst 2 jaar vóór telling
+   -  ...
+
+We categoriseren de gemiddeldes door af te ronden naar een geheel getal.
+
+### Welk datatype?
+
+Continu.
+
+### Waar verzameld?
+
+Bestand aangeleverd door VLM: `BO_2022_VLM_EXTERN.shp`
+
+### Hoe verzameld?
+
+Aangevraagd.
+
+### Hoe berekend?
+
+```{r}
+# Add proportion bo per year
+telpunten_2018_2023_inertia_overig <- add_bo_inertia(
+    telpunten_2018_2023_df, 
+    path_bo = bo_file_2022, 
+    bh_doel = c("erosiebestrijding (ER)", "perceelsrandenbeheer (PR)")) %>%
+  rename(inertie_overig = inertia)
+```
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "secundair", 
+  variabele = "inertie erosiebeheer en bufferstroken", 
+  naam = "inertie_overig",
+  eenheid = "aantal", 
+  kaart = "Beheerovereenkomsten",
+  bron = "Vlaamse Landmaatschappij",
+  afkorting = "VLM",
+  url = ""))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_inertia_overig %>%
+  ggplot() +
+    geom_bar(aes(x = inertie_overig)) +
+    scale_x_continuous(breaks = 
+                         unique(telpunten_2018_2023_inertia_overig$inertie_overig)) +
+    labs(
+      title = "Implementatie erosiebeheer en bufferstroken",
+      x = "Gemiddeld jaar sinds erosiebeheer en bufferstroken (gecategoriseerd)",
+      y = "Aantal telpunten") +
+    facet_wrap(~jaar)
+```
+
+```{r}
+telpunten_2018_2023_inertia_overig %>% 
+  st_drop_geometry() %>% 
+  mutate(cat = ifelse(inertie_overig == 0, "0", ">0")) %>% 
+  count(jaar, cat) %>%
+  pivot_wider(names_from = cat, values_from = n) %>%
+  kable()
+```
+
+```{r}
+aggregate(telpunten_2018_2023_inertia_overig$inertie_overig, 
+          by = list(telpunten_2018_2023_inertia_overig$jaar), FUN = summary)
+```
+
+### Opmerkingen
+
+/
+
+## Aantal predatoren
+
+### Beschrijving
+
+Aantal individuen predatoren (kraaiachtigen, roofvogels) per telcirkel.
+
+### Welk datatype?
+
+Discrete aantallen groter of gelijk aan nul. Count data.
+
+### Waar verzameld?
+
+In waarnemingen dataset SOVON.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+Aantal individuen van predatoren tellen per telcirkel. Berekenen bij laden van data.
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "secundair", 
+  variabele = c("aantal predatoren", "aantal soorten predatoren"),
+  naam = c("n_predators", "n_predators_spec"),
+  eenheid = "aantal", 
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
+```
+
+### Visualisatie
+
+n.v.t. 
+
+### Opmerkingen
+
+/
+
+## Jaar
+
+### Beschrijving
+
+Jaar van tellen.
+
+### Welk datatype?
+
+Continu. Kan in principe ook discreet.
+
+### Waar verzameld?
+
+n.v.t.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+n.v.t.
+
+### Visualisatie
+
+n.v.t.
+
+### Opmerkingen
+
+We moeten nog een goed idee krijgen van welke punten in welke jaren geteld zijn.
+
+## Telperiode
+
+### Beschrijving
+
+Tot welke telperiode behoort een waarneming.
+
+### Welk datatype?
+
+Discreet.
+
+### Waar verzameld?
+
+n.v.t.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+Er zijn vier telperiodes per jaar. 
+
+1.  01-04 tot 20-04
+2.  21-04 tot 10-05
+3.  11-05 tot 10-06
+4.  21-06 tot 15-07
+
+### Visualisatie
+
+n.v.t.
+
+### Opmerkingen
+
+Data worden gefilterd zodat enkel waarnemingen binnen deze periodes opgenomen worden.
+Bovendien heeft elke vogelsoort bepaalde datumgrenzen waarin ze als 'mogelijk broedgeval' kan worden aanzien. Deze worden ook gebruikt om waarnemingen te filteren.
+Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
+
+## Nabijheid natuurgebieden
+
+### Beschrijving
+
+Een maat voor de nabijheid van natuurgebieden. Hierbij willen we gebieden dichtbij meer gewicht geven dan gebieden veraf, en grotere gebieden meer gewicht geven dan kleine.
+
+### Welk datatype?
+
+Continu.
+
+### Waar verzameld?
+
+**Vlaanderen**:  
+Natuurbeheerplannen
+
+-  excl. natuurbeheerplannen type I en beperkte bosbeheerplannen
+
+https://www.vlaanderen.be/datavindplaats/catalogus/natuurbeheerplannen
+
+**Nederland**:  
+Natuurnetwerk Nederland (NNN)  
+https://www.pdok.nl/introductie/-/article/natuurnetwerk-nederland-nnn-
+
+**Frankrijk**:  
+Zones Naturelles d’Intérêt Ecologique Faunistique et Floristique de type 1   
+https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/inv/znieff1
+
+**Wallonië**:  
+Réseau Natura 2000 en vigueur  
+https://geoportail.wallonie.be/catalogue/80a837d8-2c0b-4f77-b5d5-824e9780a4ae.html  
+Conservation de la nature  
+
+-  excl. 'parcs naturels' en RAMSAR perimeters
+
+https://geoportail.wallonie.be/catalogue/435c454c-0d4b-41cf-a136-a1aba134d9ac.html
+
+### Hoe verzameld?
+
+```{r}
+buffer_km <- 20
+```
+
+We selecteren alle natuurgebieden in Vlaanderen, Nederland, Frankrijk en Wallonië binnen een buffer van `r buffer_km` km rond de perimeters van het pilootproject. We splitsen alle gebieden op in aparte polygonen.
+
+```{r}
+# Inlezen kaarten
+nb_vlaanderen <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Vlaanderen/ps_nbhp.shp"))
+nb_nederland  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Nederland/inspire-pv-ps.nlps-nnn.gml")) %>%
+  st_transform(31370)
+nb_frankrijk  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Frankrijk/znieff1/znieff1.shp")) %>%
+  st_transform(31370)
+nb_wallonie_1  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__ZHIB.shp"))
+nb_wallonie_2  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RN_DOM.shp"))
+nb_wallonie_3  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RN_AGR.shp"))
+nb_wallonie_4  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__RES_FOR.shp"))
+nb_wallonie_5  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/CONSNAT_SHAPE_31370/CONSNAT__CSIS.shp"))
+nb_wallonie_6  <- read_sf(paste0(mbag_dir, 
+  "/data/natuurbeheerplannen/Wallonie/NATURA_2000_SHAPE_31370/NATURA2000__PERIMETRES.shp"))
+
+nb_wallonie <- bind_rows(nb_wallonie_1,
+                         nb_wallonie_2,
+                         nb_wallonie_3,
+                         nb_wallonie_4,
+                         nb_wallonie_5, 
+                         nb_wallonie_6) %>%
+  st_transform(31370)
+```
+
+Selecteer (multi)polygonen binnen buffered perimeter (ev. per gebied)
+
+```{r}
+nb_vlaanderen1 <- buffer_layers_to_perimeter(nb_vlaanderen, buffer_km, 
+                                             group_var = "naamdossie")
+nb_nederland1  <- buffer_layers_to_perimeter(nb_nederland, buffer_km)
+nb_frankrijk1  <- buffer_layers_to_perimeter(nb_frankrijk, buffer_km, 
+                                             group_var = "NOM")
+nb_wallonie1   <- buffer_layers_to_perimeter(nb_wallonie, buffer_km)
+```
+
+Opsplitsen in aparte polygonen (ev. mergen per gebied eerst)
+
+```{r}
+nb_vlaanderen2 <- splits_polys(nb_vlaanderen1, "VL", group_var = "naamdossie")
+nb_nederland2  <- splits_polys(nb_nederland1, "NL")
+nb_frankrijk2  <- splits_polys(nb_frankrijk1, "FR", group_var = "NOM")
+nb_wallonie2   <- nb_wallonie1 %>%
+  summarise(geometry = st_union(geometry)) %>%
+  splits_polys("WAL")
+```
+
+```{r}
+# Visualise
+map1 <- st_buffer(perimeters, buffer_km * 1000)
+mapview::mapview(map1, color = "red", 
+                 alpha.regions = 0, legend = FALSE) + 
+  mapview::mapview(select(nb_vlaanderen2, geometry), layer = "Vlaanderen",
+                   col.regions = "yellow") + 
+  mapview::mapview(select(nb_nederland2, geometry), layer = "Nederland", 
+                   col.regions = "orange") +
+  mapview::mapview(select(nb_frankrijk2, geometry), layer = "Frankrijk") + 
+  mapview::mapview(select(nb_wallonie2, geometry), layer = "Wallonië",
+                   col.regions = "red")
+```
+
+Ten slotte berekenen we de oppervlakte van elke polygoon en het middelpunt.
+
+```{r}
+natuurgebieden_full <- bind_rows(nb_vlaanderen2, nb_nederland2,
+                                nb_frankrijk2, nb_wallonie2)
+
+natuurgebieden_punt <- natuurgebieden_full %>%
+  mutate(oppervlakte_km2 = units::drop_units(st_area(geometry)) / 10^6,
+         geometry = st_centroid(geometry)) %>%
+  select(natuurgebied_id = id, oppervlakte_km2, geometry)
+```
+
+### Hoe berekend?
+
+We willen een maat voor het aantal natuurgebieden waarbij we de afstand tot het natuurgebied en de grootte van het natuurgebied in rekening brengen.
+
+> Hans: Qua manier van berekenen lijkt me meest relevant een oppervlakte in een buffer of nog beter een distance decay gewogen oppervlakte (cf. https://www.jstor.org/stable/3071919)
+
+> Of zie mail Hans: gewichten met formules van https://github.com/STBrinkmann/GVI#viewshed-greenness-visibility-index-vgvi
+
+```{r}
+max_distance <- 3000
+```
+
+Beschouw telpunt $i$ met $J$ natuurgebieden met oppervlakte $A_j$ ($j = 1, ..., J$) binnen een arbitraire straal. We kiezen hier voor `r max_distance / 1000` km. Dat wil zeggen we geen rekening houden met eventuele invloeden van natuurgebieden op grotere afstanden.
+
+We berekenen het gewicht $w_{ij}$ via een vervalfunctie $f(\cdot)$, zodat
+
+$$
+w_{ij} = f(d_{ij})
+$$
+
+met $d_{ij}$ de afstand tussen telpunt $i$ en het centrum van natuurgebied $j$.  
+We beschouwen twee verschillende vervalfuncties.
+
+1. Logistische vervalfunctie
+
+$$
+f(x) = \frac{1}{1 + \exp(b(x-m))}
+$$
+
+```{r}
+par(mfrow = c(2, 2))
+visualize_weights(max_distance, m = 0.4, b = 8, mode = "logit")
+visualize_weights(max_distance, m = 0.5, b = 8, mode = "logit")
+visualize_weights(max_distance, m = 0.4, b = 10, mode = "logit")
+visualize_weights(max_distance, m = 0.5, b = 10, mode = "logit")
+par(mfrow = c(1, 1))
+```
+
+$m$ is het middelpunt van de curve  
+$b$ is de steilheid van de curve
+
+2. Exponentiële vervalfunctie
+
+$$
+f(x) = \frac{1}{1 + bx^m}
+$$
+
+```{r}
+par(mfrow = c(2, 2))
+visualize_weights(max_distance, m = 1, b = 6, mode = "exponential")
+visualize_weights(max_distance, m = 1.3, b = 6, mode = "exponential")
+visualize_weights(max_distance, m = 1, b = 3, mode = "exponential")
+visualize_weights(max_distance, m = 1.3, b = 3, mode = "exponential")
+par(mfrow = c(1, 1))
+```
+
+Visualisatie voor twee mogelijke vervalfuncties die we kunnen gebruiken:
+
+```{r}
+tibble(dist = seq(0, max_distance, 1)) %>% 
+  mutate("exponentieel\n(m = 1.37, b = 1)" = calc_weights(
+    dist, max_distance, b = 1, m = 1.37, mode = "exponential")) %>%
+  mutate("logistisch\n(m = 0.5, b = 8)" = calc_weights(
+    dist, max_distance, mode = "logistic")) %>%
+  pivot_longer(cols = c("exponentieel\n(m = 1.37, b = 1)", 
+                        "logistisch\n(m = 0.5, b = 8)"), 
+               names_to = "Vervalfunctie", values_to = "w") %>%
+  ggplot() +
+    geom_line(aes(x = dist, y = w, colour = Vervalfunctie), linewidth = 2) +
+    coord_cartesian(ylim = c(0, 1)) +
+    labs(x = "Afstand tot telpunt", y = "Gewichten") +
+    theme(legend.spacing.y = unit(0.2, 'cm')) +
+    guides(colour = guide_legend(byrow = TRUE))
+```
+
+Daarna berekenen we de variabele voor telpunt $i$ via de gewogen som van de oppervlaktes natuurgebieden $\sum_{j=1}^Jw_{ij}A_j$
+
+```{r}
+# Afstandsmatrix tussen telpunten en centroïden natuurgebieden
+dist_mat <- st_distance(telpunten_2018_2022, natuurgebieden_punt)
+colnames(dist_mat) <- natuurgebieden_punt$natuurgebied_id
+
+# Zet om naar long format en filter te grote afstanden
+distance_long <- dist_mat %>%
+  as_tibble() %>%
+  mutate(pointid = telpunten_2018_2022$pointid) %>%
+  pivot_longer(cols = -pointid, names_to = "natuurgebied_id", 
+               values_to = "dist_m") %>%
+  mutate(dist_m = units::drop_units(dist_m)) %>%
+  filter(dist_m <= max_distance) %>%
+  left_join(st_drop_geometry(natuurgebieden_punt), by = "natuurgebied_id")
+
+# Bereken gewichten
+distance_weights <- distance_long %>%
+  mutate(w_exp  = calc_weights(dist_m, max_distance, b = 1, m = 1.3, 
+                               mode = "exponential"),
+         wA_exp = w_exp * oppervlakte_km2)
+
+# Sommeer gewichten per telpunt
+telpunten_2018_2023_natuurgebieden <- distance_weights %>%
+  group_by(pointid) %>%
+  summarise(natuur_exp = sum(wA_exp), .groups = "drop") %>%
+  full_join(telpunten_2018_2022, by = "pointid") %>%
+  select(pointid, regio, natuur_exp) %>%
+  mutate(natuur_exp = ifelse(is.na(natuur_exp), 0, natuur_exp))
+```
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "secundair", 
+  variabele = "aanwezigheid natuurgebieden", 
+  naam = "natuur_exp",
+  eenheid = "km²", 
+  kaart = "(zie tekst)",
+  bron = "(zie tekst)",
+  afkorting = "(zie tekst)",
+  url = "(zie tekst)"))
+```
+
+### Visualisatie
+
+```{r}
+telpunten_2018_2023_natuurgebieden %>%
+  ggplot(aes(x = natuur_exp, fill = regio)) +
+    geom_histogram() +
+    facet_grid(~regio, scales = "free") +
+    theme(legend.position = "") +
+    labs(title = "Nabijheid natuurgebieden", y = "Aantal telcirkels", 
+         x = "Gewogen som van oppervlaktes natuurgebieden (km²)")
+```
+
+```{r}
+aggregate(telpunten_2018_2023_natuurgebieden$natuur_exp, 
+          by = list(telpunten_2018_2023_natuurgebieden$regio), FUN = summary)
+```
+
+### Opmerkingen
+
+-  log-transformatie?
+
+# Random effects
+
+## X- en Y-coördinaten
+
+### Beschrijving
+
+Spatiale component. We verwachten bv. hogere soortenrijkdom in oosten van Oostelijke leemstreek.
+
+### Welk datatype?
+
+Continu.
+
+### Waar verzameld?
+
+Coördinaten SOVON. Let op! Zie opmerkingen en code bij 'Inlezen data' om Amersfoort naar Lambert 72 om te zetten.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+n.v.t.
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "tertiair", 
+  variabele = c("X-coördinaat Lambert 72", 
+                "Y-coördinaat Lambert 72"), 
+  naam = c("x_plot", "y_plot"),
+  eenheid = "m", 
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
+```
+
+### Visualisatie
+
+n.v.t.
+
+### Opmerkingen
+
+/
+
+## Telperiode
+
+### Beschrijving
+
+Tot welke telperiode behoort een waarneming.
+
+### Welk datatype?
+
+Discreet.
+
+### Waar verzameld?
+
+n.v.t.
+
+### Hoe verzameld?
+
+n.v.t.
+
+### Hoe berekend?
+
+Er zijn vier telperiodes per jaar. 
+
+1.  01-04 tot 20-04
+2.  21-04 tot 10-05
+3.  11-05 tot 10-06
+4.  21-06 tot 15-07
+
+```{r}
+summary_df <- rbind(summary_df, tibble(
+  categorie = "tertiair", 
+  variabele = "telperiode", 
+  naam = c("periode_in_jaar"),
+  eenheid = "categorisch", 
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
+```
+
+### Visualisatie
+
+n.v.t.
+
+### Opmerkingen
+
+Data worden gefilterd zodat enkel waarnemingen binnen deze periodes opgenomen worden.
+Bovendien heeft elke vogelsoort bepaalde datumgrenzen waarin ze als 'mogelijk broedgeval' kan worden aanzien. Deze worden ook gebruikt om waarnemingen te filteren.
+Dit gebeurt tijdens het laden van de data en data preparatie van de analyses.
+
+## Jaar
+
+Jaar toevoegen als random factor? Autoregressive?
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "tertiair", 
+  variabele = "jaar",
+  naam = "jaar",
+  eenheid = "jaar", 
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
+```
+
+## Telpunt
+
+Random intercepts per telpunt.
+
+```{r}
+summary_df <- rbind(summary_df, c(
+  categorie = "tertiair", 
+  variabele = "telpunt id",
+  naam = "plotid",
+  eenheid = "categorisch", 
+  kaart = "",
+  bron = "",
+  afkorting = "",
+  url = ""))
+```
+
+# Samenvatting en uitschrijven data
+
+```{r}
+summary_df %>%
+  kable()
+```
+
+```{r}
+# Variables that vary by year
+variables_df_per_year <- telpunten_2018_2023_bo_soort %>%
+  full_join(telpunten_2018_2023_bo_rest) %>%
+  full_join(telpunten_2018_2023_hfdtlt, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_hfdtlt_pre, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_hfdtlt_div1, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_hfdtlt_div2, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_hfdtlt_evenness, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_vrtlt, by = c("pointid", "jaar")) %>%
+  full_join(telpunten_2018_2023_prcl, by = c("pointid", "regio", "jaar", 
+                                             "geometry")) %>%
+  full_join(telpunten_2018_2023_inertia_sb, by = c("pointid", "regio", "jaar", 
+                                                   "geometry")) %>%
+  full_join(telpunten_2018_2023_inertia_overig, by = c("pointid", "regio", "jaar", 
+                                                     "geometry"))
+
+# Variables that do not vary by year
+variables_df <- cbind(telpunten_2018_2023_openheid, 
+                      st_coordinates(telpunten_2018_2023_openheid)) %>%
+  full_join(st_drop_geometry(telpunten_2018_2023_sbp), 
+            by = c("pointid", "regio")) %>%
+  full_join(st_drop_geometry(telpunten_2018_2023_kle), 
+            by = c("pointid", "regio")) %>%
+  full_join(st_drop_geometry(telpunten_2018_2023_natuurgebieden), 
+            by = c("pointid", "regio")) %>%
+  expand_grid(jaar = unique(telpunten_2018_2023_df$jaar))
+
+# column names lower case
+names(variables_df_per_year) <- tolower(names(variables_df_per_year))
+names(variables_df) <- tolower(names(variables_df))
+# column names without spaces or commas
+names(variables_df_per_year) <- gsub(",?\\s", "_", names(variables_df_per_year))
+names(variables_df) <- gsub(",?\\s", "_", names(variables_df))
+# no special characters (maïs)
+names(variables_df_per_year) <- iconv(names(variables_df_per_year), 
+                                      from = "UTF-8", to = "ASCII//TRANSLIT")
+names(variables_df) <- iconv(names(variables_df), 
+                             from = "UTF-8", to = "ASCII//TRANSLIT")
+
+# Join everything
+final_variables_df <- variables_df_per_year %>%
+  full_join(variables_df, by = c("pointid", "regio", "jaar", "geometry")) %>%
+  st_drop_geometry() %>%
+  rename(plotnaam = pointid,
+         x_plot = x,
+         y_plot = y)
+```
+
+```{r}
+write_csv(final_variables_df, file.path("data", "processed", 
+                                        "verklarende_variabelen_2018_2023.csv"))
+```
+
+```{r}
+summary_df_out <- summary_df %>%
+  rownames_to_column(var = "id") %>%
+  mutate(naam = gsub(",?\\s", "_", naam),
+         naam = iconv(tolower(naam), from = "UTF-8", to = "ASCII//TRANSLIT"))
+write_csv(summary_df_out, file.path(
+  "data", "processed", "verklarende_variabelen_2018_2023_metadata.csv"))
+```
+
+# Referenties

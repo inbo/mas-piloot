@@ -1,0 +1,212 @@
+---
+title: "Data validatie 2023"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here::here())
+
+Sys.setenv("PROJ_NETWORK" = "ON")
+
+# Packages
+library(tidyverse)
+library(lubridate)
+library(sf)
+
+# Source
+mbag_dir <- here()
+data_path <- file.path("data", "mas")
+```
+
+# Inlezen data 2023
+
+```{r}
+file_geojson_2023 <- file.path(data_path, 
+                               "20230802_qgis_export_sovon_wfs_2023.geojson")
+mas_geojson_2023 <- read_sf(file_geojson_2023)
+```
+
+De CRS moet aangepast worden naar van Amersfoort naar Lambert 72. Dit doen we via een specifieke pipeline, zie: https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/
+
+```{r}
+pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
+glimpse(pipelines)
+
+# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
+# If the grids are installed, this should match the first line of the pipelines object.
+
+chosen_pipeline_definition <- pipelines %>%
+  filter(accuracy < 0.02) %>% 
+  pull(definition)
+
+mas_31370_pipeline <- 
+  st_transform(st_geometry(mas_geojson_2023), "EPSG:31370",
+               pipeline = chosen_pipeline_definition) %>% 
+  st_sf(st_drop_geometry(mas_geojson_2023), geometry = .) %>% 
+  as_tibble() %>% 
+  st_as_sf() %>%
+  rename(x_amersfoord = x_coord,
+         y_amersfoord = y_coord) %>%
+  mutate(x_lambert = unlist(map(.data$geometry, 1)),
+         y_lambert = unlist(map(.data$geometry, 2))) %>%
+  select(oid:y_amersfoord, x_lambert, y_lambert, everything())
+```
+
+```{r}
+source(here("src", "R", "wfs_wcs.R"))
+vlaanderen <- get_feature_wfs(
+  wfs = "https://eservices.minfin.fgov.be/arcgis/services/R2C/Regions/MapServer/WFSServer",
+  layername = "regions",
+  crs = "EPSG:31370",
+  filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
+  select(NameDUT)
+
+ggplot() +
+  geom_sf(data = vlaanderen) +
+  geom_sf(data = mas_31370_pipeline, aes(colour = factor(maand)), size = 0.5) +
+  theme(legend.position = "bottom") +
+  labs(colour = "maand")
+```
+
+# Binnen telperiodes
+
+```{r}
+r1_start <- "04-01"
+r1_stop  <- "04-20"
+r2_start <- "04-21"
+r2_stop  <- "05-10"
+r3_start <- "05-11"
+r3_stop  <- "06-10"
+r4_start <- "06-21"
+r4_stop  <- "07-15"
+
+mas_telperiodes <- mas_31370_pipeline %>%
+  mutate(
+    datum = ymd(paste(jaar, maand, dag, sep = "-")),
+    periode_in_jaar = case_when(
+      datum %within% interval(
+        ymd(paste(jaar, r1_start, sep = "-")),
+        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
+      datum %within% interval(
+        ymd(paste(jaar, r2_start, sep = "-")),
+        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
+      datum %within% interval(
+        ymd(paste(jaar, r3_start, sep = "-")),
+        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
+      datum %within% interval(
+        ymd(paste(jaar, r4_start, sep = "-")),
+        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
+    ))
+
+buiten_telperiodes <- mas_telperiodes %>%
+  filter(is.na(periode_in_jaar)) %>%
+  select(plotnaam, waarnemer = waarneme, datum, maand)
+```
+
+Waar zijn tellingen gebeurt buiten telperiodes gebeurd?
+
+```{r}
+ggplot() +
+  geom_sf(data = vlaanderen) +
+  geom_sf(data = buiten_telperiodes, aes(colour = factor(maand)), size = 0.8) +
+  theme(legend.position = "bottom") +
+  labs(colour = "maand")
+```
+
+Info buiten telperiodes:
+
+```{r}
+buiten_telperiodes %>%
+  st_drop_geometry() %>%
+  select(-maand) %>%
+  arrange(datum, plotnaam, waarnemer) %>%
+  distinct() %>%
+  kable()
+```
+
+Dit zijn punten die niet binnen het MAS pilootproject lijken te vallen.
+
+
+# Binnen tijdsspanne zonsopgang
+
+De data bevat geen info over precieze tijdstippen van tellingen, enkel datums.
+
+
+# Typfouten in aantallen
+
+```{r}
+mas_telperiodes %>%
+  st_drop_geometry() %>%
+  count(aantal, name = "aantal keer in dataset") %>%
+  rename("aantal vogels" = aantal) %>%
+  kable()
+```
+
+We zien niet zoveel aantallen boven de 40.
+We tonen deze gevallen apart:
+
+```{r}
+mas_telperiodes %>%
+  st_drop_geometry() %>%
+  select(aantal, naam, plotnaam, waarnemer = waarneme, datum) %>%
+  filter(aantal > 40) %>%
+  arrange(aantal) %>%
+  kable()
+```
+
+We zien veel soorten die wel in grote groepen kunnen voorkomen zoals ganzen, spreeuwen, roeken, meeuwen ...
+In de hoogste gevallen worden wel veel Vinken (eens 180, 200, 500) gezien en ook veel holenduiven (600, 1600).
+Is dit geloofwaardig?
+
+
+# Soortnamen
+
+Welke soorten zijn gezien?
+Zijn er typfoutenin de soortnamen?
+
+```{r}
+mas_telperiodes %>%
+  st_drop_geometry() %>%
+  count(naam, name =  "aantal waarnemingen") %>%
+  arrange(naam) %>%
+  kable()
+```
+
+Soorten die minder dan 10 keer gezien zijn:
+
+```{r}
+mas_telperiodes %>%
+  st_drop_geometry() %>%
+  group_by(naam) %>%
+  mutate( `aantal waarnemingen` = n()) %>%
+  filter( `aantal waarnemingen` < 10) %>%
+  select( `aantal waarnemingen`, naam, plotnaam, waarnemer = waarneme, datum) %>%
+  arrange( `aantal waarnemingen`) %>%
+  kable()
+```
+
+
+# Schrijf de data weg
+
+```{r}
+write_csv(mas_telperiodes,
+          file.path(data_path, "20230802_qgis_export_sovon_wfs_2023.csv"))
+```

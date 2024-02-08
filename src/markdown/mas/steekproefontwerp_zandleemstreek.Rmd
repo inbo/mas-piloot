@@ -227,13 +227,30 @@ selectie_openheid_klasses_crop <- st_cast(openheid_crop)[which(
   st_is(st_cast(openheid_crop), c("POLYGON", "MULTIPOLYGON"))), ]  %>% 
   summarise()
 
-mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
-        legend = FALSE) +
-  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
+m <- mapview(st_crop(perimeters_data, detail), color = "red", col.regions = "red", 
+             alpha.regions = 0, legend = FALSE) +
+  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE,
+          lwd = 2) +
+  mapview(selectie_openheid_klasses_crop, col.regions = "red", 
+          legend = FALSE)
+
+mapview::mapviewOptions(fgb = FALSE) # opslaan werkt anders niet
+dir.create("media/steekproefkader_mas", showWarnings = FALSE)
+mapview::mapshot(m, file = here("media", "steekproefkader_mas",
+                                "mas_zandleem_openheid.png"))
+
+m <- mapview(st_crop(perimeters_data, detail), color = "red", col.regions = "red", 
+             alpha.regions = 0, legend = FALSE) +
+  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE,
+          lwd = 2) +
   mapview(selectie_openheid_klasses_crop, col.regions = "red", 
           legend = FALSE) +
   mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
           legend = FALSE)
+
+m
+mapview::mapshot(m, file = here("media", "steekproefkader_mas",
+                                "mas_zandleem_exclusie.png"))
 ```
 
 ## Bepalen geldige plaatsen waar telling kan uitgevoerd worden
@@ -273,14 +290,19 @@ We verwijderen wegen die overlappen met de exclusiekaart en verwijderen overlapp
 paden <- tar_read(paden, store = targets_store) %>%
   filter(Naam == "Zandleemstreek")
 
-mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
-        legend = FALSE) +
-  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
+m <- mapview(st_crop(perimeters_data, detail), color = "red", col.regions = "red", 
+             alpha.regions = 0, legend = FALSE) +
+  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE,
+          lwd = 2) +
   mapview(selectie_openheid_klasses_crop, col.regions = "red", 
           legend = FALSE) +
   mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
           legend = FALSE) +
   mapview(st_crop(paden, detail), legend = FALSE)
+
+m
+mapview::mapshot(m, file = here("media", "steekproefkader_mas",
+                                "mas_zandleem_paden.png"))
 ```
 
 Overzicht lengte per categorie:
@@ -310,15 +332,20 @@ Werkwijze:
 punten <- tar_read(punten, store = targets_store) %>%
   filter(Naam == "Zandleemstreek")
 
-mapview(st_crop(perimeters_data, detail), color = "red", alpha.regions = 0, 
-        legend = FALSE) +
-  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE) +
+m <- mapview(st_crop(perimeters_data, detail), color = "red", col.regions = "red", 
+             alpha.regions = 0, legend = FALSE) +
+  mapview(detail_sf, color = "purple", alpha.regions = 0, legend = FALSE,
+          lwd = 2) +
   mapview(selectie_openheid_klasses_crop, col.regions = "red", 
           legend = FALSE) +
   mapview(st_crop(exclusie_osm_landgebruiken, detail), col.regions = "green", 
           legend = FALSE) +
-  mapview(st_crop(paden, detail), legend = FALSE) +
-  mapview(st_crop(punten, detail), zcol = "value", layer = "Type weg of pad")
+  mapview(st_crop(paden, detail), legend = FALSE)+
+  mapview(st_crop(punten, detail), zcol = "value", layer = "OSM value")
+
+m
+mapview::mapshot(m, file = here("media", "steekproefkader_mas",
+                                "mas_zandleem_punten.png"))
 ```
 
 Overzicht aantal punten per categorie:

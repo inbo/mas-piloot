@@ -45,6 +45,9 @@ vignettes/*.pdf
 *.html
 images/
 
+# figures
+*.jpg
+
 # brms model
 mod_haas.rds
 *spatiale_modellen/
