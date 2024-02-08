@@ -701,7 +701,7 @@ Zowel per design als via k-fold validation lijkt het random intercept onze voork
 -   De Poisson verdeling kan gebruikt worden om de aantallen te modelleren
 -   Er is een vrij groot verschil tussen beide regio's waardoor we quasi voor elke variabele een interactieterm zouden moeten toevoegen. We zouden best de analyses opsplitsen per gebied.
 -   We willen nagaan of er een positief effect is van beschermingsmaatregelen. Zowel ter interpretatie als eenvoud van het model kan de `sbp` variabele misschien handiger zijn dan de `area_prop_sb` variabele.
--   De variabele `periode_in_jaar` vermoeilijkt de analyses (toevoegen van random effects). Het is allicht slimmer de aantallen per telcirkel per jaar te aggregeren. @klaassen2022 gebruiken voor gelijkaardige analyses *"het maximumaantal waargenomen broedparen (het hoogste aantal territoriale individuen van een soort tijdens één van de tellingen)"*.
+-   De variabele `periode_in_jaar` bemoeilijkt de analyses (toevoegen van random effects). Het is allicht slimmer de aantallen per telcirkel per jaar te aggregeren. @klaassen2022 gebruiken voor gelijkaardige analyses *"het maximumaantal waargenomen broedparen (het hoogste aantal territoriale individuen van een soort tijdens één van de tellingen)"*.
 -   We vermoeden ook dat er een duidelijker signaal zal vormen als we enkel de data van 2022 en 2023 bekijken.
 
 ## Model specificatie test 2
