@@ -507,19 +507,20 @@ get_effects <- function(df, ref = 0,
     select(-c(effect_fine, effect_coarse))
 }
 
-create_draws_df <- function(model, ll = 0.025, ul = 0.975, seed = 123, ...) {
+create_draws_df <- function(model, ll = 0.025, ul = 0.975, seed = 123,
+                            ndraws = 3000, ...) {
   require(tidybayes)
 
   df <- model %>%
     spread_draws(`b_area_prop_sb_cat.*`, regex = TRUE, seed = seed,
-                 ndraws = 3000) %>%
-    select(starts_with("b_area_prop_sb_cat")) %>%
-    pivot_longer(cols = everything(), names_to = "area_prop_sb_cat_long") %>%
+                 ndraws = ndraws) %>%
+    select(starts_with("b_area_prop_sb_cat"), ".draw") %>%
+    pivot_longer(cols = starts_with("b_area_prop_sb_cat"), names_to = "area_prop_sb_cat_long") %>%
     mutate(area_prop_sb_cat = gsub("b_area_prop_sb_cat", "",
                                    area_prop_sb_cat_long),
            value_log = value,
            value = exp(value) - 1) %>%
-    select(area_prop_sb_cat, value_log, value) %>%
+    select(area_prop_sb_cat, value_log, value, .draw) %>%
     group_by(area_prop_sb_cat) %>%
     mutate(median_log = median(value_log),
            lcl_log = quantile(value_log, ll),
@@ -541,6 +542,7 @@ create_draws_df <- function(model, ll = 0.025, ul = 0.975, seed = 123, ...) {
                                      ordered = TRUE))
 
   out <- get_effects(df_ordered, ...)
+  return(out)
 }
 
 create_weighted_draws_df <- function(model, ll = 0.025, ul = 0.975,
@@ -579,6 +581,7 @@ create_weighted_draws_df <- function(model, ll = 0.025, ul = 0.975,
            lcl_log = quantile(value_log, ll),
            ucl_log = quantile(value_log, ul)) %>%
     mutate(median = median(value),
+           standaardfout = sd(value),
            lcl = quantile(value, ll),
            ucl = quantile(value, ul)) %>%
     ungroup() %>%
