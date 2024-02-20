@@ -159,4 +159,29 @@ final_variables_df %>%
     facet_grid(openheid_klasse_300~regio)
 ```
 
+## Analyse
 
+Een "quick and dirty" analyse op basis van een lineair model voor elke regio.
+De Moeren:
+
+```{r}
+m1 <- nlme::lme(gewas_div_shannon ~ jaar,
+                random = ~1 + jaar|plotnaam,
+                data = filter(final_variables_df,
+                              regio == "De Moeren"))
+m1_intervals <- nlme::intervals(m1, which = "fixed")
+m1_intervals
+```
+
+Oostelijke leemstreek:
+
+```{r}
+m2 <- nlme::lme(gewas_div_shannon ~ jaar,
+                random = ~1 + jaar|plotnaam,
+                data = filter(final_variables_df,
+                              regio == "Oostelijke leemstreek"))
+m2_intervals <- nlme::intervals(m2, which = "fixed")
+m2_intervals
+```
+
+Deze analyses tonen een significant verschil van `r round(m1_intervals$fixed[2, 2], digits = 3)` in effectief aantal hoofdteelten per telcirkel in De Moeren (95 % betrouwbaarheidsinterval: `r round(m1_intervals$fixed[2, 1], digits = 3)` tot `r round(m1_intervals$fixed[2, 3], digits = 3)`) en `r round(m2_intervals$fixed[2, 2], digits = 3)` in de Oostelijke leemstreek (95 % betrouwbaarheidsinterval: `r round(m2_intervals$fixed[2, 1], digits = 3)` tot `r round(m2_intervals$fixed[2, 3], digits = 3)`).
