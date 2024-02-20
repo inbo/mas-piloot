@@ -41,7 +41,8 @@ library(mapview)
 final_variables_df_raw <- read_csv(
   file.path("data", "processed", "verklarende_variabelen_2018_2023.csv"))
 final_variables_df <- final_variables_df_raw %>%
-  select(plotnaam, regio, jaar, x_plot, y_plot, sbp, openheid_klasse_300) %>%
+  select(plotnaam, regio, jaar, x_plot, y_plot, sbp, openheid_klasse_300,
+         gewas_div_shannon) %>%
   filter(openheid_klasse_300 %in% c("OL", "HOL")) %>%
   mutate(stratum = paste(sbp, "sbp", "-", openheid_klasse_300))
 final_variables_sf <- final_variables_df %>%
@@ -70,4 +71,30 @@ final_variables_sf %>%
   st_buffer(300) %>%
   mapview(zcol = "stratum", layer = "Stratum")
 ```
+
+# Gewasdiversiteit
+## Berekening
+
+Shannon index als maat voor diversiteit aan hoofdteelten binnen een telcirkel.
+
+Voor elk jaar hebben we een aparte file.
+We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
+We verwijderen de polygonen die tot de beheerovereenkomstenlaag horen.
+We voegen gewichten toe aan polygonen die overlappen.
+Indien twee polygonen met verschillende teelten overlappen, zal de oppervlakte van elke teelt een gewicht van $\frac{1}{2}$ krijgen.
+
+De landbouwgebruikspercelen zijn hier gedownload:
+<https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>
+2023: voorlopige kaart.
+
+We berekenden de Shannon index $H'$ per telcirkel $t$ als volgt:
+
+$$
+H'(t) = - \sum_{i=1}^{C(t)}(p_i(t)*\ln[p_i(t)])
+$$
+
+Met $p_i(t)$ de proportie van teelt $i$ ($i = 1, ..., C(t)$) in telcirkel $t$.
+We herschaalden dit zodat de proporties opsommen tot 1 per telcirkel per jaar.
+
+Daarna namen we de exponent zodat dit getal te interpreteren is als het aantal teelten moest elke teelt eenzelfde oppervlakte hebben (= effectief aantal teelten: <https://en.wikipedia.org/wiki/Diversity_index#Effective_number_of_species_or_Hill_numbers>).
 
