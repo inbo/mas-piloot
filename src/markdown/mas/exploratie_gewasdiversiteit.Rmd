@@ -25,11 +25,49 @@ opts_chunk$set(
 opts_knit$set(root.dir = here())
 ```
 
-
 ```{r}
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::select)
 
 # Packages
 library(tidyverse)
+library(sf)
+library(mapview)
 ```
+
+# Inlezen data
+
+```{r}
+final_variables_df_raw <- read_csv(
+  file.path("data", "processed", "verklarende_variabelen_2018_2023.csv"))
+final_variables_df <- final_variables_df_raw %>%
+  select(plotnaam, regio, jaar, x_plot, y_plot, sbp, openheid_klasse_300) %>%
+  filter(openheid_klasse_300 %in% c("OL", "HOL")) %>%
+  mutate(stratum = paste(sbp, "sbp", "-", openheid_klasse_300))
+final_variables_sf <- final_variables_df %>%
+  st_as_sf(coords = c("x_plot", "y_plot")) %>%
+  st_set_crs(31370)
+```
+
+We hebben data van de jaren `r min(final_variables_df$jaar)` - `r max(final_variables_df$jaar)`.
+Om hoeveel punten gaat het per jaar?
+
+```{r}
+final_variables_df %>%
+  distinct(plotnaam, regio, stratum) %>%
+  count(regio, stratum, name = "n_per_stratum") %>%
+  group_by(regio) %>%
+  mutate(n_per_regio = sum(n_per_stratum)) %>%
+  ungroup() %>%
+  kable()
+```
+
+We visualiseren de verspreiding van de telcirkels.
+
+```{r}
+final_variables_sf %>%
+  filter(jaar == 2023) %>%
+  st_buffer(300) %>%
+  mapview(zcol = "stratum", layer = "Stratum")
+```
+
