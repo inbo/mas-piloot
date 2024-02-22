@@ -1,0 +1,187 @@
+---
+title: "Exploratie gewasdiversiteit"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here())
+```
+
+```{r}
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+
+# Packages
+library(tidyverse)
+library(sf)
+library(mapview)
+```
+
+# Inlezen data
+
+```{r}
+final_variables_df_raw <- read_csv(
+  file.path("data", "processed", "verklarende_variabelen_2018_2023.csv"))
+final_variables_df <- final_variables_df_raw %>%
+  select(plotnaam, regio, jaar, x_plot, y_plot, sbp, openheid_klasse_300,
+         gewas_div_shannon) %>%
+  filter(openheid_klasse_300 %in% c("OL", "HOL"),
+         !(openheid_klasse_300 == "HOL" & regio == "De Moeren")) %>%
+  mutate(jaar.f = factor(jaar),
+         stratum = paste(sbp, "sbp", "-", openheid_klasse_300))
+final_variables_sf <- final_variables_df %>%
+  st_as_sf(coords = c("x_plot", "y_plot")) %>%
+  st_set_crs(31370)
+```
+
+We hebben data van de jaren `r min(final_variables_df$jaar)` - `r max(final_variables_df$jaar)`.
+Om hoeveel punten gaat het per jaar?
+
+```{r}
+final_variables_df %>%
+  distinct(plotnaam, regio, stratum) %>%
+  count(regio, stratum, name = "n_per_stratum") %>%
+  group_by(regio) %>%
+  mutate(n_per_regio = sum(n_per_stratum)) %>%
+  ungroup() %>%
+  kable()
+```
+
+We visualiseren de verspreiding van de telcirkels.
+
+```{r}
+final_variables_sf %>%
+  filter(jaar == 2023) %>%
+  st_buffer(300) %>%
+  mapview(zcol = "stratum", layer = "Stratum")
+```
+
+# Gewasdiversiteit
+## Berekening
+
+Shannon index als maat voor diversiteit aan hoofdteelten binnen een telcirkel.
+
+Voor elk jaar hebben we een aparte file.
+We filteren de punten per jaar en we laden de landbouwgebruikspercelen van dat jaar.
+We verwijderen de polygonen die tot de beheerovereenkomstenlaag horen.
+We voegen gewichten toe aan polygonen die overlappen.
+Indien twee polygonen met verschillende teelten overlappen, zal de oppervlakte van elke teelt een gewicht van $\frac{1}{2}$ krijgen.
+
+De landbouwgebruikspercelen zijn hier gedownload:
+<https://landbouwcijfers.vlaanderen.be/open-geodata-landbouwgebruikspercelen>
+2023: voorlopige kaart.
+
+We berekenden de Shannon index $H'$ per telcirkel $t$ als volgt:
+
+$$
+H'(t) = - \sum_{i=1}^{C(t)}(p_i(t)*\ln[p_i(t)])
+$$
+
+Met $p_i(t)$ de proportie van teelt $i$ ($i = 1, ..., C(t)$) in telcirkel $t$.
+We herschaalden dit zodat de proporties opsommen tot 1 per telcirkel per jaar.
+
+Daarna namen we de exponent zodat dit getal te interpreteren is als het aantal teelten moest elke teelt eenzelfde oppervlakte hebben (= effectief aantal teelten: <https://en.wikipedia.org/wiki/Diversity_index#Effective_number_of_species_or_Hill_numbers>).
+
+## Data exploratie
+
+We bekijken het effectief aantal hoofdteelten per jaar, per regio.
+
+```{r}
+final_variables_df %>%
+  group_by(regio, jaar) %>%
+  summarise(
+    min = min(gewas_div_shannon),
+    Q10 = quantile(gewas_div_shannon, 0.10),
+    Q25 = quantile(gewas_div_shannon, 0.25),
+    mediaan = quantile(gewas_div_shannon, 0.5),
+    gemiddelde = mean(gewas_div_shannon),
+    Q75 = quantile(gewas_div_shannon, 0.75),
+    Q90 = quantile(gewas_div_shannon, 0.9),
+    max = max(gewas_div_shannon)
+  ) %>%
+  ungroup() %>%
+  arrange(regio, jaar) %>%
+  kable(digits = 2)
+```
+
+Visueel zien we een knik bij 2020 voor beide streken.
+
+```{r}
+final_variables_df %>%
+  ggplot(aes(x = jaar.f, y = gewas_div_shannon)) +
+    geom_boxplot() +
+    facet_grid(~regio)
+```
+
+```{r}
+final_variables_df %>%
+  ggplot(aes(x = jaar, y = gewas_div_shannon)) +
+    geom_smooth(aes(group = plotnaam), method = "lm", se = FALSE,
+                linewidth = 0.05, formula = "y ~ x") +
+    geom_point(alpha = 0.2) +
+    geom_smooth(method = "loess", se = TRUE, linewidth = 1, formula = "y ~ x",
+                colour = "firebrick") +
+    facet_grid(~regio)
+```
+
+Als we opsplitsen per stratum:
+
+```{r}
+final_variables_df %>%
+  ggplot(aes(x = jaar.f, y = gewas_div_shannon, colour = sbp)) +
+    geom_boxplot() +
+    facet_grid(openheid_klasse_300~regio)
+```
+
+```{r}
+final_variables_df %>%
+  ggplot(aes(x = jaar, y = gewas_div_shannon, colour = sbp, group = sbp)) +
+    geom_point(position = position_dodge(width = .5), alpha = 0.2) +
+    geom_smooth(method = "loess") +
+    facet_grid(openheid_klasse_300~regio)
+```
+
+## Analyse
+
+Een "quick and dirty" analyse op basis van een lineair mixed model voor elke regio.
+De Moeren:
+
+```{r}
+m1 <- nlme::lme(gewas_div_shannon ~ jaar,
+                random = ~1 + jaar|plotnaam,
+                data = filter(final_variables_df,
+                              regio == "De Moeren"))
+m1_intervals <- nlme::intervals(m1, which = "fixed")
+m1_intervals
+```
+
+Oostelijke leemstreek:
+
+```{r}
+m2 <- nlme::lme(gewas_div_shannon ~ jaar,
+                random = ~1 + jaar|plotnaam,
+                data = filter(final_variables_df,
+                              regio == "Oostelijke leemstreek"))
+m2_intervals <- nlme::intervals(m2, which = "fixed")
+m2_intervals
+```
+
+Deze analyses tonen een significant verschil van `r round(m1_intervals$fixed[2, 2], digits = 3)` in effectief aantal hoofdteelten per telcirkel in De Moeren (95 % betrouwbaarheidsinterval: `r round(m1_intervals$fixed[2, 1], digits = 3)` tot `r round(m1_intervals$fixed[2, 3], digits = 3)`) en `r round(m2_intervals$fixed[2, 2], digits = 3)` in de Oostelijke leemstreek (95 % betrouwbaarheidsinterval: `r round(m2_intervals$fixed[2, 1], digits = 3)` tot `r round(m2_intervals$fixed[2, 3], digits = 3)`).
