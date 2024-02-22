@@ -161,7 +161,7 @@ final_variables_df %>%
 
 ## Analyse
 
-Een "quick and dirty" analyse op basis van een lineair model voor elke regio.
+Een "quick and dirty" analyse op basis van een lineair mixed model voor elke regio.
 De Moeren:
 
 ```{r}
