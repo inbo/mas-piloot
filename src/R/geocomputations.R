@@ -53,6 +53,7 @@ landusemetrics_grid_cell <- function(
   layer,
   grid_group_by_col = "POINT_ID",
   layer_group_by_col = "",
+  weight_col = NULL,
   progress = FALSE
 ) {
   require(duckdb)
@@ -98,14 +99,27 @@ landusemetrics_grid_cell <- function(
       inner_join(cell_areas, by = grid_group_by_col) %>%
       arrow::write_dataset(path = temparrow)
 
-    int <- arrow::open_dataset(temparrow) %>%
-      arrow::to_duckdb() %>%
-      group_by(!!!syms(grid_group_by_col),
-               !!!syms(layer_group_by_col),
-               cell_area) %>%
-      summarise(area_m2 = sum(area)) %>%
-      mutate(area_prop = area_m2 / cell_area) %>%
-      collect()
+    if (is.null(weight_col)) {
+      int <- arrow::open_dataset(temparrow) %>%
+        arrow::to_duckdb() %>%
+        group_by(!!!syms(grid_group_by_col),
+                 !!!syms(layer_group_by_col),
+                 cell_area) %>%
+        summarise(area_m2 = sum(area)) %>%
+        mutate(area_prop = area_m2 / cell_area) %>%
+        collect()
+    } else {
+      int <- arrow::open_dataset(temparrow) %>%
+        arrow::to_duckdb() %>%
+        mutate(area_w = area * !!sym(weight_col)) %>%
+        group_by(!!!syms(grid_group_by_col),
+                 !!!syms(layer_group_by_col),
+                 cell_area) %>%
+        summarise(area_m2 = sum(area_w)) %>%
+        mutate(area_prop = area_m2 / cell_area) %>%
+        collect()
+    }
+
 
     return(int)
   }

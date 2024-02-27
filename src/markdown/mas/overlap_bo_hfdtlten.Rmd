@@ -1,0 +1,152 @@
+---
+title: "Overlap beheerovereenkomsten- en landbouwgebruikspercelen-kaartlagen"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+bibliography: references.json
+---
+
+```{r setup, include=FALSE}
+# renv
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here())
+
+# Packages
+library(tidyverse)
+library(sf)
+
+# Source
+mbag_dir <- here()
+source(here("src", "R", "berekening_hulpvariabelen.R"))
+source(here("src", "R", "berekening_verklarende_variabelen.R"))
+```
+
+# Inlezen data
+
+```{r}
+# Read in bo file
+bo_sf <- read_sf(path_to_bo(jaar = 2022))
+bo_2022 <- bo_sf %>%
+  st_transform(31370) %>%
+  mutate(startjaar = year(START),
+         stopjaar = year(STOP))
+
+# Read in verzamelaanvragen
+for (y in 2017:2023) {
+  sf_obj <- read_sf(path_to_vzml(y))
+  if (is.na(st_crs(sf_obj))) {
+    sf_obj <- sf_obj %>%
+      st_set_crs(31370)
+  } else {
+    sf_obj <- sf_obj %>%
+     st_transform(31370)
+  }
+  assign(paste("verzamelaanvraag", y, sep = "_"), sf_obj)
+}
+```
+
+# Overlappen
+
+Voor de verzamelaanvragen van 2017 tot 2023 kijken we welke hoofdteelten overlappen met de kaartlaag met beheerovereenkomsten van VLM.
+We houden er rekening mee dat een beheerovereenkomst van 2018-2019 enkel zal overlappen met met verzamelaanvragen van die jaren en niet van de andere jaren.
+Per groep berekenen we de oppervlakte van de overlappende polygoon.
+
+```{r, cache=TRUE}
+for (y in 2017:2023) {
+  bo_filtered <- bo_2022 %>%
+      filter(startjaar <= y & stopjaar >= y)
+  
+  intersect_df <- st_intersection(bo_filtered,
+                                  get(paste("verzamelaanvraag", y, sep = "_")))
+  out <- intersect_df %>%
+    mutate(oppervlakte = units::drop_units(st_area(geometry))) %>%
+    st_drop_geometry() %>%
+    select(BH_DOELST, GWSNAM_H, oppervlakte) %>%
+    group_by(BH_DOELST, GWSNAM_H) %>%
+    summarise(oppervlakte = sum(oppervlakte),
+              .groups = "drop") 
+  
+  assign(paste("df", y, sep = "_"), out)
+}
+
+df <- bind_rows(
+    df_2017,
+    df_2018,
+    df_2019,
+    df_2020,
+    df_2021,
+    df_2022,
+    df_2023
+  ) %>%
+  group_by(BH_DOELST, GWSNAM_H) %>%
+    summarise(oppervlakte = sum(oppervlakte),
+              .groups = "drop") 
+```
+
+We beschouwen overlap met alle hoofdteelten en kijken naar de 20 hoofdteelten die meest overlappen met elke beheerdoelstelling (`r sort(unique(df$BH_DOELST))`).
+
+```{r}
+for (doelst in sort(unique(df$BH_DOELST))) {
+  p <- df %>%
+    filter(BH_DOELST == doelst) %>%
+    mutate(GWSNAM_H = reorder(GWSNAM_H, -oppervlakte)) %>%
+    arrange(GWSNAM_H) %>%
+    head(20) %>%
+    ungroup() %>%
+    ggplot(aes(x = GWSNAM_H, y = oppervlakte)) +
+      geom_bar(stat = "identity") +
+      labs(x = "", title = doelst) +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  print(p)
+}
+```
+
+Nu beschouwen we enkel hoofdteelten die iets met beheer te maken hebben.
+
+```{r}
+beheerovereenkomsten <- c("Bloemenmengsel",
+                          "Faunamengsel",
+                          "Bloemenmengsel voor EAG Braak",
+                          "Braakliggend land met minimale activiteit met EAG",
+                          "Braakliggend land met minimale activiteit zonder EAG",
+                          "Braakliggend land zonder minimale activiteit",
+                          "Braakliggend land zonder onderhoud",
+                          "Braakliggend land met onderhoud")
+
+for (doelst in sort(unique(df$BH_DOELST))) {
+  p <- df %>%
+    filter(BH_DOELST == doelst,
+           GWSNAM_H %in% beheerovereenkomsten) %>%
+    mutate(GWSNAM_H = factor(GWSNAM_H,
+                             levels = beheerovereenkomsten),
+           GWSNAM_H = reorder(GWSNAM_H, -oppervlakte)) %>%
+    ggplot(aes(x = GWSNAM_H, y = oppervlakte)) +
+      geom_bar(stat = "identity") +
+      scale_x_discrete(drop = FALSE) +
+      labs(x = "", title = doelst) +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+print(p)
+}
+```
+
+# Conclusie 
+
+De beheerovereenkomsten van de VLM komen meestal overeen met graslanden.
+De teelten die we beschouwen als 'Beheerovereenkomst' in de indeling van de hoofdteelten komen minder vaak in overlap.
+Faunamengsel en bloemenmengsel komen duidelijk vaak samen voor met beheerovereenkomsten.
+Braakliggend land minder vaak.

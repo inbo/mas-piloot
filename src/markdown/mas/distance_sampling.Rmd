@@ -4,7 +4,6 @@ author: "Ward Langeraert"
 date: "`r Sys.Date()`"
 output:
   bookdown::html_document2:
-    
     code_folding: hide
     toc: true
     toc_float: true
@@ -18,8 +17,9 @@ zotero: true
 ---
 
 ```{r setup, include=FALSE}
+# renv
 renv::restore()
-
+ 
 # Set up
 library(knitr)
 library(here)
@@ -27,23 +27,41 @@ opts_chunk$set(
   echo = TRUE,
   message = FALSE,
   warning = FALSE)
-opts_knit$set(root.dir = here::here())
+opts_knit$set(root.dir = here())
+ 
+# Conflicting packages
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
 
 # Data preparation and visualization
 library(tidyverse)
 library(INBOtheme)
 
-library(targets)
 library(sf)
 library(terra)
-library(lubridate)
 library(gridExtra)
 
 # Data analysis
 library(Distance)
 
-# Source
+# Targets
+library(targets)
+ 
+## to use tar_read()
+new_tar_vector <- function(value, objects) {
+    out <- do.call(vctrs::vec_rbind, objects)
+    if (any(sapply(out, inherits, what = "sfc"))) {
+      sf::st_as_sf(out)
+    } else {out}
+}
+try(assignInNamespace(
+  "value_produce_aggregate.tar_vector",
+  new_tar_vector,
+  ns = "targets"))
+ 
 targets_store <- here("src", "targets", "mas_steekproef_pilootfase", "_targets")
+
+# Source
 mbag_dir <- here()
 source(here("src", "R", "wfs_wcs.R"))
 source(here("src", "R", "berekening_hulpvariabelen.R"))
@@ -60,24 +78,41 @@ knitr::write_bib(c("base", "Distance"), here("src", "markdown", "mas",
 # Doel {#doel}
 
 Een robuuste en reproduceerbare workflow creëren om de densiteit van akkervogels te schatten rekening houdend met de detectiekans.
-Omwille van het verschil in design tussen 2022 en de voorgaande jaren, zullen we densiteiten schatten voor twee datasets:
+Omwille van het verschil in design tussen 2022-2023 en de voorgaande jaren, zullen we densiteiten schatten voor twee datasets:
 
-1.  2018-2022:
+1.  2018-2023:
     -   schatting per stratum: jaar, regio
     -   zou allemaal (grotendeels) OL en binnen sbp moeten zijn
-    -   voeg enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren
-2.  2022
+    -   voeg enkel plots van 2022-2023 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren
+2.  2022-2023
     -   schatting per stratum: regio, sbp, openheid
-    -   volledige dataset 2022
+    -   volledige dataset 2022-2023
 
 Eerst voor Veldleeuwerik.
 Later generalisatie.
 
 # Inlezen data {#inlezen-data}
 
-We selecteren eerst de MAS-data binnen de telrondes.
+```{r}
+data_path <- here("data", "processed")
+mas_data_df_raw <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
+mas_data_df <- mas_data_df_raw %>%
+  rename(openheid  = openheid_klasse_300) %>%
+  mutate(stratum = paste0(openheid, "\n", sbp, " plan"))
+mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
+                        crs = 31370)
+```
 
-```{r ronde-intervallen}
+
+# Data selectie en preparatie {#selectie-prep-data}
+
+## Data selectie {#selectie-data}
+
+We zijn geïnteresseerd in broedparen van de Veldleeuwerik in De Moeren en de Oostelijke leemstreek.
+Daarvoor selecteren we alleen waarnemingen met broedcode 1 of hoger.
+In het Nederlandse onderzoek van @wiersma2021 beschouwen ze tevens enkel waarnemingen van binnen soortspecifieke datumgrenzen om niet-broedende individuen uit te sluiten.
+
+```{r}
 r1_start <- "04-01"
 r1_stop <- "04-20"
 r2_start <- "04-21"
@@ -87,239 +122,6 @@ r3_stop <- "06-10"
 r4_start <- "06-21"
 r4_stop <- "07-15"
 ```
-
-```{r inlezen-mas-waarnemingen-2018-2022}
-mas <- read_sf(
-  here("data/mas/20220906_qgis_export_sovon_wfs.gpkg")) %>%
-  mutate(
-    datum = ymd(paste(jaar, maand, dag, sep = "-")),
-    periode_in_jaar = case_when(
-      datum %within% interval(
-        ymd(paste(jaar, r1_start, sep = "-")),
-        ymd(paste(jaar, r1_stop, sep = "-"))) ~ "R1",
-      datum %within% interval(
-        ymd(paste(jaar, r2_start, sep = "-")),
-        ymd(paste(jaar, r2_stop, sep = "-"))) ~ "R2",
-      datum %within% interval(
-        ymd(paste(jaar, r3_start, sep = "-")),
-        ymd(paste(jaar, r3_stop, sep = "-"))) ~ "R3",
-      datum %within% interval(
-        ymd(paste(jaar, r4_start, sep = "-")),
-        ymd(paste(jaar, r4_stop, sep = "-"))) ~ "R4"
-    ))
-```
-
-De CRS moet aangepast worden naar Lambert 72.
-Dit doen we via een specifieke pipeline, zie: <https://inbo.github.io/tutorials/tutorials/spatial_transform_crs_2/>
-
-```{r mas-waarnemingen-conversie-31370}
-Sys.setenv("PROJ_NETWORK" = "ON")
-sf_proj_network(TRUE)
-pipelines <- sf_proj_pipelines("EPSG:28992", "EPSG:31370")
-glimpse(pipelines)
-# We select the pipeline with lowest accuracy (< 0.02), by filtering on accuracy.
-# If the grids are installed, this should match the first line of the pipelines object.
-chosen_pipeline_definition <- pipelines %>%
-  filter(accuracy < 0.02) %>% pull(definition)
-
-mas_31370_pipeline1 <- 
-  st_transform(st_geometry(mas), "EPSG:31370",
-               pipeline = chosen_pipeline_definition) %>% 
-  st_sf(st_drop_geometry(mas), geometry = .) %>% 
-  as_tibble %>% 
-  st_as_sf
-```
-
-```{r inlezen-polygoon-lagen}
-perimeters <- read_sf(
-  here("data", "processed", "piloot_perimeters.gpkg"))
-
-vlaanderen <- get_feature_wfs(
-  wfs = "https://eservices.minfin.fgov.be/arcgis/services/R2C/Regions/MapServer/WFSServer",
-  layername = "regions",
-  crs = "EPSG:31370",
-  filter = "<Filter><PropertyIsEqualTo><PropertyName>regions:NameDUT</PropertyName><Literal>'Vlaams Gewest'</Literal></PropertyIsEqualTo></Filter>") %>%
-  select(NameDUT)
-
-sbp_akkervogels <- tar_read(sbp_akkervogels,
-                            store = targets_store)
-
-```
-
-We bepalen alle plot-jaar combinaties waarvoor er waarnemingen zijn.
-Het kan ook zijn dat een plot bezocht is, maar dat er geen waarnemingen van zijn.
-
-```{r plot-jaar-waarnemingen-2018-2022}
-plot_jaar_met_waarnemingen <- mas_31370_pipeline1 %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam, jaar)
-```
-
-Voor 2022 kennen we alle telpunten die geteld/bezocht moesten worden.
-Voor 2018-2021 moeten we er *voorlopig* vanuit gaan dat als er geen waarnemingen zijn voor een bepaald telpunt, het telpunt niet geteld werd.
-
-<!--De plot-jaar lijsten voor 2018-2021 opvragen die bezocht werden zodat we nullen/afwezigheden correct kunnen toevoegen-->
-
-We stellen nu eerst een lijst samen van plot - jaar combinaties die bezocht zijn.
-Hiervoor moeten we eerst het design inlezen van 2022.
-
-```{r design_2022}
-design2022_raw <- read_csv(here(
-    "data",
-    "processed",
-    "steekproef_piloot_avimap.csv")) %>%
-  select(plotnaam = definitief_punt,
-         regio,
-         stratum,
-         X, Y) %>%
-  mutate(openheid = ifelse(grepl("HOL", stratum), "HOL", "OL"),
-         sbp = ifelse(grepl("binnen", stratum), "binnen", "buiten"),
-         stratum = gsub("L\\s{1}", "L\\\n", stratum),
-         jaar = 2022L) %>%
-  st_as_sf(coords = c("X", "Y"), crs = 31370)
-
-plot_bezocht_2022 <- design2022_raw %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam, jaar)
-```
-
-Vervolgens samenvoegen met 2018-2021
-
-```{r plot-jaar-bezocht-2018-2022}
-# veronderstel dat bezocht gelijk is aan die met waarnemingen voor 2018-2021
-plot_jaar_bezocht <- plot_jaar_met_waarnemingen %>%
-  filter(jaar < 2022) %>%
-  rbind(plot_bezocht_2022)
-```
-
-Zijn er bezochte plots waarvan er geen waarnemingen zijn?
-
-```{r bezocht-zonder-waarnemingen}
-pjb <- plot_jaar_bezocht %>%
-  anti_join(plot_jaar_met_waarnemingen)
-
-pjb %>%
-  kable()
-```
-
-Ja, in `r nrow(pjb)` telpunten werd niets waargenomen.
-Dus het is aannemelijk dat dit ook in de eerdere jaren soms het geval zal geweest zijn.
-
-We voegen nu eerst de locatie van de telpunten toe aan `plot_jaar_bezocht`.
-De dataframe `telpunten_2018_2021` bevat alle MAS telpunten die in de periode 2018-2021 zijn doorgegeven aan SOVON.
-Het is echter niet zo dat al deze telpunten in elk jaar geteld zijn.
-Het kan zelfs zijn dat een telpunt uit deze lijst in geen enkel jaar werd geteld (= helemaal niet bezocht geweest).
-Het kan ook zijn dat het wel bezocht is geweest, maar dat er geen waarnemingen zijn.
-
-```{r telpunten-2018-2021}
-telpunten_2018_2021 <- read_sf(
-  here("data", "mas",
-       "avimap_514_0_MAS_Werkgroep_Grauwe_Kiekendief_Belgi__telpunten_xy.shp")
-) %>%
-  rename(teller_2021 = teller) %>%
-  mutate(
-    regio = ifelse(is.na(regio), "Vlaanderen - Bilzen", regio),
-    type_teller_2021 = case_when(
-      teller_2021 %in% c("WVNT00", "JJNN16", "NOVN00") |
-        regio == "Vlaanderen - Leefdaal" ~ "professioneel",
-      is.na(teller_2021) &
-        regio != "Vlaanderen - Leefdaal" ~ "niet geteld in 2021",
-      TRUE ~ "vrijwilliger"))
-
-telpunten_2018_2021_amersfoort <- telpunten_2018_2021 %>%
-  st_drop_geometry() %>%
-  st_as_sf(coords = c("st_x", "st_y"), crs = 28992)
-
-telpunten_2018_2021 <- st_transform(
-  st_geometry(telpunten_2018_2021_amersfoort), "EPSG:31370",
-  pipeline = chosen_pipeline_definition) %>% 
-  st_sf(st_drop_geometry(telpunten_2018_2021), geometry = .) %>% 
-  as_tibble %>% 
-  st_as_sf %>%
-  mutate(regio = gsub("Vlaanderen - ", "", regio),
-         regio = ifelse(regio == "Leemstreek", "Oostelijke leemstreek", regio),
-         regio = ifelse(regio == "Bilzen", "Oostelijke leemstreek", regio))
-```
-
-```{r telpunten-2018-2022-locaties}
-telpunten_2018_2021_geom_only <- telpunten_2018_2021 %>%
-  select(plotnaam = naam, regio)
-
-telpunten_2022_geom_only <- design2022_raw %>%
-  select(plotnaam, regio)
-
-# locaties 2022 zijn verkeerd in design_2022 voor VL plots
-telpunten_geom_only <- bind_rows(
-  telpunten_2018_2021_geom_only,
-  telpunten_2022_geom_only %>% filter(!grepl("VL", .$plotnaam))
-)
-```
-
-Nu voegen we de geometry toe aan de plot - jaar combinaties via een inner join.
-Opgepast!
-Er zijn een aantal telpunten die in geen enkel jaar werden bezocht.
-Deze worden in deze stap verwijderd.
-Het kan ook zijn dat er hier een aantal onterecht verwijderd worden (wel bezocht, maar geen waarnemingen).
-Zoals eerder aangegeven in commentaar moeten we dit navragen.
-
-```{r toevoegen-geoms}
-plot_jaar_bezocht_sf <- telpunten_geom_only %>%
-  inner_join(plot_jaar_bezocht)
-```
-
-Tot slot voegen we aan `plot_jaar_bezocht_sf` de strata toe waartoe ze behoren.
-We gebruiken hiervoor dezelfde code als werd gebruikt in het `targets` project voor het trekken van de pilootsteekproef 2022.
-
-```{r toevoegen-strata}
-telpunten_strata <- add_openheid_landschap_to_frame(
-  path = path_to_openheid_landschap(),
-  punten_sf = plot_jaar_bezocht_sf %>% distinct(plotnaam, regio, geometry),
-  gebied = vlaanderen,
-  cutlevels = c(1.25, 1.35, 1.51),
-  class_labels = c("GL", "HGL", "HOL", "OL")) %>%
-  select(plotnaam, regio, openheid = openheid_klasse) %>%
-  mutate(sbp = st_intersects(.,
-                             st_union(sbp_akkervogels),
-                             sparse = FALSE) %>%
-           as.logical(),
-         sbp = ifelse(sbp, "binnen", "buiten")
-  ) %>%
-  mutate(stratum = paste0(openheid, "\n", sbp, " plan"))
-
-design_2018_2022_sf <- plot_jaar_bezocht_sf %>%
-  st_join(telpunten_strata %>% select(-plotnaam, -regio)) %>%
-  filter(regio %in% c("Oostelijke leemstreek", "De Moeren")) %>%
-  mutate(openheid = as.character(openheid))
-```
-
-Voor de waarnemingen verwijderen we ook dubbeltellingen.
-Indien de soort gezien was op meerdere teldagen binnen eenzelfde telperiode, wordt de laatste teldag genomen.
-
-```{r check-dubbeltelling}
-dubbels <- mas_31370_pipeline1 %>%
-  st_drop_geometry() %>%
-  group_by(plotid, jaar, periode_in_jaar, soortnr) %>%
-  summarize(aantal_teldagen = n_distinct(doy),
-            .groups = "drop") %>%
-  filter(aantal_teldagen > 1)
-# kan zowel zelfde waarnemer als andere waarnemer zijn
-
-mas_clean <- mas_31370_pipeline1 %>%
-  semi_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")) %>%
-  group_by(plotid, jaar, periode_in_jaar) %>%
-  filter(doy == max(doy)) %>%
-  ungroup() %>%
-  bind_rows(mas_31370_pipeline1 %>%
-              anti_join(dubbels, by = c("plotid", "jaar", "periode_in_jaar")))
-```
-
-# Data selectie en preparatie {#selectie-prep-data}
-
-## Data selectie {#selectie-data}
-
-We zijn geïnteresseerd in broedparen van de Veldleeuwerik in De Moeren en de Oostelijke leemstreek.
-Daarvoor selecteren we alleen waarnemingen met broedcode 1 of hoger.
-In het Nederlandse onderzoek van @wiersma2021 beschouwen ze tevens enkel waarnemingen van binnen soortspecifieke datumgrenzen om niet-broedende individuen uit te sluiten.
 
 ```{r}
 datumgrenzen_df <- read_csv2(here("data", "SOVON", 
@@ -380,23 +182,14 @@ datumgrenzen_mas <- datumgrenzen_df2 %>%
     
     ) %>%
   select(id, soort, datum_begin, datum_eind, R1, R2, R3, R4)
-        
-
 ```
 
-Wel selecteren we enkel waarnemingen binnen de telrondes van vogels die tot op maximum 300 m afstand van het telpunt zijn gezien.
-
 ```{r}
-# design 2018-2022 Oostelijke leemstreek en De Moeren
-design_2018_2022 <- design_2018_2022_sf %>%
-  st_drop_geometry()
-
-# Selecteer tellingen van Veldleeuwerik in 2018-2022 in de twee regio's
+# Selecteer tellingen van Veldleeuwerik in 2018-2023 in de twee regio's
 # met broedcode > 0, op minder dan 300 m en binnen telrondes
-veldleeuwerik_presences <- mas_clean %>%
-  filter(naam == "Veldleeuwerik", !is.na(periode_in_jaar), wrntype > 0L,
-         distance2plot <= 300) %>%  
-  inner_join(design_2018_2022, by = c("plotnaam", "jaar")) %>%
+veldleeuwerik_presences <- mas_data_sf %>%
+  filter(naam == "Veldleeuwerik", 
+         wrntype > 0L) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "))
 ```
 
@@ -433,17 +226,17 @@ Slechts één plot bevind zich in half-gesloten landschap en in De Moeren maar 2
 We verwijderen deze plots voor verdere analyses.
 
 ```{r}
-# Totale lijst van bezochte plots in 2018-2022
-bezoekenlijst_2018_2022 <- design_2018_2022 %>% 
-  expand_grid(distinct(mas_clean, periode_in_jaar)) %>% # voeg telperiodes toe
-  filter(!is.na(periode_in_jaar),
-         periode_in_jaar %in% telperiodes) %>% # selectie telperiodes Veldleeuwerik
+# Totale lijst van bezochte plots in 2018-2023
+bezoekenlijst <- mas_data_sf %>%
+  distinct(plotnaam, regio, openheid, sbp, jaar, periode_in_jaar) %>%
+  # selectie telperiodes Veldleeuwerik
+  filter(periode_in_jaar %in% telperiodes) %>% 
   arrange(plotnaam, jaar, periode_in_jaar)
 
-design <- bezoekenlijst_2018_2022 %>%
+design <- bezoekenlijst %>%
   expand(regio, openheid)
   
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-c(jaar, periode_in_jaar)) %>%
   distinct() %>%
   group_by(regio, openheid) %>%
@@ -452,15 +245,17 @@ bezoekenlijst_2018_2022 %>%
   replace(is.na(.), 0) %>%
   arrange(regio, openheid) %>%
   kable()
+```
 
+```{r}
 # Verwijder plots
-plot_to_remove <- bezoekenlijst_2018_2022 %>%
+plot_to_remove <- bezoekenlijst %>%
   filter(openheid == "HGL" |
          (regio == "De Moeren" & openheid == "HOL")) %>%
   pull(plotnaam) %>%
   unique()
 
-bezoekenlijst_2018_2022 <- bezoekenlijst_2018_2022 %>%
+bezoekenlijst <- bezoekenlijst %>%
   filter(!plotnaam %in% plot_to_remove)
 
 veldleeuwerik_presences <- veldleeuwerik_presences %>%
@@ -470,7 +265,7 @@ veldleeuwerik_presences <- veldleeuwerik_presences %>%
 Controle:
 
 ```{r}
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-c(jaar, periode_in_jaar)) %>%
   distinct() %>%
   group_by(regio, openheid) %>%
@@ -490,8 +285,9 @@ We maken een tweede dataset waarbij we ook afwezigheden toevoegen door te joinen
 veldleeuwerik_df <- veldleeuwerik_presences %>%
   st_drop_geometry() %>%
   group_by(plotnaam, jaar, periode_in_jaar) %>%
-  summarise(aantal = sum(aantal)) %>% # som aantallen gespot per dag 
-  full_join(bezoekenlijst_2018_2022, by = c("plotnaam", "jaar", 
+  summarise(aantal = sum(aantal),
+            .groups = "drop") %>% # som aantallen gespot per dag 
+  full_join(bezoekenlijst, by = c("plotnaam", "jaar", 
                                             "periode_in_jaar")) %>%
   replace(is.na(.), 0) %>%
   arrange(plotnaam, jaar, periode_in_jaar) %>%
@@ -502,17 +298,17 @@ veldleeuwerik_df <- veldleeuwerik_presences %>%
 
 ## Tellingen {#exploratie-tellingen}
 
-We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2022 waarbij er in elk jaar `r length(telperiodes)` telperiodes waren.
+We beschouwen data van De Moeren en de Oostelijke leemstreek van 2018-2023 waarbij er in elk jaar `r length(telperiodes)` telperiodes waren.
 Het aantal bezochte plots neemt over het algemeen toe over de jaren, behalve in De Moeren tussen 2019 en 2020.
 Het aantal waarnemingen niet altijd toe met het aantal bezochte plots.
 Het aantal waargenomen broedparen is steeds gelijkaardig aan het aantal waarnemingen wat wil zeggen dat de meeste waarnemingen meestal om een enkel broedpaar (of een individu dat broedgedrag vertoont) gaat.
 
 ```{r}
-plots_per_jaar <- bezoekenlijst_2018_2022 %>%
+plots_per_jaar <- bezoekenlijst %>%
   group_by(regio, jaar) %>%
   summarise(aantal_plots = n_distinct(plotnaam))
 
-telperiodes_per_jaar <- bezoekenlijst_2018_2022 %>%
+telperiodes_per_jaar <- bezoekenlijst %>%
   group_by(regio, jaar) %>%
   summarise(aantal_telperiodes = n_distinct(periode_in_jaar))
 
@@ -544,7 +340,7 @@ aantal_tabel %>%
 ## Aantallen {#exploratie-aantallen}
 
 Wanneer we naar de aantallen kijken, zien we veel afwezigheden in de dataset.
-Vooral in De Moeren, minder in de Oostelijke leemstreek behalve voor 2022.
+Vooral in De Moeren, minder in de Oostelijke leemstreek behalve voor 2022-2023.
 
 ```{r}
 veldleeuwerik_df %>%
@@ -553,7 +349,8 @@ veldleeuwerik_df %>%
             mediaan = median(aantal),
             gemiddelde = mean(aantal),
             max = max(aantal),
-            varantie = var(aantal)) %>%
+            variantie = var(aantal),
+            .groups = "drop") %>%
   kable()
 ```
 
@@ -567,15 +364,12 @@ veldleeuwerik_df %>%
           panel.grid.major.x = element_blank()) + 
     facet_wrap(jaar~regio, scales = "free") +
     labs(y = "", x = "Aantal broedparen Veldleeuwerik per plot",
-         fill = "telperiode") +
-    theme(legend.position = c(1, 0),
-          legend.justification = c(1, 0),
-          legend.direction = "horizontal")
+         fill = "telperiode")
 ```
 
 De volgende figuur toont het aantal getelde broedparen Veldleeuwerik per telcirkel met aanduiding van gemiddelde en 95% bootstrap betrouwbaarheidsinterval.
 Vooral in De Moeren zien we variatie in het gemiddelde aantal broedparen over de telperiodes.
-Zowel in De Moeren als in de Oostelijke leemstreek lijkt het gemiddelde min of meer constant over de jaren met een daling in 2022.
+Zowel in De Moeren als in de Oostelijke leemstreek lijkt het gemiddelde min of meer constant over de jaren met een daling in 2022-2023.
 
 ```{r}
 veldleeuwerik_df %>%
@@ -590,7 +384,7 @@ veldleeuwerik_df %>%
   theme(legend.position = "bottom")
 ```
 
-Deze daling heeft te maken met een aanpassing van het design in 2022 waarbij veel meer plots in controlegebieden (buiten sbp) zijn toegevoegd (zie verder).
+Deze daling heeft te maken met een aanpassing van het design in 2022-2023 waarbij veel meer plots in controlegebieden (buiten sbp) zijn toegevoegd (zie verder).
 
 ```{r}
 veldleeuwerik_df %>%
@@ -616,10 +410,10 @@ Voor analyses waarbij we ook afwezigheden in beschouwing nemen, zouden we deze p
 In beide regio's is er vooral geteld in open landschap en minder in half-open landschap.
 
 ```{r}
-design_openheid <- bezoekenlijst_2018_2022 %>%
+design_openheid <- bezoekenlijst %>%
   expand(regio, jaar, openheid)
   
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, openheid) %>%
@@ -631,21 +425,19 @@ bezoekenlijst_2018_2022 %>%
 ```
 
 ```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, openheid) %>%
   summarise(aantal_plots = n()) %>%
-  ggplot(aes(x = openheid, y = aantal_plots, fill = factor(jaar))) +
+  ggplot(aes(x = openheid, y = aantal_plots)) +
     geom_bar(stat = "identity") +
     theme(panel.grid.minor.x = element_blank(),
-          panel.grid.major.x = element_blank()) + 
+          panel.grid.major.x = element_blank(),
+          legend.position = "") + 
     facet_wrap(jaar~regio, scales = "free_y") +
     labs(y = "", x = "Aantal plots per categorie openheid landschap",
-         fill = "jaar") +
-    theme(legend.position = c(1, 0),
-          legend.justification = c(1, 0),
-          legend.direction = "horizontal")
+         fill = "jaar")
 ```
 
 Het gemiddeld aantal broedparen is steeds hoger in open landschap.
@@ -660,26 +452,24 @@ veldleeuwerik_df %>%
                fatten = 4, shape = "square") +
   facet_wrap(jaar~regio, scales = "free_y") +
   labs(y = "Aantal broedparen Veldleeuwerik per plot", 
-       x = "Openheid landschap") +
-  theme(legend.position = c(1, 0),
-        legend.justification = c(1, 0),
-        legend.direction = "horizontal")
+       x = "Openheid landschap")
 ```
 
 ### Soortbeschermingsplan
 
-De plots bevinden zich in beide regio's mestal binnen het soorbeschermingsplan.
-In 2022 is dit verschil kleiner.
+De plots bevinden zich in beide regio's meestal binnen het soorbeschermingsplan.
+In 2022-2023 is dit verschil kleiner.
 
 ```{r}
-design_sbp <- bezoekenlijst_2018_2022 %>%
+design_sbp <- bezoekenlijst %>%
   expand(regio, jaar, sbp)
   
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, sbp) %>%
-  summarise(aantal_plots = n()) %>%
+  summarise(aantal_plots = n(),
+            .groups = "drop") %>%
   full_join(design_sbp, by = c("regio", "jaar", "sbp")) %>%
   replace(is.na(.), 0) %>%
   arrange(regio, jaar, sbp) %>%
@@ -687,21 +477,19 @@ bezoekenlijst_2018_2022 %>%
 ```
 
 ```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, sbp) %>%
-  summarise(aantal_plots = n()) %>%
+  summarise(aantal_plots = n(),
+            .groups = "drop") %>%
   ggplot(aes(x = sbp, y = aantal_plots, fill = factor(jaar))) +
     geom_bar(stat = "identity") +
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank()) + 
     facet_wrap(jaar~regio, scales = "free_y") +
     labs(y = "", x = "Aantal plots binnen en buiten soortbeschermingsplan",
-         fill = "jaar") +
-    theme(legend.position = c(1, 0),
-          legend.justification = c(1, 0),
-          legend.direction = "horizontal")
+         fill = "jaar")
 ```
 
 Het gemiddeld aantal broedparen lijkt niet te veel te verschillen binnen of buiten het soortbeschermingsplan.
@@ -715,23 +503,21 @@ veldleeuwerik_df %>%
                fatten = 4, shape = "square") +
   facet_wrap(jaar~regio, scales = "free_y") +
   labs(y = "Aantal broedparen Veldleeuwerik per plot", 
-       x = "Soortbeschermingsplan") +
-  theme(legend.position = c(1, 0),
-        legend.justification = c(1, 0),
-        legend.direction = "horizontal")
+       x = "Soortbeschermingsplan")
 ```
 
 ### Interactie openheid en soortbeschermingsplan
 
 ```{r}
-design_openheid <- bezoekenlijst_2018_2022 %>%
+design_openheid <- bezoekenlijst %>%
   expand(regio, jaar, openheid, sbp)
   
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, openheid, sbp) %>%
-  summarise(aantal_plots = n()) %>%
+  summarise(aantal_plots = n(),
+            .groups = "drop") %>%
   full_join(design_openheid, by = c("regio", "jaar", "openheid", "sbp")) %>%
   replace(is.na(.), 0) %>%
   arrange(regio, jaar, openheid, sbp) %>%
@@ -739,21 +525,19 @@ bezoekenlijst_2018_2022 %>%
 ```
 
 ```{r, fig.width=9.26, fig.height=6.09, fig.align='center'}
-bezoekenlijst_2018_2022 %>%
+bezoekenlijst %>%
   select(-periode_in_jaar) %>%
   distinct() %>%
   group_by(regio, jaar, openheid, sbp) %>%
-  summarise(aantal_plots = n()) %>%
+  summarise(aantal_plots = n(),
+            .groups = "drop") %>%
   ggplot(aes(x = openheid, y = aantal_plots, fill = sbp)) +
     geom_bar(stat = "identity") +
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank()) + 
     facet_wrap(jaar~regio, scales = "free_y") +
     labs(y = "", x = "Aantal plots per categorie",
-         fill = "sbp") +
-    theme(legend.position = c(1, 0),
-          legend.justification = c(1, 0),
-          legend.direction = "horizontal")
+         fill = "sbp")
 ```
 
 ## Afstanden {#exploratie-afstanden}
@@ -796,7 +580,7 @@ veldleeuwerik_presences2 %>%
           legend.direction = "horizontal")
 ```
 
-# Densiteitsschattingen 2018-2022 {#dens-2018-2022}
+# Densiteitsschattingen 2018-2023 {#dens-2018-2023}
 
 ## Inleiding tot distance sampling {#inleiding-distance}
 
@@ -846,7 +630,8 @@ ggplot(data = circle_fun()) +
   geom_text(aes(x = 150, y = 0, label = "w"), nudge_y = 25) +
   geom_point(aes(x = -100, y = 200), shape = "\U1F986", size = 10) +
   geom_segment(aes(x = 0, y = 0, xend = -100, yend = 200)) +
-  geom_text(aes(x = -50, y = 100), label = "r[i]", nudge_y = 20, nudge_x = 20, parse = TRUE) +
+  geom_text(aes(x = -50, y = 100), label = "r[i]", nudge_y = 20, nudge_x = 20, 
+            parse = TRUE) +
   geom_path(aes(x, y), colour = "red") + 
   geom_point(aes(x = 0, y = 0), colour = "red", size = 2) +
   labs(x = "", y = "") +
@@ -856,18 +641,18 @@ ggplot(data = circle_fun()) +
 
 ## Data selectie en preparatie {#preparatie-distance}
 
-We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
+We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022-2023 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
 
 ```{r}
-plots_old <- bezoekenlijst_2018_2022 %>%
-  filter(jaar != 2022) %>%
+plots_old <- bezoekenlijst %>%
+  filter(!jaar %in% 2022:2023) %>%
   distinct(plotnaam) %>%
   pull()
 
 veldleeuwerik_2018_2022_reduced <- veldleeuwerik_presences %>%
   filter(plotnaam %in% plots_old)
 
-bezoekenlijst_2018_2022_reduced <- bezoekenlijst_2018_2022 %>%
+bezoekenlijst_2018_2022_reduced <- bezoekenlijst %>%
   filter(plotnaam %in% plots_old)
 ```
 
@@ -1165,7 +950,7 @@ De fit ziet er beter uit dan voordien.
 plot(veldleeuwerik_dist_2018_2022_hr4_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
-We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van regio en jaar in interactie als finale model.
+We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van regio en jaar als finale model.
 
 ```{r}
 veldleeuwerik_dist_2018_2022_model <- veldleeuwerik_dist_2018_2022_hr4_binned
@@ -1229,22 +1014,24 @@ cbind(veldleeuwerik_dist_2018_2022_model$ddf$data,
 ```
 
 ```{r}
-design_plot <- matrix(rep(0, 10 * 6), ncol = 6, byrow = TRUE)
+design_plot <- matrix(rep(0, 12 * 7), ncol = 7, byrow = TRUE)
 design_plot[, 1] <- 1
 design_plot[2, 2] <- 1
 design_plot[3, 3] <- 1
 design_plot[4, 4] <- 1
 design_plot[5, 5] <- 1
 design_plot[6, 6] <- 1
-design_plot[7:10, 2] <- 1
-design_plot[7, 3] <- 1
-design_plot[8, 4] <- 1
-design_plot[9, 5] <- 1
-design_plot[10, 6] <- 1
+design_plot[7, 7] <- 1
+design_plot[8:12, 2] <- 1
+design_plot[8, 3] <- 1
+design_plot[9, 4] <- 1
+design_plot[10, 5] <- 1
+design_plot[11, 6] <- 1
+design_plot[12, 7] <- 1
 
 labels_plot <- paste(c("De Moeren", "Oostelijke leemstreek", 
-                       rep(c("De Moeren", "Oostelijke leemstreek"), each = 4)),
-                     c(2018, 2018, rep(2019:2022, 2)), sep = " - ")
+                       rep(c("De Moeren", "Oostelijke leemstreek"), each = 5)),
+                     c(2018, 2018, rep(2019:2023, 2)), sep = " - ")
 
 design_plot %>%
   data.frame() %>%
@@ -1253,9 +1040,12 @@ design_plot %>%
     veldleeuwerik_dist_2018_2022_model$ddf$ds$aux$ddfobj$scale$parameters)) %>%
   kable()
 
+palette <- colorRampPalette(RColorBrewer::brewer.pal(9,name = 'Set1'))(length(labels_plot))
+
 plot_detection_curve(veldleeuwerik_dist_2018_2022_model, design_mat = design_plot, 
                      labels = labels_plot) +
-  scale_colour_manual(values = c(inbo_palette(), "red"))
+  scale_colour_manual(values = palette) +
+  theme(legend.position = "right")
 ```
 
 De gemiddelde detectiekans $\hat{P}_a$ is gelijk aan `r round(veldleeuwerik_dist_2018_2022_model$dht$individuals$average.p, digits = 3)`.
@@ -1391,7 +1181,6 @@ veldleeuwerik_df %>%
 ```
 
 # Densiteitsschattingen 2022 {#dens-2022}
-
 ## Data selectie en preparatie {#preparatie-distance2022}
 
 We beschouwen alle plots van 2022.
@@ -1400,7 +1189,7 @@ We beschouwen alle plots van 2022.
 veldleeuwerik_2022 <- veldleeuwerik_presences %>%
   filter(jaar == 2022)
 
-design_2022 <- bezoekenlijst_2018_2022 %>%
+design_2022 <- bezoekenlijst %>%
   filter(jaar == 2022)
 ```
 
@@ -1434,7 +1223,7 @@ perimeters_strata <- steekproefkader %>%
          !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
   group_by(Naam, openheid_klasse, is_sbp) %>%
   st_buffer(dist = 300) %>%
-  summarize() %>%
+  summarise() %>%
   mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
                          sep = " - "))
 
@@ -1619,14 +1408,7 @@ summarize_ds_models2(out_models) %>%
   kable()
 ```
 
-De volgende hazard-rate modellen konden niet gefit worden (Hessian = `NA`):
-
--   \~regio + sbp
--   \~openheid
--   \~regio + sbp + openheid
--   \~regio + openheid
-
-Het Hazard-rate model waarbij de detectiekans afhankelijk is van sbp en openheid scoort het best.
+Het Hazard-rate model waarbij de detectiekans afhankelijk is van openheid scoort het best.
 Op basis van dit model testen we nog enkele combinaties waarbij we interacties tussen elke combinatie van twee variabelen toevoegen (niet regio\*openheid).
 
 ```{r, cache=TRUE}
@@ -1643,13 +1425,14 @@ veldleeuwerik_dist_2022_hr11 <- ds(data = veldleeuwerik_distance, key = "hr",
         sample_table = sample_table, obs_table = obs_table)
 
 summarize_ds_models2(
+  veldleeuwerik_dist_2022_hr3,
   veldleeuwerik_dist_2022_hr6, veldleeuwerik_dist_2022_hr9,
   veldleeuwerik_dist_2022_hr10, veldleeuwerik_dist_2022_hr11
   ) %>%
   kable()
 ```
 
-We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van sbp en openheid.
+We selecteren het Hazard-rate model waarbij de detectiekans afhankelijk is van openheid.
 
 ## Model fit {#fit-distance2022}
 
@@ -1659,9 +1442,9 @@ Voor studies met punttransecten geven kansdichtheidsfunctieplots ook een goed id
 
 ```{r}
 par(mfrow = c(1, 2))
-von_mises <- gof_ds(veldleeuwerik_dist_2022_hr6)
+von_mises <- gof_ds(veldleeuwerik_dist_2022_hr3)
 von_mises
-plot(veldleeuwerik_dist_2022_hr6, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_2022_hr3, pdf = TRUE, showpoints = FALSE)
 par(mfrow = c(1, 1))
 ```
 
@@ -1678,8 +1461,8 @@ plot_detection_curve(veldleeuwerik_dist_2022_hr6, plot_average_fit = FALSE,
 Daarom fitten we dit model opnieuw waarbij we de afstanden groeperen in intervallen van 50 m.
 
 ```{r, cache=TRUE}
-veldleeuwerik_dist_2022_hr6_binned <- ds(data = veldleeuwerik_distance, key = "hr", 
-        formula = ~sbp + openheid, adjustment = NULL, truncation = 300, 
+veldleeuwerik_dist_2022_hr3_binned <- ds(data = veldleeuwerik_distance, 
+        key = "hr", formula = ~openheid, adjustment = NULL, truncation = 300, 
         transect = "point", dht_group = FALSE, 
         cutpoints = c(0, 50, 100, 150, 200, 250, 300),
         convert_units = conversion_factor, region_table = region_table, 
@@ -1689,20 +1472,20 @@ veldleeuwerik_dist_2022_hr6_binned <- ds(data = veldleeuwerik_distance, key = "h
 De fit ziet er beter uit dan voordien.
 
 ```{r}
-plot(veldleeuwerik_dist_2022_hr6_binned, pdf = TRUE, showpoints = FALSE)
+plot(veldleeuwerik_dist_2022_hr3_binned, pdf = TRUE, showpoints = FALSE)
 ```
 
 Maar is nog niet ideaal:
 
 ```{r}
-gof_ds(veldleeuwerik_dist_2022_hr6_binned)
+gof_ds(veldleeuwerik_dist_2022_hr3_binned)
 ```
 
 We selecteren het intervalmodel met Hazard-rate sleutelfunctie waarbij de detectiekans afhankelijk is van sbp, jaar en openheid met sbp en jaar in interactie als finale model.
 
 ```{r}
-veldleeuwerik_dist_2022_model <- veldleeuwerik_dist_2022_hr6_binned
-veldleeuwerik_covars <- c("sbp", "openheid")
+veldleeuwerik_dist_2022_model <- veldleeuwerik_dist_2022_hr3_binned
+veldleeuwerik_covars <- c("openheid")
 ```
 
 ## Resultaten {#resultaten-distance2022}
@@ -1725,8 +1508,10 @@ De gemiddelde detectiekans $\hat{P}_a$ is gelijk aan `r round(veldleeuwerik_dist
 Deze kunnen we als volgt visualiseren:
 
 ```{r}
-plot_detection_curve(veldleeuwerik_dist_2022_model, 
-                     plot_average_fit = TRUE)
+design_plot <- matrix(c(1, 0, 1, 1), ncol = 2, byrow = TRUE)
+labels_plot <- c("HOL", "OL")
+plot_detection_curve(veldleeuwerik_dist_2022_model, design_mat = design_plot, 
+                     labels = labels_plot, plot_average_fit = TRUE)
 ```
 
 ```{r}
@@ -1806,17 +1591,14 @@ Deze finale modellen kunnen dan in het rapport gebruikt worden voor het generere
 
 We hebben 3 belangrijke dataframes.
 
-1.  `mas_clean` met alle observaties
+1.  `mas_data_sf` met alle observaties
 2.  `design_2018_2022_mas` met alle bezochte plots
     -   selecteer OL in De Moeren en OL en HOL in Oostelijke leemstreek
 3.  `datum_grenzen_mas` met de datumgrenzen voor elke soort
 
 ```{r}
-mas_clean <- mas_clean
-design_2018_2022_mas <- design_2018_2022_sf %>%
-  st_drop_geometry() %>%
-  filter((regio == "Oostelijke leemstreek" & openheid %in% c("OL", "HOL")) |
-         (regio == "De Moeren" & openheid == "OL"))
+mas_data_sf <- mas_data_sf
+design_2018_2023_mas <- bezoekenlijst
 datumgrenzen_mas <- datumgrenzen_mas 
 ```
 
@@ -1829,25 +1611,24 @@ roofvogels <- c("Blauwe Kiekendief", "Boomvalk", "Bruine Kiekendief", "Buizerd",
                 "Wespendief", "Zwarte Wouw")
 ```
 
-We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0, geen afstanden \> 300 m en dat ze binnen telperiodes vallen.
-We behouden ook enkel de plots die tot `design_2018_2022_mas` behoren.
+We maken een dataframe `mas_observations` waarbij we alle waarnemingen van vogels selecteren en filteren op broedcode \> 0.
+We behouden ook enkel de plots die tot `design_2018_2023_mas` behoren.
 We voegen ook Haas toe en roofvogels (`r roofvogels`) zonder te filteren op broedcode.
 
 ```{r}
-mas_observations <- mas_clean %>%
-  filter(wrntype > 0L, distance2plot <= 300, !is.na(periode_in_jaar),
+mas_observations <- mas_data_sf %>%
+  filter(wrntype > 0L,
          soortgrp == 2) %>%  
-  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
-  mutate(Region.Label = paste(regio, jaar, sep = " - "),
-         naam = ifelse(naam == "Gele kwikstaart (spec)", "Gele Kwikstaart",
-                       naam),
-         naam = ifelse(naam == "Witte Kwikstaart (spec)", "Witte Kwikstaart",
-                       naam))
+  inner_join(design_2018_2023_mas, 
+             by = join_by(plotnaam, jaar, periode_in_jaar, regio, openheid, 
+                          sbp)) %>%
+  mutate(Region.Label = paste(regio, jaar, sep = " - "))
 
-haas_raptor_observations <- mas_clean %>%
-  filter(naam == "Haas" | naam %in% roofvogels, distance2plot <= 300, 
-         !is.na(periode_in_jaar)) %>%  
-  inner_join(design_2018_2022_mas, by = c("plotnaam", "jaar")) %>%
+haas_raptor_observations <- mas_data_sf %>%
+  filter(naam == "Haas" | naam %in% roofvogels) %>%  
+  inner_join(design_2018_2023_mas, 
+             by = join_by(plotnaam, jaar, periode_in_jaar, regio, openheid, 
+                          sbp)) %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - "),
          naam = ifelse(naam %in% roofvogels, 
                        paste(naam, "zonder_broedcode", sep = "_"), 
@@ -1893,16 +1674,22 @@ for (i in seq_along(unique(mas_observations$naam))) {
 names(df_obs_list) <- df_obs_names
 ```
 
+```{r}
+saveRDS(df_obs_list, file.path("output", "results", "distance_sampling",
+                               "df_obs_list.rds"))
+```
+
+
 ## Genereer dataframes voor distance sampling
 
-### 2018-2022
+### 2018-2023
 
-We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
+We beschouwen alle plots van 2018-2021 en voegen enkel plots van 2022-2023 toe als ze minstens eenmaal geteld zijn in een van de voorgaande jaren.
 We zetten alle datasets om om de detectiecurve te fitten.
 
 ```{r}
-plots_old <- design_2018_2022_mas %>%
-  filter(jaar != 2022) %>%
+plots_old <- design_2018_2023_mas %>%
+  filter(!jaar %in% 2022:2023) %>%
   distinct(plotnaam) %>%
   pull()
 
@@ -1914,8 +1701,17 @@ distance_dfs_2018_2022 <- lapply(df_obs_list, function(df) {
       mutate(jaar = as.character(jaar))
   })
 
-design_2018_2022_mas_reduced <- design_2018_2022_mas %>%
+design_2018_2023_mas_reduced <- design_2018_2023_mas %>%
   filter(plotnaam %in% plots_old)
+```
+
+```{r}
+saveRDS(design_2018_2023_mas,
+        file.path("output", "results", "distance_sampling",
+                  "design_2018_2023_mas.rds"))
+saveRDS(design_2018_2023_mas_reduced,
+        file.path("output", "results", "distance_sampling",
+                  "design_2018_2023_mas_reduced.rds"))
 ```
 
 `sample_table` geeft aan welke plots in welke regio's voorkomen en welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
@@ -1929,7 +1725,7 @@ efforts_2018_2022 <- lapply(df_obs_list, function(df) {
   })
 
 sample_tables_2018_2022 <- lapply(efforts_2018_2022, function(effort) {
-    design_2018_2022_mas_reduced %>%
+    design_2018_2023_mas_reduced %>%
       distinct(plotnaam, regio, jaar) %>%
       mutate(Region.Label = paste(regio, jaar, sep = " - "),
              Effort = effort) %>%
@@ -1969,7 +1765,7 @@ areas <- perimeters_strata %>%
   select(regio = Naam, Area) %>%
   st_drop_geometry()
 
-region_table_2018_2022 <- design_2018_2022_mas_reduced %>%
+region_table_2018_2022 <- design_2018_2023_mas_reduced %>%
   distinct(regio, jaar) %>%
   full_join(areas, by = "regio") %>%
   mutate(Region.Label = paste(regio, jaar, sep = " - ")) %>%
@@ -1992,7 +1788,7 @@ distance_dfs_2022 <- lapply(df_obs_list, function(df) {
              regio, sbp, openheid)
   })
 
-design_2022_mas <- design_2018_2022_mas %>%
+design_2022_mas <- design_2018_2023_mas %>%
   filter(jaar == 2022)
 ```
 
@@ -2040,7 +1836,7 @@ perimeters_strata_2022 <- steekproefkader %>%
          !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
   group_by(Naam, openheid_klasse, is_sbp) %>%
   st_buffer(dist = 300) %>%
-  summarize() %>%
+  summarise(.groups = "drop") %>%
   mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
                          sep = " - "))
 
@@ -2061,9 +1857,93 @@ region_table_2022 <- design_2022_mas %>%
 conversion_factor_2022 <- convert_units("meter", NULL, "Square kilometer")
 ```
 
+
+### 2023
+
+We beschouwen alle plots van 2023.
+We filteren alle datasets om de detectiecurve te fitten.
+
+```{r}
+distance_dfs_2023 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2023) %>% 
+      select(object = oid, size = aantal, distance = distance2plot, 
+             regio, sbp, openheid)
+  })
+
+design_2023_mas <- design_2018_2023_mas %>%
+  filter(jaar == 2023)
+```
+
+`sample_table` geeft aan welke plots in welke regio's voorkomen en welke effort is geleverd (effort is gelijk aan het aantal beschouwde telperiodes per jaar).
+
+```{r}
+efforts_2023 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2023) %>% 
+      pull(periode_in_jaar) %>%
+      unique() %>%
+      length()
+  })
+
+sample_tables_2023 <- lapply(efforts_2023, function(effort) {
+    design_2023_mas %>%
+      distinct(plotnaam, regio, openheid, sbp) %>%
+      mutate(Region.Label = paste(regio, openheid, sbp, sep = " - "),
+             Effort = effort) %>%
+      select(Sample.Label = plotnaam, Region.Label, Effort)
+  })
+```
+
+`obs_table` geeft aan welke waarnemingen in welke plots en strata zitten.
+
+```{r}
+obs_tables_2023 <- lapply(df_obs_list, function(df) {
+    df %>%
+      filter(jaar == 2023) %>%  
+      mutate(Region.Label = paste(regio, openheid, sbp, sep = " - ")) %>%
+      select(object = oid, Region.Label, Sample.Label = plotnaam)
+  })
+```
+
+De `region_table` en de conversiefactor voor de meeteenheden zijn gemeenschappelijk voor alle soorten.
+`region_table` bevat de oppervlaktes per stratum (regio-openheid-sbp).
+
+```{r}
+# Lees steekproefkader in
+steekproefkader <- tar_read(steekproefkader_finaal, store = targets_store)
+
+# Selectie en buffer
+perimeters_strata_2023 <- steekproefkader %>%
+  filter(openheid_klasse %in% c("HOL", "OL"),
+         !(Naam == "De Moeren" & openheid_klasse == "HOL")) %>%
+  group_by(Naam, openheid_klasse, is_sbp) %>%
+  st_buffer(dist = 300) %>%
+  summarise(.groups = "drop") %>%
+  mutate(stratum = paste(openheid_klasse, ifelse(is_sbp, "binnen", "buiten"), 
+                         sep = " - "))
+
+# Bereken oppervlaktes van de strata
+areas_2023 <- perimeters_strata_2023 %>% 
+  mutate(Area = as.numeric(st_area(geometry)) / 1e6) %>%
+  select(regio = Naam, stratum, Area) %>%
+  st_drop_geometry()
+
+region_table_2023 <- design_2023_mas %>%
+  distinct(regio, openheid, sbp) %>%
+  mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
+  full_join(areas_2023, by = c("regio", "stratum")) %>%
+  mutate(Region.Label = paste(regio, openheid, sbp, sep = " - ")) %>%
+  select(Region.Label, Area)
+
+# Conversiefactor van meter naar 100 hectare
+conversion_factor_2023 <- convert_units("meter", NULL, "Square kilometer")
+```
+
+
 ## Data selectie voor model specificatie
 
-### 2018-2022
+### 2018-2023
 
 We hebben bepaalde regels nodig om de modellen te kunnen fitten:
 
@@ -2137,7 +2017,7 @@ stratum_cijfers_lijst <- lapply(seq_along(distance_dfs_2018_2022_final),
        pull(n) %>%
        min()
      
-     if (min <= 11){
+     if (min <= 11) {
        out$n_interactie <- FALSE
      }
     
@@ -2393,9 +2273,191 @@ do.call(rbind, list_2022) %>%
   kable()
 ```
 
+
+### 2023
+
+We hebben bepaalde regels nodig om de modellen te kunnen fitten:
+
+We maken 2 datasets:
+
+1.  Simpele modellen (zonder covariaten)
+    -   behoud datasets als totaal aantal waarnemingen \>= 20
+
+2.  Complexere modellen (met covariaten)
+    -   behoud strata als aantal waarnemingen per stratum \>= 10
+    -   behoud datasets als totaal aantal waarnemingen \>= 30
+
+Eerst fitten we alle modellen met *2*. Indien het finale model geen covariaten bevat, fitten het model opnieuw met de simpele dataset uit *1*. Zo kunnen we densiteitsschattingen uitvoeren voor zoveel mogelijk soorten.
+
+Hiervoor moeten we ook rekening houden dat sommige observaties meerdere individuen bevatten.
+Een observatie van 2 individuen telt hier als 2 waarnemingen!
+
+> Als we deze regels aanpassen, moeten de modellen die verderop gefit worden worden verwijderd uit de lokale folder anders zullen de oude modellen geladen worden.
+
+```{r}
+filter_dist_df_2023 <- function(data, stratum_filter, dataset_filter) {
+  # Selectie strata
+  select_df <- lapply(data, function(i) {
+    i %>% 
+      group_by(regio, openheid, sbp) %>% 
+      mutate(n = sum(size)) %>%
+      filter(n >= stratum_filter) %>%
+      ungroup() %>%
+      select(-n)
+  })
+  
+  # Selectie datasets
+  n_obs <- sapply(select_df, function(i) {
+      if (nrow(i) == 0) {
+        return(0)
+      } else {
+        return(sum(i$size))
+      }
+    })
+  select_df <- select_df[n_obs >= dataset_filter]
+  
+  return(select_df)
+}
+
+distance_dfs_2023_simpel <- filter_dist_df_2023(distance_dfs_2023, 0, 20)
+distance_dfs_2023_final <- filter_dist_df_2023(distance_dfs_2023, 10, 30)
+```
+
+In de complexe dataset zijn de meeste soorten in meerdere openheidsklasses gezien.
+De meeste soorten hebben waarnemingen van slechts een enkele regio.
+De meeste soorten hebben waarnemingen zowel binnen als buiten sbp.
+Een interacties tussen regio en sbp en openheid en sbp zal meestal niet gefit kunnen worden.
+
+```{r}
+stratum_cijfers_lijst_2023 <- lapply(seq_along(distance_dfs_2023_final), 
+  function(i) {
+    out <- distance_dfs_2023_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2023_final[i])) %>%
+      mutate(n = sum(distance_dfs_2023_final[[i]]$size),
+             n_regio = n_distinct(regio) > 1,
+             n_openheid = n_distinct(openheid) > 1,
+             n_sbp = n_distinct(sbp) > 1) %>%
+      group_by(sbp) %>%
+      mutate(n_interactie_openheid = n_distinct(openheid),
+             n_interactie_regio = n_distinct(regio)) %>%
+      ungroup() %>%
+      mutate(n_int_openheid_sbp = !(min(n_interactie_openheid) == 1 | n_sbp == FALSE),
+             n_int_regio_sbp = !(min(n_interactie_regio) == 1 | n_sbp == FALSE)) %>%
+      distinct(soort, n, n_regio, n_openheid, n_sbp, n_int_openheid_sbp, 
+               n_int_regio_sbp)
+     
+   # Minimum 11 waarnemingen per stratum om interactie te fitten  
+   min_openheid_sbp <- distance_dfs_2023_final[[i]] %>% 
+     mutate(soort = names(distance_dfs_2023_final[i])) %>%
+     group_by(soort, openheid, sbp) %>% 
+     summarise(n = n(), .groups = "drop") %>%
+     pull(n) %>%
+     min()
+   
+   min_regio_sbp <- distance_dfs_2023_final[[i]] %>% 
+     mutate(soort = names(distance_dfs_2023_final[i])) %>%
+     group_by(soort, regio, sbp) %>% 
+     summarise(n = n(), .groups = "drop") %>%
+     pull(n) %>%
+     min()
+   
+   if (min_openheid_sbp <= 11){
+     out$n_int_openheid_sbp <- FALSE
+   }
+   
+   if (min_regio_sbp <= 11){
+     out$n_int_regio_sbp <- FALSE
+   }
+   
+  return(out)
+  })
+
+stratum_cijfers_df_2023 <- do.call(rbind, stratum_cijfers_lijst_2023)
+```
+
+```{r}
+stratum_cijfers_df_2023 %>% 
+  mutate(n = factor(n, levels = sort(unique(n)), ordered = TRUE)) %>%
+  ggplot() +
+   geom_bar(aes(x = n)) +
+   labs(x = "Aantal waarnemingen", y = "Aantal soorten") +
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, 
+                                    size = 6))
+```
+
+```{r}
+stratum_cijfers_df_2023 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_regio)) +
+   labs(x = "In meer dan 1 regio gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2023 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_openheid)) +
+   labs(x = "In meer dan 1 openheidsklasse gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2023 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_sbp)) +
+   labs(x = "Zowel binnen als buiten sbp gezien", y = "Aantal soorten")
+
+stratum_cijfers_df_2023 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_int_openheid_sbp)) +
+   labs(x = "In meerdere openheidsklasses binnen en buiten sbp gezien (interactie)", 
+        y = "Aantal soorten")
+
+stratum_cijfers_df_2023 %>% 
+  ggplot() +
+   geom_bar(aes(x = n_int_regio_sbp)) +
+   labs(x = "In meerdere regio's binnen en buiten sbp gezien (interactie)",  
+        y = "Aantal soorten")
+```
+
+De volgende soorten blijven over voor de simpele dataset:
+
+```{r}
+list_2023_simpel <- lapply(seq_along(distance_dfs_2023_simpel), 
+  function(i) {
+    distance_dfs_2023_simpel[[i]] %>% 
+      mutate(soort = names(distance_dfs_2023_simpel[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2023_simpel[[i]]$size),
+             n_regios = n_distinct(regio),
+             n_openheid = n_distinct(openheid),
+             n_sbp = n_distinct(sbp),
+             strata = paste0(regio, openheid, sbp),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_regios, n_openheid, n_sbp, n_strata)
+  })
+
+do.call(rbind, list_2023_simpel) %>%
+  kable()
+```
+
+De volgende soorten blijven over voor de complexere dataset:
+
+```{r}
+list_2023 <- lapply(seq_along(distance_dfs_2023_final), 
+  function(i) {
+    distance_dfs_2023_final[[i]] %>% 
+      mutate(soort = names(distance_dfs_2023_final[i])) %>%
+      mutate(n_obs = sum(distance_dfs_2023_final[[i]]$size),
+             n_regios = n_distinct(regio),
+             n_openheid = n_distinct(openheid),
+             n_sbp = n_distinct(sbp),
+             strata = paste0(regio, openheid, sbp),
+             n_strata = n_distinct(strata)) %>%
+      distinct(soort, n_obs, n_regios, n_openheid, n_sbp, n_strata)
+  })
+
+do.call(rbind, list_2023) %>%
+  kable()
+```
+
+
 ## Model specificatie distance sampling
 
-### 2018-2022
+### 2018-2023
 
 Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio en jaar. We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen ook tweewegsinteracties tussen de covariaten. In de modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data. Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken, beperken we het aantal aanpassingstermen tot maximaal 2. De modellen worden lokaal opgeslagen zodat ze maar eenmaal moeten gefit worden.
 
@@ -2425,7 +2487,7 @@ forms2[sapply(forms2, is.null)] <- NULL
 forms_2018_2022 <- c("~1", forms1, forms2)
 ```
 
-Voor Bruine Kiekendief kunnen we geen model fitten. Voor Bruine Kiekendief zonder broedcode kunnen we ~regio*jaar niet fitten.
+Voor Turkse tortel kunnen we ~1 niet fitten. Voor Holenduif en Huismus kunnen we ~regio+jaar niet fitten. Voor Huismus en Witte kwikstaart kunnen we ~regio*jaar niet fitten.
 
 ```{r}
 all_models <- list()
@@ -2437,11 +2499,8 @@ keys <- c("hn", "hr")
 # Sla de gefitte models op op deze locatie
 model_path <- "./src/markdown/mas/distance_models/"
 
-# Verwijder BruineKiekendief
-index_kiek <- which(names(distance_dfs_2018_2022_final) == "BruineKiekendief")
-
 # Loop over species
-for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
+for (spec in names(distance_dfs_2018_2022_final)) {
   distance_data <- distance_dfs_2018_2022_final[[spec]]
   sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
   obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
@@ -2462,7 +2521,16 @@ for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
     form_spec[sapply(form_spec, function(i) grepl("\\*", i))] <- NULL
   }
   
-  if (spec == "BruineKiekendief_zonder_broedcode") {
+  # manual removal
+  if (spec %in% c("TurkseTortel")) {
+    form_spec[sapply(form_spec, function(i) grepl("~1", i))] <- NULL
+  }
+  
+  if (spec %in% c("Holenduif", "Huismus")) {
+    form_spec[sapply(form_spec, function(i) grepl("\\+", i))] <- NULL
+  }
+  
+  if (spec %in% c("Huismus", "WitteKwikstaart")) {
     form_spec[sapply(form_spec, function(i) grepl("\\*", i))] <- NULL
   }
 
@@ -2472,7 +2540,7 @@ for (spec in names(distance_dfs_2018_2022_final)[-index_kiek]) {
     
     for (k in keys) {
       # Naam voor model
-      mod_name <- paste0(spec, "_distmod_2018_2022_", k, i)
+      mod_name <- paste0(spec, "_distmod_2018_2023_", k, i)
       file <- paste0(model_path, mod_name, ".rds")
       
       # Sla model op als het nog niet bestaat en lees het in anderzijds
@@ -2554,7 +2622,8 @@ forms2 <- forms2[-match("~regio*openheid", forms2)]
 forms_2022 <- c("~1", forms1, forms2)
 ```
 
-Voor Bruine Kiekendief zonder broedcode kunnen we geen model fitten. Voor Buizerd en Winterkoning lukt het niet om ~regio+openheid en ~regio+sbp+openheid te fitten.
+Voor Buizerd_zonder_broedcode, Huismus, Kauw, Turkse tortel, Winterkoning, ZwarteRoodstaart lukt het niet om ~regio+openheid te fitten.
+Voor Huismus, TurkseTortel, Winterkoning lukt het niet om ~regio+sbp+openheid te fitten.
 
 ```{r}
 all_models_2022 <- list()
@@ -2566,11 +2635,8 @@ keys <- c("hn", "hr")
 # Sla de gefitte models op op deze locatie
 model_path <- "./src/markdown/mas/distance_models/"
 
-# Verwijder BruineKiekendief
-index_kiek_2022 <- which(names(distance_dfs_2022_final) == "BruineKiekendief_zonder_broedcode")
-
 # Loop over species
-for (spec in names(distance_dfs_2022_final)[-index_kiek_2022]) {
+for (spec in names(distance_dfs_2022_final)) {
   distance_data_2022 <- distance_dfs_2022_final[[spec]]
   sample_table_2022 <- sample_tables_2022[[spec]]
   obs_table_2022 <- obs_tables_2022[[spec]]
@@ -2606,8 +2672,13 @@ for (spec in names(distance_dfs_2022_final)[-index_kiek_2022]) {
     form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
   }
   
-  if (spec %in% c("Buizerd", "Winterkoning")) {
+  # manual removal
+  if (spec %in% c("Buizerd_zonder_broedcode", "Huismus", "Kauw", "TurkseTortel",
+                  "Winterkoning", "ZwarteRoodstaart")) {
     form_spec[sapply(form_spec, function(i) grepl("regio\\+openheid", i))] <- NULL
+  }
+  
+  if (spec %in% c("Huismus", "TurkseTortel", "Winterkoning")) {
     form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
   }
 
@@ -2667,6 +2738,155 @@ for (spec in names(distance_dfs_2022_final)[-index_kiek_2022]) {
 names(all_models_2022) <- all_model_2022_names
 ```
 
+
+### 2023
+
+Voor de formulatie van de detectiefunctie beschouwen we half-normal en hazard-rate sleutelfuncties die we laten afhangen van covariaten regio, openheid en sbp. We fitten modellen zonder covariaten, met alle combinaties van covariaten en beschouwen enkel tweewegsinteracties tussen de covariaten. In de modellen zonder covariaten kunnen aanpassingstermen toegevoegd worden om een betere fit te krijgen tussen de curve en de data. Om te hoge flexibiliteit van dergelijke detectiefunctiemodellen te beperken, beperken we het aantal aanpassingstermen tot maximaal 2. De modellen worden lokaal opgeslagen zodat ze maar eenmaal moeten gefit worden.
+
+```{r}
+match_variables_2023 <- c("regio", "sbp", "openheid")
+
+# We maken formules uit combinaties van alle variabelen
+combos <- sapply(seq(length(match_variables_2023)), function(i) {
+  as.list(as.data.frame(combn(x = match_variables_2023, m = i)))
+})
+combos <- unlist(combos, recursive = FALSE)
+
+# Combinaties zonder interacties
+forms1 <- sapply(combos, function(x) {
+    paste0("~", paste(x, collapse = "+"))
+  })
+
+# Combinaties interacties
+forms2 <- sapply(combos, function(x) {
+  if (length(x) == 2) {
+    paste0("~", paste(x, collapse = "*"))
+  }
+  })
+forms2[sapply(forms2, is.null)] <- NULL
+# remove interaction regio openheid
+forms2 <- forms2[-match("~regio*openheid", forms2)]
+
+# Voeg combinaties samen
+forms_2023 <- c("~1", forms1, forms2)
+```
+
+Voor Turkse tortel lukt het niet om ~regio+openheid te fitten.
+Voor Turkse tortel, ZwarteRoodstaart lukt het niet om ~regio+sbp+openheid te fitten.
+
+```{r}
+all_models_2023 <- list()
+all_model_2023_names <- c()
+
+# Key functions
+keys <- c("hn", "hr")
+
+# Sla de gefitte models op op deze locatie
+model_path <- "./src/markdown/mas/distance_models/"
+
+# Loop over species
+for (spec in names(distance_dfs_2023_final)) {
+  distance_data_2023 <- distance_dfs_2023_final[[spec]]
+  sample_table_2023 <- sample_tables_2023[[spec]]
+  obs_table_2023 <- obs_tables_2023[[spec]]
+  
+  out_models <- list()
+  model_names <- c()
+  
+  # Select possible formulas per species
+  form_spec <- forms_2023
+  form_df <- stratum_cijfers_df_2023 %>% filter(soort == spec)
+  if (!pull(form_df[,"n_regio"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_openheid"])) {
+    form_spec[sapply(form_spec, function(i) grepl("openheid", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("sbp", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_int_openheid_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("sbp\\*openheid", i))] <- NULL
+  }
+  if (!pull(form_df[,"n_int_regio_sbp"])) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\*sbp", i))] <- NULL
+  }
+  
+  # Complete separation
+  sep_df <- distance_data_2023 %>% 
+    group_by(regio, openheid) %>% 
+    summarise(n = sum(size))
+  if (nrow(sep_df) == 2) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+openheid", i))] <- NULL
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
+  }
+  
+  # manual removal
+  if (spec %in% c("TurkseTortel")) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+openheid", i))] <- NULL
+  }
+  
+  if (spec %in% c("TurkseTortel", "ZwarteRoodstaart")) {
+    form_spec[sapply(form_spec, function(i) grepl("regio\\+sbp\\+openheid", i))] <- NULL
+  }
+
+  # Loop over formules en over key functions
+  for (i in seq_len(length(form_spec))) {
+    f <- as.character(form_spec[i]) # f is de formule
+    
+    for (k in keys) {
+      # Naam voor model
+      mod_name <- paste0(spec, "_distmod_2023_", k, i)
+      file <- paste0(model_path, mod_name, ".rds")
+      
+      # Sla model op als het nog niet bestaat en lees het in anderzijds
+      if (file.exists(file)) {
+        det_model <- readRDS(file)
+        assign(mod_name, det_model)
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+      } else {
+        if (f == "~1") {
+          det_model <- ds(data = distance_data_2023, key = k, 
+            formula = as.formula(f), max_adjustments = 2, 
+            monotonicity = "strict", 
+            truncation = 300, transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2023, 
+            region_table = region_table_2023, 
+            sample_table = sample_table_2023, 
+            obs_table = obs_table_2023)
+        } else {
+          det_model <- ds(data = distance_data_2023, key = k, 
+            formula = as.formula(f), adjustment = NULL, truncation = 300, 
+            transect = "point", dht_group = FALSE, 
+            convert_units = conversion_factor_2023, 
+            region_table = region_table_2023, 
+            sample_table = sample_table_2023, 
+            obs_table = obs_table_2023)
+        }
+        
+        print(paste0("Model '", mod_name, "' fitted. ", 
+                     "Formula: '", f, "'. Key: '", k, "'."))
+        
+        # Sla gefitte model op
+        assign(mod_name, det_model)
+        saveRDS(det_model, file = file)
+      }
+      # Put models and model names in list 
+      out_models <- c(out_models, list(det_model))
+      model_names <- c(model_names, mod_name)
+    }
+  }
+  names(out_models) <- model_names
+  
+  # Put models and model names in list 
+  all_models_2023 <- c(all_models_2023, list(out_models))
+  all_model_2023_names <- c(all_model_2023_names, spec)
+}
+names(all_models_2023) <- all_model_2023_names
+```
+
+
 ## Densiteitschattingen 2018-2022
 
 ### Model selectie per soort
@@ -2687,50 +2907,56 @@ for (naam in names(all_models)) {
 
 ```{r}
 final_models_complex <- list(
-  Blauwborst = Blauwborst_distmod_2018_2022_hn1,
-  BlauweKiekendief_zonder_broedcode = BlauweKiekendief_zonder_broedcode_distmod_2018_2022_hn1,
-  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2022_hn1,                      
-  Buizerd = Buizerd_distmod_2018_2022_hn1,
-  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2018_2022_hn1,
-  Ekster = Ekster_distmod_2018_2022_hr1,
-  Fazant = Fazant_distmod_2018_2022_hr1,
-  Gaai = Gaai_distmod_2018_2022_hn1,
-  Geelgors = Geelgors_distmod_2018_2022_hr1,
-  GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
-  Grasmus = Grasmus_distmod_2018_2022_hn1,
-  GrauweGors = GrauweGors_distmod_2018_2022_hn1,
-  GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1,
-  Haas = Haas_distmod_2018_2022_hr1,
-  Heggenmus = Heggenmus_distmod_2018_2022_hn1,
-  Holenduif = Holenduif_distmod_2018_2022_hn1,
-  Houtduif = Houtduif_distmod_2018_2022_hn3,
-  Huismus = Huismus_distmod_2018_2022_hn3,
-  Kauw = Kauw_distmod_2018_2022_hr1,
-  Kievit = Kievit_distmod_2018_2022_hr1,
-  KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1,
-  Kneu = Kneu_distmod_2018_2022_hr1,
-  Koolmees = Koolmees_distmod_2018_2022_hr1,
-  Kwartel = Kwartel_distmod_2018_2022_hn1,
-  Merel = Merel_distmod_2018_2022_hr1,
-  Patrijs = Patrijs_distmod_2018_2022_hn1,
-  Rietzanger = Rietzanger_distmod_2018_2022_hn1,
-  Roek = Roek_distmod_2018_2022_hr1,
-  Spotvogel = Spotvogel_distmod_2018_2022_hn1,
-  Spreeuw = Spreeuw_distmod_2018_2022_hr1,
-  Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
-  Torenvalk = Torenvalk_distmod_2018_2022_hn1,
-  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2018_2022_hn1,
-  TurkseTortel = TurkseTortel_distmod_2018_2022_hr1,
-  Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
-  Vink = Vink_distmod_2018_2022_hn1,
-  WildeEend = WildeEend_distmod_2018_2022_hn1,
-  Winterkoning = Winterkoning_distmod_2018_2022_hn1,
-  WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1,
-  ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1,
-  Zwartkop = Zwartkop_distmod_2018_2022_hn1)
+  Blauwborst = Blauwborst_distmod_2018_2023_hn1,
+  BlauweKiekendief_zonder_broedcode = BlauweKiekendief_zonder_broedcode_distmod_2018_2023_hn1,
+  BruineKiekendief = BruineKiekendief_distmod_2018_2023_hn1,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2023_hn1,
+  Buizerd = Buizerd_distmod_2018_2023_hn1,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2018_2023_hn1,
+  Ekster = Ekster_distmod_2018_2023_hn1,
+  Fazant = Fazant_distmod_2018_2023_hr1,
+  Gaai = Gaai_distmod_2018_2023_hn1,
+  Geelgors = Geelgors_distmod_2018_2023_hr1,
+  GeleKwikstaart = GeleKwikstaart_distmod_2018_2023_hr3,
+  Grasmus = Grasmus_distmod_2018_2023_hn1,
+  GrauweGors = GrauweGors_distmod_2018_2023_hn1,
+  GroeneSpecht = GroeneSpecht_distmod_2018_2023_hn1,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2018_2023_hn1,
+  Haas = Haas_distmod_2018_2023_hr1,
+  Heggenmus = Heggenmus_distmod_2018_2023_hn1,
+  Holenduif = Holenduif_distmod_2018_2023_hn1,
+  Houtduif = Houtduif_distmod_2018_2023_hn3,
+  Huismus = Huismus_distmod_2018_2023_hr2,
+  Kauw = Kauw_distmod_2018_2023_hr1,
+  Kievit = Kievit_distmod_2018_2023_hr1,
+  KleineKarekiet = KleineKarekiet_distmod_2018_2023_hn1,
+  Kneu = Kneu_distmod_2018_2023_hn1,
+  Koolmees = Koolmees_distmod_2018_2023_hn1,
+  Kwartel = Kwartel_distmod_2018_2023_hn1,
+  Meerkoet = Meerkoet_distmod_2018_2023_hn1,
+  Merel = Merel_distmod_2018_2023_hr1,
+  Patrijs = Patrijs_distmod_2018_2023_hn1,
+  Pimpelmees = Pimpelmees_distmod_2018_2023_hn1,
+  Rietzanger = Rietzanger_distmod_2018_2023_hn2,
+  Roek = Roek_distmod_2018_2023_hn1,
+  Spotvogel = Spotvogel_distmod_2018_2023_hn1,
+  Spreeuw = Spreeuw_distmod_2018_2023_hr1,
+  Tjiftjaf = Tjiftjaf_distmod_2018_2023_hr1,
+  Torenvalk = Torenvalk_distmod_2018_2023_hn1,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2018_2023_hn1,
+  TurkseTortel = TurkseTortel_distmod_2018_2023_hn1,
+  Veldleeuwerik = Veldleeuwerik_distmod_2018_2023_hr4,
+  Vink = Vink_distmod_2018_2023_hn1,
+  WildeEend = WildeEend_distmod_2018_2023_hn1,
+  Winterkoning = Winterkoning_distmod_2018_2023_hn1,
+  WitteKwikstaart = WitteKwikstaart_distmod_2018_2023_hn1,
+  Zanglijster = Zanglijster_distmod_2018_2023_hr1,
+  ZwarteKraai = ZwarteKraai_distmod_2018_2023_hn1,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2018_2023_hn1,
+  Zwartkop = Zwartkop_distmod_2018_2023_hn1)
 ```
 
-Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen. Steenuil zonder broedcode kan niet gefit worden.
+Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen. BruineKiekendief_zonder_broedcode kan niet gefit worden.
 
 ```{r}
 # Welke soorten moeten niet opnieuw gefit worden?
@@ -2749,10 +2975,10 @@ specs_to_remove[sapply(specs_to_remove, is.null)] <- NULL
 specs_to_remove <- unlist(specs_to_remove)
 
 # Verwijder soorten uit simpele dataset
-distance_dfs_2022_simpel_new <- 
+distance_dfs_2018_2022_simpel_new <- 
   distance_dfs_2018_2022_simpel[!names(distance_dfs_2018_2022_simpel) %in% 
                                 specs_to_remove]
-names(distance_dfs_2022_simpel_new)
+names(distance_dfs_2018_2022_simpel_new)
 ```
 
 ```{r}
@@ -2762,12 +2988,13 @@ keys <- c("hn", "hr")
 final_models_simpel <- list()
 final_models_simpel_names <- c()
 
-# Verwijder 
-index_to_remove_simpel <- which(names(distance_dfs_2022_simpel_new) == "Steenuil_zonder_broedcode")
+# Verwijder
+index_to_remove_simpel <- which(names(distance_dfs_2018_2022_simpel_new) %in% 
+                                  c("BruineKiekendief_zonder_broedcode"))
      
 # Fit opnieuw met simpele dataset
-for (spec in names(distance_dfs_2022_simpel_new)[-index_to_remove_simpel]) {
-  distance_data_new <- distance_dfs_2022_simpel_new[[spec]]
+for (spec in names(distance_dfs_2018_2022_simpel_new)[-index_to_remove_simpel]) {
+  distance_data_new <- distance_dfs_2018_2022_simpel_new[[spec]]
   sample_table_2018_2022 <- sample_tables_2018_2022[[spec]]
   obs_table_2018_2022 <- obs_tables_2018_2022[[spec]]
   
@@ -2776,7 +3003,7 @@ for (spec in names(distance_dfs_2022_simpel_new)[-index_to_remove_simpel]) {
     
   for (k in keys) {
     # Naam voor model
-    mod_name <- paste0(spec, "_distmod_2018_2022_", k, 1, "_simpel")
+    mod_name <- paste0(spec, "_distmod_2018_2023_", k, 1, "_simpel")
     file <- paste0(model_path, mod_name, ".rds")
     
     # Sla model op als het nog niet bestaat en lees het in anderzijds
@@ -2828,69 +3055,71 @@ for (naam in names(final_models_simpel)) {
 }
 ```
 
-Voor Roodborsttapuit kiezen we voor het hn model omwille van de betere model fit ondanks dat het complexer is dan het hr model.
+> Voor Roodborsttapuit kiezen we voor het hn model omwille van de betere model fit ondanks dat het complexer is dan het hr model.
 
 ```{r}
 final_models <- list(
-  Blauwborst = Blauwborst_distmod_2018_2022_hn1_simpel,
-  BlauweKiekendief_zonder_broedcode = BlauweKiekendief_zonder_broedcode_distmod_2018_2022_hn1_simpel,
-  Bosrietzanger = Bosrietzanger_distmod_2018_2022_hn1_simpel,
-  BruineKiekendief = BruineKiekendief_distmod_2018_2022_hn1_simpel,
-  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2022_hn1_simpel,
-  Buizerd = Buizerd_distmod_2018_2022_hn1_simpel,
-  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2018_2022_hn1_simpel,
-  Ekster = Ekster_distmod_2018_2022_hr1_simpel,
-  Fazant = Fazant_distmod_2018_2022_hr1_simpel,
-  Gaai = Gaai_distmod_2018_2022_hn1_simpel,
-  Geelgors = Geelgors_distmod_2018_2022_hr1_simpel,
-  GeleKwikstaart = GeleKwikstaart_distmod_2018_2022_hr3,
-  Grasmus = Grasmus_distmod_2018_2022_hn1_simpel,
-  Graspieper = Graspieper_distmod_2018_2022_hn1_simpel,
-  GrauweGors = GrauweGors_distmod_2018_2022_hn1_simpel,
-  GroeneSpecht = GroeneSpecht_distmod_2018_2022_hn1_simpel,
-  Groenling = Groenling_distmod_2018_2022_hn1_simpel,
-  GroteBonteSpecht = GroteBonteSpecht_distmod_2018_2022_hn1_simpel,
-  Haas = Haas_distmod_2018_2022_hr1_simpel,
-  Heggenmus = Heggenmus_distmod_2018_2022_hn1_simpel,
-  Holenduif = Holenduif_distmod_2018_2022_hn1_simpel,
-  Houtduif = Houtduif_distmod_2018_2022_hn3,
-  Huismus = Huismus_distmod_2018_2022_hn3,
-  Kauw = Kauw_distmod_2018_2022_hn1_simpel,
-  Kievit = Kievit_distmod_2018_2022_hr1_simpel,
-  KleineKarekiet = KleineKarekiet_distmod_2018_2022_hn1_simpel,
-  Kneu = Kneu_distmod_2018_2022_hr1_simpel,
-  Knobbelzwaan = Knobbelzwaan_distmod_2018_2022_hn1_simpel,
-  Koolmees = Koolmees_distmod_2018_2022_hn1_simpel,
-  Kwartel = Kwartel_distmod_2018_2022_hn1_simpel,
-  Meerkoet = Meerkoet_distmod_2018_2022_hn1_simpel,
-  Merel = Merel_distmod_2018_2022_hr1_simpel,
-  Patrijs = Patrijs_distmod_2018_2022_hn1_simpel,
-  Pimpelmees = Pimpelmees_distmod_2018_2022_hn1_simpel,
-  Putter = Putter_distmod_2018_2022_hn1_simpel,
-  Rietgors = Rietgors_distmod_2018_2022_hn1_simpel,
-  Rietzanger = Rietzanger_distmod_2018_2022_hn1_simpel,
-  Ringmus = Ringmus_distmod_2018_2022_hr1_simpel,
-  Roek = Roek_distmod_2018_2022_hn1_simpel,
-  Roodborst = Roodborst_distmod_2018_2022_hn1_simpel,
-  Roodborsttapuit = Roodborsttapuit_distmod_2018_2022_hn1_simpel,
-  Slechtvalk_zonder_broedcode = Slechtvalk_zonder_broedcode_distmod_2018_2022_hn1_simpel,
-  Sperwer_zonder_broedcode = Sperwer_zonder_broedcode_distmod_2018_2022_hn1_simpel,
-  Spotvogel = Spotvogel_distmod_2018_2022_hn1_simpel,
-  Spreeuw = Spreeuw_distmod_2018_2022_hr1_simpel,
-  Tjiftjaf = Tjiftjaf_distmod_2018_2022_hr2,
-  Torenvalk = Torenvalk_distmod_2018_2022_hn1_simpel,
-  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2018_2022_hn1_simpel,
-  Tuinfluiter = Tuinfluiter_distmod_2018_2022_hn1_simpel,
-  TurkseTortel = TurkseTortel_distmod_2018_2022_hr1_simpel,
-  Veldleeuwerik = Veldleeuwerik_distmod_2018_2022_hr4,
-  Vink = Vink_distmod_2018_2022_hn1_simpel,
-  WildeEend = WildeEend_distmod_2018_2022_hn1_simpel,
-  Winterkoning = Winterkoning_distmod_2018_2022_hn1_simpel,
-  WitteKwikstaart = WitteKwikstaart_distmod_2018_2022_hn1_simpel,
-  Zanglijster = Zanglijster_distmod_2018_2022_hr1_simpel,
-  ZwarteKraai = ZwarteKraai_distmod_2018_2022_hr1_simpel,
-  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2018_2022_hn1_simpel,
-  Zwartkop = Zwartkop_distmod_2018_2022_hn1_simpel)
+  Blauwborst = Blauwborst_distmod_2018_2023_hn1_simpel,
+  BlauweKiekendief_zonder_broedcode = BlauweKiekendief_zonder_broedcode_distmod_2018_2023_hn1_simpel,
+  Bosrietzanger = Bosrietzanger_distmod_2018_2023_hn1_simpel,
+  BruineKiekendief = BruineKiekendief_distmod_2018_2023_hr1_simpel,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2018_2023_hn1,
+  Buizerd = Buizerd_distmod_2018_2023_hn1_simpel,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2018_2023_hn1_simpel,
+  Ekster = Ekster_distmod_2018_2023_hn1_simpel,
+  Fazant = Fazant_distmod_2018_2023_hr1_simpel,
+  Gaai = Gaai_distmod_2018_2023_hr1_simpel,
+  Geelgors = Geelgors_distmod_2018_2023_hr1_simpel,
+  GeleKwikstaart = GeleKwikstaart_distmod_2018_2023_hr3,
+  Grasmus = Grasmus_distmod_2018_2023_hn1_simpel,
+  Graspieper = Graspieper_distmod_2018_2023_hn1_simpel,
+  GrauweGors = GrauweGors_distmod_2018_2023_hn1_simpel,
+  GroeneSpecht = GroeneSpecht_distmod_2018_2023_hn1_simpel,
+  Groenling = Groenling_distmod_2018_2023_hn1_simpel,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2018_2023_hn1_simpel,
+  Haas = Haas_distmod_2018_2023_hr1_simpel,
+  Heggenmus = Heggenmus_distmod_2018_2023_hn1_simpel,
+  Holenduif = Holenduif_distmod_2018_2023_hn1_simpel,
+  Houtduif = Houtduif_distmod_2018_2023_hn3,
+  Huismus = Huismus_distmod_2018_2023_hr2,
+  Huiszwaluw = Huiszwaluw_distmod_2018_2023_hn1_simpel,
+  Kauw = Kauw_distmod_2018_2023_hr1_simpel,
+  Kievit = Kievit_distmod_2018_2023_hr1_simpel,
+  KleineKarekiet = KleineKarekiet_distmod_2018_2023_hn1_simpel,
+  Kneu = Kneu_distmod_2018_2023_hr1_simpel,
+  Knobbelzwaan = Knobbelzwaan_distmod_2018_2023_hr1_simpel,
+  Koolmees = Koolmees_distmod_2018_2023_hn1_simpel,
+  Kwartel = Kwartel_distmod_2018_2023_hn1_simpel,
+  Meerkoet = Meerkoet_distmod_2018_2023_hn1_simpel,
+  Merel = Merel_distmod_2018_2023_hr1_simpel,
+  Patrijs = Patrijs_distmod_2018_2023_hn1_simpel,
+  Pimpelmees = Pimpelmees_distmod_2018_2023_hn1_simpel,
+  Putter = Putter_distmod_2018_2023_hn1_simpel,
+  Rietgors = Rietgors_distmod_2018_2023_hn1_simpel,
+  Rietzanger = Rietzanger_distmod_2018_2023_hn2,
+  Ringmus = Ringmus_distmod_2018_2023_hr1_simpel,
+  Roek = Roek_distmod_2018_2023_hn1_simpel,
+  Roodborst = Roodborst_distmod_2018_2023_hn1_simpel,
+  Roodborsttapuit = Roodborsttapuit_distmod_2018_2023_hn1_simpel,
+  Slechtvalk_zonder_broedcode = Slechtvalk_zonder_broedcode_distmod_2018_2023_hn1_simpel,
+  Sperwer_zonder_broedcode = Sperwer_zonder_broedcode_distmod_2018_2023_hn1_simpel,
+  Spotvogel = Spotvogel_distmod_2018_2023_hn1_simpel,
+  Spreeuw = Spreeuw_distmod_2018_2023_hr1_simpel,
+  Steenuil_zonder_broedcode = Steenuil_zonder_broedcode_distmod_2018_2023_hn1_simpel,
+  Tjiftjaf = Tjiftjaf_distmod_2018_2023_hr1_simpel,
+  Torenvalk = Torenvalk_distmod_2018_2023_hn1_simpel,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2018_2023_hn1_simpel,
+  Tuinfluiter = Tuinfluiter_distmod_2018_2023_hn1_simpel,
+  TurkseTortel = TurkseTortel_distmod_2018_2023_hn1,
+  Veldleeuwerik = Veldleeuwerik_distmod_2018_2023_hr4,
+  Vink = Vink_distmod_2018_2023_hn1_simpel,
+  WildeEend = WildeEend_distmod_2018_2023_hn1_simpel,
+  Winterkoning = Winterkoning_distmod_2018_2023_hn1_simpel,
+  WitteKwikstaart = WitteKwikstaart_distmod_2018_2023_hn1_simpel,
+  Zanglijster = Zanglijster_distmod_2018_2023_hn1_simpel,
+  ZwarteKraai = ZwarteKraai_distmod_2018_2023_hn1_simpel,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2018_2023_hn1_simpel,
+  Zwartkop = Zwartkop_distmod_2018_2023_hr1_simpel)
 ```
 
 ### Model fit per soort
@@ -2911,7 +3140,7 @@ for (naam in names(final_models)) {
   if (f == "~jaar") {
     par(mfrow = c(1, 2))
     
-    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold", "purple")
     for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
       j <- sort(unique(ds_model_2018_2022$ddf$data$jaar))[i]
       plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
@@ -2943,7 +3172,7 @@ for (naam in names(final_models)) {
   if (f %in% c("~regio + jaar", "~regio * jaar")) {
     par(mfrow = c(1, 2))
     
-    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold", "purple")
     
     
     for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
@@ -2971,8 +3200,10 @@ for (naam in names(final_models)) {
 #### Problematische soorten
 
 ```{r}
-spec_to_remove <- c("BlauweKiekendief_zonder_broedcode", "GroeneSpecht", 
-                    "GroteBonteSpecht")
+spec_to_remove <- c("GroteBonteSpecht",
+                    "GroeneSpecht",
+                    "Steenuil_zonder_broedcode",
+                    "Huiszwaluw")
 ```
 
 De data voor `r spec_to_remove` passen niet voor distance sampling.
@@ -2992,14 +3223,17 @@ final_models[indices_to_remove] <- NULL
 spec_to_bin <- list(Blauwborst = 6,
                     Bosrietzanger = 3,
                     Graspieper = 4,
+                    GrauweGors = 4,
                     Groenling = 3,
                     Haas = 4,
-                    Holenduif = 3,
+                    Rietgors = 3,
+                    Ringmus = 4,
+                    Roek = 4,
                     Roodborsttapuit = 4,
                     Slechtvalk_zonder_broedcode = 4,
                     Sperwer_zonder_broedcode = 4,
-                    Torenvalk = 6,
-                    Torenvalk_zonder_broedcode = 3,
+                    Torenvalk = 4,
+                    Torenvalk_zonder_broedcode = 6,
                     Tuinfluiter = 3,
                     Veldleeuwerik = 6)
 ```
@@ -3024,7 +3258,7 @@ for (spec in names(spec_to_bin)) {
   cp <- seq(0, 300, length.out = spec_to_bin[[spec]] + 1)
   
   # Naam voor model
-  mod_name <- paste0(spec, "_distmod_2018_2022_", k, i, "_binned")
+  mod_name <- paste0(spec, "_distmod_2018_2023_", k, i, "_binned")
   file <- paste0(model_path, mod_name, ".rds")
   
   # Sla model op als het nog niet bestaat en lees het in anderzijds
@@ -3035,7 +3269,7 @@ for (spec in names(spec_to_bin)) {
                  "Formula: '", f, "'. Key: '", k, "'."))
   } else {
     if (f == "~1") {
-      distance_data <- distance_dfs_2022_simpel_new[[spec]]
+      distance_data <- distance_dfs_2018_2022_simpel_new[[spec]]
       det_model <- ds(data = distance_data, key = k, 
         formula = as.formula(f), max_adjustments = 2, 
         monotonicity = "strict", cutpoints = cp,
@@ -3087,7 +3321,7 @@ for (naam in names(final_models_binned)) {
   if (f == "~jaar") {
     par(mfrow = c(1, 2))
     
-    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold", "purple")
     for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
       j <- sort(unique(ds_model_2018_2022$ddf$data$jaar))[i]
       plot(ds_model_2018_2022, pdf = TRUE, showpoints = FALSE,
@@ -3119,7 +3353,7 @@ for (naam in names(final_models_binned)) {
   if (f %in% c("~regio + jaar", "~regio * jaar")) {
     par(mfrow = c(1, 2))
     
-    cols <- c("blue", "darkgreen", "brown", "salmon", "gold")
+    cols <- c("blue", "darkgreen", "brown", "salmon", "gold", "purple")
     
     
     for (i in seq_along(unique(ds_model_2018_2022$ddf$data$jaar))) {
@@ -3170,7 +3404,7 @@ do.call(rbind, results) %>%
 We visualiseren voor elk stratum. De tweede figuur toont ook de data zelf. Dit zijn de gemiddeldes over de telperiodes per plot.
 
 ```{r}
-plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
+plot_densiteit <- function(dsmodel, soort, show_data = TRUE, year = 2022) {
   # Calculate summary of dsmodel
   summary_dsmodel <- summary(dsmodel)
   
@@ -3186,8 +3420,8 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
   
   if ("jaar" %in% names(dsmodel$ddf$data)) {
     if (show_data) {
-      plots_old <- design_2018_2022_mas %>%
-        filter(jaar != 2022) %>%
+      plots_old <- design_2018_2023_mas %>%
+        filter(!jaar %in% 2022:2023) %>%
         distinct(plotnaam) %>%
         pull()
       
@@ -3195,52 +3429,54 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
         filter(plotnaam %in% plots_old)
       
       # Totale lijst van bezochte plots in 2018-2022
-      bezoekenlijst_2018_2022 <- design_2018_2022_mas_reduced  %>% 
-        expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
-        arrange(plotnaam, jaar, periode_in_jaar)
+      bezoekenlijst <- design_2018_2023_mas %>%
+        filter(plotnaam %in% plots_old)
       
       # Voeg afwezigheden toe door te mergen met alle bezoeken
       spec_df <- spec_presence %>%
-        st_drop_geometry() %>%
         group_by(plotnaam, jaar, periode_in_jaar) %>%
-        summarise(aantal = sum(aantal)) %>%
-        full_join(bezoekenlijst_2018_2022, by = c("plotnaam", "jaar", 
-                                                  "periode_in_jaar")) %>%
-        replace(is.na(.), 0) %>%
-        arrange(plotnaam, jaar, periode_in_jaar) %>%
-        mutate(Region.Label = paste(regio, jaar, sep = " - "))
+        summarise(aantal = sum(aantal), .groups = "drop") %>%
+        full_join(bezoekenlijst, by = c("plotnaam",
+                                        "jaar",
+                                        "periode_in_jaar")) %>%
+        replace(is.na(.), 0)
       
       # Oppervlakte telcirkels
       cirkelopp <- pi * 300^2
       
+      detectiekans_df <- cbind(
+        dsmodel$ddf$data,
+        "detectiekans" = predict(dsmodel)$fitted) %>%
+        select(regio, jaar, "detectiekans") %>%
+        distinct()
+      
       average_df <- spec_df %>%
+        mutate(jaar = factor(jaar, ordered = TRUE)) %>%
+        full_join(detectiekans_df, by = join_by(jaar, regio)) %>%
         # Bepaal voor elke plot het gemiddeld aantal individuen over
         # de telperiodes per jaar
-        group_by(plotnaam, jaar, periode_in_jaar) %>%
-        mutate(totaal = sum(aantal)) %>%
         group_by(plotnaam, jaar) %>%
-        mutate(gemiddelde = mean(totaal)) %>%
+        mutate(gem_aantal = mean(aantal)) %>%
         ungroup() %>%
-        mutate(jaar = factor(jaar, ordered = TRUE)) %>%
-        select(-c(periode_in_jaar, aantal, totaal)) %>%
+        mutate(gem_aantal_p = gem_aantal / detectiekans) %>%
+        select(-c(periode_in_jaar, aantal)) %>%
         distinct() %>%
         
         # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
-        mutate(Estimate = gemiddelde / cirkelopp * 1e6)
+        mutate(densiteit = gem_aantal_p / cirkelopp * 1e6)
       
       p <- ggplot() +
-        stat_sum(data = average_df, aes(x = jaar, y = Estimate), 
-                 position = position_dodge(width = 0.5), alpha = 0.1, 
-                 colour = "firebrick")
+        stat_sum(data = average_df, aes(x = jaar, y = densiteit),
+                 position = position_dodge(width = 0.5), alpha = 0.1,
+                 colour = "firebrick") +
+        labs(size = "Aantal telpunten")
     } else {
       p <- ggplot()
     }
     
     # Voeg resultaten dsmodel toe
-    summary_results_dsmodel <- summary_results_dsmodel %>%
-      separate(Label, into = c("regio", "jaar"), sep = " - ")
-    
     summary_df <- summary_results_dsmodel %>%
+      separate(Label, into = c("regio", "jaar"), sep = " - ") %>%
       filter(variable == "density") %>%
       mutate(jaar = factor(jaar, ordered = TRUE)) %>%
       replace(. == 0, NA)
@@ -3248,64 +3484,66 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
     # Plot
     p <- p + 
       geom_point(data = summary_df, aes(x = jaar, y = Estimate, 
-                                        colour = regio), size = 4) + 
+                                        colour = regio), size = 3) + 
       geom_errorbar(data = summary_df, aes(x = jaar, ymin = lcl, ymax = ucl, 
                                            colour = regio), width = 0.25) +
-      scale_y_continuous(limits = c(0, NA)) +
       facet_wrap(~regio) +
       theme(legend.position = "")
     
   } else {
     if (show_data) {
       spec_presence <- df_obs_list[[gsub(" ", "", soort)]] %>%
-        filter(jaar == 2022)
+        filter(jaar == year)
       
-      # Totale lijst van bezochte plots in 2022
-      bezoekenlijst_2022 <- design_2022_mas  %>% 
-        expand_grid(distinct(spec_presence, periode_in_jaar)) %>%
-        arrange(plotnaam, jaar, periode_in_jaar)
+      # Totale lijst van bezochte plots in bepaald jaar
+      bezoekenlijst_year <- bind_rows(design_2022_mas, design_2023_mas) %>%
+        filter(jaar == year)
       
       # Voeg afwezigheden toe door te mergen met alle bezoeken
       spec_df <- spec_presence %>%
-        st_drop_geometry() %>%
         group_by(plotnaam, jaar, periode_in_jaar) %>%
-        summarise(aantal = sum(aantal)) %>%
-        full_join(bezoekenlijst_2022, by = c("plotnaam", "jaar", 
-                                                  "periode_in_jaar")) %>%
-        replace(is.na(.), 0) %>%
-        arrange(plotnaam, jaar, periode_in_jaar) %>%
-        mutate(Region.Label = paste(regio, jaar, sep = " - "))
+        summarise(aantal = sum(aantal), .groups = "drop") %>%
+        full_join(bezoekenlijst_year, by = c("plotnaam",
+                                             "jaar",
+                                             "periode_in_jaar")) %>%
+        replace(is.na(.), 0)
       
       # Oppervlakte telcirkels
       cirkelopp <- pi * 300^2
       
+      detectiekans_df <- cbind(
+          dsmodel$ddf$data,
+          "detectiekans" = predict(dsmodel)$fitted) %>%
+          select(regio, sbp, openheid, "detectiekans") %>%
+          distinct()
+      
       average_df <- spec_df %>%
+        full_join(detectiekans_df,
+                  by = join_by(regio, sbp, openheid)) %>%
         # Bepaal voor elke plot het gemiddeld aantal individuen over
         # de telperiodes per jaar
-        group_by(plotnaam, periode_in_jaar) %>%
-        mutate(totaal = sum(aantal)) %>%
         group_by(plotnaam) %>%
-        mutate(gemiddelde = mean(totaal)) %>%
+        mutate(gem_aantal = mean(aantal)) %>%
         ungroup() %>%
-        select(-c(periode_in_jaar, aantal, totaal)) %>%
+        mutate(gem_aantal_p = gem_aantal / detectiekans) %>%
+        select(-c(periode_in_jaar, aantal)) %>%
         distinct() %>%
         
         # Deel cirkeloppervlakte om densiteit broedkoppels per plot te krijgen
-        mutate(Estimate = gemiddelde / cirkelopp * 1e6,
+        mutate(densiteit = gem_aantal_p / cirkelopp * 1e6,
                stratum = paste(openheid, sbp, sep = " - "))
       
       p <- ggplot() +
-        stat_sum(data = average_df, aes(x = stratum, y = Estimate), 
-                 position = position_dodge(width = 0.5), alpha = 0.1, colour = "firebrick")
+        stat_sum(data = average_df, aes(x = stratum, y = densiteit),
+                 position = position_dodge(width = 0.5), alpha = 0.1) +
+        labs(size = "Aantal telpunten")
     } else {
       p <- ggplot()
     }
     
     # Voeg resultaten dsmodel toe
-    summary_results_dsmodel <- summary_results_dsmodel %>%
-      separate(Label, into = c("regio", "openheid", "sbp"), sep = " - ")
-    
     summary_df <- summary_results_dsmodel %>%
+      separate(Label, into = c("regio", "openheid", "sbp"), sep = " - ") %>%
       filter(variable == "density") %>%
       mutate(stratum = paste(openheid, sbp, sep = " - ")) %>%
       replace(. == 0, NA)
@@ -3313,10 +3551,9 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
     # Plot
     p <- p +
       geom_point(data = summary_df, aes(x = stratum, y = Estimate, 
-                                        colour = regio), size = 4) + 
+                                        colour = regio), size = 3) + 
       geom_errorbar(data = summary_df, aes(x = stratum, ymin = lcl, 
                     ymax = ucl, colour = regio), width = 0.25) +
-      scale_y_continuous(limits = c(0, NA)) +
       facet_wrap(~regio) +
       theme(legend.position = "")
   }
@@ -3327,6 +3564,16 @@ plot_densiteit <- function(dsmodel, soort, show_data = TRUE) {
                   title = gsub("_zonder_broedcode", "", soort))
   } else {
     p <- p + labs(x = "", y = "Aantal broedparen per 100 ha", title = soort)
+  }
+  
+  if (show_data) {
+    p <- p + scale_y_continuous(limits = c(0, NA),
+                                trans = scales::pseudo_log_trans(),
+                                breaks = c(0:5, seq(10, 50, 10),
+                                           seq(75, 200, 25),
+                                           seq(300, 1000, 100)))
+  } else {
+    p <- p + scale_y_continuous(limits = c(0, NA))
   }
   
   return(p)
@@ -3351,11 +3598,12 @@ for (i in seq_along(final_models_update)) {
 Ten slotte schrijven de de finale modellen weg.
 
 ```{r}
-saveRDS(final_models_update, file = paste0(model_path, "models_2018_2022.rds"))
+write_csv(do.call(rbind, results),
+          file = paste0(model_path, "results_models_2018_2023.csv"))
+saveRDS(final_models_update, file = paste0(model_path, "models_2018_2023.rds"))
 ```
 
 ## Densiteitschattingen 2022
-
 ### Model selectie per soort
 
 We selecteren het meest simpele model waarvoor het verschil in AIC kleiner is dan 2.
@@ -3374,51 +3622,55 @@ for (naam in names(all_models_2022)) {
 
 ```{r}
 final_models_2022_complex <- list(
+  Boomkruiper = Boomkruiper_distmod_2022_hn1,
+  Bosrietzanger = Bosrietzanger_distmod_2022_hr2,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2022_hr1,
   Buizerd = Buizerd_distmod_2022_hr1,
-  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2022_hr7,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2022_hr6,
   Ekster = Ekster_distmod_2022_hr1,
   Fazant = Fazant_distmod_2022_hr7,
   Gaai = Gaai_distmod_2022_hn1,
-  Geelgors = Geelgors_distmod_2022_hr1,
+  Geelgors = Geelgors_distmod_2022_hn5,
   GeleKwikstaart = GeleKwikstaart_distmod_2022_hr1,
   Grasmus = Grasmus_distmod_2022_hr10,
   GrauweGors = GrauweGors_distmod_2022_hn1,
   GroeneSpecht = GroeneSpecht_distmod_2022_hr1,
-  Groenling = Groenling_distmod_2022_hn1,
-  GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hn1,
+  Groenling = Groenling_distmod_2022_hn2,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hr2,
   GroteLijster = GroteLijster_distmod_2022_hn1,
   Haas = Haas_distmod_2022_hn3,
   Heggenmus = Heggenmus_distmod_2022_hn1,
-  Holenduif = Holenduif_distmod_2022_hn1,
-  Houtduif = Houtduif_distmod_2022_hr7,
-  Huismus = Huismus_distmod_2022_hn6,
-  Kauw = Kauw_distmod_2022_hn1,
+  Holenduif = Holenduif_distmod_2022_hn2,
+  Houtduif = Houtduif_distmod_2022_hn7,
+  Huismus = Huismus_distmod_2022_hn8,
+  Kauw = Kauw_distmod_2022_hn3,
   Kievit = Kievit_distmod_2022_hr1,
   KleineKarekiet = KleineKarekiet_distmod_2022_hr1,
-  Kneu = Kneu_distmod_2022_hn6,
-  Koolmees = Koolmees_distmod_2022_hn1,
+  Kneu = Kneu_distmod_2022_hr9,
+  Koolmees = Koolmees_distmod_2022_hn3,
   Kwartel = Kwartel_distmod_2022_hn1,
   Meerkoet = Meerkoet_distmod_2022_hr1,
   Merel = Merel_distmod_2022_hn7,
   Pimpelmees = Pimpelmees_distmod_2022_hn1,
   Rietzanger = Rietzanger_distmod_2022_hr1,
-  Ringmus = Ringmus_distmod_2022_hn1,
+  Ringmus = Ringmus_distmod_2022_hr1,
+  Roek = Roek_distmod_2022_hn1,
   Roodborst = Roodborst_distmod_2022_hn1,
   Roodborsttapuit = Roodborsttapuit_distmod_2022_hr1,
-  Spreeuw = Spreeuw_distmod_2022_hn1,
+  Spreeuw = Spreeuw_distmod_2022_hn3,
   Tjiftjaf = Tjiftjaf_distmod_2022_hn2,
-  Torenvalk = Torenvalk_distmod_2022_hr5,
-  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2022_hr3,
-  TurkseTortel = TurkseTortel_distmod_2022_hr1,
-  Veldleeuwerik = Veldleeuwerik_distmod_2022_hr7,
-  Vink = Vink_distmod_2022_hn8,
+  Torenvalk = Torenvalk_distmod_2022_hn5,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2022_hn4,
+  TurkseTortel = TurkseTortel_distmod_2022_hr6,
+  Veldleeuwerik = Veldleeuwerik_distmod_2022_hr4,
+  Vink = Vink_distmod_2022_hn7,
   WildeEend = WildeEend_distmod_2022_hn1,
   Winterkoning = Winterkoning_distmod_2022_hr8,
-  WitteKwikstaart = WitteKwikstaart_distmod_2022_hn2,
-  Zanglijster = Zanglijster_distmod_2022_hn2,
-  ZwarteKraai = ZwarteKraai_distmod_2022_hr3,
-  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2022_hn2,
-  Zwartkop = Zwartkop_distmod_2022_hn2
+  WitteKwikstaart = WitteKwikstaart_distmod_2022_hr2,
+  Zanglijster = Zanglijster_distmod_2022_hr2,
+  ZwarteKraai = ZwarteKraai_distmod_2022_hr5,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2022_hn4,
+  Zwartkop = Zwartkop_distmod_2022_hn1
 )
 ```
 
@@ -3517,64 +3769,63 @@ for (naam in names(final_models_simpel_2022)) {
 }
 ```
 
-Voor Kleine karekiet kiezen we voor het hn model omwille van de betere model fit ondanks het verschil in AIC. Voor Meerkoet kiezen we voor het hn model omwille van de betere model fit ondanks dat het complexer is dan het hr model.
-
 ```{r}
-final_models_2022 <- list(
-  Blauwborst = Blauwborst_distmod_2022_hn1_simpel,
+final_models_2022 <-  list(
   Boomkruiper = Boomkruiper_distmod_2022_hn1_simpel,
-  Bosrietzanger = Bosrietzanger_distmod_2022_hn1_simpel,
+  Bosrietzanger = Bosrietzanger_distmod_2022_hr2,
   BruineKiekendief = BruineKiekendief_distmod_2022_hn1_simpel,
   BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2022_hr1_simpel,
   Buizerd = Buizerd_distmod_2022_hr1_simpel,
-  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2022_hr7,
-  Ekster = Ekster_distmod_2022_hn1_simpel,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2022_hr6,
+  Ekster = Ekster_distmod_2022_hr1_simpel,
   Fazant = Fazant_distmod_2022_hr7,
   Gaai = Gaai_distmod_2022_hn1_simpel,
-  Geelgors = Geelgors_distmod_2022_hr1_simpel,
-  GeleKwikstaart = GeleKwikstaart_distmod_2022_hr1_simpel,
+  Geelgors = Geelgors_distmod_2022_hn5,
+  GeleKwikstaart = GeleKwikstaart_distmod_2022_hr1,
   Grasmus = Grasmus_distmod_2022_hr10,
   Graspieper = Graspieper_distmod_2022_hn1_simpel,
   GrauweGors = GrauweGors_distmod_2022_hn1_simpel,
   GroeneSpecht = GroeneSpecht_distmod_2022_hr1_simpel,
-  Groenling = Groenling_distmod_2022_hr1_simpel,
-  GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hn1_simpel,
+  Groenling = Groenling_distmod_2022_hn2,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2022_hr2,
   GroteLijster = GroteLijster_distmod_2022_hn1_simpel,
   Haas = Haas_distmod_2022_hn3,
   Heggenmus = Heggenmus_distmod_2022_hn1_simpel,
-  Holenduif = Holenduif_distmod_2022_hn1_simpel,
-  Houtduif = Houtduif_distmod_2022_hr7,
-  Huismus = Huismus_distmod_2022_hn6,
-  Kauw = Kauw_distmod_2022_hn1_simpel,
+  Holenduif = Holenduif_distmod_2022_hn2,
+  Houtduif = Houtduif_distmod_2022_hn7,
+  Huismus = Huismus_distmod_2022_hn8,
+  Huiszwaluw = Huiszwaluw_distmod_2022_hr1_simpel,
+  Kauw = Kauw_distmod_2022_hn3,
   Kievit = Kievit_distmod_2022_hr1_simpel,
-  KleineKarekiet = KleineKarekiet_distmod_2022_hn1_simpel,
-  Kneu = Kneu_distmod_2022_hn6,
-  Koolmees = Koolmees_distmod_2022_hn1_simpel,
+  KleineKarekiet = KleineKarekiet_distmod_2022_hr1_simpel,
+  Kneu = Kneu_distmod_2022_hr9,
+  Koolmees = Koolmees_distmod_2022_hn3,
   Kwartel = Kwartel_distmod_2022_hn1_simpel,
-  Meerkoet = Meerkoet_distmod_2022_hn1_simpel,
+  Meerkoet = Meerkoet_distmod_2022_hr1_simpel,
   Merel = Merel_distmod_2022_hn7,
+  Patrijs = Patrijs_distmod_2022_hr1_simpel,
   Pimpelmees = Pimpelmees_distmod_2022_hn1_simpel,
   Putter = Putter_distmod_2022_hn1_simpel,
   Rietzanger = Rietzanger_distmod_2022_hr1_simpel,
   Ringmus = Ringmus_distmod_2022_hn1_simpel,
   Roek = Roek_distmod_2022_hn1_simpel,
   Roodborst = Roodborst_distmod_2022_hn1_simpel,
-  Roodborsttapuit = Roodborsttapuit_distmod_2022_hn1_simpel,
+  Roodborsttapuit = Roodborsttapuit_distmod_2022_hr1_simpel,
   Spotvogel = Spotvogel_distmod_2022_hn1_simpel,
-  Spreeuw = Spreeuw_distmod_2022_hn1_simpel,
+  Spreeuw = Spreeuw_distmod_2022_hn3,
   Tjiftjaf = Tjiftjaf_distmod_2022_hn2,
-  Torenvalk = Torenvalk_distmod_2022_hr5,
-  TurkseTortel = TurkseTortel_distmod_2022_hr1_simpel,
-  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2022_hr3,
-  Veldleeuwerik = Veldleeuwerik_distmod_2022_hr7,
-  Vink = Vink_distmod_2022_hn8,
+  Torenvalk = Torenvalk_distmod_2022_hn5,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2022_hn4,
+  TurkseTortel = TurkseTortel_distmod_2022_hr6,
+  Veldleeuwerik = Veldleeuwerik_distmod_2022_hr4,
+  Vink = Vink_distmod_2022_hn7,
   WildeEend = WildeEend_distmod_2022_hn1_simpel,
   Winterkoning = Winterkoning_distmod_2022_hr8,
-  WitteKwikstaart = WitteKwikstaart_distmod_2022_hn2,
-  Zanglijster = Zanglijster_distmod_2022_hn2,
-  ZwarteKraai = ZwarteKraai_distmod_2022_hr3,
-  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2022_hn2,
-  Zwartkop = Zwartkop_distmod_2022_hn2
+  WitteKwikstaart = WitteKwikstaart_distmod_2022_hr2,
+  Zanglijster = Zanglijster_distmod_2022_hr2,
+  ZwarteKraai = ZwarteKraai_distmod_2022_hr5,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2022_hn4,
+  Zwartkop = Zwartkop_distmod_2022_hn1_simpel
 )
 ```
 
@@ -3745,8 +3996,12 @@ for (naam in names(final_models_2022)) {
 #### Problematische soorten
 
 ```{r}
-spec_to_remove <- c("BruineKiekendief", "BruineKiekendief_zonder_broedcode", 
-                    "Roek")
+spec_to_remove <- c("Roek",
+                    "Ringmus",
+                    "GroeneSpecht",
+                    "BruineKiekendief_zonder_broedcode",
+                    "BruineKiekendief",
+                    "Rietzanger")
 ```
 
 
@@ -3764,26 +4019,30 @@ final_models_2022[indices_to_remove] <- NULL
 #### Binned distance sampling
 
 ```{r}
-spec_to_bin_2022 <- list(GeleKwikstaart = 4,
-                      Graspieper = 3,
-                      GrauweGors = 3,
-                      GroteBonteSpecht = 4,
-                      GroteLijster = 3,
-                      Haas = 4,
-                      Holenduif = 4,
-                      Kauw = 3,
-                      Kievit = 4,
-                      Kwartel = 6,
-                      Rietzanger = 4,
-                      Ringmus = 3,
-                      Torenvalk_zonder_broedcode = 6,
-                      Veldleeuwerik = 6,
-                      WildeEend = 4,
-                      WitteKwikstaart = 6,
-                      Zanglijster = 4,
-                      ZwarteKraai = 6,
-                      ZwarteRoodstaart = 4,
-                      Zwartkop = 6)
+spec_to_bin_2022 <- list(
+  Boomkruiper = 4,
+  Bosrietzanger = 6,
+  Ekster = 4,
+  GeleKwikstaart = 4,
+  Graspieper = 3,
+  GrauweGors = 3,
+  Groenling = 6,
+  GroteBonteSpecht = 6,
+  GroteLijster = 3,
+  Haas = 4,
+  Holenduif = 4,
+  Huiszwaluw = 6,
+  Kievit = 4,
+  Kwartel = 6,
+  Roodborst = 3,
+  Torenvalk = 6,
+  Torenvalk_zonder_broedcode = 6,
+  Veldleeuwerik = 6,
+  WildeEend = 4,
+  Zanglijster = 4,
+  ZwarteKraai = 3,
+  ZwarteRoodstaart = 4
+)
 ```
 
 De detectiekans voor `r names(spec_to_bin_2022)` neemt soms weer toe na een bepaalde afstand.
@@ -4021,7 +4280,7 @@ We hebben de densiteiten kunnen schatten van `r length(unique(gsub("_zonder_broe
 De volgende tabel geeft een overzicht van de soorten en finale modellen die gefit zijn.
 
 ```{r}
-results <- lapply(seq_along(final_models_2022_update), 
+results_2022 <- lapply(seq_along(final_models_2022_update), 
   function(i) {
     ds_model <- final_models_2022_update[[i]]
     k <- gsub(" key function", "", Distance:::model.description(ds_model$ddf))
@@ -4034,7 +4293,7 @@ results <- lapply(seq_along(final_models_2022_update),
                key = k, formule = f, binned = b, Pa_hat = p, SE = se)
   })
 
-do.call(rbind, results) %>%
+do.call(rbind, results_2022) %>%
   kable(digits = 3)
 ```
 
@@ -4058,7 +4317,721 @@ for (i in seq_along(final_models_2022_update)) {
 Ten slotte schrijven de de finale modellen weg.
 
 ```{r}
+write_csv(do.call(rbind, results_2022),
+          file = paste0(model_path, "results_models_2022.csv"))
 saveRDS(final_models_2022_update, file = paste0(model_path, "models_2022.rds"))
+```
+
+
+## Densiteitschattingen 2023
+### Model selectie per soort
+
+We selecteren het meest simpele model waarvoor het verschil in AIC kleiner is dan 2.
+
+```{r, results = 'asis'}
+for (naam in names(all_models_2023)) {
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  print(
+  summarize_ds_models2(all_models_2023[[naam]]) %>%
+    kable(caption = titel)
+  )
+  cat("\n")
+}
+```
+
+```{r}
+final_models_2023_complex <- list(
+  Boomkruiper = Boomkruiper_distmod_2023_hn1,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2023_hn1,
+  Buizerd = Buizerd_distmod_2023_hr1,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2023_hr1,
+  Ekster = Ekster_distmod_2023_hn3,
+  Fazant = Fazant_distmod_2023_hr3,
+  Gaai = Gaai_distmod_2023_hn2,
+  Geelgors = Geelgors_distmod_2023_hn5,
+  GeleKwikstaart = GeleKwikstaart_distmod_2023_hr10,
+  Grasmus = Grasmus_distmod_2023_hr10,
+  GroeneSpecht = GroeneSpecht_distmod_2023_hr1,
+  Groenling = Groenling_distmod_2023_hr1,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2023_hn1,
+  GroteLijster = GroteLijster_distmod_2023_hn1,
+  Haas = Haas_distmod_2023_hr7,
+  Heggenmus = Heggenmus_distmod_2023_hn3,
+  Holenduif = Holenduif_distmod_2023_hn1,
+  Houtduif = Houtduif_distmod_2023_hn7,
+  Huismus = Huismus_distmod_2023_hr6,
+  Kauw = Kauw_distmod_2023_hr1,
+  Kievit = Kievit_distmod_2023_hr1,
+  KleineKarekiet = KleineKarekiet_distmod_2023_hn1,
+  Kneu = Kneu_distmod_2023_hr2,
+  Koolmees = Koolmees_distmod_2023_hn1,
+  Meerkoet = Meerkoet_distmod_2023_hn1,
+  Merel = Merel_distmod_2023_hn8,
+  Pimpelmees = Pimpelmees_distmod_2023_hn1,
+  Putter = Putter_distmod_2023_hn1,
+  Rietzanger = Rietzanger_distmod_2023_hn1,
+  Roek = Roek_distmod_2023_hn1,
+  Roodborst = Roodborst_distmod_2023_hn1,
+  Roodborsttapuit = Roodborsttapuit_distmod_2023_hr1,
+  Spreeuw = Spreeuw_distmod_2023_hr3,
+  Tjiftjaf = Tjiftjaf_distmod_2023_hr3,
+  Torenvalk = Torenvalk_distmod_2023_hr9,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2023_hn3,
+  TurkseTortel = TurkseTortel_distmod_2023_hr4,
+  Veldleeuwerik = Veldleeuwerik_distmod_2023_hr4,
+  Vink = Vink_distmod_2023_hn7,
+  Winterkoning = Winterkoning_distmod_2023_hn6,
+  WitteKwikstaart = WitteKwikstaart_distmod_2023_hr4,
+  Zanglijster = Zanglijster_distmod_2023_hr1,
+  ZwarteKraai = ZwarteKraai_distmod_2023_hn6,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2023_hn6,
+  Zwartkop = Zwartkop_distmod_2023_hn1
+)
+```
+
+Soorten met finaal model zonder covariaten worden opnieuw gefit met de simpele dataset. Ook komen er enkele extra soorten bij met aantal 20-30 waarnemingen.
+
+```{r}
+# Welke soorten moeten niet opnieuw gefit worden?
+specs_to_remove_2023 <- lapply(seq_along(final_models_2023_complex), function(i) {
+    soort <- names(final_models_2023_complex)[i]
+    ds_model <- final_models_2023_complex[[i]]
+    f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+    
+    if (f != "~1") {
+      return(soort)
+    } else {
+      return(NULL)
+    }
+  })
+specs_to_remove_2023[sapply(specs_to_remove_2023, is.null)] <- NULL
+specs_to_remove_2023 <- unlist(specs_to_remove_2023)
+
+# Verwijder soorten uit simpele dataset
+distance_dfs_2023_simpel_new <- 
+  distance_dfs_2023_simpel[!names(distance_dfs_2023_simpel) %in% 
+                                specs_to_remove_2023]
+names(distance_dfs_2023_simpel_new)
+```
+
+```{r}
+# Key functions
+keys <- c("hn", "hr")
+
+final_models_simpel_2023 <- list()
+final_models_simpel_2023_names <- c()
+
+# Fit opnieuw met simpele dataset
+for (spec in names(distance_dfs_2023_simpel_new)) {
+  distance_data_new <- distance_dfs_2023_simpel_new[[spec]]
+  sample_table_2023 <- sample_tables_2023[[spec]]
+  obs_table_2023 <- obs_tables_2023[[spec]]
+  
+  out_models <- list()
+  model_names <- c()
+    
+  for (k in keys) {
+    # Naam voor model
+    mod_name <- paste0(spec, "_distmod_2023_", k, 1, "_simpel")
+    file <- paste0(model_path, mod_name, ".rds")
+    
+    # Sla model op als het nog niet bestaat en lees het in anderzijds
+    if (file.exists(file)) {
+      det_model <- readRDS(file)
+      assign(mod_name, det_model)
+      print(paste0("Model '", mod_name, "' fitted. ", 
+                   "Formula: '~1'. Key: '", k, "'."))
+    } else {
+      det_model <- ds(data = distance_data_new, key = k, 
+        formula = ~1, max_adjustments = 2, 
+        monotonicity = "strict", 
+        truncation = 300, transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor_2023, 
+        region_table = region_table_2023, 
+        sample_table = sample_table_2023, 
+        obs_table = obs_table_2023)
+    }
+      
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '~1'. Key: '", k, "'."))
+    
+    # Sla gefitte model op
+    assign(mod_name, det_model)
+    saveRDS(det_model, file = file)
+    
+    # Put models and model names in list 
+    out_models <- c(out_models, list(det_model))
+    model_names <- c(model_names, mod_name)
+  }
+  names(out_models) <- model_names
+  
+  # Put models and model names in list 
+  final_models_simpel_2023 <- c(final_models_simpel_2023, list(out_models))
+  final_models_simpel_2023_names <- c(final_models_simpel_2023_names, spec)
+}
+names(final_models_simpel_2023) <- final_models_simpel_2023_names
+```
+
+```{r, results = 'asis'}
+for (naam in names(final_models_simpel_2023)) {
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  print(
+  summarize_ds_models2(final_models_simpel_2023[[naam]]) %>%
+    kable(caption = titel)
+  )
+  cat("\n")
+}
+```
+
+```{r}
+final_models_2023 <- list(
+  Blauwborst = Blauwborst_distmod_2023_hn1_simpel,
+  Boomkruiper = Boomkruiper_distmod_2023_hn1_simpel,
+  BruineKiekendief = BruineKiekendief_distmod_2023_hn1_simpel,
+  BruineKiekendief_zonder_broedcode = BruineKiekendief_zonder_broedcode_distmod_2023_hn1_simpel,
+  Buizerd = Buizerd_distmod_2023_hr1_simpel,
+  Buizerd_zonder_broedcode = Buizerd_zonder_broedcode_distmod_2023_hr1_simpel,
+  Ekster = Ekster_distmod_2023_hn3,
+  Fazant = Fazant_distmod_2023_hr3,
+  Gaai = Gaai_distmod_2023_hn2,
+  Geelgors = Geelgors_distmod_2023_hn5,
+  GeleKwikstaart = GeleKwikstaart_distmod_2023_hr10,
+  Grasmus = Grasmus_distmod_2023_hr10,
+  GrauweGors = GrauweGors_distmod_2023_hn1_simpel,
+  GroeneSpecht = GroeneSpecht_distmod_2023_hr1_simpel,
+  Groenling = Groenling_distmod_2023_hr1_simpel,
+  GroteBonteSpecht = GroteBonteSpecht_distmod_2023_hn1_simpel,
+  GroteLijster = GroteLijster_distmod_2023_hn1_simpel,
+  Haas = Haas_distmod_2023_hr7,
+  Heggenmus = Heggenmus_distmod_2023_hn3,
+  Holenduif = Holenduif_distmod_2023_hn1_simpel,
+  Houtduif = Houtduif_distmod_2023_hn7,
+  Huismus = Huismus_distmod_2023_hr6,
+  Huiszwaluw = Huiszwaluw_distmod_2023_hn1_simpel,
+  Kauw = Kauw_distmod_2023_hr1_simpel,
+  Kievit = Kievit_distmod_2023_hr1_simpel,
+  KleineKarekiet = KleineKarekiet_distmod_2023_hn1_simpel,
+  Kneu = Kneu_distmod_2023_hr2,
+  Koolmees = Koolmees_distmod_2023_hn1_simpel,
+  Kwartel = Kwartel_distmod_2023_hn1_simpel,
+  Meerkoet = Meerkoet_distmod_2023_hn1_simpel,
+  Merel = Merel_distmod_2023_hn8,
+  Nijlgans = Nijlgans_distmod_2023_hn1_simpel,
+  Patrijs = Patrijs_distmod_2023_hr1_simpel,
+  Pimpelmees = Pimpelmees_distmod_2023_hn1_simpel,
+  Putter = Putter_distmod_2023_hn1_simpel,
+  Rietzanger = Rietzanger_distmod_2023_hn1_simpel,
+  Ringmus = Ringmus_distmod_2023_hr1_simpel,
+  Roek = Roek_distmod_2023_hn1_simpel,
+  Roodborst = Roodborst_distmod_2023_hn1_simpel,
+  Roodborsttapuit = Roodborsttapuit_distmod_2023_hn1_simpel,
+  Spotvogel = Spotvogel_distmod_2023_hn1_simpel,
+  Spreeuw = Spreeuw_distmod_2023_hr3,
+  Tjiftjaf = Tjiftjaf_distmod_2023_hr3,
+  Torenvalk = Torenvalk_distmod_2023_hr9,
+  Torenvalk_zonder_broedcode = Torenvalk_zonder_broedcode_distmod_2023_hn3,
+  TurkseTortel = TurkseTortel_distmod_2023_hr4,
+  Veldleeuwerik = Veldleeuwerik_distmod_2023_hr4,
+  Vink = Vink_distmod_2023_hn7,
+  WildeEend = WildeEend_distmod_2023_hn1_simpel,
+  Winterkoning = Winterkoning_distmod_2023_hn6,
+  WitteKwikstaart = WitteKwikstaart_distmod_2023_hr4,
+  Zanglijster = Zanglijster_distmod_2023_hr1_simpel,
+  ZwarteKraai = ZwarteKraai_distmod_2023_hn6,
+  ZwarteRoodstaart = ZwarteRoodstaart_distmod_2023_hn6,
+  Zwartkop = Zwartkop_distmod_2023_hn1_simpel
+)
+```
+
+### Model fit per soort
+
+```{r}
+for (naam in names(final_models_2023)) {
+  ds_model_2023 <- final_models_2023[[naam]]
+  f <- ds_model_2023$ddf$ds$aux$ddfobj$scale$formula
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  par(mfrow = c(1, 2))
+  von_mises <- gof_ds(ds_model_2023)
+  plot(ds_model_2023 , pdf = TRUE, showpoints = FALSE,
+       main = titel)
+  print(paste(titel, f, sep = " - "))
+  print(von_mises)
+  
+  if (f == "~regio") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "De Moeren",
+         main = "De Moeren", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(regio = "De Moeren"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "Oostelijke leemstreek",
+         main = "Oostelijke leemstreek", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(regio = "Oostelijke leemstreek"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~sbp") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "binnen",
+         main = "binnen", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(sbp = "binnen"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "buiten",
+         main = "buiten", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(sbp = "buiten"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~openheid") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "OL",
+         main = "OL", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(openheid = "OL"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "HOL",
+         main = "HOL", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(openheid = "HOL"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + sbp", "~regio * sbp")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+      j <- sort(unique(ds_model_2023$ddf$data$sbp))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+      
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & sbp == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, sbp = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + openheid", "~regio * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2023$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+      
+      if (!(j == "HOL" & reg == "De Moeren")) {
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, openheid = j), pdf = TRUE)
+      }}
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~sbp + openheid", "~sbp * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2023$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$sbp))[k]
+      
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(sbp = reg, openheid = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~regio + sbp + openheid") {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    for (h in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      o <- sort(unique(ds_model_2023$ddf$data$openheid))[h]
+      
+      for (i in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+        j <- sort(unique(ds_model_2023$ddf$data$sbp))[i]
+        
+        for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+        reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+        
+        if (!(o == "HOL" & reg == "De Moeren")) {
+        plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+           subset = regio == reg & sbp == j & openheid == o,
+           main = paste(reg, j, o, sep = "- "), pl.col = alpha(cols[h], 0.5))
+        add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[h],
+          data = data.frame(regio = reg, sbp = j, openheid = o), pdf = TRUE)
+        }}
+      }
+    }
+    par(mfrow = c(1, 1))
+  }
+  
+  print(plot_detection_curve(ds_model_2023) +
+    labs(title = titel))
+}
+```
+
+#### Problematische soorten
+
+```{r}
+spec_to_remove <- c("Patrijs",
+                    "Ringmus",
+                    "BruineKiekendief_zonder_broedcode",
+                    "BruineKiekendief")
+```
+
+
+De data voor `r spec_to_remove` passen niet voor distance sampling.
+Een belangrijke aanname voor distance sampling is dat de detectiekans afneemt over de afstand.
+Dat zien we niet voor deze soorten, waardoor we geen detectiecurve kunnen fitten. Ook hebben ze vaak maar weinig data.
+
+```{r}
+indices_to_remove <- which(names(final_models_2023) %in% spec_to_remove)
+
+# Remove
+final_models_2023[indices_to_remove] <- NULL
+```
+
+#### Binned distance sampling
+
+```{r}
+spec_to_bin_2023 <- list(
+  Blauwborst = 4,
+  Boomkruiper = 3,
+  Fazant = 6,
+  Gaai = 3,
+  GrauweGors = 4,
+  Groenling = 6,
+  GroteBonteSpecht = 3,
+  GroteLijster = 4,
+  Haas = 6,
+  Holenduif = 3,
+  Kauw = 6,
+  Kievit = 6,
+  Kwartel = 4,
+  Nijlgans = 3,
+  Roek = 4,
+  Roodborst = 3,
+  Torenvalk = 4,
+  Veldleeuwerik = 6,
+  Zanglijster = 4,
+  ZwarteKraai = 3
+)
+```
+
+De detectiekans voor `r names(spec_to_bin_2023)` neemt soms weer toe na een bepaalde afstand.
+Voor deze soorten groeperen we de afstanden per 50 (6 bins), 75 (4 bins) of 100 m (3 bins).
+
+```{r}
+final_models_2023_update <- final_models_2023
+final_models_2023_binned <- list()
+final_models_2023_binned_names <- c()
+
+for (spec in names(spec_to_bin_2023)) {
+  sample_table_2023 <- sample_tables_2023[[spec]]
+  obs_table_2023 <- obs_tables_2023[[spec]]
+  ds_model <- final_models_2023[[spec]]
+  
+  k <- ds_model$ddf$ds$aux$ddfobj$type
+  f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+  i <- which(as.character(forms_2023) == gsub("\\s", "", f))
+  cp <- seq(0, 300, length.out = spec_to_bin_2023[[spec]] + 1)
+  
+  # Naam voor model
+  mod_name <- paste0(spec, "_distmod_2023_", k, i, "_binned")
+  file <- paste0(model_path, mod_name, ".rds")
+  
+  # Sla model op als het nog niet bestaat en lees het in anderzijds
+  if (file.exists(file)) {
+    det_model <- readRDS(file)
+    assign(mod_name, det_model)
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+  } else {
+    if (f == "~1") {
+      distance_data <- distance_dfs_2023_simpel_new[[spec]]
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), max_adjustments = 2, 
+        monotonicity = "strict", cutpoints = cp,
+        truncation = 300, transect = "point", dht_group = FALSE, 
+        convert_units = conversion_factor_2023, 
+        region_table = region_table_2023, 
+        sample_table = sample_table_2023, 
+        obs_table = obs_table_2023)
+    } else {
+      distance_data <- distance_dfs_2023_final[[spec]]
+      det_model <- ds(data = distance_data, key = k, 
+        formula = as.formula(f), adjustment = NULL, truncation = 300, 
+        transect = "point", dht_group = FALSE, cutpoints = cp,
+        convert_units = conversion_factor_2023, 
+        region_table = region_table_2023, 
+        sample_table = sample_table_2023, 
+        obs_table = obs_table_2023)
+    }
+    
+    print(paste0("Model '", mod_name, "' fitted. ", 
+                 "Formula: '", f, "'. Key: '", k, "'."))
+    
+    # Sla gefitte model op
+    assign(mod_name, det_model)
+    saveRDS(det_model, file = file)
+  }
+  # Put models and model names in list 
+  final_models_2023_update[[spec]] <- det_model
+  
+  final_models_2023_binned <- c(final_models_2023_binned, list(det_model))
+  final_models_2023_binned_names <- c(final_models_2023_binned_names, spec)
+}
+names(final_models_2023_binned) <- final_models_2023_binned_names
+```
+
+We controleren nieuwe fit.
+
+```{r}
+for (naam in names(final_models_2023_binned)) {
+  ds_model_2023 <- final_models_2023_binned[[naam]]
+  f <- ds_model_2023$ddf$ds$aux$ddfobj$scale$formula
+  
+  titel <- paste(unlist(strsplit(naam, "(?<=[a-z])(?=[A-Z])", 
+                                 perl = TRUE)), collapse = " ")
+  par(mfrow = c(1, 1))
+  plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+       main = paste(titel, f, sep = " - "))
+  
+  if (f == "~regio") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "De Moeren",
+         main = "De Moeren", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(regio = "De Moeren"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == "Oostelijke leemstreek",
+         main = "Oostelijke leemstreek", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(regio = "Oostelijke leemstreek"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~sbp") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "binnen",
+         main = "binnen", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(sbp = "binnen"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == "buiten",
+         main = "buiten", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(sbp = "buiten"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~openheid") {
+    par(mfrow = c(1, 2))
+      
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "OL",
+         main = "OL", pl.col = alpha("blue", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "blue",
+      data = data.frame(openheid = "OL"), pdf = TRUE)
+    
+    plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = openheid == "HOL",
+         main = "HOL", pl.col = alpha("darkgreen", 0.5))
+    add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = "darkgreen",
+      data = data.frame(openheid = "HOL"), pdf = TRUE)
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + sbp", "~regio * sbp")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+      j <- sort(unique(ds_model_2023$ddf$data$sbp))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+      
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & sbp == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, sbp = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~regio + openheid", "~regio * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2023$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+      
+      if (!(j == "HOL" & reg == "De Moeren")) {
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = regio == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(regio = reg, openheid = j), pdf = TRUE)
+      }}
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f %in% c("~sbp + openheid", "~sbp * openheid")) {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    
+    for (i in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      j <- sort(unique(ds_model_2023$ddf$data$openheid))[i]
+      
+      for (k in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+      reg <- sort(unique(ds_model_2023$ddf$data$sbp))[k]
+      
+      plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+         subset = sbp == reg & openheid == j,
+         main = paste(reg, j, sep = "- "), pl.col = alpha(cols[i], 0.5))
+      add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[i],
+        data = data.frame(sbp = reg, openheid = j), pdf = TRUE)
+      }
+    }
+    
+    par(mfrow = c(1, 1))
+  }
+  if (f == "~regio + sbp + openheid") {
+    par(mfrow = c(1, 2))
+    
+    cols <- c("blue", "darkgreen")
+    
+    for (h in seq_along(unique(ds_model_2023$ddf$data$openheid))) {
+      o <- sort(unique(ds_model_2023$ddf$data$openheid))[h]
+      
+      for (i in seq_along(unique(ds_model_2023$ddf$data$sbp))) {
+        j <- sort(unique(ds_model_2023$ddf$data$sbp))[i]
+        
+        for (k in seq_along(unique(ds_model_2023$ddf$data$regio))) {
+        reg <- sort(unique(ds_model_2023$ddf$data$regio))[k]
+        
+        if (!(o == "HOL" & reg == "De Moeren")) {
+        plot(ds_model_2023, pdf = TRUE, showpoints = FALSE,
+           subset = regio == reg & sbp == j & openheid == o,
+           main = paste(reg, j, o, sep = "- "), pl.col = alpha(cols[h], 0.5))
+        add.df.covar.line(ds_model_2023, lwd = 3, lty = 1, col = cols[h],
+          data = data.frame(regio = reg, sbp = j, openheid = o), pdf = TRUE)
+        }}
+      }
+    }
+    par(mfrow = c(1, 1))
+  }
+  
+  print(plot_detection_curve(ds_model_2023) +
+    labs(title = titel))
+}
+```
+
+
+### Resultaten
+
+We hebben de densiteiten kunnen schatten van `r length(unique(gsub("_zonder_broedcode", "", names(final_models_2023_update))))` soorten.
+De volgende tabel geeft een overzicht van de soorten en finale modellen die gefit zijn.
+
+```{r}
+results_2023 <- lapply(seq_along(final_models_2023_update), 
+  function(i) {
+    ds_model <- final_models_2023_update[[i]]
+    k <- gsub(" key function", "", Distance:::model.description(ds_model$ddf))
+    f <- ds_model$ddf$ds$aux$ddfobj$scale$formula
+    b <- ds_model$ddf$meta.data$binned
+    p <- as.numeric(summary(ds_model)$ds$average.p)
+    se <- as.numeric(summary(ds_model)$ds$average.p.se)
+    
+    data.frame(soort = names(final_models_2023_update[i]),
+               key = k, formule = f, binned = b, Pa_hat = p, SE = se)
+  })
+
+do.call(rbind, results_2023) %>%
+  kable(digits = 3)
+```
+
+We visualiseren voor elk stratum. De tweede figuur toont ook de data zelf. Dit zijn de gemiddeldes over de telperiodes per plot.
+
+```{r}
+for (i in seq_along(final_models_2023_update)) {
+  titel <- paste(unlist(strsplit(names(final_models_2023_update)[i], 
+                 "(?<=[a-z])(?=[A-Z])", perl = TRUE)), collapse = " ")
+  
+  p1 <- plot_densiteit(dsmodel = final_models_2023_update[[i]], soort = titel,
+                       show_data = FALSE, year = 2023)
+  print(p1)
+  
+  p2 <- plot_densiteit(dsmodel = final_models_2023_update[[i]], soort = titel,
+                       show_data = TRUE, year = 2023)
+  print(p2)
+}
+```
+
+Ten slotte schrijven de de finale modellen weg.
+
+```{r}
+write_csv(do.call(rbind, results_2023),
+          file = paste0(model_path, "results_models_2023.csv"))
+saveRDS(final_models_2023_update, file = paste0(model_path, "models_2023.rds"))
 ```
 
 

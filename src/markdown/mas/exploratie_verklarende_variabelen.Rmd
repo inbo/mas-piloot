@@ -1,0 +1,649 @@
+---
+title: "Data exploratie verklarende variabelen"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+bibliography: references.json
+---
+
+```{r setup, include=FALSE}
+# renv
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here())
+
+# Conflicting packages
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+
+# Packages
+library(tidyverse)
+library(INBOtheme)
+library(sf)
+library(corrplot)
+```
+
+# Inlezen data
+
+```{r}
+data_path <- here("data", "processed")
+mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
+mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
+                        crs = 31370)
+
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
+```
+
+# Dataset structuur
+## Algemeen
+
+Hoe ziet de dataset eruit?
+
+```{r}
+glimpse(mas_data_df)
+```
+
+We visualiseren ook de waarnemingen en kleuren hoeveel jaren het telpunt geteld is.
+
+```{r}
+visits_per_jaar <- mas_data_sf %>%
+  st_drop_geometry() %>%
+  group_by(plotnaam) %>%
+  mutate(n_per_jaar = n_distinct(jaar)) %>%
+  ungroup() %>%
+  select(plotnaam, n_per_jaar) %>%
+  distinct()
+
+mas_data_sf %>%
+  filter(regio == "De Moeren") %>%
+  left_join(visits_per_jaar, by = join_by(plotnaam)) %>%
+  ggplot() +
+    geom_sf(data = perimeters %>% filter(Naam == "De Moeren"), 
+            colour = "firebrick") +
+    geom_sf(aes(colour = factor(n_per_jaar)), size = 0.5) +
+    labs(title = "De Moeren", colour = "aantal jaren\ntelpunt geteld") +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
+```
+
+```{r}
+mas_data_sf %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  left_join(visits_per_jaar, by = join_by(plotnaam)) %>%
+  ggplot() +
+    geom_sf(data = perimeters %>% filter(Naam == "Oostelijke leemstreek"), 
+            colour = "firebrick") +
+    geom_sf(aes(colour = factor(n_per_jaar)), size = 0.5) +
+    labs(title = "Oostelijke leemstreek", 
+         colour = "aantal jaren\ntelpunt geteld") +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
+```
+
+## Aantal tellingen en waarnemingen
+
+Aantal verschillende telpunten geteld per regio, jaar en telperiode.
+
+```{r}
+mas_data_df %>%
+  group_by(regio, jaar, periode_in_jaar) %>%
+  mutate(n_per_telperiode = n_distinct(plotnaam)) %>%
+  ungroup() %>%
+  group_by(regio, jaar) %>%
+  mutate(n_per_jaar = n_distinct(plotnaam)) %>%
+  ungroup() %>%
+  group_by(regio) %>%
+  mutate(n_per_regio = n_distinct(plotnaam)) %>%
+  ungroup() %>%
+  select(regio, jaar, periode_in_jaar, n_per_telperiode, n_per_jaar,
+         n_per_regio) %>%
+  distinct() %>%
+  arrange(regio, jaar, periode_in_jaar) %>%
+  kable()
+```
+
+```{r}
+mas_data_df %>%
+  group_by(regio, jaar, periode_in_jaar) %>%
+  mutate(n_per_telperiode = n_distinct(plotnaam)) %>%
+  ungroup() %>%
+  select(regio, jaar, periode_in_jaar, n_per_telperiode) %>%
+  distinct() %>%
+  ggplot(aes(x = periode_in_jaar, y = n_per_telperiode, 
+             fill = periode_in_jaar)) +
+    geom_bar(stat = "identity") +
+    facet_grid(regio~jaar, scales = "free_y") +
+    labs(x = "telperiode", y = "aantal tellingen") +
+    theme(legend.position = "")
+```
+
+```{r}
+mas_data_df %>%
+  group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = n, colour = periode_in_jaar)) +
+    geom_boxplot() +
+    facet_grid(regio~jaar, scales = "free_y") +
+    labs(x = "telperiode", y = "aantal waarnemingen") +
+    theme(legend.position = "")
+```
+
+```{r}
+mas_data_df %>%
+  filter(aantal < 3000) %>%
+  group_by(regio, jaar, periode_in_jaar, plotnaam) %>%
+  summarise(n = sum(aantal), .groups = "drop") %>%
+  ggplot(aes(x = periode_in_jaar, y = n, colour = periode_in_jaar)) +
+    geom_boxplot() +
+    facet_grid(regio~jaar, scales = "free_y") +
+    labs(x = "telperiode", y = "aantal individuen") +
+    theme(legend.position = "")
+```
+
+
+# Univariate exploratie
+
+Niet strikt univariaat. We groeperen de variabelen per regio en indien van toepassing ook nog per jaar en/of telperiode.
+
+```{r}
+is_discrete   <- function(vec) all(is.numeric(vec)) && all(vec %% 1 == 0)
+
+is_continuous <- function(vec) all(is.numeric(vec)) && !is_discrete(vec)
+
+select_df <- function(df, var, grouping) {
+  df %>%
+    select(plotnaam, all_of(grouping), !!sym(var))
+}
+
+univar_tab <- function(df, var, grouping) {
+  df_select <- select_df(df, var, grouping)
+  
+  if (is.numeric(pull(df[var]))) {
+    out <- df_select %>%
+      group_by_at(grouping) %>%
+      summarise(min = min(!!sym(var)),
+                mean = mean(!!sym(var)),
+                max = max(!!sym(var)),
+                Q1 = quantile(!!sym(var), 0.25),
+                Q2 = quantile(!!sym(var), 0.5),
+                Q3 = quantile(!!sym(var), 0.75))
+    
+  } else {
+    out <- df_select %>%
+      group_by_at(c(grouping, var)) %>%
+      summarise(n = n(), .groups = "drop") %>%
+      group_by(regio) %>%
+      mutate(prop = n / sum(n)) %>%
+      arrange(regio, !!sym(var))
+      
+  }
+  
+  out %>% 
+    kable(caption = var, digits = 5) %>%
+    print()
+}
+
+univar_plot <- function(df, selection, grouping) {
+  df_select <- select_df(df, var, grouping)
+  
+  if (length(grouping) < 3) {
+    if (is_continuous(pull(df[var]))) {
+      out <- df_select %>%
+        ggplot() +
+          geom_histogram(aes(x = .data[[var]])) +
+          theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+          labs(y = "Aantal telcirkels")
+    } else {
+      out <- df_select %>%
+        group_by_at(c(grouping, var)) %>%
+        summarise(n = n(), .groups = "drop") %>%
+        ggplot(aes(x = .data[[var]], y = n)) +
+          geom_bar(stat = "identity") +
+          theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+          labs(y = "Aantal telcirkels")
+    }
+  } else {
+    out <- df_select %>%
+        ggplot(aes(x = .data[[grouping[3]]], y = .data[[var]], 
+                   colour = .data[[grouping[3]]])) +
+          geom_boxplot() +
+          labs(x = "telperiode") +
+          theme(legend.position = "")
+  }
+  
+  if (length(grouping) == 1) {
+    out <- out + facet_wrap(~.data[[grouping]], scales = "free")
+  } else {
+    out <- out + facet_grid(rows = vars(!!sym(grouping[1])),
+                            cols = vars(!!sym(grouping[2])), 
+                            scales = "free")
+  }
+  
+  return(print(out))
+}
+```
+
+
+## Plot-specifieke variabelen
+
+```{r}
+kle_vars <- c("haag", "houtkant", "boom", "bomengroep", "bomenrij", "bosrand")
+plot_vars <- c("openheid_waarde_1000", "natuur_exp",
+               kle_vars)
+
+plot_df <- mas_data_df %>%
+  select(plotnaam, regio, all_of(plot_vars)) %>%
+  distinct() %>%
+  arrange(regio, plotnaam)
+```
+
+Variabelen eigen aan het telpunt niet variabel over de jaren: `r plot_vars`.
+
+```{r}
+for (var in plot_vars) {
+  univar_tab(plot_df, var, "regio")
+  univar_plot(plot_df, var, "regio")
+}
+```
+
+
+## Plot-jaar-specifieke variabelen
+
+```{r}
+hfdtlt_vars <- sort(names(mas_data_df)[grep("hfdtlt$", 
+                                            names(mas_data_df))])
+hfdtlt_pre_vars <- sort(names(mas_data_df)[grep("hfdtlt_pre$", 
+                                                names(mas_data_df))])
+vrtlt_vars <- sort(names(mas_data_df)[grep("vrtlt$", names(mas_data_df))])
+plotjaar_vars <- c("area_prop_sb", "area_prop_bo_overig",
+                   hfdtlt_vars, hfdtlt_pre_vars,
+                   "gewas_div_shannon", "gewas_div_n", "gewas_evenness",
+                   vrtlt_vars, "perceel_median_area", "perceel_iqr_area", 
+                   "perceel_cv_area", "inertie_sb", "inertie_overig", 
+                   "status_teller", "sbp")
+
+plotjaar_df <- mas_data_df %>%
+  select(plotnaam, regio, jaar, all_of(plotjaar_vars)) %>%
+  distinct() %>%
+  arrange(regio, jaar, plotnaam)
+```
+
+Variabelen eigen aan het telpunt variabel over de jaren: `r plotjaar_vars`.
+
+```{r}
+for (var in plotjaar_vars) {
+  univar_tab(plotjaar_df, var, c("regio", "jaar"))
+  univar_plot(plotjaar_df, var, c("regio", "jaar"))
+}
+```
+
+## Telling-specifieke variabelen
+
+```{r}
+telling_vars <- c("n_predators", "n_predators_spec")
+
+telling_df <- mas_data_df %>%
+  select(plotnaam, regio, jaar, periode_in_jaar, all_of(telling_vars)) %>%
+  distinct() %>%
+  arrange(regio, jaar, plotnaam, periode_in_jaar)
+```
+
+Variabelen eigen aan de telling: `r telling_vars`.
+
+```{r}
+for (var in telling_vars) {
+  univar_tab(telling_df, var, c("regio", "jaar", "periode_in_jaar"))
+  univar_plot(telling_df, var, c("regio", "jaar", "periode_in_jaar"))
+}
+```
+
+## Discussie
+
+```{r}
+q3_hfdtlt <- c("andere_hfdtlt", "braakland_hfdtlt", "andere_graangewassen_hfdtlt",
+               "houtachtige_gewassen", "water_hfdtlt", "zaden_hfdtlt",
+               "zomergranen_hfdtlt")
+q3_hfdtlt <- c(q3_hfdtlt, paste(q3_hfdtlt, "pre", sep = "_"))
+exclude_hfdtlt <- c("andere_hfdtlt", "braakland_hfdtlt", "houtachtige_gewassen", 
+                    "water_hfdtlt")
+exclude_hfdtlt <- c(exclude_hfdtlt, paste(exclude_hfdtlt, "pre", sep = "_"))
+exclude_vrtlt <- setdiff(vrtlt_vars, "afwezig_vrtlt")
+exclude_univars <- c(exclude_hfdtlt, exclude_vrtlt)
+```
+
+
+Van de hoofdteelten zijn er een aantal variabelen met bijna geen data (geen/weinig oppervlakte binnen telcirkels). De volgende variabelen hebben nul als Q3: `r q3_hfdtlt`.
+Alle uitspraken voor `..hfdtlt` gelden ook voor `..hfdtlt_pre`.
+
+-  `andere_hfdtlt`: uitsluiten, dit zijn allicht heel zeldzame teelten waarvan we geen invloed verwachten
+-  `braakland_hfdtlt`: uitsluiten, dit kan belangrijk zijn, maar is allicht ook aanwezig in de laag van beheerovereenkomsten
+-  `houtachtige_gewassen`: uitsluiten, belangrijkste houtachtige gewassen zijn aanwezig in `meerjarige_fruitteelt_hfdtlt` en allicht soms ook in bepaalde variabelen van de kleine landschapselementen
+-  `water_hfdtlt`: uitsluiten, vermoedelijk niet van belang en bijna niet aanwezig
+-  `andere_graangewassen_hfdtlt` en `zomergranen_hfdtlt`: belangrijk voor vogels, we tellen ze samen op onder `zomergranen_hfdtlt2`
+-  `zaden_hfdtlt`: belangrijk voor vogels, soms zelfs grote oppervlaktes
+
+Voor de voorteelten is er bijna geen data. We behouden enkel de proportie afwezige voorteelt.
+
+```{r}
+bivar_vars <- setdiff(c(plot_vars, plotjaar_vars, telling_vars), 
+                      exclude_univars)
+
+bivariate_df <- mas_data_df %>%
+  select(plotnaam, regio, jaar, periode_in_jaar, all_of(bivar_vars)) %>%
+  mutate(jaar = factor(jaar),
+         zomergranen_hfdtlt2 = rowSums(across(
+           c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt))),
+         zomergranen_hfdtlt_pre2 = rowSums(across(
+           c(andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
+  select(-c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt,
+            andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)) %>%
+  distinct() %>%
+  arrange(regio, jaar, plotnaam, periode_in_jaar)
+```
+
+
+# Bivariate exploratie
+
+Voor bivariate relaties tussen de variabelen, berekenen we correlaties en maken we scatterplots tussen continue variabelen, boxplots om continue met categorische variabelen te vergelijken en tabellen om categorische variabelen te vergelijken.
+
+## Continue variabelen
+
+```{r}
+continue_bivariate <- bivariate_df %>%
+  select(where(is.numeric))
+```
+
+### Lineaire verbanden
+
+```{r}
+plot_corr <- function(x, y, df = bivariate_df, facet = "regio") {
+  df %>%
+    ggplot(aes(x = .data[[x]], y = .data[[y]])) +
+      geom_point() +
+      geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+      geom_smooth(formula = y ~ x, method = "loess", colour = "firebrick") +
+      facet_wrap(vars(!!sym(facet)), scales = "free")
+}
+```
+
+Pearsons correlatie (lineair verband). De Pearson correlatie tussen twee variabelen zal hoog zijn wanneer waarnemingen een positief lineair verband vertonen en laag wanneer ze een positief lineair verband vertonen. We visualiseren enkel correlaties sterker of gelijk aan 0.2.
+
+```{r, out.width=2000}
+cormat_pearson <- cor(continue_bivariate, method = "pearson")
+cormat_pearson[abs(cormat_pearson) < 0.2] <- 0
+corrplot(cormat_pearson, method =  "circle",
+         tl.col =  "black", tl.srt = 45, tl.cex = 0.6)
+```
+
+We zien dat de openheidsvariabele negatief gecorreleerd is met de variabelen van de kleine landschapselementen. 
+Dit is logisch aangezien bomen, hagen etc. het landschap minder open maken. Zo zien we ook een negatieve correlatie met fruitteelten. Een positieve correlatie zien we dan weer met afwezigheid van voorteelten en groottes van percelen. 
+Dan zal het landschap inderdaad meer open zijn. 
+We zien wel dat de verbanden niet altijd lineair zijn.
+
+```{r}
+for (var in kle_vars) {
+  print(plot_corr(var, "openheid_waarde_1000"))
+}
+```
+
+```{r}
+plot_corr("afwezig_vrtlt", "openheid_waarde_1000")
+plot_corr("perceel_median_area", "openheid_waarde_1000")
+```
+
+De mediaan en interkwartielafstand van perceelsgroottes zijn sterk gecorreleerd. Als maat voor de perceelsgroottes lijkt de variatiecoëfficient de beste optie om mee te nemen.
+
+```{r}
+plot_corr("perceel_median_area", "perceel_iqr_area")
+```
+
+Ook de gewasdiversiteit (Shannon en absolute aantal gewassen) zijn op dezelfde laag van de perceelsgroottes gebasseerd en we zien een sterke negatieve correlatie, maar niet met de variatiecoëfficient.
+De eveness maat is ook gecorreleerd met de gewasdiversiteitmaten.
+
+```{r}
+plot_corr("gewas_div_shannon", "gewas_evenness")
+plot_corr("gewas_div_n", "gewas_evenness")
+```
+
+Alle uitspraken voor `..hfdtlt` gelden ook voor `..hfdtlt_pre`.
+Hun overeenkomstige correlaties zijn hier niet van belang.
+Proportie hagen en meerjarige fruitteelt zijn blijkbaar ook vrij sterk positief gecorreleerd.
+
+```{r}
+plot_corr("haag", "meerjarige_fruitteelt_hfdtlt")
+```
+
+Verder zien we nog dat er minder hagen, houkanten en bomen zijn als de gewaseveness toeneemt, als er meer afwezigheid is aan voorteelten en als percelen gemiddeld groter zijn.
+
+```{r}
+plot_corr("afwezig_vrtlt", "haag")
+plot_corr("perceel_median_area", "haag")
+```
+
+Hagen, houtkanten en bomen zijn onderling positief gecorreleerd.
+
+```{r}
+plot_corr("boom", "haag")
+```
+
+Aantal predatorsoorten en individuen zijn ook positief gecorreleerd.
+
+```{r}
+plot_corr("n_predators", "n_predators_spec")
+```
+
+### Monotone verbanden
+
+Spearmans correlatie (monotoon verband). De Spearman correlatie tussen twee variabelen zal hoog zijn wanneer waarnemingen een vergelijkbare (of identieke) rangorde hebben tussen de twee variabelen, en laag wanneer waarnemingen een ongelijke (of volledig tegengestelde) rangorde hebben tussen de twee variabelen.
+
+```{r, out.width=2000}
+cormat_spearman <- cor(continue_bivariate, method = "spearman")
+cormat_spearman[abs(cormat_spearman) < 0.2] <- 0
+corrplot(cormat_spearman, method =  "circle",
+         tl.col =  "black", tl.srt = 45, tl.cex = 0.6)
+```
+
+De Spearman correlatie geeft gelijkaardige resultaten, maar alle correlaties zijn sterker en er komen ook meer correlaties bij die sterker zijn dan 0.2.
+
+### Conclusie
+
+We kunnen verschillende conclusies maken.
+Alle uitspraken voor `..hfdtlt` gelden ook voor `..hfdtlt_pre`.
+
+-  `perceel_median_area` en `perceel_iqr_area` weglaten: `perceel_cv_area` gebruiken als maat voor perceelsgrootte
+-  keuze maken over gewasdiversiteitsvariabele: `gewas_div_shannon` over `gewas_div_n` omdat proportie in rekening wordt gebracht, `gewas_evenness` minder van belang
+-  sommige KLE variabelen tonen sterke correlaties met andere variabelen en bovendien zijn sommige van deze variabelen heel zeldzaam, toch zijn ze allemaal belangrijk voor de vogels. Tijdens het modelleren kan het toch blijken dat het beter is om alles te sommeren tot 1 KLE proportie variabele
+-  keuze maken over predatorvariabele: `n_predators` over `n_predators_spec` omwille van meer variatie
+-  voorteelten zijn vaak afwezig waardoor het misschien eerder een maat is van de oppervlakte aan landbouwgebruikspercelen binnen een telcirkel eerder dan indicatief te zijn voor voorteelten zelf: hoe meer afwezigheid voorteelt, hoe minder landbouwgebruikspercelen, hoe minder kleine landschapselementen (neg. corr.), hoe minder openheid landschap (pos. corr.) ... `afwezig_vrtlt` wordt dus toch ook beter weggelaten. Hoewel voorteelten in praktijk belangrijk kunnen zijn voor de akkervogels, blijkt dat we niet de goede data hebben om dit effectief te gaan controleren. Commentaar Johannes (2-06-2023):
+   -  "Voorteelt is vaak NA omdat er geen voorteelt mogelijk is. Die verzamelaanvraag loopt van 1 januari tot eind van het jaar, en bij wintergewassen staat de hoofdteelt er al op in het vroege voorjaar. Er zijn nog andere gevallen waarbij er geen voorteelt mogelijk is, vanwege de te korte tijd die er vrij is als de hoofdteelt er op moet komen."
+   -  "Ik heb het nog eens opgezocht, en hoofdteelt is de voornaamste teelt die er tussen 15 mei en eind augustus op staat. Een voorteelt wordt voor die tijd ondergewerkt of geoogst, zodat de hoofdteelt er op kan. Dus als er wintertarwe of een ander wintergraan op staat in de voorteelt, wil dat zeggen dat die (voor de organische stof, als voeder of om in te kuilen) wordt geoogst, of gewoon wordt ingeploegd omdat die mislukt is of als vanggewas is gezet. Dat zou dus een uitzondering moeten zijn. Wintergranen die er al op staan in de voorteelt periode, maar als hoofdteelt blijven staan, daar komt dan bij de voorteelt NA vermeld." 
+   -  "Wel blijkt er geen controle te zijn op de verzamelaanvraag gegevens, dus het kan ook een interpretatie zijn van de landbouwer om dezelfde voorteelt als hoofdteelt te vermelden (vb wintertarwe) die gewoon blijft staan."
+      "Voor ons onderzoek is vooral de hoofdteelt belangrijk eigenlijk, en bijkomstig of er een verschillende voorteelt is."
+
+```{r}
+exclude_continue_bivars <- c("afwezig_vrtlt",
+                             "perceel_median_area", "perceel_iqr_area", 
+                             "gewas_div_n", "gewas_evenness",
+                             "n_predators_spec")
+
+continue_bivariate2 <- continue_bivariate %>%
+  select(-all_of(c(exclude_continue_bivars)))
+
+bivariate_df <- bivariate_df %>%
+   select(-all_of(c(exclude_continue_bivars)))
+```
+
+De nieuwe Pearson correlatie matrix ziet er als volgt uit.
+
+```{r, out.width=2000}
+cormat_pearson2 <- cor(continue_bivariate2, method = "pearson")
+cormat_pearson2[abs(cormat_pearson2) < 0.2] <- 0
+corrplot(cormat_pearson2, method =  "circle",
+         tl.col =  "black", tl.srt = 45, tl.cex = 0.6)
+```
+
+Er blijven nog altijd een aantal correlaties over.
+
+Visualisatie via PCA.
+We verwijderen de variabelen hoofdteelt van het jaar ervoor.
+
+```{r}
+# Functie om proportie variatie te berekenen van PC's
+perc_var <- function(vec) {
+  data.frame(proportie = (vec ^ 2) / sum(vec ^ 2), PC = seq_along(vec))
+}
+
+# Definieer pijlstijl voor plotten
+arrow_style <- function() {
+  arrow(angle = 20, ends = "first", type = "closed", 
+        length = grid::unit(8, "pt"))
+}
+
+plot_rotation <- function(pca_obj, x = 1, y = 2, pca_obj2 = NULL, label1, label2) {
+  x_axis <- paste0("PC", x)
+  y_axis <- paste0("PC", y)
+  
+  if (is.null(pca_obj2)) {
+    p <- pca_obj$rotation %>%
+      as.data.frame() %>%
+      rownames_to_column("variable") %>%
+      as_tibble() %>%
+      mutate(lengte = sqrt(.data[[x_axis]]^2 + .data[[y_axis]]^2)) %>%
+      ggplot(aes(x = .data[[x_axis]], y = .data[[y_axis]])) +
+        geom_segment(aes(colour = .data$lengte), xend = 0, yend = 0, arrow = arrow_style()) +
+        geom_text(aes(label = .data$variable), size = 3, nudge_y  = 0.02, nudge_x = 0.05) +
+        scale_x_continuous(expand = c(0.1, 0)) +
+        scale_color_gradientn(colours = rainbow(5))
+  } else {
+    df1 <- pca_obj$rotation %>%
+      as.data.frame() %>%
+      rownames_to_column("variable") %>%
+      as_tibble() %>%
+      mutate(lengte = sqrt(.data[[x_axis]]^2 + .data[[y_axis]]^2),
+             label = label1)
+    df2 <- pca_obj2$rotation %>%
+      as.data.frame() %>%
+      rownames_to_column("variable") %>%
+      as_tibble() %>%
+      mutate(lengte = sqrt(.data[[x_axis]]^2 + .data[[y_axis]]^2),
+             label = label2)
+    
+    p <- bind_rows(df1, df2) %>%
+      ggplot(aes(x = .data[[x_axis]], y = .data[[y_axis]])) +
+        geom_segment(aes(colour = .data$lengte), xend = 0, yend = 0, arrow = arrow_style()) +
+        geom_text(aes(label = .data$variable), size = 3, nudge_y  = 0.02, nudge_x = 0.05) +
+        scale_x_continuous(expand = c(0.1, 0)) +
+        scale_color_gradientn(colours = rainbow(5)) +
+        facet_wrap(~label, scales = "free")
+  }
+  
+  return(p)
+}
+```
+
+```{r}
+pca_moeren <- bivariate_df %>%
+  select(regio, all_of(names(continue_bivariate2))) %>%
+  select(!starts_with("inertie")) %>%
+  select(!contains("hfdtlt_pre")) %>%
+  filter(regio == "De Moeren") %>%
+  select(-regio) %>%
+  prcomp(scale. = TRUE)
+
+pca_leemstreek <- bivariate_df %>%
+  select(regio, all_of(names(continue_bivariate2))) %>%
+  select(!starts_with("inertie")) %>%
+  select(!contains("hfdtlt_pre")) %>%
+  filter(regio != "De Moeren") %>%
+  select(-regio) %>%
+  prcomp(scale. = TRUE)
+```
+
+```{r}
+bind_rows(perc_var(pca_moeren$sdev) %>% 
+            mutate(regio = "De Moeren"),
+          perc_var(pca_leemstreek$sdev) %>% 
+            mutate(regio = "Oostelijke leemstreek")) %>%
+  group_by(regio) %>%
+  mutate(cumulative = cumsum(proportie)) %>%
+  ungroup() %>%
+  ggplot(aes(x = PC, y = proportie)) +
+    geom_bar(stat = "identity") +
+    geom_line(aes(y = cumulative), colour = "firebrick") +
+    geom_point(aes(y = cumulative), colour = "firebrick") +
+    scale_x_continuous(breaks = 1:length(pca_moeren$sdev)) +
+    scale_y_continuous(limits = c(0, 1)) +
+    geom_text(aes(y = cumulative, label = round(cumulative, digits = 3)*100), 
+              vjust = -0.5, size = 3, colour = "firebrick") +
+    geom_text(aes(label = round(proportie, digits = 3)*100), 
+              vjust = -0.5, size = 3) +
+    facet_wrap(~regio, nrow = 2)
+```
+
+```{r, fig.width=10}
+for (i in seq_len(3)) {
+  p <- plot_rotation(pca_obj = pca_moeren, pca_obj2 = pca_leemstreek,
+                     x = i, y = i + 1,
+                     label1 = "De Moeren", label2 = "Oostelijke leemstreek")
+  print(p)
+}
+```
+
+## Continue vs. categorische variabelen
+
+```{r}
+cat_vars <- bivariate_df %>% 
+  select(!where(is.numeric)) %>%
+  names()
+
+cont_vars <- bivariate_df %>% 
+  select(where(is.numeric)) %>%
+  names()
+```
+
+De categorische variabelen zijn: `r cat_vars`. 
+We weten al dat regio, jaar en telperiode belangrijke factoren zijn om in rekening te brengen voor onze respons. Hun verband met andere predictors is niet zo relevant.
+We weten al dat sommige variabelen eigen zijn aan het telpunt, andere aan telpunt en jaar en andere aan telpunt, jaar en periode in jaar.
+De regio's verschillen sterk van elkaar in verschillende facetten en we houden al telkens rekening met deze variabele in de eerdere exploratie.
+We kunnen wel kijken naar `status_teller` en `sbp` voor deze laatste zijn we vooral geïnteressseerd in het verband met `area_prop_sb`.
+
+```{r}
+bivariate_df %>%
+  ggplot(aes(x = sbp, y = area_prop_sb)) +
+    geom_boxplot() +
+    facet_wrap(~regio)
+```
+
+```{r}
+for (var in cont_vars) {
+  p <- bivariate_df %>%
+    ggplot(aes(x = status_teller, y = .data[[var]])) +
+      geom_boxplot(aes(fill = status_teller)) +
+      facet_wrap(~regio) +
+      theme(legend.position = "")
+  print(p)
+}
+```
+
+### Conclusie
+
+Buiten sbp zien we inderdaad opvallend minder oppervlakte soorbeschermingsplannen. 
+De `sbp` variabele zal niet echt van interesse zijn voor modelleren.
+
+
+## Categorisch vs. categorisch
+
+Niet van toepassing.

@@ -1,0 +1,4152 @@
+---
+title: "Invloed van beheerovereenkomsten op akkervogels"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 5
+editor_options: 
+  chunk_output_type: console
+bibliography: references.json
+---
+
+```{r setup, include=FALSE}
+# renv
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here())
+
+# Conflicting packages
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(brms::ar)
+conflicted::conflicts_prefer(brms::do_call)
+conflicted::conflicts_prefer(stats::sd)
+conflicted::conflicts_prefer(posterior::rhat)
+conflicted::conflicts_prefer(base::match)
+conflicted::conflicts_prefer(brms::dstudent_t)
+conflicted::conflicts_prefer(stats::mad)
+conflicted::conflicts_prefer(brms::pstudent_t)
+conflicted::conflicts_prefer(brms::qstudent_t)
+conflicted::conflicts_prefer(brms::rstudent_t)
+conflicted::conflicts_prefer(stats::var)
+conflicted::conflicts_prefer(base::`%in%`)
+conflicted::conflicts_prefer(projpred::project)
+
+# Packages
+library(tidyverse)
+library(INBOtheme)
+library(ggpubr)
+library(sf)
+library(brms)
+library(projpred)
+library(posterior)
+library(bayesplot)
+library(tidybayes)
+library(modelr)
+
+# Cache
+model_path <- "./src/markdown/mas/brms_models/"
+cache_path <- "./src/markdown/mas/analyses_cache/"
+projpred_path <- "./src/markdown/mas/projpred_cache/"
+source(here("src/R/create_figures.R"))
+```
+
+# Inlezen data
+
+```{r}
+data_path <- here("data", "processed")
+mas_data_df <- read_csv(here(data_path, "MAS_data_full_2018_2023.csv"))
+```
+
+```{r}
+design <- mas_data_df %>%
+  distinct(plotnaam, regio, periode_in_jaar, jaar)
+
+mas_data_sf <- st_as_sf(mas_data_df, coords = c("x_lambert", "y_lambert"), 
+                        crs = 31370)
+
+perimeters <- read_sf(
+  here("data", "processed", "piloot_perimeters.gpkg"))
+```
+
+# Dataset structuur
+
+Hoe ziet de dataset eruit?
+
+```{r}
+glimpse(mas_data_df)
+```
+
+We visualiseren ook de waarnemingen en kleuren hoeveel jaren het telpunt geteld is.
+
+```{r}
+visits_per_jaar <- mas_data_sf %>%
+  st_drop_geometry() %>%
+  group_by(plotnaam) %>%
+  mutate(n_per_jaar = n_distinct(jaar)) %>%
+  ungroup() %>%
+  select(plotnaam, n_per_jaar) %>%
+  distinct()
+
+mas_data_sf %>%
+  filter(regio == "De Moeren") %>%
+  left_join(visits_per_jaar, by = join_by(plotnaam)) %>%
+  ggplot() +
+    geom_sf(data = perimeters %>% filter(Naam == "De Moeren"), 
+            colour = "firebrick") +
+    geom_sf(aes(colour = factor(n_per_jaar)), size = 0.5) +
+    labs(title = "De Moeren", colour = "aantal jaren\ntelpunt geteld") +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
+```
+
+```{r}
+mas_data_sf %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  left_join(visits_per_jaar, by = join_by(plotnaam)) %>%
+  ggplot() +
+    geom_sf(data = perimeters %>% filter(Naam == "Oostelijke leemstreek"), 
+            colour = "firebrick") +
+    geom_sf(aes(colour = factor(n_per_jaar)), size = 0.5) +
+    labs(title = "Oostelijke leemstreek", 
+         colour = "aantal jaren\ntelpunt geteld") +
+    guides(colour = guide_legend(override.aes = list(size = 3)))
+```
+
+# Gele kwikstaart
+
+## Data exploratie
+
+We selecteren de data van de Gele kwikstaart met broedcode \> 0.
+We sommeren de aantal per telcirkel, telperiode en jaar.
+We voegen ook afwezigheden toe.
+
+```{r}
+# Presence data
+gele_kwik_presences <- mas_data_df %>%
+  filter(naam == "Gele Kwikstaart",
+         wrntype > 0) %>%
+  group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
+  summarise(aantal = sum(aantal),
+            .groups = "drop")
+
+# Add absences
+gele_kwik_total <- design %>%
+  left_join(gele_kwik_presences, 
+            by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
+  replace(is.na(.), 0) %>%
+  arrange(plotnaam, periode_in_jaar, jaar)
+
+# Add variables
+gele_kwik_df1 <- gele_kwik_total %>%
+  left_join(
+    select(mas_data_df, plotnaam, regio, periode_in_jaar, jaar, status_teller,
+    which(names(mas_data_df) == "n_predators"):length(names(mas_data_df))),
+    by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
+  distinct() %>%
+  mutate(jaar.f = factor(jaar))
+```
+
+We herhalen enkele plots die we ook in `modelleeroefening_Gele_kwik.Rmd` maakten.
+
+```{r}
+gele_kwik_df1 %>%
+  group_by(regio, jaar, periode_in_jaar, aantal) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  ggplot(aes(x = aantal, y = n, fill = periode_in_jaar)) +
+    geom_bar(stat = "identity", col = "black") +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank()) + 
+    facet_wrap(jaar~regio, scales = "free") +
+    labs(y = "", x = "Aantal broedparen Gele kwikstaart per plot")
+```
+
+```{r}
+gele_kwik_df1 %>%
+  ggplot(aes(x = jaar, y = aantal, colour = periode_in_jaar)) +
+  stat_sum(position = position_dodge(width = 0.5), alpha = 0.2) +
+  stat_summary(fun.data = mean_cl_boot,
+               position = position_dodge(width = 0.5),
+               fatten = 4, shape = "square") +
+  scale_x_continuous(breaks = sort(unique(gele_kwik_df1$jaar))) +
+  facet_wrap(~regio, scales = "free") +
+  labs(y = "Aantal broedparen Gele kwikstaart per plot", x = "") +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+# Calculate zomergranen_hfdtlt2 as specified in 
+# exploratie_verklarende_variabelen.rmd
+gele_kwik_df <- gele_kwik_df1 %>%
+  mutate(jaar = factor(jaar),
+         zomergranen_hfdtlt2 = rowSums(across(
+           c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt))),
+         zomergranen_hfdtlt_pre2 = rowSums(across(
+           c(andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
+  select(-c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt,
+            andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre))
+
+strat_vars <- c("plotnaam", "regio", "periode_in_jaar", "jaar", "jaar.f")
+response_vars <- c("aantal")
+pred_vars <- c("area_prop_sb",
+               "area_prop_bo_overig",
+               "landbouwinfrastructuur_hfdtlt",
+               "grasland_hfdtlt",
+               "aardappelen_hfdtlt",
+               "wintergranen_hfdtlt",
+               "bieten_hfdtlt",
+               "mais_hfdtlt",
+               "wortelgewassen_hfdtlt",
+               "vlas_en_hennep_hfdtlt",
+               "groententeelt_hfdtlt",
+               "peulvruchten_hfdtlt",
+               "meerjarige_fruitteelt_hfdtlt",
+               "groenbemester_hfdtlt",
+               "zomergranen_hfdtlt2",
+               "vergroening_hfdtlt",
+               "zaden_hfdtlt",
+               "grasland_hfdtlt_pre",
+               "aardappelen_hfdtlt_pre",
+               "wintergranen_hfdtlt_pre",
+               "bieten_hfdtlt_pre",
+               "mais_hfdtlt_pre",
+               "wortelgewassen_hfdtlt_pre",
+               "vlas_en_hennep_hfdtlt_pre",
+               "groententeelt_hfdtlt_pre",
+               "peulvruchten_hfdtlt_pre",
+               "meerjarige_fruitteelt_hfdtlt_pre",
+               "groenbemester_hfdtlt_pre",
+               "zomergranen_hfdtlt_pre2",
+               "vergroening_hfdtlt_pre",
+               "zaden_hfdtlt_pre",
+               "gewas_div_shannon",
+               "perceel_cv_area",
+               "inertie_sb",
+               "inertie_overig",
+               "openheid_waarde_1000",
+               "openheid_klasse_300",
+               "x_plot",
+               "y_plot",
+               "is_sbp",
+               "sbp",
+               "haag",
+               "houtkant",
+               "boom",
+               "bomengroep",
+               "bomenrij",
+               "bosrand",
+               "natuur_exp",
+               "status_teller",
+               "n_predators")
+```
+
+We zijn vooral geïnteresseerd hoe de aantallen zich verhouden tot de verklarende variabelen (en dit per jaar per regio).
+Dit zijn: `r pred_vars`.
+
+```{r}
+gele_kwik_df_mod <- gele_kwik_df %>%
+  select(all_of(c(response_vars, strat_vars, pred_vars))) %>%
+  rowid_to_column("id")
+```
+
+```{r}
+plot_scatter <- function(x, y = "aantal", df = gele_kwik_df_mod) {
+  for (reg in unique(df$regio)) {
+    p <- df %>%
+      filter(regio == reg) %>%
+      ggplot(aes(x = .data[[x]], y = .data[[y]])) +
+        geom_point(aes(shape = periode_in_jaar)) +
+        geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+        geom_smooth(method = "gam", colour = "firebrick") +
+        facet_wrap(~jaar, scales = "free") +
+        ggtitle(reg)
+    print(p)
+  }
+}
+```
+
+```{r}
+continue_predvars1 <- gele_kwik_df_mod %>%
+  select(where(is.numeric)) %>%
+  names()
+continue_predvars <- intersect(pred_vars, continue_predvars1)
+
+for (var in continue_predvars) {
+  plot_scatter(var)
+}
+```
+
+## Model specificatie test 1
+
+We vergelijken enkele simpele modellen:
+
+-   welke distributies passen best? (1)
+-   welke random effects moeten we toevoegen? (2)
+
+### Modellen fitten (1)
+
+We fitten vier modellen met verschillende verdelingsassumpties:
+
+1.  Poisson
+2.  Negative binomial
+3.  Zero-inflated Poisson
+4.  Zero-inflated Negative binomial
+
+We beginnen met een simpel model met random effect voor telcirkel.
+
+Beschouw $Y_{i}$ een observatie $i$ van een aantal broedparen in eenzelfde telcirkel $j$.
+Deze observaties beschouwen we afhankelijk van de telperiode (dummy variabele $X_{\text{periode_in_jaar}}$), teljaar ($X_{\text{jaar}}$), regio ($X_{\text{regio}}$) en de oppervlakte proportie soortbeschermingsplannen binnen de telcirkel ($X_{\text{area_prop_sb}}$).
+We voegen een interactie toe tussen regio en proportie sb zodat het effect kan verschillen per regio.
+We voegen ten slotte een random effect toe van telcirkel $b_{1}$.
+In een later stadium kunnen we testen of deze laatste noodzakelijk is en/of als er meer complexe correlatiestructuren moeten gespecifieerd worden (bv. autoregressive).
+
+$$
+g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{2}X_{jaar, i} + \beta_{3}X_{regio, i} + \beta_{4}X_{\text{area_prop_sb}, i} + \beta_{4}X_{regio, i} \times X_{\text{area_prop_sb}, i} + b_{1,j}
+$$
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 4000          # number of iterations (incl. burn-in)
+burnin <- niter / 2    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+
+# Formula
+form1 <- bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb + 
+            (1 | plotnaam))
+```
+
+```{r}
+# 1. Poisson
+sbp_gelekwik_pois1 <- 
+  brm(formula = form1,
+      data = gele_kwik_df_mod, 
+      family = poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois1"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois1)
+plot(sbp_gelekwik_pois1, ask = FALSE)
+
+# 2. Negative binomial
+sbp_gelekwik_negbin1 <- 
+  brm(formula = form1,
+      data = gele_kwik_df_mod, 
+      family = negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_negbin1"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_negbin1)
+plot(sbp_gelekwik_negbin1, ask = FALSE)
+
+# 3. Zero-inflated Poisson
+sbp_gelekwik_ZIP1 <- 
+  brm(formula = form1,
+      data = gele_kwik_df_mod, 
+      family = zero_inflated_poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_ZIP1"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_ZIP1)
+plot(sbp_gelekwik_ZIP1, ask = FALSE)
+
+# 4. Zero-inflated Negative binomial
+sbp_gelekwik_ZINB1 <- 
+  brm(formula = form1,
+      data = gele_kwik_df_mod, 
+      family = zero_inflated_negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_ZINB1"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_ZINB1)
+plot(sbp_gelekwik_ZINB1, ask = FALSE)
+```
+
+Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
+
+### Model selectie en fit (1)
+
+We vergelijken de modellen gebruikmakend van 5-fold cross-validation (CV) (leave one out CV en WAIC berekenen niet mogelijk, *waarom?*).
+Eerst worden de gegevens opgedeeld in $K$ delen (subsets) van gelijke (of zo goed mogelijk gelijke) grootte.
+Vervolgens wordt het model $K$ keer gefit, waarbij telkens een van de $K$ subsets wordt weggelaten.
+We stratificeren volgens regio.
+Hierbij wordt er voor gezorgt dat relatieve frequenties per regio bij benadering behouden blijven.
+
+```{r}
+# Perform K-fold cross-validation
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois1.rds"))) {
+  fit_sbp_gelekwik_pois1 <- add_criterion(
+    sbp_gelekwik_pois1, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois1"))
+} else {
+  fit_sbp_gelekwik_pois1 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois1.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_negbin1.rds"))) {
+  fit_sbp_gelekwik_negbin1 <- add_criterion(
+    sbp_gelekwik_negbin1, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_negbin1"))
+} else {
+  fit_sbp_gelekwik_negbin1 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_negbin1.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZIP1.rds"))) {
+  fit_sbp_gelekwik_ZIP1 <- add_criterion(
+    sbp_gelekwik_ZIP1, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_ZIP1"))
+} else {
+  fit_sbp_gelekwik_ZIP1 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZIP1.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZINB1.rds"))) {
+  fit_sbp_gelekwik_ZINB1 <- add_criterion(
+    sbp_gelekwik_ZINB1, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_ZINB1"))
+} else {
+  fit_sbp_gelekwik_ZINB1 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZINB1.rds"))
+}
+```
+
+```{r}
+models_dist <- data.frame(
+  model = c("Poisson", 
+            "Negative binomial",
+            "Zero-inflated Poisson",
+            "Zero-inflated Negative binomial"),
+  naam =  c("fit_sbp_gelekwik_pois1", 
+            "fit_sbp_gelekwik_negbin1",
+            "fit_sbp_gelekwik_ZIP1",
+            "fit_sbp_gelekwik_ZINB1")
+  )
+
+# Comparison among models
+comparisons <- loo_compare(fit_sbp_gelekwik_pois1, 
+                           fit_sbp_gelekwik_negbin1, 
+                           fit_sbp_gelekwik_ZIP1, 
+                           fit_sbp_gelekwik_ZINB1, 
+                           criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                rownames_to_column("naam") %>% 
+                full_join(models_dist, by = join_by(naam))
+
+rbind(
+  fit_sbp_gelekwik_pois1$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_negbin1$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_ZIP1$criteria$kfold$estimates[, "Estimate"], 
+  fit_sbp_gelekwik_ZINB1$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = models_dist$model) %>%
+  full_join(comparisons, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, naam, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+De fit van de modellen verschilt niet veel van elkaar.
+We besluiten dat het Poisson model toont het beste evenwicht tussen model parsimonie en model fit.
+De posterior predictive check toont een goede fit van dit meest eenvoudige model.
+We vergelijken de waargenomen tellingen met gesimuleerde tellingen van de posterior predictive distribution.
+
+```{r}
+pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
+         group = "regio", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+```{r}
+pp_check(fit_sbp_gelekwik_pois1, type = "bars_grouped", ndraws = 100, 
+         group = "jaar.f", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+### Resultaten (1)
+
+We zien geen significant verschil in aantal broedvogels Gele kwikstaart met toenemende oppervlakte aan soortbeschermingsplannen.
+
+De Moeren:
+
+```{r}
+hypothesis(fit_sbp_gelekwik_pois1,
+           "area_prop_sb = 0")
+```
+
+Oostelijke leemstreek:
+
+```{r}
+hypothesis(fit_sbp_gelekwik_pois1,
+           "area_prop_sb + regioOostelijkeleemstreek:area_prop_sb = 0")
+```
+
+Visueel:
+
+```{r}
+plot(conditional_effects(fit_sbp_gelekwik_pois1, 
+                         effects = "area_prop_sb:regio"))
+```
+
+Cumulatief:
+
+```{r}
+get_hyp_estimates <- function(model, regio, perc_inc) {
+  if (regio == "De Moeren") {
+    hyp <- paste0("exp(area_prop_sb*", perc_inc, ") = 1")
+    est_hyp <- hypothesis(model, hyp)
+  } else {
+    hyp <- paste0("exp(area_prop_sb*", perc_inc, 
+                  " + regioOostelijkeleemstreek:area_prop_sb*", 
+                  perc_inc, ") = 1")
+    est_hyp <- hypothesis(model, hyp)
+  }
+ est_hyp$hypothesis[,2:5] %>%
+   mutate(regio = regio,
+          perc_inc = perc_inc)
+}
+
+increases <- seq(0, 1, 0.01)
+out <- vector(mode = "list", length = length(increases) * 
+         length(unique(gele_kwik_df_mod$regio)))
+
+for (i in seq_along(unique(gele_kwik_df_mod$regio))) {
+  reg <- unique(gele_kwik_df_mod$regio)[i]
+  for (j in seq_along(increases)) {
+    perc <- increases[j]
+    index <- j + (length(increases) * (i - 1))
+    out[[index]] <- get_hyp_estimates(fit_sbp_gelekwik_pois1, reg, perc)
+  }
+}
+
+hyp_est_df <- do.call(rbind.data.frame, out)
+```
+
+```{r}
+hyp_est_df %>%
+  mutate(perc_inc = perc_inc * 100) %>%
+  ggplot(aes(x = perc_inc, y = Estimate)) +
+    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_line(colour = "black", linewidth = 1.2) +
+    geom_ribbon(aes(ymin = CI.Lower, ymax = CI.Upper, fill = regio), alpha = 0.3) +
+    facet_wrap(~regio) +
+    theme(legend.position = "") +
+    labs(x = "procent toename in oppervlakte soorbeschermingsplannen",
+         y = "aantal keer meer Gele kwikstaarten")
+```
+
+### Conclusies (1)
+
+Het Poisson model kan de data goed beschrijven.
+We kijken nu welke random effecten we best toevoegen.
+
+### Modellen fitten (2)
+
+We fitten modellen met Poisson verdeling.
+Het fixed effect gedeelte blijft hetzelfde als voordien:
+
+$$
+g(\text{E}(Y_{ij})) = \beta_0 + \beta_{1}X_{\text{periode_in_jaar}, i} + \beta_{2}X_{jaar, i} + \beta_{3}X_{regio, i} + \beta_{4}X_{\text{area_prop_sb}, i} + \beta_{4}X_{regio, i} \times X_{\text{area_prop_sb}, i}
+$$
+
+We beschouwen drie mogelijkheden voor de random effects:
+
+1.  Geen random effecten
+2.  Random intercept per telcirkel
+3.  Autoregressive per jaar (orde 1)
+
+```{r}
+# id die telcirkels binnen telperiodes linkt (voor AR over jaren heen)
+gele_kwik_df_modAR <- gele_kwik_df_mod %>%
+  mutate(ar_id = paste(plotnaam, periode_in_jaar, sep = "_"))
+
+# 1. Geen random effecten
+sbp_gelekwik_pois0 <- 
+  brm(formula = bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb),
+      data = gele_kwik_df_mod, 
+      family = poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois0"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois0)
+plot(sbp_gelekwik_pois0, ask = FALSE)
+
+# 3. Autoregressive per jaar
+sbp_gelekwik_pois2 <- 
+  brm(formula = bf(aantal ~ periode_in_jaar + jaar.f + regio*area_prop_sb,
+                   autocor = ~ ar(time = jaar, gr = ar_id, p = 1, cov = TRUE)),
+      data = gele_kwik_df_modAR, 
+      family = poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel,
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois2"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois2)
+plot(sbp_gelekwik_pois2, ask = FALSE)
+```
+
+Convergentie voor alle modellen ok (scale reduction factors, trace plots, posterior density).
+
+### Model selectie en fit (2)
+
+We vergelijken de modellen gebruikmakend van 5-fold cross-validation.
+
+```{r}
+# Perform K-fold cross-validation
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois0.rds"))) {
+  fit_sbp_gelekwik_pois0 <- add_criterion(
+    sbp_gelekwik_pois0, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois0"))
+} else {
+  fit_sbp_gelekwik_pois0 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois0.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois2.rds"))) {
+  fit_sbp_gelekwik_pois2 <- add_criterion(
+    sbp_gelekwik_pois2, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois2"))
+} else {
+  fit_sbp_gelekwik_pois2 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois2.rds"))
+}
+```
+
+```{r}
+models_random <- data.frame(
+  model = c("Poisson geen random effects", 
+           "Poisson random intercept",
+           "Poisson AR"),
+  naam = c("fit_sbp_gelekwik_pois0", 
+           "fit_sbp_gelekwik_pois1",
+           "fit_sbp_gelekwik_pois2")
+  )
+
+# Comparison among models
+comparisons2 <- loo_compare(fit_sbp_gelekwik_pois0, 
+                           fit_sbp_gelekwik_pois1, 
+                           fit_sbp_gelekwik_pois2, 
+                           criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                rownames_to_column("naam") %>% 
+                full_join(models_random, by = join_by(naam))
+
+rbind(
+  fit_sbp_gelekwik_pois0$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_pois1$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_pois2$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = models_random$model) %>%
+  full_join(comparisons2, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, naam, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+Het eerdere model met random intercept geniet nog altijd de voorkeur.
+
+### Conclusies (2)
+
+Zowel per design als via k-fold validation lijkt het random intercept onze voorkeur te genieten.
+
+### Conclusie
+
+-   De Poisson verdeling kan gebruikt worden om de aantallen te modelleren
+-   Er is een vrij groot verschil tussen beide regio's waardoor we quasi voor elke variabele een interactieterm zouden moeten toevoegen. We zouden best de analyses opsplitsen per gebied.
+-   We willen nagaan of er een positief effect is van beschermingsmaatregelen. Zowel ter interpretatie als eenvoud van het model kan de `sbp` variabele misschien handiger zijn dan de `area_prop_sb` variabele.
+-   De variabele `periode_in_jaar` bemoeilijkt de analyses (toevoegen van random effects). Het is allicht slimmer de aantallen per telcirkel per jaar te aggregeren. @klaassen2022 gebruiken voor gelijkaardige analyses *"het maximumaantal waargenomen broedparen (het hoogste aantal territoriale individuen van een soort tijdens één van de tellingen)"*.
+-   We vermoeden ook dat er een duidelijker signaal zal vormen als we enkel de data van 2022 en 2023 bekijken.
+
+## Model specificatie test 2
+
+### Data preparatie
+
+We nemen per telpunt per jaar het maximum aantal broedvogels over de telperiodes heen.
+De variabele `n_predators` is afhankelijk per telperiode.
+Hiervan nemen we het gemiddelde.
+De variabele `status_teller` kan ook afhankelijk zijn per telperiode.
+We kiezen de meest frequente status per telpunt per jaar.
+
+```{r}
+gele_kwik_df_mod2 <- gele_kwik_df %>%
+  select(all_of(c(response_vars, strat_vars, pred_vars))) %>%
+  group_by(plotnaam, jaar) %>%
+  mutate(status_teller = names(which.max(table(status_teller)))) %>%
+  ungroup() %>%
+  group_by(across(c(-periode_in_jaar, -aantal, -n_predators))) %>%
+  summarise(aantal = max(aantal),
+            n_predators2 = mean(n_predators),
+            .groups = "drop") %>%
+  select(aantal, everything()) %>%
+  rowid_to_column("id")
+```
+
+We selecteren data van 2022.
+
+```{r}
+gele_kwik_df2_2022 <- gele_kwik_df_mod2 %>%
+  filter(jaar == 2022)
+```
+
+### Data exploratie
+
+**sbp**
+
+```{r}
+gele_kwik_df2_2022 %>%
+  mutate(sbp2 = paste(sbp, "sbp")) %>%
+  ggplot(aes(x = aantal, fill = sbp)) +
+    geom_bar() +
+    facet_grid(regio~sbp2, scales = "free_y") +
+    theme(legend.position = "") +
+    labs(x = "aantal broedparen",
+         y = "frequentie")
+```
+
+```{r}
+gele_kwik_df2_2022 %>%
+  mutate(sbp2 = paste(sbp, "sbp")) %>%
+  ggplot(aes(x = sbp2, y = aantal, fill = sbp)) +
+    geom_boxplot() +
+    facet_wrap(~regio) +
+    theme(legend.position = "") +
+    labs(y = "aantal broedparen",
+         x = "")
+```
+
+**area_prop_sb**
+
+```{r}
+gele_kwik_df2_2022 %>%
+  ggplot(aes(x = area_prop_sb, y = aantal)) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+    geom_smooth(method = "gam", colour = "firebrick") +
+    facet_wrap(~regio, scales = "free_x") +
+    labs(y = "aantal broedparen")
+```
+
+**area_prop_bo_overig**
+
+```{r}
+gele_kwik_df2_2022 %>%
+  ggplot(aes(x = area_prop_bo_overig, y = aantal)) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+    geom_smooth(method = "gam", colour = "firebrick") +
+    facet_wrap(~regio, scales = "free_x") +
+    labs(y = "aantal broedparen")
+```
+
+**area_prop_sb** + **area_prop_bo_overig**
+
+```{r}
+gele_kwik_df2_2022 %>%
+  mutate(bo_sum = rowSums(across(c(area_prop_sb, area_prop_bo_overig)))) %>%
+  ggplot(aes(x = bo_sum, y = aantal)) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = "lm", colour = "gold") +
+    geom_smooth(method = "gam", colour = "firebrick") +
+    facet_wrap(~regio, scales = "free_x") +
+    labs(y = "aantal broedparen")
+```
+
+### Modellen sbp
+
+Fit modellen.
+
+```{r}
+form2 <- bf(aantal ~ sbp*regio)
+
+# 1. Poisson
+sbp_gelekwik_pois12 <- 
+  brm(formula = form2,
+      data = gele_kwik_df2_2022, 
+      family = poisson(), 
+      chains = nchains,
+      warmup = burnin,
+      iter = niter,
+      cores = nparallel,
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois12"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois12)
+plot(sbp_gelekwik_pois12, ask = FALSE)
+
+# 2. Negative binomial
+sbp_gelekwik_negbin12 <- 
+  brm(formula = form2,
+      data = gele_kwik_df2_2022, 
+      family = negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_negbin12"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_negbin12)
+plot(sbp_gelekwik_negbin12, ask = FALSE)
+
+# 3. Zero-inflated Poisson
+sbp_gelekwik_ZIP12 <- 
+  brm(formula = form2,
+      data = gele_kwik_df2_2022, 
+      family = zero_inflated_poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_ZIP12"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_ZIP12)
+plot(sbp_gelekwik_ZIP12, ask = FALSE)
+
+# 4. Zero-inflated Negative binomial
+sbp_gelekwik_ZINB12 <- 
+  brm(formula = form2,
+      data = gele_kwik_df2_2022, 
+      family = zero_inflated_negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_ZINB12"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_ZINB12)
+plot(sbp_gelekwik_ZINB12, ask = FALSE)
+```
+
+Vergelijk modellen.
+
+```{r}
+# Perform K-fold cross-validation
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois12.rds"))) {
+  fit_sbp_gelekwik_pois12 <- add_criterion(
+    sbp_gelekwik_pois12, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois12"))
+} else {
+  fit_sbp_gelekwik_pois12 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois12.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_negbin12.rds"))) {
+  fit_sbp_gelekwik_negbin12 <- add_criterion(
+    sbp_gelekwik_negbin12, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_negbin12"))
+} else {
+  fit_sbp_gelekwik_negbin12 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_negbin12.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZIP12.rds"))) {
+  fit_sbp_gelekwik_ZIP12 <- add_criterion(
+    sbp_gelekwik_ZIP12, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_ZIP12"))
+} else {
+  fit_sbp_gelekwik_ZIP12 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZIP12.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZINB12.rds"))) {
+  fit_sbp_gelekwik_ZINB12 <- add_criterion(
+    sbp_gelekwik_ZINB12, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_ZINB12"))
+} else {
+  fit_sbp_gelekwik_ZINB12 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZINB12.rds"))
+}
+```
+
+```{r}
+models_12 <- data.frame(
+  model = c("Poisson", 
+            "Negative binomial",
+            "Zero-inflated Poisson",
+            "Zero-inflated Negative binomial"),
+  naam =  c("fit_sbp_gelekwik_pois12", 
+            "fit_sbp_gelekwik_negbin12",
+            "fit_sbp_gelekwik_ZIP12",
+            "fit_sbp_gelekwik_ZINB12")
+  )
+
+# Comparison among models
+comparisons12 <- loo_compare(fit_sbp_gelekwik_pois12, 
+                           fit_sbp_gelekwik_negbin12, 
+                           fit_sbp_gelekwik_ZIP12, 
+                           fit_sbp_gelekwik_ZINB12, 
+                           criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                rownames_to_column("naam") %>% 
+                full_join(models_12, by = join_by(naam))
+
+rbind(
+  fit_sbp_gelekwik_pois12$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_negbin12$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_ZIP12$criteria$kfold$estimates[, "Estimate"], 
+  fit_sbp_gelekwik_ZINB12$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = models_12$model) %>%
+  full_join(comparisons12, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, naam, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+Model fit.
+
+```{r}
+pp_check(fit_sbp_gelekwik_negbin12, type = "bars_grouped", ndraws = 100, 
+         group = "regio", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+```{r}
+pp_check(fit_sbp_gelekwik_negbin12, type = "bars_grouped", ndraws = 100, 
+         group = "sbp", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Resultaten.
+
+De Moeren:
+
+```{r}
+hypothesis(fit_sbp_gelekwik_negbin12,
+           "exp(sbpbuiten) = 1")
+```
+
+Oostelijke leemstreek:
+
+```{r}
+hypothesis(fit_sbp_gelekwik_negbin12,
+           "exp(sbpbuiten + sbpbuiten:regioOostelijkeleemstreek) = 1")
+```
+
+Visueel:
+
+```{r}
+plot(conditional_effects(fit_sbp_gelekwik_negbin12, 
+                         effects = "regio:sbp"))
+```
+
+### Model fitten area_prop_sb
+
+Fit modellen.
+
+```{r}
+form3 <- bf(aantal ~ regio*area_prop_sb)
+
+# 1. Poisson
+sbp_gelekwik_pois13 <- 
+  brm(formula = form3,
+      data = gele_kwik_df2_2022, 
+      family = poisson(), 
+      chains = nchains,
+      warmup = burnin,
+      iter = niter,
+      cores = nparallel,
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_pois13"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_pois13)
+plot(sbp_gelekwik_pois13, ask = FALSE)
+
+# 2. Negative binomial
+sbp_gelekwik_negbin13 <- 
+  brm(formula = form3,
+      data = gele_kwik_df2_2022, 
+      family = negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_negbin13"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_negbin13)
+plot(sbp_gelekwik_negbin13, ask = FALSE)
+
+# 3. Zero-inflated Poisson
+sbp_gelekwik_ZIP13 <- 
+  brm(formula = form3,
+      data = gele_kwik_df2_2022, 
+      family = zero_inflated_poisson(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_ZIP13"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_ZIP13)
+plot(sbp_gelekwik_ZIP13, ask = FALSE)
+
+# 4. Zero-inflated Negative binomial
+sbp_gelekwik_ZINB13 <- 
+  brm(formula = form3,
+      data = gele_kwik_df2_2022, 
+      family = zero_inflated_negbinomial(), 
+      chains = nchains,
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr",
+      file = paste0(model_path, "sbp_gelekwik_ZINB13"),
+      file_refit = "on_change")
+
+summary(sbp_gelekwik_ZINB13)
+plot(sbp_gelekwik_ZINB13, ask = FALSE)
+```
+
+Vergelijk modellen.
+
+```{r}
+# Perform K-fold cross-validation
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_pois13.rds"))) {
+  fit_sbp_gelekwik_pois13 <- add_criterion(
+    sbp_gelekwik_pois13, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_pois13"))
+} else {
+  fit_sbp_gelekwik_pois13 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_pois13.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_negbin13.rds"))) {
+  fit_sbp_gelekwik_negbin13 <- add_criterion(
+    sbp_gelekwik_negbin13, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_negbin13"))
+} else {
+  fit_sbp_gelekwik_negbin13 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_negbin13.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZIP13.rds"))) {
+  fit_sbp_gelekwik_ZIP13 <- add_criterion(
+    sbp_gelekwik_ZIP13, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_ZIP13"))
+} else {
+  fit_sbp_gelekwik_ZIP13 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZIP13.rds"))
+}
+if (!file.exists(paste0(model_path, "fit_sbp_gelekwik_ZINB13.rds"))) {
+  fit_sbp_gelekwik_ZINB13 <- add_criterion(
+    sbp_gelekwik_ZINB13, c("kfold"), K = 5, cores = 5,
+    folds = "stratified", group = "regio", 
+    file = paste0(model_path, "fit_sbp_gelekwik_ZINB13"))
+} else {
+  fit_sbp_gelekwik_ZINB13 <- readRDS(paste0(model_path, 
+                                           "fit_sbp_gelekwik_ZINB13.rds"))
+}
+```
+
+```{r}
+models_13 <- data.frame(
+  model = c("Poisson", 
+            "Negative binomial",
+            "Zero-inflated Poisson",
+            "Zero-inflated Negative binomial"),
+  naam =  c("fit_sbp_gelekwik_pois13", 
+            "fit_sbp_gelekwik_negbin13",
+            "fit_sbp_gelekwik_ZIP13",
+            "fit_sbp_gelekwik_ZINB13")
+  )
+
+# Comparison among models
+comparisons13 <- loo_compare(fit_sbp_gelekwik_pois13, 
+                           fit_sbp_gelekwik_negbin13, 
+                           fit_sbp_gelekwik_ZIP13, 
+                           fit_sbp_gelekwik_ZINB13, 
+                           criterion = "kfold")[, c(1, 2)] %>%
+                as.data.frame() %>%
+                rownames_to_column("naam") %>% 
+                full_join(models_13, by = join_by(naam))
+
+rbind(
+  fit_sbp_gelekwik_pois13$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_negbin13$criteria$kfold$estimates[, "Estimate"],
+  fit_sbp_gelekwik_ZIP13$criteria$kfold$estimates[, "Estimate"], 
+  fit_sbp_gelekwik_ZINB13$criteria$kfold$estimates[, "Estimate"]
+  ) %>%
+  as.data.frame() %>%
+  mutate(model = models_13$model) %>%
+  full_join(comparisons13, by = "model") %>%
+  mutate(CI_ll = elpd_diff  + qnorm(0.025) * se_diff,
+         CI_ul = elpd_diff  + qnorm(0.975) * se_diff) %>%
+  select(model, naam, everything()) %>%
+  arrange(desc(elpd_diff)) %>%
+  kable(digits = 3)
+```
+
+Model fit.
+
+```{r}
+pp_check(fit_sbp_gelekwik_negbin13, type = "bars_grouped", ndraws = 100, 
+         group = "regio", facet_args = list(ncol = 1, scales = "free_y"))
+```
+
+Resultaten.
+
+De Moeren:
+
+```{r}
+hypothesis(fit_sbp_gelekwik_negbin13,
+           "exp(area_prop_sb) = 1")
+```
+
+Oostelijke leemstreek:
+
+```{r}
+hypothesis(fit_sbp_gelekwik_negbin13,
+           "exp(area_prop_sb + regioOostelijkeleemstreek:area_prop_sb) = 1")
+```
+
+Visueel:
+
+```{r}
+plot(conditional_effects(fit_sbp_gelekwik_negbin13, 
+                         effects = "area_prop_sb:regio"))
+```
+
+```{r}
+out <- vector(mode = "list", length = length(increases) * 
+         length(unique(gele_kwik_df2_2022$regio)))
+
+for (i in seq_along(unique(gele_kwik_df2_2022$regio))) {
+  reg <- unique(gele_kwik_df2_2022$regio)[i]
+  for (j in seq_along(increases)) {
+    perc <- increases[j]
+    index <- j + (length(increases) * (i - 1))
+    out[[index]] <- get_hyp_estimates(fit_sbp_gelekwik_negbin13, reg, perc)
+  }
+}
+
+hyp_est_df2 <- do.call(rbind.data.frame, out)
+```
+
+```{r}
+hyp_est_df2 %>%
+  mutate(perc_inc = perc_inc * 100) %>%
+  ggplot(aes(x = perc_inc, y = Estimate)) +
+    geom_hline(yintercept = 0, colour = "grey", linetype = "dashed") +
+    geom_line(colour = "black", linewidth = 1.2) +
+    geom_ribbon(aes(ymin = CI.Lower, ymax = CI.Upper, fill = regio), alpha = 0.3) +
+    facet_wrap(~regio) +
+    theme(legend.position = "") +
+    labs(x = "procent toename in oppervlakte soorbeschermingsplannen",
+         y = "aantal keer meer Gele kwikstaarten")
+```
+
+### Conclusie
+
+De analyses en interpretatie zijn eenvoudiger dan voordien en de modellen lijken goed te fitten.
+Ook zijn de resultaten min of meer in lijn met de verwachtingen.
+Voor `area_prop_sb` in de Oostelijke leemstreek gaf de gam in de data-exploratie een meer flexibele curve aan.
+We kunnen die variabele ook kunnen opdelen in klassen (bv. \< 0.1, 0.1 - 0.2, \> 0.2).
+Er zijn wellicht ook minder data \> 0.2 (waardoor je ook minder zeker bent van het niet lineaire verband).
+Nog een optie is de variabele sqrt transformeren.
+
+We besluiten op te delen volgens de agri-environment schemes (AES) classificatie besproken in @sharps2023.
+
+```{r}
+tibble(beleid = c("nul", "laag", "middellaag", "middelhoog", "hoog"),
+       prop_area_sb = c("0", "<0.04", "0.04-0.07", "0.07-0.1", ">0.1")) %>%
+  kable()
+```
+
+```{r}
+gele_kwik_df2_2022 %>%
+  ggplot(aes(x = area_prop_sb)) +
+    geom_histogram() +
+    facet_wrap(~regio)
+```
+
+```{r}
+test <- 
+  brm(formula = bf(aantal ~ regio*area_prop_sb_cat),
+      data = gele_kwik_df2_2022 %>%
+        mutate(area_prop_sb_cat = case_when(
+          area_prop_sb == 0 ~ "nulbeleid",
+          area_prop_sb <= 0.04 ~ "laagbeleid",
+          area_prop_sb <= 0.07 ~ "middellaagbeleid",
+          area_prop_sb <= 0.1 ~ "middelhoogbeleid",
+          TRUE ~ "hoogbeleid"
+        )), 
+      family = negbinomial(), 
+      chains = nchains, 
+      warmup = burnin, 
+      iter = niter, 
+      cores = nparallel, 
+      backend = "cmdstanr")
+
+effects <- conditional_effects(test, effects = "area_prop_sb_cat:regio", 
+                               plot = FALSE)
+
+effects_df <- effects$`area_prop_sb_cat:regio` %>%
+  as_tibble()
+
+effects_df %>%
+  mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
+                                   levels = c("nulbeleid",
+                                              "laagbeleid",
+                                              "middellaagbeleid",
+                                              "middelhoogbeleid",
+                                              "hoogbeleid"),
+                                   ordered = TRUE)) %>%
+  ggplot(aes(x = area_prop_sb_cat, y = estimate__, colour = regio)) +
+    geom_point(position = position_dodge(width = 0.4),
+               size = 4 / 1^0.25) +
+    geom_errorbar(aes(ymin = lower__, ymax = upper__),
+                  position = position_dodge(width = 0.4),
+                  width = 0.3) +
+    facet_wrap(~regio) +
+    theme(legend.position = "") +
+    labs(x = "oppervlakte soorbeschermingsplannen",
+         y = "aantal broedparen Gele kwikstaart")
+```
+
+Dit ziet er waardevoller uit.
+
+## Selectie verklarende variabelen
+
+<https://mc-stan.org/projpred/articles/projpred.html>\
+<https://mc-stan.org/projpred/articles/latent.html>\
+<https://github.com/stan-dev/projpred/issues/67>\
+<https://paul-buerkner.github.io/brms/reference/R2D2.html>
+
+### Referentiemodel
+
+Eerst moeten we een referentiemodel construeren voor de selectie van verklarende variabelen via 'projection predive variable selection' (PPVS).
+Het doel van PPVS is het vinden van een zo klein mogelijke subset van kandidaat-variabelen met een voorspellende kracht die zo dicht mogelijk ligt bij die van het referentiemodel.
+Het referentiemodel bevat alle variabelen in kwestie en is het best presterende model (in termen van voorspellende prestaties) dat we tot onze beschikking hebben [@mclatchie2023].
+
+We selecteren de data van de Oostelijke leemstreek van 2022 en 2023.
+We voegen de jaarvariabele toe als factor.
+We centreren en schalen alle continue variabelen door te delen door de standaard deviatie.
+
+```{r}
+# Data
+data_projpred <- gele_kwik_df_mod2 %>%
+  filter(jaar %in% 2022:2023) %>%
+  filter(regio == "Oostelijke leemstreek") %>%
+  mutate(area_prop_sb_cat = case_when(
+         area_prop_sb == 0 ~ "nulbeleid",
+         area_prop_sb <= 0.04 ~ "laagbeleid",
+         area_prop_sb <= 0.07 ~ "middellaagbeleid",
+         area_prop_sb <= 0.1 ~ "middelhoogbeleid",
+         TRUE ~ "hoogbeleid"
+         ))
+
+data_projpred_scaled <- data_projpred %>%
+  mutate(across(.cols = c(where(is.numeric), -aantal), 
+                .fns = ~ as.numeric(scale(.x))))
+
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+
+# Formula
+indices_refmodel1 <- which(names(data_projpred) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "area_prop_sb_cat",
+  "x_plot",
+  "y_plot",
+  "is_sbp",
+  "openheid_klasse_300"))
+predictors_refmodel1 <- names(data_projpred)[-indices_refmodel1]
+
+form_refmodel1 <- bf(paste("aantal", "~", paste(predictors_refmodel1, 
+                                                collapse = " + ")))
+form_refmodel1
+```
+
+Voor de regressiecoëfficienten ($\beta$-parameters) gebruiken we de 'R2-D2 shrinkage prior' [@zhang2016; @yanchenko2021].
+Voor het intercept gebruiken we de basis priors van **brms**.
+Deze prior specificeert een verdeling voor $R^2$ en induceert dan een prior op de individuele $\beta$'s.
+Het idee achter 'shrinkage priors' is om de geschatte parameters van een model naar een centrale waarde te trekken of ze naar nul te laten krimpen.
+Deze regularisatie moedigt zo simpelere modellen aan en kunnen dus gebruikt worden in variabelenselectie.
+Voor de hyperparameters gebruiken we de instellingen voor "laag-relevante variabelen" uit Appendix B van @mclatchie2023.
+
+```{r}
+# PRIORS
+## R2D2
+## default
+R2D2_prior1 <- set_prior(R2D2(mean_R2 = 0.5, prec_R2 = 2, cons_D2 = 1, 
+                              autoscale = TRUE))
+## weakly-relevant predictors(McLatchie et al., 2023)
+R2D2_prior2 <- set_prior(R2D2(mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 10, 
+                              autoscale = TRUE))
+## random combinations
+R2D2_prior3 <- set_prior(R2D2(mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 1, 
+                              autoscale = TRUE))
+R2D2_prior4 <- set_prior(R2D2(mean_R2 = 0.5, prec_R2 = 5, cons_D2 = 5, 
+                              autoscale = TRUE))
+
+## Horseshoe
+## default
+hs_prior1 <- set_prior(horseshoe(
+  df = 1,
+  scale_global = 1,
+  df_global = 1,
+  scale_slab = 2,
+  df_slab = 4,
+  par_ratio = NULL,
+  autoscale = TRUE
+  ))
+
+## https://mc-stan.org/projpred/articles/latent.html#example-poisson-distribution
+D <- length(predictors_refmodel1)
+N <- nrow(data_projpred)
+# Prior guess for the number of relevant (i.e., non-zero) regression
+# coefficients:
+p0 <- 10
+# Prior guess for the overall magnitude of the response values, see Table 1 of
+# Piironen and Vehtari (2017, DOI: 10.1214/17-EJS1337SI):
+mu_prior <- 1
+# Hyperprior scale for tau, the global shrinkage parameter:
+tau0 <- (p0 / (D - p0)) * (sqrt(mu_prior) / sqrt(N))
+
+hs_prior2 <- set_prior(horseshoe(
+  df = 1,
+  scale_global = tau0,
+  df_global = 1,
+  scale_slab = 1,
+  df_slab = 100,
+  par_ratio = NULL,
+  autoscale = TRUE
+  ))
+
+hs_prior3 <- set_prior(horseshoe(
+  df = 1,
+  scale_global = tau0,
+  df_global = 1,
+  scale_slab = 2,
+  df_slab = 4,
+  par_ratio = NULL,
+  autoscale = TRUE
+  ))
+
+hs_prior4 <- set_prior(horseshoe(
+  df = 1,
+  scale_global = 10,
+  df_global = 10,
+  scale_slab = 2,
+  df_slab = 100,
+  par_ratio = NULL,
+  autoscale = TRUE
+  ))
+
+priors_refmodel1 <- list(
+  NULL,
+  R2D2_prior1, R2D2_prior2, R2D2_prior3, R2D2_prior4,
+  hs_prior1, hs_prior2, hs_prior3, hs_prior4)
+```
+
+We fitten de modellen met de Poisson verdeling m.b.v. **brms**.
+
+```{r}
+for (i in seq_along(priors_refmodel1)) {
+  name <- paste0("ref_gelekwik_model", i)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmodel1,
+             data = data_projpred_scaled, 
+               family = poisson(),
+               prior = priors_refmodel1[[i]],
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+}
+```
+
+#### MCMC convergentie
+
+De Gelman-Rubin statistieken zijn dicht bij 1.
+
+```{r}
+show_rhat <- function(models) {
+  # get rhats and make dataframe
+  rhat_list <- lapply(seq_along(models), function(i) {
+    model <- models[[i]]
+    rhats <- rhat(model)
+    as.data.frame(rhats) %>%
+      rownames_to_column("variable") %>%
+      rename_with(~paste0("rhat"), .cols = starts_with("rhat")) %>%
+      mutate(model = paste0("model", i))
+    })
+  rhat_df <- do.call(rbind.data.frame, rhat_list)
+  
+  # visualise
+  palette <- colorRampPalette(RColorBrewer::brewer.pal(9, name = 'Set1'))(length(unique(rhat_df$variable)))
+  rhat_df %>%
+    ggplot(aes(y = rhat, x = model, colour = variable)) +
+      geom_hline(yintercept = c(1, 1.1), colour = "grey", linetype = "dashed") +
+      geom_jitter(width = 0.2, height = 0) +
+      scale_colour_manual(values = palette) +
+      theme(legend.position = "") +
+      labs(x = "")
+}
+
+```
+
+```{r}
+show_rhat(list(ref_gelekwik_model1,
+               ref_gelekwik_model2,
+               ref_gelekwik_model3,
+               ref_gelekwik_model4,
+               ref_gelekwik_model5,
+               ref_gelekwik_model6,
+               ref_gelekwik_model7,
+               ref_gelekwik_model8))
+```
+
+Hoewel de verschillende chains overeenkomen in alle modellen, zien de posterior distributions er toch vreemd uit voor de modellen met de horseshoe priors.
+Het lijkt erop dat er sterke shrinkage naar 0 is maar dat dit voor een vreemde vorm in de posterior zorgt.
+Bovendien werden er verschillende warnings geuit tijdens het fitten van deze modellen.
+
+Mogelijks is dit het gevolg van de keuzes van de hyperparameters.
+"Different levels of sparsity can be accommodated by changing the value of $\tau$: with large $\tau$ all the variables have very diffuse priors with very little shrinkage towards zero, but letting $\tau \rightarrow 0$ will shrink all the weights $\beta_j$ to zero." .
+
+```{r}
+plot(ref_gelekwik_model6, ask = FALSE)
+plot(ref_gelekwik_model9, ask = FALSE)
+```
+
+#### Prior check
+
+Hoe zien de R2D2 priors eruit?
+
+```{r}
+show_prior <- function(model, parameter, title = "") {
+  if (parameter == "R2D2") {
+    prior_check_samples <- prior_draws(model)
+    posterior_sample_r2 <- bayes_R2(model, summary = FALSE)
+    df_r2 <- data.frame(posterior = posterior_sample_r2[,1],
+                        prior = prior_check_samples$R2D2_R2) %>%
+      pivot_longer(c("posterior", "prior"), 
+                   names_to = "distribution", values_to = "R2")
+    
+    ggplot(df_r2, aes(x = R2, colour = distribution)) +
+      geom_density() +
+      ggtitle(title) +
+      theme(plot.title = element_text(size = 10))
+    }
+  }
+```
+
+```{r}
+ggarrange(show_prior(ref_gelekwik_model2, "R2D2", 
+                        "mean_R2 = 0.5, prec_R2 = 2, cons_D2 = 1"),
+             show_prior(ref_gelekwik_model3, "R2D2", 
+                        "mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 10"),
+             show_prior(ref_gelekwik_model4, "R2D2", 
+                        "mean_R2 = 0.3, prec_R2 = 5, cons_D2 = 1"),
+             show_prior(ref_gelekwik_model5, "R2D2", 
+                        "mean_R2 = 0.5, prec_R2 = 5, cons_D2 = 5"))
+```
+
+Hoe zien de horseshoe priors eruit?
+
+```{r}
+prior_check_samples6 <- prior_draws(ref_gelekwik_model6)
+p1 <- prior_check_samples6 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model6")
+p2 <- prior_check_samples6 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model6")
+
+prior_check_samples7 <- prior_draws(ref_gelekwik_model7)
+p3 <- prior_check_samples7 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model7")
+p4 <- prior_check_samples7 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model7")
+
+prior_check_samples8 <- prior_draws(ref_gelekwik_model8)
+p5 <- prior_check_samples8 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model8")
+p6 <- prior_check_samples8 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model8")
+
+prior_check_samples9 <- prior_draws(ref_gelekwik_model9)
+p7 <- prior_check_samples9 %>%
+  ggplot(aes(x = hs_global)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model9")
+p8 <- prior_check_samples9 %>%
+  ggplot(aes(x = hs_slab)) +
+    geom_density() +
+    ggtitle("ref_gelekwik_model9")
+
+ggarrange(p1, p2, p3, p4, p5, p6, p7, p8, ncol = 2)
+```
+
+#### Posterior predictive check
+
+Model fit ok.
+
+```{r}
+pp_check(ref_gelekwik_model1, type = "bars", ndraws = 200)
+```
+
+```{r}
+pp_check(ref_gelekwik_model2, type = "bars", ndraws = 200)
+```
+
+```{r}
+pp_check(ref_gelekwik_model6, type = "bars", ndraws = 200)
+```
+
+### PPVS
+
+PPVS kunnen we doen met de **projpred** package [@projpred].
+Een eerste en relatief snelle run met de `cv_varsel()` functie kan een ruw idee geven van de prestaties van de submodellen en kan het gebruikt worden voor het vinden van een geschikte waarde voor argument `nterms_max` in volgende runs (argument nterms_max legt een limiet op aan de submodelgrootte tot waar verder gezocht wordt en kan zo de runtime aanzienlijk verkorten).
+Default neemt de functie 19 als maximum, maar wij schatten dat meer dan 10 predictors overbodig zal zijn.
+Omdat we de variabele `sbp` in elk model willen, maken we een vector met alle mogelijke combinaties van predictors met deze variabele en maximum aan 10 predictors.
+`nterms_max` zal dan automatisch 10 zijn.
+Het duurt vrij lang om deze combinaties te berekenen (zie [deze issue](https://github.com/stan-dev/projpred/issues/346) voor toekomstige verbetering in **projpred**).
+
+```{r}
+combm_predictors <- function(m, predictors) {
+  lapply(combn(predictors, m = m, simplify = FALSE), 
+         function(vars) paste(vars, collapse = " + ")
+         )
+  }
+
+get_search_terms <- function(n_predictors_max, predictors, keep_var) {
+  n_predictors <- n_predictors_max - length(keep_var)
+  search_terms <- unlist(lapply(seq_len(n_predictors), 
+                                function(m) combm_predictors(m, predictors)))
+  out <- c(keep_var, paste(keep_var, search_terms, sep = " + "))
+  return(out)
+}
+```
+
+```{r}
+search_terms_refmodel1 <- get_search_terms(
+  n_predictors_max = 2, 
+  predictors = predictors_refmodel1[-match("sbp", predictors_refmodel1)],
+  keep_var = "sbp")
+```
+
+Ook kan het interessant zijn dit te doen voor zowel het model met als zonder shrinkage prior.
+
+Zonder shrinkage prior:
+
+```{r}
+# Fast varsel for first exploration
+start_cvvs_fast1 <- Sys.time()
+cvvs_fast1 <- cv_varsel(ref_gelekwik_model1,
+                            method = "forward",
+                            nclusters_pred = 20, # speed
+                            cv_method = "LOO",
+                            search_terms = search_terms_refmodel1,
+                            # only for the sake of speed
+                            validate_search = FALSE)
+end_cvvs_fast1 <- Sys.time()
+end_cvvs_fast1 - start_cvvs_fast1
+```
+
+```{r}
+cvvs_fast1
+plot(cvvs_fast1, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast1)
+```
+
+Met R2D2 prior (1):
+
+```{r}
+# Fast varsel for first exploration
+start_cvvs_fast2 <- Sys.time()
+cvvs_fast2 <- cv_varsel(ref_gelekwik_model2,
+                       method = "forward",
+                       nclusters_pred = 20, # speed
+                       cv_method = "LOO",
+                       search_terms = search_terms_refmodel1,
+                       # only for the sake of speed
+                       validate_search = FALSE)
+end_cvvs_fast2 <- Sys.time()
+end_cvvs_fast2 - start_cvvs_fast2
+```
+
+```{r}
+cvvs_fast2
+plot(cvvs_fast2, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast2)
+```
+
+Met R2D2 prior (2):
+
+```{r}
+# Fast varsel for first exploration
+start_cvvs_fast3 <- Sys.time()
+cvvs_fast3 <- cv_varsel(ref_gelekwik_model3,
+                       method = "forward",
+                       nclusters_pred = 20, # speed
+                       cv_method = "LOO",
+                       search_terms = search_terms_refmodel1,
+                       # only for the sake of speed
+                       validate_search = FALSE)
+end_cvvs_fast3 <- Sys.time()
+end_cvvs_fast3 - start_cvvs_fast3
+```
+
+```{r}
+cvvs_fast3
+plot(cvvs_fast3, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast3)
+```
+
+Met horseshoe prior (4):
+
+```{r}
+# Fast varsel for first exploration
+start_cvvs_fast4 <- Sys.time()
+cvvs_fast4 <- cv_varsel(ref_gelekwik_model9,
+                       method = "forward",
+                       nclusters_pred = 20, # speed
+                       cv_method = "LOO",
+                       search_terms = search_terms_refmodel1,
+                       # only for the sake of speed
+                       validate_search = FALSE)
+end_cvvs_fast4 <- Sys.time()
+end_cvvs_fast4 - start_cvvs_fast4
+```
+
+```{r}
+cvvs_fast4
+plot(cvvs_fast4, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+De aangeraden modelgrootte is:
+
+```{r}
+suggest_size(cvvs_fast4)
+```
+
+Hoe sterker de shrinkage, hoe sneller PPVS.
+De horseshoe had de sterkste shrinkage, daarna de R2D2 en daarna zonder shrinkage.
+Zonder shrinkage prior gaat het trager en de resultaten verschillen ook van deze met de shrinkage priors.
+Omwille van de model fit problemen, lijkt het best om verder te gaan met het model met de default R2D2 shrinkage prior.
+
+We zien dat de "mean log predictive density" (MLPD) van de shrinkage submodellen vooral hard toeneemt bij de eerste vier predictors.
+Daarna zijn er slechts kleine verschillen.
+Nu doen we een grondige forward search die meer tijd nodig heeft met `validate_search = TRUE` (beschermt tegen overfitting).
+We maken dezelfde plot als voordien maar nu als verschil met ons referentiemodel (`deltas = TRUE`).
+
+```{r}
+cvvs_file <- paste0(projpred_path, "cvvs_olsbp_GeleKwikstaart.rds")
+if (!file.exists(cvvs_file)) {
+  cvvs_refmodel1 <- cv_varsel(
+    object          = ref_gelekwik_model2,
+    method          = "forward",
+    cv_method       = "LOO",
+    search_terms    = search_terms_refmodel1,
+    #nterms_max      = 20,
+    validate_search = TRUE)
+  saveRDS(cvvs_refmodel1, cvvs_file)
+} else {
+  cvvs_refmodel1 <- readRDS(cvvs_file)
+}
+
+plot(cvvs_refmodel1, stats = "mlpd", deltas = TRUE, ranking_abbreviate = TRUE, 
+     ranking_abbreviate_args = list(minlength = 4))
+```
+
+Op basis van deze plot bepalen we submodelgrootte.
+Meestal is het de bedoeling om de kleinste submodelgrootte te vinden waarbij de voorspellende prestaties van de submodellen afvlakken en dicht genoeg in de buurt komen van de voorspellende prestaties van het referentiemodel (de gestippelde rode horizontale lijn).
+Dit blijft min of meer een subjectieve beslissing.
+Er moet een geschikte afweging worden gemaakt tussen voorspellende prestaties (nauwkeurigheid) en modelgrootte.
+We zien na de vierde predictor geen sterke stijgingen meer.
+Wel is er nog een kleine stijging tot en met 7 à 8.
+
+```{r}
+smmry_refmodel1 <- summary(cvvs_refmodel1, stats = "mlpd", 
+                           type = c("mean", "lower", "upper"),
+                           deltas = TRUE)
+print(smmry_refmodel1, digits = 1)
+```
+
+De eerste vier zijn dezelfde als de eerste vier in de snelle analyse.
+Dit geld ook voor de eerste acht (wel in andere volgorde).
+We zien bovendien dat voor de eerste acht predictors dat er weinig variabiliteit is in de rangschikking van de variabelen
+
+```{r}
+rk_refmodel1 <- ranking(cvvs_refmodel1)
+pr_rk_refmodel1 <- cv_proportions(rk_refmodel1)
+plot(pr_rk_refmodel1)
+plot(cv_proportions(rk_refmodel1, cumulate = TRUE))
+```
+
+De aangeraden grootte door het **projpred** package is `r suggest_size(cvvs_refmodel1, stat = "mlpd")` verklarende variabelen.
+Het gaat dan om de volgende variabelen:
+
+```{r}
+size_decided1_refmodel1 <- suggest_size(cvvs_refmodel1, stat = "mlpd")
+predictors_final1_refmodel1 <- head(rk_refmodel1[["fulldata"]], 
+                                   size_decided1_refmodel1)
+predictors_final1_refmodel1
+```
+
+### Post-processen van resultaten
+
+```{r}
+prj_refmodel1 <- project(ref_gelekwik_model2,
+                         solution_terms = predictors_final1_refmodel1)
+prj_refmodel1_mat <- as.matrix(prj_refmodel1)
+prj_refmodel1_expmat <- exp(as.matrix(prj_refmodel1))
+colnames(prj_refmodel1_expmat) <- paste0("exp(", 
+                                         colnames(prj_refmodel1_mat), 
+                                         ")")
+```
+
+```{r}
+prj_drws <- as_draws_matrix(prj_refmodel1_mat)
+prj_smmry <- summarize_draws(
+  prj_drws,
+  "median", "mean", "sd", function(x) quantile(x, probs = c(0.025, 0.975))
+  ) %>%
+  as_tibble()
+prj_smmry %>%
+  kable(digits = 3)
+```
+
+```{r}
+bayesplot_theme_set(ggplot2::theme_bw())
+mcmc_intervals(prj_refmodel1_mat, point_est = "mean", prob = 0.8, 
+               prob_outer = 0.95, point_size = 3) +
+  geom_vline(xintercept = 0, colour = alpha("firebrick", 0.5), 
+             linetype = "dashed")
+```
+
+```{r}
+prj_smmry_exp <- summarize_draws(
+  exp(prj_drws),
+  "median", "mean", "sd", function(x) quantile(x, probs = c(0.025, 0.975))
+  ) %>%
+  as_tibble() %>%
+  mutate(variable = paste0("exp(", variable, ")"))
+prj_smmry_exp %>%
+  kable(digits = 3)
+```
+
+```{r}
+mcmc_intervals(prj_refmodel1_expmat, point_est = "mean", prob = 0.8, 
+               prob_outer = 0.95, point_size = 3) +
+  geom_vline(xintercept = 1, colour = alpha("firebrick", 0.5), 
+             linetype = "dashed")
+```
+
+De posterior-projection predictive check (PPPC) laat zien dat onze uiteindelijke projectie in staat is om voorspellingen te genereren die vergelijkbaar zijn met de waargenomen responswaarden, wat aangeeft dat dit model redelijk is, tenminste in dit opzicht.
+
+```{r}
+prj_predict <- proj_predict(prj_refmodel1)
+ppc_bars(y = data_projpred_scaled$aantal, yrep = prj_predict)
+```
+
+We fitten het model opnieuw met de gekozen variabelen.
+
+```{r}
+formula_final1 <- bf(paste("aantal ~", paste0(predictors_final1_refmodel1, 
+                                              collapse = " + ")))
+
+final <- brm(formula = formula_final1,
+             data = data_projpred, 
+             family = poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr")
+
+final
+```
+
+```{r}
+plot_brms_fit(final, x = "sbp", show_data = FALSE,
+              axis_label = "soortbeschermingsplan")
+
+```
+
+```{r}
+plot_brms_fit(final, x = "haag", factor = 100, show_data = FALSE,
+              axis_label = "proportie hagen (%)")
+plot_brms_fit(final, x = "openheid_waarde_1000", show_data = FALSE,
+              axis_label = "openheid landschap (1000 m)")
+plot_brms_fit(final, x = "houtkant", factor = 100, show_data = FALSE,
+              axis_label = "proportie houtkanten (%)")
+plot_brms_fit(final, x = "meerjarige_fruitteelt_hfdtlt_pre", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie hoofdteelt meerjarige fruitteelt vorig jaar (%)")
+plot_brms_fit(final, x = "bomenrij", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie bomenrijen (%)")
+plot_brms_fit(final, x = "zomergranen_hfdtlt_pre2", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie hoofdteelt zomergranen vorig jaar (%)")
+plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie hoofdteelt wintergranen (%)")
+plot_brms_fit(final, x = "boom", show_data = FALSE,
+              axis_label = "proportie bomen (%)")
+plot_brms_fit(final, x = "peulvruchten_hfdtlt_pre", factor = 100, 
+              show_data = FALSE,
+              axis_label = "proportie hoofdteelt peulvruchten vorig jaar (%)")
+```
+
+```{r}
+plot_brms_fit(final, x = "haag", factor = 100, show_data = TRUE,
+              axis_label = "proportie hagen (%)")
+plot_brms_fit(final, x = "openheid_waarde_1000", show_data = TRUE,
+              axis_label = "openheid landschap (1000 m)")
+plot_brms_fit(final, x = "houtkant", factor = 100, show_data = TRUE,
+              axis_label = "proportie houtkanten (%)")
+plot_brms_fit(final, x = "meerjarige_fruitteelt_hfdtlt_pre", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie hoofdteelt meerjarige fruitteelt vorig jaar (%)")
+plot_brms_fit(final, x = "bomenrij", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie bomenrijen (%)")
+plot_brms_fit(final, x = "zomergranen_hfdtlt_pre2", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie hoofdteelt zomergranen vorig jaar (%)")
+plot_brms_fit(final, x = "wintergranen_hfdtlt", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie hoofdteelt wintergranen (%)")
+plot_brms_fit(final, x = "boom", show_data = TRUE,
+              axis_label = "proportie bomen (%)")
+plot_brms_fit(final, x = "peulvruchten_hfdtlt_pre", factor = 100, 
+              show_data = TRUE,
+              axis_label = "proportie hoofdteelt peulvruchten vorig jaar (%)")
+```
+
+## Conclusie
+
+-   PPVS lijkt een goede methode voor selectie van variabelen
+-   We voeren dit uit voor sbp, met area_prop_sb_cat en met alle variabelen (geen restricties)
+-   voor OL en DM apart
+-   voor specifieke doelsoorten apart
+-   enkel voor 2022-2023
+-   alle variabelen voor alle jaren, maar enkel gemeenschappelijke plots?
+
+```{r}
+to_remove <- sort(sapply(ls(),function(x){object.size(get(x))}),
+                  decreasing = TRUE) %>%
+  names() %>%
+  head(70)
+  
+rm(list = to_remove[!grepl("mas_data_df|design|plot_brms_fit", to_remove)])
+gc()
+```
+
+
+# Analyses alle doelsoorten
+
+```{r}
+doel_soorten <- c(
+  "Veldleeuwerik", 
+  "Gele Kwikstaart", 
+  "Geelgors", 
+  "Kievit", 
+  "Grasmus",
+  "Witte Kwikstaart",
+  "Ringmus",
+  "Torenvalk",
+  "Kwartel",
+  "Kneu",
+  "Haas")
+```
+
+Onze doelsoorten zijn `r doel_soorten`.
+
+## Data preparatie
+
+We creëren lijsten van datasets voor alle doelsoorten:
+
+-  Oostelijke leemstreek 2022-2023
+-  De Moeren 2022-2023
+-  Oostelijke leemstreek 2018-2023 (enkel plots reeds geteld in 2018-2021)
+-  De Moeren 2018-2023 (enkel plots reeds geteld in 2018-2021)
+
+```{r}
+create_data_list <- function(soorten, region, year = 2022) {
+  df_count_list <- vector("list", length = length(soorten))
+  df_count_names <- vector(length = length(soorten))
+
+  for (i in seq_along(soorten)) {
+    spec <- sort(soorten)[i]
+      
+    # Presence data
+    if (spec == "Haas") { # geen broedcode
+      mas_data_presences <- mas_data_df %>%
+        filter(naam == spec) %>%
+        group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
+        summarise(aantal = sum(aantal),
+                  .groups = "drop")
+    } else {
+      mas_data_presences <- mas_data_df %>%
+        filter(naam == spec,
+               wrntype > 0) %>%
+        group_by(plotnaam, regio, periode_in_jaar, jaar) %>%
+        summarise(aantal = sum(aantal),
+                  .groups = "drop")
+    }
+    
+    # Add absences
+    mas_data_total <- design %>%
+      left_join(mas_data_presences, 
+                by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
+      replace(is.na(.), 0) %>%
+      arrange(plotnaam, periode_in_jaar, jaar)
+    
+    # Add variables
+    mas_data_df_full <- mas_data_total %>%
+      left_join(
+        select(mas_data_df, plotnaam, regio, periode_in_jaar, jaar, status_teller,
+        which(names(mas_data_df) == "n_predators"):length(names(mas_data_df))),
+        by = join_by(plotnaam, regio, periode_in_jaar, jaar)) %>%
+      distinct() %>%
+      mutate(jaar = factor(jaar),
+         zomergranen_hfdtlt2 = rowSums(across(
+           c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt))),
+         zomergranen_hfdtlt_pre2 = rowSums(across(
+           c(andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre)))) %>%
+      select(-c(andere_graangewassen_hfdtlt, zomergranen_hfdtlt,
+                andere_graangewassen_hfdtlt_pre, zomergranen_hfdtlt_pre,
+                landbouwinfrastructuur_hfdtlt_pre))
+    
+    # Aggregate counts by plot and year
+    mas_data_df_agg <- mas_data_df_full %>%
+      mutate(jaar.f = factor(jaar)) %>%
+      select(all_of(c(response_vars, strat_vars, pred_vars))) %>%
+      group_by(plotnaam, jaar) %>%
+      mutate(status_teller = names(which.max(table(status_teller)))) %>%
+      ungroup() %>%
+      group_by(across(c(-periode_in_jaar, -aantal, -n_predators))) %>%
+      summarise(aantal = max(aantal),
+                n_predators2 = mean(n_predators),
+                .groups = "drop") %>%
+      select(aantal, everything()) %>%
+      rowid_to_column("id")
+    
+    # Filter data and categorise area_prop_sb
+    mas_data_df_out <- mas_data_df_agg %>%
+      filter(jaar %in% year,
+             regio == region) %>%
+      mutate(
+        area_prop_sb_cat = case_when(
+          area_prop_sb == 0 ~ "nulbeleid",
+          area_prop_sb <= 0.04 ~ "laagbeleid",
+          area_prop_sb <= 0.07 ~ "middellaagbeleid",
+          area_prop_sb <= 0.1 ~ "middelhoogbeleid",
+          TRUE ~ "hoogbeleid"
+          ),
+        area_prop_sb_cat = factor(area_prop_sb_cat,
+                                  levels = c("nulbeleid",
+                                             "laagbeleid",
+                                             "middellaagbeleid",
+                                             "middelhoogbeleid",
+                                             "hoogbeleid")))
+    
+    naam_obs <- gsub(" ", "", spec)
+    
+    df_count_list[[i]] <- mas_data_df_out
+    df_count_names[i] <- naam_obs
+  }
+  
+  names(df_count_list) <- df_count_names
+  
+  return(df_count_list)
+}
+```
+
+```{r}
+# Oostelijke leemstreek 2022-2023
+df_count_list_olnew <- create_data_list(
+  doel_soorten,
+  "Oostelijke leemstreek",
+  2022:2023)
+
+# De Moeren 2022-2023
+df_count_list_dmnew <- create_data_list(
+  doel_soorten,
+  "De Moeren",
+  2022:2023)
+
+# 2018-2023
+## Get plots from 2018-2021
+plots_old <- design %>%
+  filter(!jaar %in% 2022:2023) %>%
+  distinct(plotnaam) %>%
+  pull()
+
+## Get presence-absences for region and year span
+df_count_list_oltotal_raw <- create_data_list(
+  doel_soorten, 
+  "Oostelijke leemstreek", 
+  2018:2023)
+
+df_count_list_dmtotal_raw <- create_data_list(
+  doel_soorten, 
+  "De Moeren", 
+  2018:2023)
+
+## Retrieve presence-absence data only from old plots
+df_count_list_oltotal <- lapply(df_count_list_oltotal_raw, function(df) {
+  df %>%
+    filter(plotnaam %in% plots_old)
+  })
+
+df_count_list_dmtotal <- lapply(df_count_list_dmtotal_raw, function(df) {
+  df %>%
+    filter(plotnaam %in% plots_old)
+  })
+```
+
+## Data exploratie
+### Oostelijke leemstreek 2022-2023
+
+Voor Ringmus hebben we bijna geen data.
+We zullen deze soort niet opnemen in de analyses van de Oostelijke leemstreek 2022-2023.
+
+```{r}
+for (i in seq_along(df_count_list_olnew)) {
+  df <- df_count_list_olnew[[i]]
+  spec <- names(df_count_list_olnew)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_olnew[["Ringmus"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_olnew_scaled <- lapply(df_count_list_olnew, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+### De Moeren 2022-2023
+
+Voor Geelgors hebben we bijna geen data.
+We zullen deze soort niet opnemen in de analyses van de De Moeren 2022-2023.
+
+```{r}
+for (i in seq_along(df_count_list_dmnew)) {
+  df <- df_count_list_dmnew[[i]]
+  spec <- names(df_count_list_dmnew)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_dmnew[["Geelgors"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_dmnew_scaled <- lapply(df_count_list_dmnew, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+### Oostelijke leemstreek 2018-2023
+
+Voor Ringmus hebben we bijna geen data.
+We zullen deze soort niet opnemen in de analyses van de Oostelijke leemstreek 2018-2023.
+
+```{r}
+for (i in seq_along(df_count_list_oltotal)) {
+  df <- df_count_list_oltotal[[i]]
+  spec <- names(df_count_list_oltotal)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_oltotal[["Ringmus"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_oltotal_scaled <- lapply(df_count_list_oltotal, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+### De Moeren 2018-2023
+
+Voor Geelgors hebben we geen data.
+We zullen deze soort niet opnemen in de analyses van de De Moeren 2018-2023.
+
+```{r}
+for (i in seq_along(df_count_list_dmtotal)) {
+  df <- df_count_list_dmtotal[[i]]
+  spec <- names(df_count_list_dmtotal)[i]
+  
+  p <- df %>%
+    ggplot(aes(x = aantal, fill = sbp)) +
+      geom_bar() +
+      facet_wrap(~sbp) +
+      scale_x_continuous(breaks = seq(0, max(df$aantal))) +
+      labs(x = "aantal", 
+           y = "frequentie",
+           title = spec) +
+      theme(legend.position = "")
+  
+  print(p)
+}
+```
+
+```{r}
+df_count_list_dmtotal[["Geelgors"]] <- NULL
+```
+
+We centreren en schalen de continue variabelen.
+
+```{r}
+df_count_list_dmtotal_scaled <- lapply(df_count_list_dmtotal, function(df) {
+    df %>%
+      mutate(across(.cols = c(where(is.numeric), -c(id, aantal, jaar)), 
+                    .fns = ~ as.numeric(scale(.x))))
+  })
+```
+
+## Fit referentiemodellen
+
+We sample the posterior distributions for the models with three Markov chain Monte Carlo (MCMC) chains, each of which is run for 8,000 iterations, of which the first 2,000 were removed as burn-in. The chains were thinned by 3 to yield 2,000 posterior samples per chain and so 6,000 posterior samples in total.
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 3
+```
+
+We use the R2D2 prior.
+
+```{r}
+R2D2_prior <- set_prior(R2D2(mean_R2 = 0.5, prec_R2 = 2, cons_D2 = 1, 
+                             autoscale = TRUE))
+```
+
+Model formula to investigate the effect of `sbp`:
+
+```{r}
+indices_to_remove_sbp <- which(names(df_count_list_olnew$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "area_prop_sb",
+  "x_plot",
+  "y_plot",
+  "is_sbp",
+  "openheid_klasse_300"))
+
+predictors_sbp <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_sbp]
+
+form_refmod_sbp <- bf(paste("aantal", "~", paste(predictors_sbp,
+                                                 collapse = " + ")))
+form_refmod_sbp
+```
+
+Model formula to investigate the effect of `area_prop_sb` (categorised):
+
+```{r}
+indices_to_remove_propsb <- which(names(df_count_list_olnew$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "area_prop_sb",
+  "x_plot",
+  "y_plot",
+  "is_sbp", "sbp",
+  "openheid_klasse_300"))
+
+predictors_propsb <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_propsb]
+
+form_refmod_propsb <- bf(paste("aantal", "~", paste(predictors_propsb,
+                                                    collapse = " + ")))
+form_refmod_propsb
+```
+
+### Oostelijke leemstreek 2022-2023
+#### area_prop_sb (categorised)
+
+```{r}
+refmod_olpropsb_new_list <- vector("list",
+                                length = length(df_count_list_olnew_scaled))
+refmod_olpropsb_new_names <- vector(length = length(df_count_list_olnew_scaled))
+
+for (i in seq_along(df_count_list_olnew_scaled)) {
+  spec <- names(df_count_list_olnew_scaled)[i]
+  name <- paste0("refmod_olpropsb_new_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_propsb,
+             data = df_count_list_olnew_scaled[[i]], 
+               family = poisson(),
+               prior = R2D2_prior,
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+  
+  refmod_olpropsb_new_list[[i]] <- get(name)
+  refmod_olpropsb_new_names[i] <- spec
+    rm(list = name)
+}
+
+names(refmod_olpropsb_new_list) <- refmod_olpropsb_new_names
+gc()
+```
+
+
+### De Moeren 2022-2023
+#### area_prop_sb (categorised)
+
+```{r}
+refmod_dmpropsb_new_list <- vector("list",
+                                length = length(df_count_list_dmnew_scaled))
+refmod_dmpropsb_new_names <- vector(length = length(df_count_list_dmnew_scaled))
+
+for (i in seq_along(df_count_list_dmnew_scaled)) {
+  spec <- names(df_count_list_dmnew_scaled)[i]
+  name <- paste0("refmod_dmpropsb_new_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_propsb,
+             data = df_count_list_dmnew_scaled[[i]], 
+               family = poisson(),
+               prior = R2D2_prior,
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+  
+  refmod_dmpropsb_new_list[[i]] <- get(name)
+  refmod_dmpropsb_new_names[i] <- spec
+  rm(list = name)
+}
+
+names(refmod_dmpropsb_new_list) <- refmod_dmpropsb_new_names
+gc()
+```
+
+### Oostelijke leemstreek 2018-2023
+
+```{r}
+refmod_ol_total_list <- vector("list",
+                                length = length(df_count_list_oltotal_scaled))
+refmod_ol_total_names <- vector(length = length(df_count_list_oltotal_scaled))
+
+for (i in seq_along(df_count_list_oltotal_scaled)) {
+  spec <- names(df_count_list_oltotal_scaled)[i]
+  name <- paste0("refmod_ol_total_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_sbp,
+             data = df_count_list_oltotal_scaled[[i]], 
+               family = poisson(),
+               prior = R2D2_prior,
+               chains = nchains, 
+               warmup = burnin, 
+               iter = niter,
+               cores = nparallel,
+               thin = thinning,
+               sample_prior = TRUE,
+               backend = "cmdstanr",
+               file = paste0(model_path, name),
+               file_refit = "on_change"))
+  
+  refmod_ol_total_list[[i]] <- get(name)
+  refmod_ol_total_names[i] <- spec
+  rm(list = name)
+}
+
+names(refmod_ol_total_list) <- refmod_ol_total_names
+gc()
+```
+
+### De Moeren 2018-2023
+
+Er is geen meerjarige fruitteelt of bomengroepen in deze plots.
+We verwijderen deze variabele.
+
+```{r}
+df_count_list_dmtotal <- lapply(df_count_list_dmtotal,
+  function(df) {
+    df %>%
+      select(!starts_with("meerjarige_fruitteelt")) %>%
+      select(-c("bomengroep"))
+  }
+)
+df_count_list_dmtotal_scaled <- lapply(df_count_list_dmtotal_scaled,
+  function(df) {
+    df %>%
+      select(!starts_with("meerjarige_fruitteelt")) %>%
+      select(-c("bomengroep"))
+  }
+)
+```
+
+```{r}
+indices_to_remove_sbp2 <- which(names(df_count_list_olnew$GeleKwikstaart) %in% c(
+  "id", 
+  "aantal", 
+  "plotnaam", 
+  "regio",
+  "jaar",
+  "area_prop_sb",
+  "meerjarige_fruitteelt_hfdtlt",
+  "meerjarige_fruitteelt_hfdtlt_pre",
+  "bomengroep",
+  "x_plot",
+  "y_plot",
+  "is_sbp",
+  "openheid_klasse_300"))
+
+predictors_sbp2 <- names(df_count_list_olnew$GeleKwikstaart)[-indices_to_remove_sbp2]
+
+form_refmod_sbp2 <- bf(paste("aantal", "~", paste(predictors_sbp2,
+                                                  collapse = " + ")))
+form_refmod_sbp2
+```
+
+```{r}
+refmod_dm_total_list <- vector("list",
+                                length = length(df_count_list_dmtotal_scaled))
+refmod_dm_total_names <- vector(length = length(df_count_list_dmtotal_scaled))
+
+for (i in seq_along(df_count_list_dmtotal_scaled)) {
+  spec <- names(df_count_list_dmtotal_scaled)[i]
+  name <- paste0("refmod_dm_total_", spec)
+  print(paste("Busy fitting", name, "..."))
+  assign(name,
+         brm(formula = form_refmod_sbp2,
+             data = df_count_list_dmtotal_scaled[[i]], 
+             family = poisson(),
+             prior = R2D2_prior,
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             sample_prior = TRUE,
+             backend = "cmdstanr",
+             file = paste0(model_path, name),
+             file_refit = "on_change"))
+  
+  refmod_dm_total_list[[i]] <- get(name)
+  refmod_dm_total_names[i] <- spec
+  rm(list = name)
+}
+
+names(refmod_dm_total_list) <- refmod_dm_total_names
+gc()
+```
+
+
+## Check model fit
+
+Niet altijd een goede fit:
+
+```{r}
+refmodel_meta_list <- list(
+  "Oostelijke leemstreek 2022-2023 (prop sb)" = refmod_olpropsb_new_list,
+  "De Moeren 2022-2023 (prop sb)" = refmod_dmpropsb_new_list,
+  "Oostelijke leemstreek 2018-2023" = refmod_ol_total_list,
+  "De Moeren 2018-2023" = refmod_dm_total_list)
+
+saveRDS(refmodel_meta_list,
+        paste0(projpred_path, "refmodel_meta_list", ".rds"))
+
+for (i in seq_along(refmodel_meta_list)) {
+  mod_list <- refmodel_meta_list[[i]]
+  name <- names(refmodel_meta_list)[i]
+  for (i in seq_along(mod_list)) {
+    title <- paste("Fit", name, "-", names(mod_list)[i])
+    ref_mod <- mod_list[[i]]
+    print(pp_check(ref_mod, type = "bars", ndraws = 200) +
+            ggtitle(title))
+  }
+}
+```
+
+## PPVS
+
+```{r}
+search_terms_sbp <- get_search_terms(
+  n_predictors_max = 2, 
+  predictors = predictors_sbp[-match("sbp", predictors_sbp)],
+  keep_var = "sbp")
+```
+
+```{r}
+search_terms_propsb <- get_search_terms(
+  n_predictors_max = 2, 
+  predictors = predictors_propsb[-match("area_prop_sb_cat", predictors_propsb)],
+  keep_var = "area_prop_sb_cat")
+```
+
+### Oostelijke leemstreek 2022-2023
+#### area prop sb (categorised)
+
+```{r}
+cvvs_olpropsb_new_list <- vector("list",
+                                 length = length(refmod_olpropsb_new_list))
+cvvs_olpropsb_new_names <- vector(length = length(refmod_olpropsb_new_list))
+
+for (i in seq_along(refmod_olpropsb_new_list)) {
+  spec <- names(refmod_olpropsb_new_list)[i]
+  name <- paste0("cvvs_olpropsb_new_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    try(assign(name, 
+           cv_varsel(
+             object          = refmod_olpropsb_new_list[[i]],
+             method          = "forward",
+             cv_method       = "kfold",
+             K               = 5,
+             search_terms    = search_terms_propsb,
+             validate_search = TRUE)))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_olpropsb_new_list[[i]] <- get(name)
+  cvvs_olpropsb_new_names[i] <- spec
+  rm(list = name)
+}
+
+names(cvvs_olpropsb_new_list) <- cvvs_olpropsb_new_names
+gc()
+```
+
+```{r}
+for (i in seq_along(cvvs_olpropsb_new_list)) {
+  title <- names(cvvs_olpropsb_new_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_olpropsb_new_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_olpropsb_new_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_olpropsb_new_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+
+```
+
+Manual choices for model size:
+
+```{r}
+size_decided_olpropsb_new_list <- list(8, 5, 5, NA, 12, 14, 19, 8, 9, 5)
+names(size_decided_olpropsb_new_list) <- names(cvvs_olpropsb_new_list)
+size_decided_olpropsb_new_list
+```
+
+
+### De Moeren 2022-2023
+#### area prop sb (categorised)
+
+```{r}
+cvvs_dmpropsb_new_list <- vector("list",
+                                 length = length(refmod_dmpropsb_new_list))
+cvvs_dmpropsb_new_names <- vector(length = length(refmod_dmpropsb_new_list))
+
+for (i in seq_along(refmod_dmpropsb_new_list)) {
+  spec <- names(refmod_dmpropsb_new_list)[i]
+  name <- paste0("cvvs_dmpropsb_new_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           try(cv_varsel(
+             object          = refmod_dmpropsb_new_list[[i]],
+             method          = "forward",
+             cv_method       = "LOO",
+             search_terms    = search_terms_propsb,
+             validate_search = TRUE)))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_dmpropsb_new_list[[i]] <- get(name)
+  cvvs_dmpropsb_new_names[i] <- spec
+  rm(list = name)
+}
+
+names(cvvs_dmpropsb_new_list) <- cvvs_dmpropsb_new_names
+gc()
+```
+
+```{r}
+for (i in seq_along(cvvs_dmpropsb_new_list)) {
+  title <- names(cvvs_dmpropsb_new_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_dmpropsb_new_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_dmpropsb_new_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_dmpropsb_new_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Manual choices for model size:
+
+```{r}
+size_decided_dmpropsb_new_list <- list(13, 9, 7, 10, 6, 6, 7, 9, 2, 4)
+names(size_decided_dmpropsb_new_list) <- names(cvvs_dmpropsb_new_list)
+size_decided_dmpropsb_new_list
+```
+
+### Oostelijke leemstreek 2018-2023
+
+```{r}
+cvvs_ol_total_list <- vector("list", length = length(refmod_ol_total_list))
+cvvs_ol_total_names <- vector(length = length(refmod_ol_total_list))
+
+for (i in seq_along(refmod_ol_total_list)) {
+  spec <- names(refmod_ol_total_list)[i]
+  name <- paste0("cvvs_ol_total_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           try(cv_varsel(
+             object          = refmod_ol_total_list[[i]],
+             method          = "forward",
+             cv_method       = "kfold",
+             K               = 5,
+             validate_search = TRUE)))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_ol_total_list[[i]] <- get(name)
+  cvvs_ol_total_names[i] <- spec
+  rm(list = name)
+}
+
+names(cvvs_ol_total_list) <- cvvs_ol_total_names
+gc()
+```
+
+```{r}
+for (i in seq_along(cvvs_ol_total_list)) {
+  title <- names(cvvs_ol_total_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_ol_total_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_ol_total_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_ol_total_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Manual choices for model size:
+
+```{r}
+size_decided_ol_total_list <- list(12, NA, NA, 3, NA, 10, 5, 3, 10, 8)
+names(size_decided_ol_total_list) <- names(cvvs_ol_total_list)
+size_decided_ol_total_list
+```
+
+
+### De Moeren 2018-2023
+
+```
+cvvs_dm_total_list <- vector("list", length = length(refmod_dm_total_list))
+cvvs_dm_total_names <- vector(length = length(refmod_dm_total_list))
+
+for (i in seq_along(refmod_dm_total_list)) {
+  spec <- names(refmod_dm_total_list)[i]
+  name <- paste0("cvvs_dm_total_", spec)
+  print(paste("Busy with", name, "..."))
+  
+  cvvs_file <- paste0(projpred_path, name, ".rds")
+  if (!file.exists(cvvs_file)) {
+    assign(name, 
+           try(cv_varsel(
+             object          = refmod_dm_total_list[[i]],
+             method          = "forward",
+             cv_method       = "kfold",
+             K               = 5,
+             validate_search = TRUE)))
+    saveRDS(get(name), cvvs_file)
+  } else {
+    assign(name, readRDS(cvvs_file))
+  }
+  
+  cvvs_dm_total_list[[i]] <- get(name)
+  cvvs_dm_total_names[i] <- spec
+  rm(list = name)
+}
+
+names(cvvs_dm_total_list) <- cvvs_dm_total_names
+gc()
+```
+
+Deze analyse enkel voor Veldleeuwerik.
+
+```{r}
+spec <- "Veldleeuwerik"
+name <- paste0("cvvs_dm_total_", spec)
+print(paste("Busy with", name, "..."))
+
+cvvs_file <- paste0(projpred_path, name, ".rds")
+if (!file.exists(cvvs_file)) {
+  assign(name, 
+         try(cv_varsel(
+           object          = refmod_dm_total_list[[spec]],
+           method          = "forward",
+           cv_method       = "LOO",
+           validate_search = TRUE)))
+  saveRDS(get(name), cvvs_file)
+} else {
+  assign(name, readRDS(cvvs_file))
+}
+  
+cvvs_dm_total_list <- list("Veldleeuwerik" = get(name))
+```
+
+
+```{r}
+for (i in seq_along(cvvs_dm_total_list)) {
+  title <- names(cvvs_dm_total_list)[i]
+  if (!title == "FALSE") {
+    print(plot(cvvs_dm_total_list[[i]], stats = "mlpd", deltas = TRUE, 
+               ranking_abbreviate = TRUE, 
+               ranking_abbreviate_args = list(minlength = 4)) +
+             ggtitle(title))
+    
+    smmry <- summary(cvvs_dm_total_list[[i]], stats = "mlpd", 
+                 type = c("mean", "lower", "upper"),
+                 deltas = TRUE)
+    print(smmry, digits = 1)
+    
+    rk <- ranking(cvvs_dm_total_list[[i]])
+    pr_rk <- cv_proportions(rk)
+    
+    print(plot(pr_rk) +
+             ggtitle(title))
+    print(plot(cv_proportions(rk, cumulate = TRUE)) +
+             ggtitle(title))
+  }
+}
+```
+
+Choose model sizes.
+
+```{r}
+size_decided_dm_total_list <- list(10)
+size_decided_dm_total_list
+```
+
+
+## Fit finale modellen
+### Oostelijke leemstreek
+#### area prop sb (categorised)
+
+Create list with model structure
+
+```{r}
+predictors_olpropsb_new_list <- vector("list",
+                                       length = length(cvvs_olpropsb_new_list))
+predictors_olpropsb_new_names <- vector(length = length(cvvs_olpropsb_new_list))
+
+for (i in seq_along(cvvs_olpropsb_new_list)) {
+  mod_size <- size_decided_olpropsb_new_list[[i]]
+  spec <- names(cvvs_olpropsb_new_list)[i]
+  
+  if (is.na(mod_size)) {
+    predictors_olpropsb_new_list[[i]] <- NA
+  } else {
+    cvvs <- cvvs_olpropsb_new_list[[i]]
+    
+    rk <- ranking(cvvs)
+    preds <- head(rk[["fulldata"]], mod_size)
+    
+    predictors_olpropsb_new_list[[i]]$predictors <- preds
+    if ("jaar.f" %in% preds) {
+      predictors_olpropsb_new_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_olpropsb_new_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "))
+        )
+    }
+  }
+  
+  predictors_olpropsb_new_names[i] <- spec
+}
+names(predictors_olpropsb_new_list) <- predictors_olpropsb_new_names
+predictors_olpropsb_new_list <- predictors_olpropsb_new_list[!is.na(predictors_olpropsb_new_list)]
+```
+
+Fit models for both Poisson and Zero-inflated Poisson.
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+```
+
+```{r}
+mod_final_pois_olpropsb_list <- vector("list", length = length(predictors_olpropsb_new_list))
+mod_final_zip_olpropsb_list <- vector("list", length = length(predictors_olpropsb_new_list))
+
+for (i in seq_along(predictors_olpropsb_new_list)) {
+  spec <- names(predictors_olpropsb_new_list)[i]
+  
+  # Poisson
+  name_pois <- paste0("mod_final_pois_olpropsb_", spec)
+  print(paste("Busy fitting", name_pois, "..."))
+  assign(name_pois,
+         brm(formula = predictors_olpropsb_new_list[[spec]]$formula,
+             data = df_count_list_olnew_scaled[[spec]], 
+             family = poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_pois),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_pois,
+         add_criterion(get(name_pois), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_pois_olpropsb_list[[i]] <- get(name_pois)
+  
+  # Zero-inflated Poisson
+  name_zip <- paste0("mod_final_zip_olpropsb_", spec)
+  print(paste("Busy fitting", name_zip, "..."))
+  assign(name_zip,
+         brm(formula = predictors_olpropsb_new_list[[spec]]$formula,
+             data = df_count_list_olnew_scaled[[spec]], 
+             family = zero_inflated_poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_zip),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_zip,
+         add_criterion(get(name_zip), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_zip_olpropsb_list[[i]] <- get(name_zip)
+}
+
+names(mod_final_pois_olpropsb_list) <- names(predictors_olpropsb_new_list)
+names(mod_final_zip_olpropsb_list) <- names(predictors_olpropsb_new_list)
+```
+
+Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
+
+```{r, results="asis"}
+for (i in seq_along(predictors_olpropsb_new_list)) {
+  spec <- names(predictors_olpropsb_new_list)[i]
+  model_pois <- mod_final_pois_olpropsb_list[[i]]
+  model_zip <- mod_final_zip_olpropsb_list[[i]]
+  
+  print(paste("Model selection", spec, "(Oostelijke leemstreek - prop sb)"))
+  
+  # Comparison among models
+  comparisons <- loo_compare(model_pois, model_zip,
+                             criterion = "kfold")[, c(1, 2)]
+  
+  comparisons %>%
+    as.data.frame() %>%
+    rownames_to_column("model") %>%
+    mutate(CI_ll = elpd_diff  + qnorm(0.10) * se_diff,
+           CI_ul = elpd_diff  + qnorm(0.90) * se_diff,
+           width = 0.9 - 0.1) %>%
+    arrange(desc(elpd_diff)) %>%
+    kable(digits = 3) %>%
+    print()
+  
+  p1 <- pp_check(model_pois, type = "bars", ndraws = 100) +
+    ggtitle(paste("Poisson model", spec, "(Oostelijke leemstreek - prop sb)"))
+  p2 <- pp_check(model_zip, type = "bars", ndraws = 100) +
+    ggtitle(paste("ZIP model", spec, "(Oostelijke leemstreek - prop sb)"))
+  print(p1)
+  print(p2)
+}
+```
+
+
+```{r}
+mod_final_olpropsb_list <- list(
+  mod_final_zip_olpropsb_list$Geelgors,
+  mod_final_pois_olpropsb_list$GeleKwikstaart,
+  mod_final_pois_olpropsb_list$Grasmus,
+  mod_final_zip_olpropsb_list$Kievit,
+  mod_final_pois_olpropsb_list$Kneu,
+  mod_final_pois_olpropsb_list$Kwartel,
+  mod_final_pois_olpropsb_list$Torenvalk,
+  mod_final_pois_olpropsb_list$Veldleeuwerik,
+  mod_final_pois_olpropsb_list$WitteKwikstaart
+  )
+names(mod_final_olpropsb_list) <- names(predictors_olpropsb_new_list)
+
+saveRDS(mod_final_olpropsb_list,
+        here("src", "markdown", "mas", "analyses_cache",
+             "mod_final_olpropsb_list.rds"))
+```
+
+```{r}
+rm(list = c("mod_final_pois_olpropsb_list", "mod_final_zip_olpropsb_list"))
+gc()
+```
+
+MCMC convergence and model fit.
+
+```{r}
+for (i in seq_along(mod_final_olpropsb_list)) {
+  spec <- names(mod_final_olpropsb_list)[i]
+  model <- mod_final_olpropsb_list[[spec]]
+  
+  # MCMC convergence
+  print(paste("MCMC convergence", spec, "(Oostelijke leemstreek - prop sb)"))
+  plot(model, ask = FALSE)
+  
+  # Model fit
+  print(paste("Model fit", spec, "(Oostelijke leemstreek - prop sb)"))
+  pp_check(model, type = "bars_grouped", ndraws = 100, 
+           group = "area_prop_sb_cat",
+           facet_args = list(ncol = 1, scales = "free_y")) %>%
+    print()
+}
+```
+
+Results:
+
+```{r}
+for (i in seq_along(mod_final_olpropsb_list)) {
+  spec <- names(mod_final_olpropsb_list)[i]
+  model <- mod_final_olpropsb_list[[i]]
+  
+  # Print summary
+  print(paste("Results", spec, "(Oostelijke leemstreek - prop sb)"))
+  print(summary(model))
+  
+  # Visualise results
+  #for (pred in predictors_olpropsb_new_list[[spec]]$predictors) {
+    #p <- plot_brms_fit(model, pred) +
+    #  ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
+    #print(p)
+    #rm(p)
+    #gc()
+  #}
+}
+```
+
+We zijn vooral geïnteresseerd in het verschil tussen soortbeschermingsplannen en nulbeleid (op basis van 90 % credible intervallen).
+Dit kunnen we proportioneel uitdrukken.
+
+```{r}
+get_effects <- function(df, ref = 0,
+                        min_threshold = -0.2,
+                        max_threshold = 0.25) {
+  require(effectclass)
+  
+  # add effects
+  df$effect_fine <- classification(
+    lcl = df$lcl,
+    ucl = df$ucl,
+    threshold = c(min_threshold, max_threshold))
+
+  df$effect_coarse <- coarse_classification(df$effect_fine)
+  
+  # order and rename effects
+  out <- df %>%
+    mutate(
+      trend_fine = case_when(
+          effect_fine == "++" ~ "sterk positief",
+          effect_fine == "+" ~ "positief",
+          effect_fine == "+~" ~ "gematigd positief",
+          effect_fine == "~" ~ "stabiel",
+          effect_fine == "-" ~ "negatief",
+          effect_fine == "-~" ~ "gematigd negatief",
+          effect_fine == "--" ~ "sterk negatief",
+          TRUE ~ "onzeker",
+      ),
+      trend_fine = factor(trend_fine,
+        levels = c(
+          "sterk positief",
+          "positief",
+          "gematigd positief",
+          "stabiel",
+          "gematigd negatief",
+          "negatief",
+          "sterk negatief",
+          "onzeker"),
+        ordered = TRUE)
+    ) %>%
+    mutate(
+      trend_coarse = case_when(
+          effect_coarse == "+" ~ "positief",
+          effect_coarse == "-" ~ "negatief",
+          effect_coarse == "~" ~ "stabiel",
+          TRUE ~ "onzeker",
+      ),
+      trend_coarse = factor(trend_coarse,
+        levels = c("positief",
+                   "stabiel",
+                   "negatief",
+                   "onzeker"),
+        ordered = TRUE)
+    ) %>%
+    mutate(
+      trend_simple = case_when(
+        lcl > ref ~ "positief",
+        ucl < ref ~ "negatief",
+        TRUE ~ "stabiel of onzeker"
+        ),
+      trend_simple = factor(trend_simple,
+        levels = c("positief",
+                   "negatief",
+                   "stabiel of onzeker"),
+        ordered = TRUE)
+    ) %>%
+    select(-c(effect_fine, effect_coarse))
+}
+
+create_draws_df <- function(model, seed = 123, ...) {
+  df <- model %>%
+    spread_draws(`b_area_prop_sb_cat.*`, regex = TRUE, seed = seed,
+                 ndraws = 3000) %>%
+    select(starts_with("b_area_prop_sb_cat")) %>%
+    pivot_longer(cols = everything(), names_to = "area_prop_sb_cat_long") %>%
+    mutate(area_prop_sb_cat = gsub("b_area_prop_sb_cat", "",
+                                   area_prop_sb_cat_long),
+           value_log = value,
+           value = exp(value) - 1) %>%
+    select(area_prop_sb_cat, value_log, value) %>%
+    group_by(area_prop_sb_cat) %>%
+    mutate(median_log = median(value_log),
+           lcl_log = quantile(value_log, 0.05),
+           ucl_log = quantile(value_log, 0.95)) %>%
+    mutate(median = median(value),
+           lcl = quantile(value, 0.05),
+           ucl = quantile(value, 0.95)) %>%
+    ungroup() %>%
+    mutate(.point = "median",
+           .width = 0.95 - 0.05)
+  
+  df_ordered <- df %>%
+    mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
+                                     levels = c("nulbeleid",
+                                                "laagbeleid",
+                                                "middellaagbeleid",
+                                                "middelhoogbeleid",
+                                                "hoogbeleid"),
+                                      ordered = TRUE))
+  
+  out <- get_effects(df_ordered, ...)
+}
+
+create_weighted_draws_df <- function(model, seed = 123, ...) {
+  weight_df <- model$data %>%
+    filter(area_prop_sb_cat != "nulbeleid") %>%
+    count(area_prop_sb_cat) %>%
+    mutate(
+      group = case_when(
+        grepl("laagbeleid", area_prop_sb_cat) ~ "laagbeleid",
+        grepl("hoogbeleid", area_prop_sb_cat) ~ "hoogbeleid"
+        )) %>%
+    group_by(group) %>%
+    mutate(sum = sum(n)) %>%
+    ungroup() %>%
+    mutate(weight = n / sum)
+  
+  df <- model %>%
+    spread_draws(`b_area_prop_sb_cat.*`, regex = TRUE, seed = seed,
+                 ndraws = 3000) %>%
+    select(starts_with("b_area_prop_sb_cat")) %>%
+    rename_with(~ gsub("b_area_prop_sb_cat", "", .x)) %>%
+    rowwise() %>%
+    mutate(laagbeleid2 = weighted.mean(c(laagbeleid, middellaagbeleid),
+             pull(weight_df[weight_df$group == "laagbeleid", "weight"])),
+           hoogbeleid2 = weighted.mean(c(middelhoogbeleid, hoogbeleid),
+             pull(weight_df[weight_df$group == "hoogbeleid", "weight"]))) %>%
+    select("laagbeleid" = laagbeleid2,
+           "hoogbeleid" = hoogbeleid2) %>%
+    pivot_longer(cols = everything(), names_to = "area_prop_sb_cat") %>%
+    mutate(value_log = value,
+           value = exp(value) - 1) %>%
+    select(area_prop_sb_cat, value_log, value) %>%
+    group_by(area_prop_sb_cat) %>%
+    mutate(median_log = median(value_log),
+           lcl_log = quantile(value_log, 0.05),
+           ucl_log = quantile(value_log, 0.95)) %>%
+    mutate(median = median(value),
+           lcl = quantile(value, 0.05),
+           ucl = quantile(value, 0.95)) %>%
+    ungroup() %>%
+    mutate(.point = "median",
+           .width = 0.95 - 0.05)
+
+  df_ordered <- df %>%
+      mutate(area_prop_sb_cat = factor(area_prop_sb_cat,
+                                levels = c("nulbeleid",
+                                            "laagbeleid",
+                                            "hoogbeleid"),
+                                ordered = TRUE))
+  
+  out <- get_effects(df_ordered, ...)
+}
+```
+
+```{r}
+# get posterior draws for parameters of interest
+draws_olpropsb_list <- lapply(mod_final_olpropsb_list, create_draws_df)
+```
+
+We visualiseren dit:
+
+```{r}
+index_labels <- function(x) {
+  sprintf("%+.0f%%", 100 * (exp(x) - 1))
+}
+
+index_breaks <- function() {
+  z <- 1 - c(
+    5 / 6, 4 / 5, 3 / 4, 2 / 3, 1 / 2, 1 / 3, 1 / 5
+  )
+  z <- log(sort(z))
+  c(z, 0, -z)
+}
+
+minor_breaks <- function() {
+  breaks <- unique(abs(index_breaks()))
+  out <- vector(length = length(breaks) - 1)
+  i <- 1
+  while (i < length(breaks)) {
+    out[i] <- mean(c(breaks[i], breaks[i + 1]))
+    i <- i + 1
+  }
+  return(c(-out, out))
+}
+
+index_breaks_rev <- function() {
+  exp(index_breaks())
+}
+
+index_labels_rev <- function(digits = 2) {
+  format(round(exp(index_breaks()), digits), nsmall = digits)
+}
+```
+
+```{r}
+min_threshold <- log(0.8)
+max_threshold <- log(1.25)
+```
+
+```{r}
+theme_set(theme_inbo(transparent = TRUE))
+
+area_prop_cats <- tibble(
+  area_prop_sb_cat = c("nulbeleid", "laagbeleid", "middellaagbeleid",
+                       "middelhoogbeleid", "hoogbeleid"),
+  prop_area_sb = c("0", "<0.04", "0.04-0.07", "0.07-0.1", ">0.1")
+  ) %>%
+  rowid_to_column("order")
+
+for (spec in names(draws_olpropsb_list)) {
+  p <- draws_olpropsb_list[[spec]] %>%
+    left_join(area_prop_cats, by = join_by(area_prop_sb_cat)) %>%
+    mutate(label = paste0(area_prop_sb_cat, "\n(", prop_area_sb, ")"),
+           label = reorder(label, order, decreasing = FALSE)) %>%
+    ggplot(aes(x = label)) +
+      geom_violin(aes(y = value_log, fill = trend_coarse),
+                  colour = alpha("white", 0)) +
+      geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+      geom_hline(yintercept = c(min_threshold, max_threshold),
+                 linetype = "dotdash") +
+      geom_errorbar(aes(ymin = lcl_log, ymax = ucl_log),
+                    linewidth = 1, colour = "black", width = 0.1) +
+      geom_point(aes(y = median_log),
+                 size = 2.2, colour = "black") +
+      scale_fill_manual(values =  c("chartreuse3",
+                                    "gold",
+                                    "firebrick1",
+                                    "skyblue"),
+                        drop = FALSE) +
+      labs(y = "Procentueel verschil t.o.v. nulbeleid",
+           x = "",
+           title = spec,
+           fill = "Verschil") +
+      scale_y_continuous(
+        breaks = index_breaks(),
+        labels = index_labels,
+        minor_breaks = minor_breaks(),
+        #limits = c(-log(3.3), log(3.3)),
+        sec.axis = sec_axis(~ exp(.),
+          breaks = index_breaks_rev(),
+          labels = index_labels_rev(),
+          name = "Relatief verschil t.o.v. nulbeleid")
+        ) +
+      theme(
+        legend.position = "right",
+        legend.background = element_rect(fill = "white", color = "darkgrey"),
+        legend.margin = margin(6, 6, 6, 6)
+        )
+  print(p)
+}
+
+```
+
+We nemen ook eens 7 % als beleidsgrens.
+Voorbeeld voor veldleeuwerik.
+We nemen het gewogen gemiddelde waarbij we wegen voor aantal data per categorie.
+
+```{r}
+# get posterior draws for parameters of interest
+draws_olpropsb_list_wt <- lapply(mod_final_olpropsb_list,
+                                 create_weighted_draws_df)
+```
+
+```{r}
+area_prop_cats2 <- tibble(
+  area_prop_sb_cat = c("nulbeleid", "laagbeleid", "hoogbeleid"),
+  prop_area_sb = c("0", "<0.07", ">0.07")
+  ) %>%
+  rowid_to_column("order")
+
+for (spec in c("Veldleeuwerik", "WitteKwikstaart")) {
+  p <- draws_olpropsb_list_wt[[spec]] %>%
+    left_join(area_prop_cats2, by = join_by(area_prop_sb_cat)) %>%
+    mutate(label = paste0(area_prop_sb_cat, "\n(", prop_area_sb, ")"),
+           label = reorder(label, order, decreasing = FALSE)) %>%
+    ggplot(aes(x = label)) +
+      geom_violin(aes(y = value_log, fill = trend_coarse),
+                  colour = alpha("white", 0)) +
+      geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+      geom_hline(yintercept = c(min_threshold, max_threshold),
+                 linetype = "dotdash") +
+      geom_errorbar(aes(ymin = lcl_log, ymax = ucl_log),
+                    linewidth = 1, colour = "black", width = 0.1) +
+      geom_point(aes(y = median_log),
+                 size = 2.2, colour = "black") +
+      scale_fill_manual(values =  c("chartreuse3",
+                                    "gold",
+                                    "firebrick1",
+                                    "skyblue"),
+                        drop = FALSE) +
+      labs(y = "Procentueel verschil t.o.v. nulbeleid",
+           x = "",
+           title = spec,
+           fill = "Verschil") +
+      scale_y_continuous(
+        breaks = index_breaks(),
+        labels = index_labels,
+        minor_breaks = minor_breaks(),
+        #limits = c(-log(3.3), log(3.3)),
+        sec.axis = sec_axis(~ exp(.),
+          breaks = index_breaks_rev(),
+          labels = index_labels_rev(),
+          name = "Relatief verschil t.o.v. nulbeleid")
+        ) +
+      theme(
+        legend.position = "right",
+        legend.background = element_rect(fill = "white", color = "darkgrey"),
+        legend.margin = margin(6, 6, 6, 6)
+        )
+  print(p)
+  gc()
+}
+```
+
+
+#### 2018-2023
+
+Create list with model structure
+
+```{r}
+predictors_ol_total_list <- vector("list",
+                                       length = length(cvvs_ol_total_list))
+predictors_ol_total_names <- vector(length = length(cvvs_ol_total_list))
+
+for (i in seq_along(cvvs_ol_total_list)) {
+  mod_size <- size_decided_ol_total_list[[i]]
+  spec <- names(cvvs_ol_total_list)[i]
+  
+  if (is.na(mod_size)) {
+    predictors_ol_total_list[[i]] <- NA
+  } else {
+    cvvs <- cvvs_ol_total_list[[i]]
+    
+    rk <- ranking(cvvs)
+    preds <- head(rk[["fulldata"]], mod_size)
+    
+    predictors_ol_total_list[[i]]$predictors <- preds
+    if ("jaar.f" %in% preds) {
+      predictors_ol_total_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_ol_total_list[[i]]$formula <- bf(paste("aantal", "~", 
+                                                   paste(preds, 
+                                                         collapse = " + ")))
+    }
+    
+  }
+  
+  predictors_ol_total_names[i] <- spec
+}
+names(predictors_ol_total_list) <- predictors_ol_total_names
+predictors_ol_total_list <- predictors_ol_total_list[!is.na(predictors_ol_total_list)]
+```
+
+Fit models for both Poisson and Zero-inflated Poisson.
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+```
+
+```{r}
+mod_final_pois_oltotal_list <- vector("list", length = length(predictors_ol_total_list))
+mod_final_zip_oltotal_list <- vector("list", length = length(predictors_ol_total_list))
+
+for (i in seq_along(predictors_ol_total_list)) {
+  spec <- names(predictors_ol_total_list)[i]
+  
+  # Poisson
+  name_pois <- paste0("mod_final_pois_oltotal_", spec)
+  print(paste("Busy fitting", name_pois, "..."))
+  assign(name_pois,
+         brm(formula = predictors_ol_total_list[[spec]]$formula,
+             data = df_count_list_oltotal_scaled[[spec]], 
+             family = poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_pois),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_pois,
+         add_criterion(get(name_pois), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_pois_oltotal_list[[i]] <- get(name_pois)
+  
+  # Zero-inflated Poisson
+  name_zip <- paste0("mod_final_zip_oltotal_", spec)
+  print(paste("Busy fitting", name_zip, "..."))
+  assign(name_zip,
+         brm(formula = predictors_ol_total_list[[spec]]$formula,
+             data = df_count_list_oltotal_scaled[[spec]], 
+             family = zero_inflated_poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_zip),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_zip,
+         add_criterion(get(name_zip), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_zip_oltotal_list[[i]] <- get(name_zip)
+}
+
+names(mod_final_pois_oltotal_list) <- names(predictors_ol_total_list)
+names(mod_final_zip_oltotal_list) <- names(predictors_ol_total_list)
+```
+
+Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
+
+```{r, results="asis"}
+for (i in seq_along(predictors_ol_total_list)) {
+  spec <- names(predictors_ol_total_list)[i]
+  model_pois <- mod_final_pois_oltotal_list[[i]]
+  model_zip <- mod_final_zip_oltotal_list[[i]]
+  
+  print(paste("Model selection", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  
+  # Comparison among models
+  comparisons <- loo_compare(model_pois, model_zip,
+                             criterion = "kfold")[, c(1, 2)]
+  
+  comparisons %>%
+    as.data.frame() %>%
+    rownames_to_column("model") %>%
+    mutate(CI_ll = elpd_diff  + qnorm(0.10) * se_diff,
+           CI_ul = elpd_diff  + qnorm(0.90) * se_diff,
+           width = 0.9 - 0.1) %>%
+    arrange(desc(elpd_diff)) %>%
+    kable(digits = 3) %>%
+    print()
+  
+  p1 <- pp_check(model_pois, type = "bars", ndraws = 100) +
+    ggtitle(paste("Poisson model", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  p2 <- pp_check(model_zip, type = "bars", ndraws = 100) +
+    ggtitle(paste("ZIP model", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  print(p1)
+  print(p2)
+}
+```
+
+
+```{r}
+mod_final_oltotal_list <- list(
+  mod_final_pois_oltotal_list$Geelgors,
+  mod_final_zip_oltotal_list$Haas,
+  mod_final_pois_oltotal_list$Kneu,
+  mod_final_pois_oltotal_list$Kwartel,
+  mod_final_pois_oltotal_list$Torenvalk,
+  mod_final_pois_oltotal_list$Veldleeuwerik,
+  mod_final_pois_oltotal_list$WitteKwikstaart
+  )
+names(mod_final_oltotal_list) <- names(predictors_ol_total_list)
+
+saveRDS(mod_final_oltotal_list,
+        here("src", "markdown", "mas", "analyses_cache",
+             "mod_final_oltotal_list.rds"))
+```
+
+```{r}
+rm(list = c("mod_final_pois_oltotal_list", "mod_final_zip_oltotal_list"))
+gc()
+```
+
+MCMC convergence and model fit.
+
+```{r}
+for (i in seq_along(mod_final_oltotal_list)) {
+  spec <- names(mod_final_oltotal_list)[i]
+  model <- mod_final_oltotal_list[[spec]]
+  
+  # MCMC convergence
+  print(paste("MCMC convergence", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  plot(model, ask = FALSE)
+  
+  # Model fit
+  print(paste("Model fit", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  pp_check(model, type = "bars", ndraws = 100) %>%
+    print()
+}
+```
+
+Results:
+
+```{r}
+for (i in seq_along(mod_final_oltotal_list)) {
+  spec <- names(mod_final_oltotal_list)[i]
+  model <- mod_final_oltotal_list[[i]]
+  
+  # Print summary
+  print(paste("Results", spec, "(Oostelijke leemstreek - 2018-2023)"))
+  print(summary(model))
+  
+  # Visualise results
+  #for (pred in predictors_ol_total_list[[spec]]$predictors) {
+    #p <- plot_brms_fit(model, pred) +
+      #ggtitle(paste(spec, "Oostelijke leemstreek", sep = " - "))
+    #print(p)
+    #rm(p)
+    #gc()
+  #}
+}
+```
+
+
+### De Moeren
+#### area prop sb (categorised)
+
+Create list with model structure
+
+```{r}
+predictors_dmpropsb_new_list <- vector("list",
+                                       length = length(cvvs_dmpropsb_new_list))
+predictors_dmpropsb_new_names <- vector(length = length(cvvs_dmpropsb_new_list))
+
+for (i in seq_along(cvvs_dmpropsb_new_list)) {
+  mod_size <- size_decided_dmpropsb_new_list[[i]]
+  spec <- names(cvvs_dmpropsb_new_list)[i]
+  
+  if (is.na(mod_size)) {
+    predictors_dmpropsb_new_list[[i]] <- NA
+  } else {
+    cvvs <- cvvs_dmpropsb_new_list[[i]]
+    
+    rk <- ranking(cvvs)
+    preds <- head(rk[["fulldata"]], mod_size)
+    
+    predictors_dmpropsb_new_list[[i]]$predictors <- preds
+    if ("jaar.f" %in% preds) {
+      predictors_dmpropsb_new_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_dmpropsb_new_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "))
+        )
+    }
+    
+  }
+  
+  predictors_dmpropsb_new_names[i] <- spec
+}
+names(predictors_dmpropsb_new_list) <- predictors_dmpropsb_new_names
+predictors_dmpropsb_new_list <- predictors_dmpropsb_new_list[!is.na(predictors_dmpropsb_new_list)]
+```
+
+Fit models for both Poisson and Zero-inflated Poisson.
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+```
+
+```{r}
+mod_final_pois_dmpropsb_list <- vector("list", length = length(predictors_dmpropsb_new_list))
+mod_final_zip_dmpropsb_list <- vector("list", length = length(predictors_dmpropsb_new_list))
+
+for (i in seq_along(predictors_dmpropsb_new_list)) {
+  spec <- names(predictors_dmpropsb_new_list)[i]
+  
+  # Poisson
+  name_pois <- paste0("mod_final_pois_dmpropsb_", spec)
+  print(paste("Busy fitting", name_pois, "..."))
+  assign(name_pois,
+         brm(formula = predictors_dmpropsb_new_list[[spec]]$formula,
+             data = df_count_list_dmnew_scaled[[spec]], 
+             family = poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_pois),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_pois,
+         add_criterion(get(name_pois), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_pois_dmpropsb_list[[i]] <- get(name_pois)
+  
+  # Zero-inflated Poisson
+  name_zip <- paste0("mod_final_zip_dmpropsb_", spec)
+  print(paste("Busy fitting", name_zip, "..."))
+  assign(name_zip,
+         brm(formula = predictors_dmpropsb_new_list[[spec]]$formula,
+             data = df_count_list_dmnew_scaled[[spec]], 
+             family = zero_inflated_poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_zip),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_zip,
+         add_criterion(get(name_zip), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_zip_dmpropsb_list[[i]] <- get(name_zip)
+}
+
+names(mod_final_pois_dmpropsb_list) <- names(predictors_dmpropsb_new_list)
+names(mod_final_zip_dmpropsb_list) <- names(predictors_dmpropsb_new_list)
+```
+
+Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
+
+```{r, results="asis"}
+for (i in seq_along(predictors_dmpropsb_new_list)) {
+  spec <- names(predictors_dmpropsb_new_list)[i]
+  model_pois <- mod_final_pois_dmpropsb_list[[i]]
+  model_zip <- mod_final_zip_dmpropsb_list[[i]]
+  
+  print(paste("Model selection", spec, "(De Moeren - prop sb)"))
+  
+  # Comparison among models
+  comparisons <- loo_compare(model_pois, model_zip,
+                             criterion = "kfold")[, c(1, 2)]
+  
+  comparisons %>%
+    as.data.frame() %>%
+    rownames_to_column("model") %>%
+    mutate(CI_ll = elpd_diff  + qnorm(0.10) * se_diff,
+           CI_ul = elpd_diff  + qnorm(0.90) * se_diff,
+           width = 0.9 - 0.1) %>%
+    arrange(desc(elpd_diff)) %>%
+    kable(digits = 3) %>%
+    print()
+  
+  p1 <- pp_check(model_pois, type = "bars", ndraws = 100) +
+    ggtitle(paste("Poisson model", spec, "(De Moeren - prop sb)"))
+  p2 <- pp_check(model_zip, type = "bars", ndraws = 100) +
+    ggtitle(paste("ZIP model", spec, "(De Moeren - prop sb)"))
+  print(p1)
+  print(p2)
+}
+```
+
+
+```{r}
+mod_final_dmpropsb_list <- list(
+  mod_final_pois_dmpropsb_list$GeleKwikstaart,
+  mod_final_zip_dmpropsb_list$Haas,
+  mod_final_pois_dmpropsb_list$Kievit,
+  mod_final_pois_dmpropsb_list$Kneu,
+  mod_final_pois_dmpropsb_list$Veldleeuwerik
+  )
+names(mod_final_dmpropsb_list) <- c("GeleKwikstaart", "Haas", "Kievit", "Kneu",
+                                    "Veldleeuwerik")
+
+saveRDS(mod_final_dmpropsb_list,
+        here("src", "markdown", "mas", "analyses_cache",
+             "mod_final_dmpropsb_list.rds"))
+```
+
+```{r}
+rm(list = c("mod_final_pois_dmpropsb_list", "mod_final_zip_dmpropsb_list"))
+gc()
+```
+
+MCMC convergence and model fit.
+
+```{r}
+for (i in seq_along(mod_final_dmpropsb_list)) {
+  spec <- names(mod_final_dmpropsb_list)[i]
+  model <- mod_final_dmpropsb_list[[spec]]
+  
+  # MCMC convergence
+  print(paste("MCMC convergence", spec, "(De Moeren - prop sb)"))
+  plot(model, ask = FALSE)
+  
+  # Model fit
+  print(paste("Model fit", spec, "(De Moeren - prop sb)"))
+  pp_check(model, type = "bars_grouped", ndraws = 100, 
+           group = "area_prop_sb_cat",
+           facet_args = list(ncol = 1, scales = "free_y")) %>%
+    print()
+}
+```
+
+Results:
+
+```{r}
+for (i in seq_along(mod_final_dmpropsb_list)) {
+  spec <- names(mod_final_dmpropsb_list)[i]
+  model <- mod_final_dmpropsb_list[[i]]
+  
+  # Print summary
+  print(paste("Results", spec, "(De Moeren - prop sb)"))
+  print(summary(model))
+  
+  # Visualise results
+  for (pred in predictors_dmpropsb_new_list[[spec]]$predictors) {
+    p <- plot_brms_fit(model, pred) +
+      ggtitle(paste(spec, "De Moeren", sep = " - "))
+    print(p)
+    rm(p)
+    gc()
+  }
+}
+```
+
+We zijn vooral geïnteresseerd in het verschil tussen soortbeschermingsplannen en nulbeleid.
+Dit kunnen we proportioneel uitdrukken.
+
+```{r}
+# get posterior draws for parameters of interest
+draws_dmpropsb_list <- lapply(mod_final_dmpropsb_list, create_draws_df)
+```
+
+We visualiseren dit:
+
+```{r}
+for (spec in names(draws_dmpropsb_list)) {
+  p <- draws_dmpropsb_list[[spec]] %>%
+    left_join(area_prop_cats, by = join_by(area_prop_sb_cat)) %>%
+    mutate(label = paste0(area_prop_sb_cat, "\n(", prop_area_sb, ")"),
+           label = reorder(label, order, decreasing = FALSE)) %>%
+    ggplot(aes(x = label)) +
+      geom_violin(aes(y = value_log, fill = trend_coarse),
+                  colour = alpha("white", 0)) +
+      geom_hline(yintercept = 0, linetype = "longdash", colour = "black") +
+      geom_hline(yintercept = c(min_threshold, max_threshold),
+                 linetype = "dotdash") +
+      geom_errorbar(aes(ymin = lcl_log, ymax = ucl_log),
+                    linewidth = 1, colour = "black", width = 0.1) +
+      geom_point(aes(y = median_log),
+                 size = 2.2, colour = "black") +
+      scale_fill_manual(values =  c("chartreuse3",
+                                    "gold",
+                                    "firebrick1",
+                                    "skyblue"),
+                        drop = FALSE) +
+      labs(y = "Procentueel verschil t.o.v. nulbeleid",
+           x = "",
+           title = spec,
+           fill = "Trend") +
+      scale_y_continuous(
+        breaks = index_breaks(),
+        labels = index_labels,
+        minor_breaks = minor_breaks(),
+        #limits = c(-log(3.3), log(3.3)),
+        sec.axis = sec_axis(~ exp(.),
+          breaks = index_breaks_rev(),
+          labels = index_labels_rev(),
+          name = "Relatief verschil t.o.v. nulbeleid")
+        ) +
+      theme(
+        legend.position = "right",
+        legend.background = element_rect(fill = "white", color = "darkgrey"),
+        legend.margin = margin(6, 6, 6, 6)
+        )
+  print(p)
+}
+```
+
+#### 2018-2023
+
+Create list with model structure
+
+```{r}
+predictors_dm_total_list <- vector("list",
+                                       length = length(cvvs_dm_total_list))
+predictors_dm_total_names <- vector(length = length(cvvs_dm_total_list))
+
+for (i in seq_along(cvvs_dm_total_list)) {
+  mod_size <- size_decided_dm_total_list[[i]]
+  spec <- names(cvvs_dm_total_list)[i]
+  
+  if (is.na(mod_size)) {
+    predictors_dm_total_list[[i]] <- NA
+  } else {
+    cvvs <- cvvs_dm_total_list[[i]]
+    
+    rk <- ranking(cvvs)
+    preds <- head(rk[["fulldata"]], mod_size)
+    
+    predictors_dm_total_list[[i]]$predictors <- preds
+    if ("jaar.f" %in% preds) {
+      predictors_dm_total_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "), " + (1|plotnaam)")
+        )
+    } else {
+      predictors_dm_total_list[[i]]$formula <- bf(
+        paste("aantal", "~", paste(preds, collapse = " + "))
+        )
+    }
+  }
+  
+  predictors_dm_total_names[i] <- spec
+}
+names(predictors_dm_total_list) <- predictors_dm_total_names
+predictors_dm_total_list <- predictors_dm_total_list[!is.na(predictors_dm_total_list)]
+```
+
+Fit models for both Poisson and Zero-inflated Poisson.
+
+```{r}
+# MCMC parameters
+nchains <- 3           # number of chains
+niter <- 8000         # number of iterations (incl. burn-in)
+burnin <- niter / 4    # number of initial samples to discard (burn-in)
+nparallel <- nchains   # number of cores used for parallel computing
+thinning <- 2
+```
+
+```{r}
+mod_final_pois_dmtotal_list <- vector("list", length = length(predictors_dm_total_list))
+mod_final_zip_dmtotal_list <- vector("list", length = length(predictors_dm_total_list))
+
+for (i in seq_along(predictors_dm_total_list)) {
+  spec <- names(predictors_dm_total_list)[i]
+  
+  # Poisson
+  name_pois <- paste0("mod_final_pois_dmtotal_", spec)
+  print(paste("Busy fitting", name_pois, "..."))
+  assign(name_pois,
+         brm(formula = predictors_dm_total_list[[spec]]$formula,
+             data = df_count_list_dmtotal_scaled[[spec]], 
+             family = poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_pois),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_pois,
+         add_criterion(get(name_pois), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_pois_dmtotal_list[[i]] <- get(name_pois)
+  
+  # Zero-inflated Poisson
+  name_zip <- paste0("mod_final_zip_dmtotal_", spec)
+  print(paste("Busy fitting", name_zip, "..."))
+  assign(name_zip,
+         brm(formula = predictors_dm_total_list[[spec]]$formula,
+             data = df_count_list_dmtotal_scaled[[spec]], 
+             family = zero_inflated_poisson(),
+             chains = nchains, 
+             warmup = burnin, 
+             iter = niter,
+             cores = nparallel,
+             thin = thinning,
+             backend = "cmdstanr",
+             file = paste0(model_path, name_zip),
+             file_refit = "on_change"))
+  
+  ## Perform K-fold cross-validation
+  assign(name_zip,
+         add_criterion(get(name_zip), c("kfold"), K = 5, cores = 5))
+  
+  mod_final_zip_dmtotal_list[[i]] <- get(name_zip)
+}
+
+names(mod_final_pois_dmtotal_list) <- names(predictors_dm_total_list)
+names(mod_final_zip_dmtotal_list) <- names(predictors_dm_total_list)
+```
+
+Model selection between poisson and zero-inflated poisson based on 5-fold CV and posterior predictive check.
+
+```{r, results="asis"}
+for (i in seq_along(predictors_dm_total_list)) {
+  spec <- names(predictors_dm_total_list)[i]
+  model_pois <- mod_final_pois_dmtotal_list[[i]]
+  model_zip <- mod_final_zip_dmtotal_list[[i]]
+  
+  print(paste("Model selection", spec, "(De Moeren - 2018-2023)"))
+  
+  # Comparison among models
+  comparisons <- loo_compare(model_pois, model_zip,
+                             criterion = "kfold")[, c(1, 2)]
+  
+  comparisons %>%
+    as.data.frame() %>%
+    rownames_to_column("model") %>%
+    mutate(CI_ll = elpd_diff  + qnorm(0.10) * se_diff,
+           CI_ul = elpd_diff  + qnorm(0.90) * se_diff,
+           width = 0.9 - 0.1) %>%
+    arrange(desc(elpd_diff)) %>%
+    kable(digits = 3) %>%
+    print()
+  
+  p1 <- pp_check(model_pois, type = "bars", ndraws = 100) +
+    ggtitle(paste("Poisson model", spec, "(De Moeren - 2018-2023)"))
+  p2 <- pp_check(model_zip, type = "bars", ndraws = 100) +
+    ggtitle(paste("ZIP model", spec, "(De Moeren - 2018-2023)"))
+  print(p1)
+  print(p2)
+}
+```
+
+
+```{r}
+mod_final_dmtotal_list <- list(
+  mod_final_pois_dmtotal_list$Veldleeuwerik
+  )
+names(mod_final_dmtotal_list) <- names(predictors_dm_total_list)
+
+saveRDS(mod_final_dmtotal_list,
+        here("src", "markdown", "mas", "analyses_cache",
+             "mod_final_dmtotal_list.rds"))
+```
+
+```{r}
+rm(list = c("mod_final_pois_dmtotal_list", "mod_final_zip_dmtotal_list"))
+gc()
+```
+
+MCMC convergence and model fit.
+
+```{r}
+for (i in seq_along(mod_final_dmtotal_list)) {
+  spec <- names(mod_final_dmtotal_list)[i]
+  model <- mod_final_dmtotal_list[[spec]]
+  
+  # MCMC convergence
+  print(paste("MCMC convergence", spec, "(De Moeren - 2018-2023)"))
+  plot(model, ask = FALSE)
+  
+  # Model fit
+  print(paste("Model fit", spec, "(De Moeren - 2018-2023)"))
+  pp_check(model, type = "bars", ndraws = 100) %>%
+    print()
+}
+```
+
+Results:
+
+```{r}
+for (i in seq_along(mod_final_dmtotal_list)) {
+  spec <- names(mod_final_dmtotal_list)[i]
+  model <- mod_final_dmtotal_list[[i]]
+  
+  # Print summary
+  print(paste("Results", spec, "(De Moeren - 2018-2023)"))
+  print(summary(model))
+  
+  # Visualise results
+  #for (pred in predictors_dm_total_list[[spec]]$predictors) {
+  #  p <- plot_brms_fit(model, pred) +
+  #    ggtitle(paste(spec, "De Moeren", sep = " - "))
+  #  print(p)
+  #  rm(p)
+  #  gc()
+  #}
+}
+```
+
+# Output figuren
+
+Resultaten Veldleeuwerik 2022-2023.
+We willen figuren voor de continue variabelen.
+
+```{r}
+cont_vars_ol <- mod_final_olpropsb_list$Veldleeuwerik$data %>%
+    select(-aantal) %>%
+    select(where(is.numeric)) %>%
+    names()
+cont_vars_dm <- mod_final_dmpropsb_list$Veldleeuwerik$data %>%
+    select(-aantal) %>%
+    select(where(is.numeric)) %>%
+    names()
+```
+
+Continue variabelen in de Oostelijke leemstreek: `r cont_vars_ol`
+Continue variabelen in De Moeren: `r cont_vars_dm`
+
+```{r}
+label_list <- list(
+  "openheid_waarde_1000" = list(
+    "label" = "openheid landschap waarde (1000 m)",
+    "factor" = 1),
+  "haag" = list(
+    "label" = "oppervlakte haag binnen telcirkel (%)",
+    "factor" = 100),
+  "houtkant" = list(
+    "label" = "oppervlakte houtkant binnen telcirkel (%)",
+    "factor" = 100),
+  "bomenrij" = list(
+    "label" = "oppervlakte bomenrij binnen telcirkel (%)",
+    "factor" = 100),
+  "meerjarige_fruitteelt_hfdtlt" = list(
+    "label" = paste("oppervlakte hoofdteelt meerjarige fruitteelt",
+                    "binnen telcirkel (%)", sep = "\n"),
+    "factor" = 100),
+  "grasland_hfdtlt_pre" = list(
+    "label" = paste("oppervlakte hoofdteelt grasland (jaar ervoor)",
+                    "binnen telcirkel (%)", sep = "\n"),
+    "factor" = 100),
+  "bosrand" = list(
+    "label" = "oppervlakte bosrand binnen telcirkel (%)",
+    "factor" = 100),
+  "boom" = list(
+    "label" = "oppervlakte boom binnen telcirkel (%)",
+    "factor" = 100)
+)
+
+for (pred in cont_vars_ol) {
+  p <- plot_brms_fit(
+    mod_final_olpropsb_list$Veldleeuwerik,
+    pred,
+    species = "Veldleeuwerik",
+    axis_label = label_list[[pred]]$label,
+    factor = label_list[[pred]]$factor,
+    interval = c(0, 0.95),
+    show_data = TRUE,
+    scale_data = df_count_list_olnew$Veldleeuwerik)
+  file <- paste(pred, "veldleeuwerik_data.pdf", sep = "_")
+  ggsave(here("media", "beheerovereenkomsten", "oostelijke_leemstreek", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+
+for (pred in cont_vars_dm) {
+  p <- plot_brms_fit(
+    mod_final_dmpropsb_list$Veldleeuwerik,
+    pred,
+    species = "Veldleeuwerik",
+    axis_label = label_list[[pred]]$label,
+    factor = label_list[[pred]]$factor,
+    interval = c(0, 0.95),
+    show_data = TRUE,
+    scale_data = df_count_list_dmnew$Veldleeuwerik)
+  file <- paste(pred, "veldleeuwerik_data.pdf", sep = "_")
+  ggsave(here("media", "beheerovereenkomsten", "de_moeren", file),
+         p,
+         dpi = 300,
+         width = 8,
+         height = 6)
+}
+```
+
+# Output tabellen
+
+mean en sd voor ol en dm cont vars
+
+```{r}
+cont_vars_total <- unique(c(cont_vars_ol, cont_vars_dm))
+
+q25_f <- function(x) quantile(x, 0.25)
+q75_f <- function(x) quantile(x, 0.75)
+
+bind_rows(
+  df_count_list_olnew$Veldleeuwerik %>%
+    select(regio, all_of(cont_vars_ol)),
+  df_count_list_dmnew$Veldleeuwerik %>%
+    select(regio, all_of(cont_vars_dm))
+  ) %>%
+  pivot_longer(cols = -"regio", names_to = "naam", values_to = "waarde") %>%
+  drop_na() %>%
+  group_by(regio, naam) %>%
+  summarise(across(where(is.numeric), list(gemiddelde = mean,
+                                           standaarddeviatie = sd,
+                                           mediaan = median,
+                                           Q25 = q25_f,
+                                           Q75 = q75_f),
+                   .names = "{.fn}"),
+            .groups = "drop") %>%
+  select(naam, regio, everything()) %>%
+  write_csv(here("media", "beheerovereenkomsten", "data_stats_veldleeuwerik.csv"))
+```
+
+
+# Referenties
