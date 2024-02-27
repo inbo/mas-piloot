@@ -8,4 +8,10 @@ MAS netwerk Vlaanderen- Westelijke_leemstreek_telpunten.csv
 MAS netwerk Vlaanderen- Zandleemstreek_telpunten.csv
 verklarende_variabelen_2018_2023.csv
 MAS_data_full_2018_2023.csv
+verklarende_variabelen_2018_2023_metadata.csv
+MAS_oostelijkeleemstreek_2018_2023.csv
+steekproef_zandleemstreek_avimap.gpkg
+steekproef_leemstreek_avimap.gpkg
+steekproef_piloot_avimap.gpkg
+zandleemstreek_perimeters.gpkg
 !.gitignore
