@@ -188,9 +188,44 @@ head(steekproef_ol) %>%
 
 ### Finale steekproef na manuele controle
 
-Dit zijn de punten die effectief zijn geteld en in avimap ingevoerd.
+Dit zijn de punten die in avimap zijn ingevoerd.
 
+```{r}
+# Read in final steekproef pilot study
+steekproef_piloot_avimap <- git2rdata::read_vc(
+  file.path(
+    "data", "processed", "steekproef_piloot_avimap")
+  )
 
+# Select Oostelijke leemstreek
+steekproef_ol_avimap_raw <- steekproef_piloot_avimap %>%
+  filter(regio == "Oostelijke leemstreek",
+         status_claim == "geclaimd")
+  
+```
+
+```{r}
+export_mas <- st_read(
+  here(
+    "data", "mas", "20230810_qgis_export_sovon_wfs_2023.geojson")
+  )
+
+export_ol <- export_mas %>%
+  st_transform(31370) %>%
+  st_intersection(perimeters_ol)
+
+plotnaam_ol <- export_ol %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam) %>%
+  pull()
+```
+
+Zijn dit effectief de punten die vorig jaar zijn geteld?
+
+```{r}
+waldo::compare(sort(plotnaam_ol),
+               sort(steekproef_ol_avimap_raw$definitief_punt))
+```
 
 
 ## Westelijke leemstreek
@@ -289,8 +324,31 @@ head(steekproef_wl) %>%
 
 ### Finale steekproef na manuele controle
 
-Dit zijn de punten die effectief zijn geteld en in avimap ingevoerd.
+Dit zijn de punten die in avimap zijn ingevoerd en zijn geteld.
 
+```{r}
+# Read in final steekproef Leemstreek
+steekproef_leemstreek_avimap <- st_read(
+  here(
+    "data", "processed", "steekproef_leemstreek_avimap.gpkg")
+  )
+```
+
+Zijn dit effectief de punten die vorig jaar zijn geteld?
+
+```{r}
+# Get names of plots from data
+plotnaam_wl <- export_mas %>%
+  st_drop_geometry() %>%
+  filter(grepl("^Lm", plotnaam)) %>%
+  distinct(plotnaam) %>%
+  pull()
+
+# Make comparison
+waldo::compare(sort(plotnaam_wl), sort(steekproef_leemstreek_avimap$pointid))
+```
+
+Yes.
 
 # Zandleemstreek
 ## Steekproefkader
@@ -301,7 +359,9 @@ Dit zijn de punten die effectief zijn geteld en in avimap ingevoerd.
 
 ## Finale steekproef na manuele controle
 
-Dit zijn de punten die effectief zijn geteld en in avimap ingevoerd.
+Dit zijn de punten die in avimap zijn ingevoerd.
+
+> dubbeltellingen?
 
 # Uitschrijven datasets
 ## Steekproefkader
