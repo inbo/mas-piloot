@@ -1,0 +1,67 @@
+---
+title: "Uitschrijven steekproefkaders MBAG"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+# renv
+renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here())
+
+# Conflicting packages
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(dplyr::lag)
+
+# Packages
+library(tidyverse)
+library(sf)
+
+# Source
+
+```
+
+# Doel
+
+We willen voor het MBAG project een duidelijk overzicht van het steekproefkader en de steekproef.
+Hiervoor schrijven we uit het pilootproject voor de Leemstreek en de Zandleemstreek 4 bestanden weg:
+
+1.  steekproefkader
+
+2.  gewichten steekproefkader
+
+3.  steekproef
+
+4.  finale steekproef na manuele controle (punten die effectief zijn geteld)
+
+# Leemstreek
+
+We splitsen de Leemstreek op in twee delen aangezien de Oostelijke leemstreek deel uitmaakte van het pilootproject.
+
+## Oostelijke leemstreek
+
+
+
+
+## Westelijke leemstreek
+
+
+
+# Zandleemstreek
