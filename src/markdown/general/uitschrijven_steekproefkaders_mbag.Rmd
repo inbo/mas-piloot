@@ -229,7 +229,7 @@ waldo::compare(sort(plotnaam_ol),
 ```{r}
 export_mas_2022 <- st_read(
   here(
-    "data", "mas", "20220906_qgis_export_sovon_wfs.geojson")
+    "data", "mas", "20230509_qgis_export_sovon_wfs.geojson")
   )
 
 export_ol_2022 <- export_mas_2022 %>%
