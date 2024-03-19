@@ -33,9 +33,13 @@ conflicted::conflicts_prefer(dplyr::lag)
 # Packages
 library(tidyverse)
 library(sf)
+library(nngeo)
+library(mapview)
 
 # Source
-
+mbag_dir <- here()
+source(file.path(mbag_dir, "src", "R", "steekproefkader.R"))
+source(file.path(mbag_dir, "src", "R", "berekening_hulpvariabelen.R"))
 ```
 
 # Doel
@@ -56,27 +60,98 @@ Hiervoor schrijven we uit het pilootproject voor de Leemstreek en de Zandleemstr
 We splitsen de Leemstreek op in twee delen aangezien de Oostelijke leemstreek deel uitmaakte van het pilootproject.
 
 ## Oostelijke leemstreek
+### Steekproefkader
 
 Voor de Oostelijke leemstreek moeten we de variabele SBP opnieuw berekenen omdat we voor het MAS vlaanderen ook andere SBP lagen gebruiken.
 
 We lezen het steekproefkader in van de pilootstudie en selecteren de Oostelijke leemstreek.
 
 ```{r}
-steekproefkader_piloot <- read_delim(here(
-  "data", "processed", "steekproefkader_piloot.tsv"))
+# Read in steekproefkader pilot study
+steekproefkader_piloot <- git2rdata::read_vc(
+  file.path(
+    "data", "processed", "steekproefkader_piloot.tsv")
+  )
+
+# Select Oostelijke leemstreek
 steekproefkader_ol_raw <- steekproefkader_piloot %>%
   filter(Naam == "Oostelijke leemstreek")
+
+steekproefkader_ol_raw_sf <- steekproefkader_ol_raw %>%
+  st_as_sf(coords = c("X", "Y"), crs = st_crs(31370))
 ```
 
+We herberekenen `is_sbp`.
+
+```{r}
+# Get perimeter Oostelijke leemstreek
+perimeters_piloot <- st_read(path_to_perimeters())
+
+perimeters_ol <- perimeters_piloot %>%
+  filter(Naam == "Oostelijke leemstreek")
+
+# Get sbp areas for perimeter
+sbp_akkervogels <- read_sbp_akkervogels(
+      path = path_to_sbp_akkervogels(
+        file = "akkervogelgebieden2022.shp"),
+      gebied = perimeters_ol,
+      path_extra_soorten = path_to_sbp_akkervogels(
+        file = "sbp_overige_soorten.shp"),
+      extra_soorten = c("hamster",
+                        "bruine kiekendief",
+                        "zomertortel", 
+                        "grauwe kiekendief")
+      )
+
+# Calculate variable sbp
+steekproefkader_ol_sbp <- add_stratum_sbp(
+      punten_sf = steekproefkader_ol_raw_sf,
+      sbp = sbp_akkervogels
+      )
+
+# Prepare final dataframe
+steekproefkader_ol <- steekproefkader_ol_sbp %>%
+  mutate(x_coord = st_coordinates(geometry)[,1],
+         y_coord = st_coordinates(geometry)[,2]) %>%
+  st_drop_geometry() %>%
+  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370) %>%
+  select(pointid, regio = Naam, area_prop_sb, openheid_klasse, sbp, x_coord,
+         y_coord, crs) %>%
+  filter(openheid_klasse %in% c("OL", "HOL"))
+```
+
+Controle berekeningen.
+
+```{r}
+steekproefkader_ol_sf <- steekproefkader_ol %>%
+  st_as_sf(coords = c("x_coord", "y_coord"), crs = st_crs(31370)) %>%
+  mutate(stratum = paste(openheid_klasse, sbp, sep = " - "))
+
+# Visualise
+mapview(steekproefkader_ol_sf,
+        zcol = "sbp", layer = "sbp") +
+  mapview(sbp_akkervogels, col.regions = "red",
+          alpha.regions = 0.5, legend = FALSE)
+```
+
+```{r}
+head(steekproefkader_ol) %>%
+  kable()
+```
+
+
 ## Westelijke leemstreek
+### Steekproefkader
 
 We lezen het steekproefkader in van de Leemstreek. We lezen ook de perimeters van de Oostelijke leemstreek in zodat we de punten van de Westelijke leemstreek kunnen selecteren.
 
 ```{r}
 # Read in steekproefkader Leemstreek, Zandleemstreek
-steekproefkader_zavelberg <- read_delim(here(
-  "src", "targets", "mas_steekproef_zavelberg", "output",
-  "steekproefkader.tsv")) 
+steekproefkader_zavelberg <- git2rdata::read_vc(
+  file.path(
+    "src", "targets", "mas_steekproef_zavelberg", "output", "steekproefkader")
+  )
 
 # Select Leemstreek
 steekproefkader_leemstreek <- steekproefkader_zavelberg %>%
@@ -86,21 +161,26 @@ steekproefkader_leemstreek <- steekproefkader_zavelberg %>%
 steekproefkader_leemstreek_sf <- steekproefkader_leemstreek %>%
   st_as_sf(coords = c("X", "Y"), crs = st_crs(31370))
 
-# Get perimeter Oostelijke leemstreek
-perimeters_piloot <- st_read(here(
-  "data", "processed", "piloot_perimeters.gpkg"))
-
-perimeters_ol <- perimeters_piloot %>%
-  filter(Naam == "Oostelijke leemstreek")
-
 # Use perimeter to select points Westelijke leemstreek
 steekproefkader_wl_sf <- st_difference(steekproefkader_leemstreek_sf,
                                        perimeters_ol)
 
+# Prepare final dataframe
 steekproefkader_wl <- steekproefkader_wl_sf %>%
-  mutate(X = st_coordinates(geometry)[,1],
-         Y = st_coordinates(geometry)[,2]) %>%
-  st_drop_geometry()
+  mutate(x_coord = st_coordinates(geometry)[,1],
+         y_coord = st_coordinates(geometry)[,2]) %>%
+  st_drop_geometry() %>%
+  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370,
+         regio = "Westelijke leemstreek") %>%
+  select(pointid, regio, area_prop_sb, openheid_klasse, sbp, x_coord, y_coord,
+         crs) %>%
+  filter(openheid_klasse %in% c("OL", "HOL"))
+```
+
+```{r}
+head(steekproefkader_wl) %>%
+  kable()
 ```
 
 # Zandleemstreek
