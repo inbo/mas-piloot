@@ -201,7 +201,6 @@ steekproef_piloot_avimap <- git2rdata::read_vc(
 steekproef_ol_avimap_raw <- steekproef_piloot_avimap %>%
   filter(regio == "Oostelijke leemstreek",
          status_claim == "geclaimd")
-  
 ```
 
 ```{r}
@@ -328,7 +327,7 @@ Dit zijn de punten die in avimap zijn ingevoerd en zijn geteld.
 
 ```{r}
 # Read in final steekproef Leemstreek
-steekproef_leemstreek_avimap <- st_read(
+steekproef_leemstreek_avimap_raw <- st_read(
   here(
     "data", "processed", "steekproef_leemstreek_avimap.gpkg")
   )
@@ -345,7 +344,8 @@ plotnaam_wl <- export_mas %>%
   pull()
 
 # Make comparison
-waldo::compare(sort(plotnaam_wl), sort(steekproef_leemstreek_avimap$pointid))
+waldo::compare(sort(plotnaam_wl),
+               sort(steekproef_leemstreek_avimap_raw$pointid))
 ```
 
 Yes.
@@ -361,15 +361,109 @@ steekproef_leemstreek_avimap %>%
 # Zandleemstreek
 ## Steekproefkader
 
+We lezen het steekproefkader in van de Zandeemstreek.
+
+```{r}
+# Select Zandleemstreek
+steekproefkader_zandleemstreek <- steekproefkader_zavelberg %>%
+   filter(Naam == "Zandleemstreek") 
+
+# Prepare final dataframe
+steekproefkader_zn <- steekproefkader_zandleemstreek %>%
+  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370) %>%
+  select(pointid, regio = Naam, area_prop_sb, openheid_klasse, sbp, x_coord = X,
+         y_coord = Y, crs) %>%
+  filter(openheid_klasse %in% c("OL", "HOL"))
+```
+
+```{r}
+head(steekproefkader_zn) %>%
+  kable(digits = 2)
+```
+
 ## Gewichten steekproefkader
 
+De aantallen zijn hetzelfde als in de oorspronkelijke allocatietabel.
+
+```{r}
+gewichten_zn <- steekproefkader_zn %>%
+  count(regio, openheid_klasse, sbp) %>%
+  group_by(openheid_klasse) %>%
+  mutate(prop_openheid = sum(n) / nrow(steekproefkader_zn)) %>%
+  group_by(sbp) %>%
+  mutate(prop_sbp = sum(n) / nrow(steekproefkader_zn)) %>%
+  ungroup() %>%
+  mutate(prop = n / nrow(steekproefkader_zn))
+
+gewichten_zn %>%
+  kable(digits = 5)
+```
+
 ## Steekproef
+
+```{r}
+# Select Zandleemstreek
+steekproef_zandleemstreek <- steekproef_zavelberg %>%
+  filter(Naam == "Zandleemstreek")
+
+# Prepare final dataframe
+steekproef_zn <- steekproef_zandleemstreek %>%
+  st_drop_geometry() %>%
+  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370) %>%
+  select(pointid, sample_order, batch, regio = Naam, area_prop_sb,
+         openheid_klasse, sbp, x_coord = X, y_coord = Y, crs)
+
+head(steekproef_zn) %>%
+  kable(digits = 2)
+```
 
 ## Finale steekproef na manuele controle
 
 Dit zijn de punten die in avimap zijn ingevoerd.
 
-> dubbeltellingen?
+```{r}
+# Read in final steekproef Zandleemstreek
+steekproef_zandleemstreek_avimap_raw <- st_read(
+  here(
+    "data", "processed", "steekproef_zandleemstreek_avimap.gpkg")
+  )
+```
+
+Zijn dit effectief de punten die vorig jaar zijn geteld?
+
+```{r}
+# Get names of plots from data
+plotnaam_zn <- export_mas %>%
+  st_drop_geometry() %>%
+  filter(grepl("^Zn", plotnaam)) %>%
+  distinct(plotnaam) %>%
+  pull()
+
+# Make comparison
+waldo::compare(sort(plotnaam_zn),
+               sort(steekproef_zandleemstreek_avimap_raw$pointid))
+```
+
+Yes. De mismatch is een punt die wel geteld is maar is overgenomen van de pilootstudie in De Moeren.
+
+```{r}
+old_points <- export_mas %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam) %>%
+  pull()
+
+"DM_386.7" %in%  old_points
+```
+
+```{r}
+steekproef_zandleemstreek_avimap <- steekproef_zn %>%
+  filter(pointid %in% unique(steekproef_zandleemstreek_avimap_raw$pointid))
+
+steekproef_zandleemstreek_avimap %>%
+  kable(digits = 2)
+```
 
 # Uitschrijven datasets
 ## Steekproefkader
