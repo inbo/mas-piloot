@@ -63,7 +63,8 @@ We splitsen de Leemstreek op in twee delen aangezien de Oostelijke leemstreek de
 ### Steekproefkader
 
 Voor de Oostelijke leemstreek moeten we de variabele SBP opnieuw berekenen omdat we voor het MAS vlaanderen ook andere SBP lagen gebruiken.
-
+Bovendien werd `area_prop_sb` berekend op basis van de kaart van 2021, maar hier werd geen gebruik van gemaakt bij de steekproeftrekking (in het geval van MBAG wordt deze berekend op basis van de kaart van 2022 en wel in rekening genomen voor een gebalanceerde steekproef).
+We zetten deze variabele hier op `NA` omdat deze niet is gebruikt.
 We lezen het steekproefkader in van de pilootstudie en selecteren de Oostelijke leemstreek.
 
 ```{r}
@@ -114,7 +115,8 @@ steekproefkader_ol <- steekproefkader_ol_sbp %>%
   mutate(x_coord = st_coordinates(geometry)[,1],
          y_coord = st_coordinates(geometry)[,2]) %>%
   st_drop_geometry() %>%
-  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+  mutate(area_prop_sb = NA,
+         sbp = ifelse(is_sbp, "binnen", "buiten"),
          crs = 31370) %>%
   select(pointid, regio = Naam, area_prop_sb, openheid_klasse, sbp, x_coord,
          y_coord, crs) %>%
@@ -137,7 +139,24 @@ mapview(steekproefkader_ol_sf,
 
 ```{r}
 head(steekproefkader_ol) %>%
-  kable()
+  kable(digits = 2)
+```
+
+### Gewichten steekproefkader
+
+Deze zullen niet hetzelfde zijn als in de oorspronkelijke allocatietabel omdat we sbp hebben herberekend.
+
+```{r}
+gewichten_ol <- steekproefkader_ol %>%
+  count(regio, openheid_klasse, sbp) %>%
+  group_by(openheid_klasse) %>%
+  mutate(prop_openheid = sum(n) / nrow(steekproefkader_ol)) %>%
+  group_by(sbp) %>%
+  mutate(prop_sbp = sum(n) / nrow(steekproefkader_ol)) %>%
+  ungroup()
+
+gewichten_ol %>%
+  kable(digits = 5)
 ```
 
 
@@ -180,7 +199,24 @@ steekproefkader_wl <- steekproefkader_wl_sf %>%
 
 ```{r}
 head(steekproefkader_wl) %>%
-  kable()
+  kable(digits = 2)
+```
+
+### Gewichten steekproefkader
+
+Deze zullen niet hetzelfde zijn als in de oorspronkelijke allocatietabel omdat we een subset van de Leemstreek hebben
+
+```{r}
+gewichten_wl <- steekproefkader_wl %>%
+  count(regio, openheid_klasse, sbp) %>%
+  group_by(openheid_klasse) %>%
+  mutate(prop_openheid = sum(n) / nrow(steekproefkader_wl)) %>%
+  group_by(sbp) %>%
+  mutate(prop_sbp = sum(n) / nrow(steekproefkader_wl)) %>%
+  ungroup()
+
+gewichten_wl %>%
+  kable(digits = 5)
 ```
 
 # Zandleemstreek
