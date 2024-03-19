@@ -41,7 +41,7 @@ library(sf)
 # Doel
 
 We willen voor het MBAG project een duidelijk overzicht van het steekproefkader en de steekproef.
-Hiervoor schrijven we uit het pilootproject voor de Leemstreek en de Zandleemstreek 4 bestanden weg:
+Hiervoor schrijven we uit het pilootproject voor de Leemstreek en de Zandleemstreek 4 bestanden weg (als CSV-bestanden):
 
 1.  steekproefkader
 
@@ -57,11 +57,50 @@ We splitsen de Leemstreek op in twee delen aangezien de Oostelijke leemstreek de
 
 ## Oostelijke leemstreek
 
+Voor de Oostelijke leemstreek moeten we de variabele SBP opnieuw berekenen omdat we voor het MAS vlaanderen ook andere SBP lagen gebruiken.
 
+We lezen het steekproefkader in van de pilootstudie en selecteren de Oostelijke leemstreek.
 
+```{r}
+steekproefkader_piloot <- read_delim(here(
+  "data", "processed", "steekproefkader_piloot.tsv"))
+steekproefkader_ol_raw <- steekproefkader_piloot %>%
+  filter(Naam == "Oostelijke leemstreek")
+```
 
 ## Westelijke leemstreek
 
+We lezen het steekproefkader in van de Leemstreek. We lezen ook de perimeters van de Oostelijke leemstreek in zodat we de punten van de Westelijke leemstreek kunnen selecteren.
 
+```{r}
+# Read in steekproefkader Leemstreek, Zandleemstreek
+steekproefkader_zavelberg <- read_delim(here(
+  "src", "targets", "mas_steekproef_zavelberg", "output",
+  "steekproefkader.tsv")) 
+
+# Select Leemstreek
+steekproefkader_leemstreek <- steekproefkader_zavelberg %>%
+   filter(Naam == "Leemstreek") 
+
+# Convert to sf
+steekproefkader_leemstreek_sf <- steekproefkader_leemstreek %>%
+  st_as_sf(coords = c("X", "Y"), crs = st_crs(31370))
+
+# Get perimeter Oostelijke leemstreek
+perimeters_piloot <- st_read(here(
+  "data", "processed", "piloot_perimeters.gpkg"))
+
+perimeters_ol <- perimeters_piloot %>%
+  filter(Naam == "Oostelijke leemstreek")
+
+# Use perimeter to select points Westelijke leemstreek
+steekproefkader_wl_sf <- st_difference(steekproefkader_leemstreek_sf,
+                                       perimeters_ol)
+
+steekproefkader_wl <- steekproefkader_wl_sf %>%
+  mutate(X = st_coordinates(geometry)[,1],
+         Y = st_coordinates(geometry)[,2]) %>%
+  st_drop_geometry()
+```
 
 # Zandleemstreek
