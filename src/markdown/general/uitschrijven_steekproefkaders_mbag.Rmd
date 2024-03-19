@@ -304,3 +304,22 @@ Dit zijn de punten die effectief zijn geteld en in avimap ingevoerd.
 Dit zijn de punten die effectief zijn geteld en in avimap ingevoerd.
 
 # Uitschrijven datasets
+## Steekproefkader
+
+Dit is een CSV-bestand van alle steekproefkaders.
+In het MBAG project worden deze van andere landbouwregio's hieraan toegevoegd.
+
+
+## Gewichten steekproefkader
+
+Dit zijn aparte CSV-bestanden voor elke regio.
+
+## Steekproef
+
+Dit is een CSV-bestand van alle steekproeven.
+In het MBAG project worden deze van andere landbouwregio's hieraan toegevoegd.
+
+## Finale steekproef na manuele controle
+
+Dit is een CSV-bestand van alle finale telpunten.
+In het MBAG project worden deze van andere landbouwregio's hieraan toegevoegd.
