@@ -153,11 +153,20 @@ gewichten_ol <- steekproefkader_ol %>%
   mutate(prop_openheid = sum(n) / nrow(steekproefkader_ol)) %>%
   group_by(sbp) %>%
   mutate(prop_sbp = sum(n) / nrow(steekproefkader_ol)) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(prop = n / nrow(steekproefkader_ol))
 
 gewichten_ol %>%
   kable(digits = 5)
 ```
+
+### Steekproef
+
+### Finale steekproef na manuele controle
+
+Dit zijn de punten die effectief zijn geteld en in avimap ingevoerd.
+
+
 
 
 ## Westelijke leemstreek
@@ -213,10 +222,29 @@ gewichten_wl <- steekproefkader_wl %>%
   mutate(prop_openheid = sum(n) / nrow(steekproefkader_wl)) %>%
   group_by(sbp) %>%
   mutate(prop_sbp = sum(n) / nrow(steekproefkader_wl)) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(prop = n / nrow(steekproefkader_wl))
 
 gewichten_wl %>%
   kable(digits = 5)
 ```
 
+### Steekproef
+
+### Finale steekproef na manuele controle
+
+Dit zijn de punten die effectief zijn geteld en in avimap ingevoerd.
+
+
 # Zandleemstreek
+## Steekproefkader
+
+## Gewichten steekproefkader
+
+## Steekproef
+
+## Finale steekproef na manuele controle
+
+Dit zijn de punten die effectief zijn geteld en in avimap ingevoerd.
+
+# Uitschrijven datasets
