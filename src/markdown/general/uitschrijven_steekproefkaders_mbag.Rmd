@@ -350,6 +350,14 @@ waldo::compare(sort(plotnaam_wl), sort(steekproef_leemstreek_avimap$pointid))
 
 Yes.
 
+```{r}
+steekproef_leemstreek_avimap <- steekproef_wl %>%
+  filter(pointid %in% plotnaam_wl)
+
+steekproef_leemstreek_avimap %>%
+  kable(digits = 2)
+```
+
 # Zandleemstreek
 ## Steekproefkader
 
