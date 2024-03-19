@@ -71,7 +71,7 @@ We lezen het steekproefkader in van de pilootstudie en selecteren de Oostelijke 
 # Read in steekproefkader pilot study
 steekproefkader_piloot <- git2rdata::read_vc(
   file.path(
-    "data", "processed", "steekproefkader_piloot.tsv")
+    "data", "processed", "steekproefkader_piloot")
   )
 
 # Select Oostelijke leemstreek
@@ -161,6 +161,31 @@ gewichten_ol %>%
 ```
 
 ### Steekproef
+
+```{r}
+# Read in steekproef pilot study
+steekproef_piloot <- git2rdata::read_vc(
+  file.path(
+    "data", "processed", "steekproef_piloot")
+  )
+```
+
+```{r}
+# Select Oostelijke leemstreek
+steekproef_piloot_ol_raw <- steekproef_piloot %>%
+  filter(Naam == "Oostelijke leemstreek")
+```
+
+We voegen de SBP variabele toe door te joinen met het steekproefkader.
+
+```{r}
+steekproef_piloot_ol <- steekproef_piloot_ol_raw %>%
+  select(pointid, sample_order, batch) %>%
+  left_join(steekproefkader_ol, by = join_by(pointid))
+
+head(steekproef_piloot_ol) %>%
+  kable(digits = 2)
+```
 
 ### Finale steekproef na manuele controle
 
