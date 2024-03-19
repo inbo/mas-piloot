@@ -168,22 +168,21 @@ steekproef_piloot <- git2rdata::read_vc(
   file.path(
     "data", "processed", "steekproef_piloot")
   )
-```
 
-```{r}
 # Select Oostelijke leemstreek
-steekproef_piloot_ol_raw <- steekproef_piloot %>%
+steekproef_ol_raw <- steekproef_piloot %>%
   filter(Naam == "Oostelijke leemstreek")
 ```
 
 We voegen de SBP variabele toe door te joinen met het steekproefkader.
 
 ```{r}
-steekproef_piloot_ol <- steekproef_piloot_ol_raw %>%
+# Prepare dataframe
+steekproef_ol <- steekproef_ol_raw %>%
   select(pointid, sample_order, batch) %>%
   left_join(steekproefkader_ol, by = join_by(pointid))
 
-head(steekproef_piloot_ol) %>%
+head(steekproef_ol) %>%
   kable(digits = 2)
 ```
 
@@ -255,6 +254,38 @@ gewichten_wl %>%
 ```
 
 ### Steekproef
+
+We maken weer een overlay zodat we enkel de punten van de Westelijke leemstreek selecteren.
+
+```{r}
+# Read in steekproef Leemstreek, Zandleemstreek
+steekproef_zavelberg <- git2rdata::read_vc(
+  file.path(
+    "src", "targets", "mas_steekproef_zavelberg", "output", "steekproef")
+  )
+
+# Select Leemstreek
+steekproef_leemstreek <- steekproef_zavelberg %>%
+  filter(Naam == "Leemstreek")
+```
+
+```{r}
+# Convert to sf
+steekproef_leemstreek_sf <- steekproef_leemstreek %>%
+  st_as_sf(coords = c("X", "Y"), crs = st_crs(31370))
+
+# Use perimeter to select points Westelijke leemstreek
+steekproef_wl_sf <- st_difference(steekproef_leemstreek_sf, perimeters_ol)
+
+# Prepare final dataframe
+steekproef_wl <- steekproef_wl_sf %>%
+  st_drop_geometry() %>%
+  select(pointid, sample_order, batch) %>%
+  left_join(steekproefkader_wl, by = join_by(pointid))
+
+head(steekproef_wl) %>%
+  kable(digits = 2)
+```
 
 ### Finale steekproef na manuele controle
 
