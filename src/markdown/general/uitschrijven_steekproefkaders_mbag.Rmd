@@ -226,6 +226,28 @@ waldo::compare(sort(plotnaam_ol),
                sort(steekproef_ol_avimap_raw$definitief_punt))
 ```
 
+```{r}
+export_mas_2022 <- st_read(
+  here(
+    "data", "mas", "20220906_qgis_export_sovon_wfs.geojson")
+  )
+
+export_ol_2022 <- export_mas_2022 %>%
+  st_transform(31370) %>%
+  st_intersection(perimeters_ol)
+
+plotnaam_ol_2022 <- export_ol_2022 %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam) %>%
+  pull()
+```
+
+Zijn dit effectief de punten die in 2022 zijn geteld?
+
+```{r}
+waldo::compare(sort(plotnaam_ol_2022),
+               sort(steekproef_ol_avimap_raw$definitief_punt))
+```
 
 ## Westelijke leemstreek
 ### Steekproefkader
