@@ -588,5 +588,6 @@ bind_rows(
     #steekproef_ol_avimap,
     steekproef_wl_avimap,
     steekproef_zn_avimap) %>%
-  write_csv(here("data", "steekproefkaders", "steekproef_avimap_mbag_piloot.csv"))
+  write_csv(here("data", "steekproefkaders",
+                 "steekproef_avimap_mbag_piloot.csv"))
 ```
