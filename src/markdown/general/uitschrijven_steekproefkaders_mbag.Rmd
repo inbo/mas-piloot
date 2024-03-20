@@ -203,51 +203,93 @@ steekproef_ol_avimap_raw <- steekproef_piloot_avimap %>%
          status_claim == "geclaimd")
 ```
 
-```{r}
-export_mas <- st_read(
-  here(
-    "data", "mas", "20230810_qgis_export_sovon_wfs_2023.geojson")
-  )
-
-export_ol <- export_mas %>%
-  st_transform(31370) %>%
-  st_intersection(perimeters_ol)
-
-plotnaam_ol <- export_ol %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam) %>%
-  pull()
-```
-
 Zijn dit effectief de punten die vorig jaar zijn geteld?
 
 ```{r}
-waldo::compare(sort(plotnaam_ol),
-               sort(steekproef_ol_avimap_raw$definitief_punt))
+mas_data_full <- read_csv(
+  here("data", "processed","MAS_data_full_2018_2023.csv"))
+
+plotnaam_2022 <- mas_data_full %>%
+  filter(regio == "Oostelijke leemstreek",
+         jaar == 2022) %>%
+  distinct(plotnaam) %>%
+  arrange(plotnaam) %>%
+  pull()
+
+plotnaam_2023 <- mas_data_full %>%
+  filter(regio == "Oostelijke leemstreek",
+         jaar == 2023) %>%
+  distinct(plotnaam) %>%
+  arrange(plotnaam) %>%
+  pull()
 ```
 
+We vergelijken met de telpunten van 2022.
+We zien dat het gaat om oude punten die hergebruikt worden die niet in de avimap dataset zitten.
+
 ```{r}
-export_mas_2022 <- st_read(
+waldo::compare(sort(plotnaam_2022),
+               sort(steekproef_ol_avimap_raw$definitief_punt),
+               max_diffs = Inf)
+```
+
+We vergelijken met de telpunten van 2023.
+We zien opnieuw dat het gaat om oude punten die hergebruikt worden die niet in de avimap dataset zitten, maar ook 1 recent punt dat niet meer is geteld in 2023.
+
+```{r}
+waldo::compare(sort(plotnaam_2023),
+               sort(steekproef_ol_avimap_raw$definitief_punt),
+               max_diffs = Inf)
+```
+
+Als we de punten van 2022 en 2023 onderling vergelijken, zien we verschil in 3 punten.
+Ol_2954.5 is niet meer geteld in 2023 en VL0363 en VL0605 waren niet geteld in 2022.
+
+```{r}
+waldo::compare(sort(plotnaam_2022), sort(plotnaam_2023),
+               max_diffs = Inf)
+```
+
+We vergelijken met de ruwe data.
+Misschien zijn deze wel geteld, maar buiten telperiodes of dergelijke.
+
+```{r}
+export_mas <- st_read(
   here(
     "data", "mas", "20230509_qgis_export_sovon_wfs.geojson")
   )
 
-export_ol_2022 <- export_mas_2022 %>%
-  st_transform(31370) %>%
-  st_intersection(perimeters_ol)
-
-plotnaam_ol_2022 <- export_ol_2022 %>%
-  st_drop_geometry() %>%
-  distinct(plotnaam) %>%
-  pull()
+export_mas_2023 <- st_read(
+  here(
+    "data", "mas", "20230810_qgis_export_sovon_wfs_2023.geojson")
+  )
 ```
 
-Zijn dit effectief de punten die in 2022 zijn geteld?
+Ol_2954.5: geen data in 2023
 
 ```{r}
-waldo::compare(sort(plotnaam_ol_2022),
-               sort(steekproef_ol_avimap_raw$definitief_punt))
+export_mas_2023 %>%
+  filter(plotnaam == "Ol_2954.5")
 ```
+
+
+VL0363: geen data in 2022
+
+```{r}
+export_mas %>%
+  filter(plotnaam == "VL0363",
+         jaar == 2022)
+```
+
+VL0605: geen data in 2022
+
+```{r}
+export_mas %>%
+  filter(plotnaam == "VL0605",
+         jaar == 2022)
+```
+
+Welke punten nemen we op?
 
 ## Westelijke leemstreek
 ### Steekproefkader
@@ -359,7 +401,7 @@ Zijn dit effectief de punten die vorig jaar zijn geteld?
 
 ```{r}
 # Get names of plots from data
-plotnaam_wl <- export_mas %>%
+plotnaam_wl <- export_mas_2023 %>%
   st_drop_geometry() %>%
   filter(grepl("^Lm", plotnaam)) %>%
   distinct(plotnaam) %>%
@@ -457,7 +499,7 @@ Zijn dit effectief de punten die vorig jaar zijn geteld?
 
 ```{r}
 # Get names of plots from data
-plotnaam_zn <- export_mas %>%
+plotnaam_zn <- export_mas_2023 %>%
   st_drop_geometry() %>%
   filter(grepl("^Zn", plotnaam)) %>%
   distinct(plotnaam) %>%
@@ -471,7 +513,7 @@ waldo::compare(sort(plotnaam_zn),
 Yes. De mismatch is een punt die wel geteld is maar is overgenomen van de pilootstudie in De Moeren.
 
 ```{r}
-old_points <- export_mas %>%
+old_points <- export_mas_2023 %>%
   st_drop_geometry() %>%
   distinct(plotnaam) %>%
   pull()
