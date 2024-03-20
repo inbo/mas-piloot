@@ -391,7 +391,7 @@ Dit zijn de punten die in avimap zijn ingevoerd en zijn geteld.
 
 ```{r}
 # Read in final steekproef Leemstreek
-steekproef_leemstreek_avimap_raw <- st_read(
+steekproef_wl_avimap_raw <- st_read(
   here(
     "data", "processed", "steekproef_leemstreek_avimap.gpkg")
   )
@@ -409,16 +409,16 @@ plotnaam_wl <- export_mas_2023 %>%
 
 # Make comparison
 waldo::compare(sort(plotnaam_wl),
-               sort(steekproef_leemstreek_avimap_raw$pointid))
+               sort(steekproef_wl_avimap_raw$pointid))
 ```
 
 Yes.
 
 ```{r}
-steekproef_leemstreek_avimap <- steekproef_wl %>%
+steekproef_wl_avimap <- steekproef_wl %>%
   filter(pointid %in% plotnaam_wl)
 
-head(steekproef_leemstreek_avimap) %>%
+head(steekproef_wl_avimap) %>%
   kable(digits = 2)
 ```
 
@@ -489,7 +489,7 @@ Dit zijn de punten die in avimap zijn ingevoerd.
 
 ```{r}
 # Read in final steekproef Zandleemstreek
-steekproef_zandleemstreek_avimap_raw <- st_read(
+steekproef_zn_avimap_raw <- st_read(
   here(
     "data", "processed", "steekproef_zandleemstreek_avimap.gpkg")
   )
@@ -507,7 +507,7 @@ plotnaam_zn <- export_mas_2023 %>%
 
 # Make comparison
 waldo::compare(sort(plotnaam_zn),
-               sort(steekproef_zandleemstreek_avimap_raw$pointid))
+               sort(steekproef_zn_avimap_raw$pointid))
 ```
 
 Yes. De mismatch is een punt die wel geteld is maar is overgenomen van de pilootstudie in De Moeren.
@@ -522,30 +522,71 @@ old_points <- export_mas_2023 %>%
 ```
 
 ```{r}
-steekproef_zandleemstreek_avimap <- steekproef_zn %>%
-  filter(pointid %in% unique(steekproef_zandleemstreek_avimap_raw$pointid))
+steekproef_zn_avimap <- steekproef_zn %>%
+  filter(pointid %in% unique(steekproef_zn_avimap_raw$pointid))
 
-head(steekproef_zandleemstreek_avimap) %>%
+head(steekproef_zn_avimap) %>%
   kable(digits = 2)
 ```
 
 # Uitschrijven datasets
+
+```{r}
+dir.create(here("data", "steekproefkaders"), showWarnings = FALSE)
+```
+
+
 ## Steekproefkader
 
 Dit is een CSV-bestand van alle steekproefkaders.
 In het MBAG project worden deze van andere landbouwregio's hieraan toegevoegd.
 
+```{r}
+bind_rows(
+    steekproefkader_ol,
+    steekproefkader_wl,
+    steekproefkader_zn) %>%
+  write_csv(here("data", "steekproefkaders", "steekproefkader_mbag_piloot.csv"))
+```
 
 ## Gewichten steekproefkader
 
 Dit zijn aparte CSV-bestanden voor elke regio.
+
+```{r}
+write_csv(gewichten_ol, 
+          here("data", "steekproefkaders",
+               "gewichten_oostelijke_leemstreek.csv"))
+write_csv(gewichten_wl, 
+          here("data", "steekproefkaders",
+               "gewichten_westelijke_leemstreek.csv"))
+write_csv(gewichten_zn, 
+          here("data", "steekproefkaders",
+               "gewichten_zandleemstreek.csv"))
+```
 
 ## Steekproef
 
 Dit is een CSV-bestand van alle steekproeven.
 In het MBAG project worden deze van andere landbouwregio's hieraan toegevoegd.
 
+```{r}
+bind_rows(
+    steekproef_ol,
+    steekproef_wl,
+    steekproef_zn) %>%
+  write_csv(here("data", "steekproefkaders", "steekproef_mbag_piloot.csv"))
+```
+
 ## Finale steekproef na manuele controle
 
 Dit is een CSV-bestand van alle finale telpunten.
 In het MBAG project worden deze van andere landbouwregio's hieraan toegevoegd.
+
+```{r}
+bind_rows(
+    #steekproef_ol_avimap,
+    steekproef_wl_avimap,
+    steekproef_zn_avimap) %>%
+  write_csv(here("data", "steekproefkaders", "steekproef_avimap_mbag_piloot.csv"))
+```
