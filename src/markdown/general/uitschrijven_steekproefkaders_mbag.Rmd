@@ -291,6 +291,50 @@ export_mas %>%
 
 Welke punten nemen we op?
 
+> Voorlopig nemen we de geclaimde punten.
+
+We nemen de gerecycleerde punten en berekenen de SBP variabele.
+
+```{r}
+# We need to calculate SBP variable for the old points
+old_points_ol_avimap_sf <- steekproef_ol_avimap_raw %>%
+  filter(!grepl("^Ol", definitief_punt)) %>%
+  separate_wider_delim(stratum, " ",
+                       names = c("openheid_klasse", "sbp", "plan")) %>%
+  mutate(batch = NA,
+         area_prop_sb = NA) %>%
+  select(pointid = definitief_punt, sample_order, batch, regio, area_prop_sb,
+         openheid_klasse, x_coord = X, y_coord = Y) %>%
+  st_as_sf(coords = c("x_coord", "y_coord"), crs = 31370)
+
+old_points_ol_avimap_sf2 <- add_stratum_sbp(
+      punten_sf = old_points_ol_avimap_sf,
+      sbp = sbp_akkervogels
+      )
+
+old_points_ol_avimap <- old_points_ol_avimap_sf2 %>%
+  mutate(x_coord = st_coordinates(geometry)[,1],
+         y_coord = st_coordinates(geometry)[,2]) %>%
+  st_drop_geometry() %>%
+  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370) %>%
+  select(pointid, sample_order, batch, regio, area_prop_sb, openheid_klasse,
+         sbp, x_coord, y_coord, crs)
+```
+
+We voegen deze toe aan de andere punten om tot een finale dataset te komen.
+
+```{r}
+steekproef_ol_avimap <- steekproef_ol %>%
+  filter(pointid %in% unique(steekproef_ol_avimap_raw$definitief_punt)) %>%
+  bind_rows(old_points_ol_avimap)
+
+head(steekproef_ol_avimap) %>%
+  kable(digits = 2)
+```
+
+Dit zijn `r nrow(steekproef_ol_avimap)` punten.
+
 ## Westelijke leemstreek
 ### Steekproefkader
 
@@ -585,7 +629,7 @@ In het MBAG project worden deze van andere landbouwregio's hieraan toegevoegd.
 
 ```{r}
 bind_rows(
-    #steekproef_ol_avimap,
+    steekproef_ol_avimap,
     steekproef_wl_avimap,
     steekproef_zn_avimap) %>%
   write_csv(here("data", "steekproefkaders",
