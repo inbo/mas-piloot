@@ -187,24 +187,8 @@
     },
     "INLA": {
       "Package": "INLA",
-      "Version": "23.05.10",
-      "Source": "Repository",
-      "Repository": "INLA",
-      "Requirements": [
-        "Matrix",
-        "R",
-        "foreach",
-        "grDevices",
-        "graphics",
-        "lifecycle",
-        "methods",
-        "parallel",
-        "sp",
-        "splines",
-        "stats",
-        "utils"
-      ],
-      "Hash": "7503884c091e38bf2d9f8056f90f336b"
+      "Version": "24.06.27",
+      "Source": "Repository"
     },
     "ISOweek": {
       "Package": "ISOweek",
