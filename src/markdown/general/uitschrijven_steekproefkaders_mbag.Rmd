@@ -188,6 +188,15 @@ head(steekproef_ol) %>%
 
 ### Finale steekproef na manuele controle
 
+We selecteren 4 types punten:
+
+- behouden, eerste set
+- punten die worden vervangen door reserve
+- punten die worden vervangen door reserve, die op hun plaats worden vervangen door een bestaand
+- vervangen door bestaand
+
+Totaal aantal punten per batch.
+
 ```{r}
 # Create data path
 data_path <- here("data", "mas")
@@ -205,7 +214,11 @@ beslissingen_ol <- read_KML(kml_file) %>%
 beslissingen_ol %>%
   filter(beslissing != "dubbel") %>%
   count(batch)
+```
 
+We hebben 9 punten tekort in eerste batch.
+
+```{r}
 # behouden, eerste set
 behouden <- beslissingen_ol %>%
   filter(beslissing == "behouden" & batch == "eerste set")
@@ -238,18 +251,30 @@ length(unique(
     vervangen_door_oud$vervanging_id,
     vervangen_door_reserve$pointid,
     vervangen_door_reserve_door_oud$vervanging_id)))
+```
 
+Waar zitten de missende punten?
+
+```{r}
 # We komen nog 9 te kort
 beslissingen_ol %>%
   filter(beslissing != "dubbel") %>%
   filter(batch == "eerste set") %>%
   count(beslissing)
+```
 
+Behouden ok.
+
+```{r}
 # behouden?
 length(unique(behouden$pointid))
 sum(is.na(behouden$pointid))
 # ok
+```
 
+We missen 1 punt dat niet vervangen is door een bestaand.
+
+```{r}
 # vervangen door bestaand?
 length(unique(vervangen_door_oud$vervanging_id))
 sum(is.na(vervangen_door_oud$vervanging_id))
@@ -257,21 +282,33 @@ niet_vervangen_door_oud <- vervangen_door_oud %>%
   filter(is.na(vervanging_id))
 niet_vervangen_door_oud
 # We missen 1 punt dat niet vervangen is
+```
 
+We missen 5 punten die niet vervangen zijn door reserve.
+
+```{r}
 # vervangen door reserve?
 niet_vervangen_door_reserve <- beslissingen_ol %>%
   filter(beslissing == "vervangen door reserve" & batch == "eerste set") %>%
   filter(is.na(vervanging_id))
 niet_vervangen_door_reserve
 # We missen 5 punten die niet vervangen zijn
+```
 
+We hebben 3 punten die 2x als vervanging dienen.
+
+```{r}
 beslissingen_ol %>%
   filter(beslissing == "vervangen door reserve" & batch == "eerste set") %>%
   filter(!is.na(vervanging_id)) %>%
   count(vervanging_id) %>%
   filter(n != 1)
 # We hebben 3 punten die zogezegd 2x als vervanging dienen
+```
 
+We schrijven deze punten weg.
+
+```{r}
 double_vervanging_id <- beslissingen_ol %>%
   filter(beslissing == "vervangen door reserve" & batch == "eerste set") %>%
   filter(!is.na(vervanging_id)) %>%
@@ -283,11 +320,11 @@ beslissingen_ol %>%
   filter(vervanging_id %in% double_vervanging_id |
            pointid %in% double_vervanging_id) %>%
   arrange(vervanging_id) %>%
-  write_csv("dubbele_vervangingen.csv")
+  write_csv(file.path(data_path, "dubbele_vervangingen.csv"))
 
 write_csv(rbind.data.frame(niet_vervangen_door_oud,
                            niet_vervangen_door_reserve),
-          "niet_vervangen_oostelijke_leemstreek.csv")
+          file.path(data_path, "niet_vervangen_oostelijke_leemstreek.csv"))
 ```
 
 Dit zijn de punten die in avimap zijn ingevoerd.
