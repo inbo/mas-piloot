@@ -216,7 +216,7 @@ beslissingen_ol %>%
   count(batch)
 ```
 
-We hebben 9 punten tekort in eerste batch.
+We hebben 9 punten tekort in eerste batch?
 
 ```{r}
 # behouden, eerste set
@@ -246,11 +246,13 @@ vervangen_door_oud <- beslissingen_ol %>%
                            "vervanging, vervangen door bestaand") & 
            batch == "eerste set")
 
-length(unique(
+final_points_ol <- unique(
   c(behouden$pointid,
     vervangen_door_oud$vervanging_id,
     vervangen_door_reserve$pointid,
-    vervangen_door_reserve_door_oud$vervanging_id)))
+    vervangen_door_reserve_door_oud$vervanging_id))
+
+length(final_points_ol)
 ```
 
 Waar zitten de missende punten?
