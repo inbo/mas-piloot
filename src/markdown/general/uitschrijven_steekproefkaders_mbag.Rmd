@@ -35,6 +35,7 @@ library(tidyverse)
 library(sf)
 library(nngeo)
 library(mapview)
+library(terra)
 
 # Source
 mbag_dir <- here()
@@ -216,7 +217,7 @@ beslissingen_ol %>%
   count(batch)
 ```
 
-We hebben 9 punten tekort in eerste batch?
+We hebben 10 punten tekort in eerste batch.
 
 ```{r}
 # behouden, eerste set
@@ -251,6 +252,7 @@ final_points_ol <- unique(
     vervangen_door_oud$vervanging_id,
     vervangen_door_reserve$pointid,
     vervangen_door_reserve_door_oud$vervanging_id))
+final_points_ol <- final_points_ol[!is.na(final_points_ol)]
 
 length(final_points_ol)
 ```
@@ -329,146 +331,66 @@ write_csv(rbind.data.frame(niet_vervangen_door_oud,
           file.path(data_path, "niet_vervangen_oostelijke_leemstreek.csv"))
 ```
 
-Dit zijn de punten die in avimap zijn ingevoerd.
-
-```{r}
-# Read in final steekproef pilot study
-steekproef_piloot_avimap <- git2rdata::read_vc(
-  file.path(
-    "data", "processed", "steekproef_piloot_avimap")
-  )
-
-# Select Oostelijke leemstreek
-steekproef_ol_avimap_raw <- steekproef_piloot_avimap %>%
-  filter(regio == "Oostelijke leemstreek",
-         status_claim == "geclaimd")
-```
-
-Zijn dit effectief de punten die vorig jaar zijn geteld?
-
-```{r}
-mas_data_full <- read_csv(
-  here("data", "processed","MAS_data_full_2018_2023.csv"))
-
-plotnaam_2022 <- mas_data_full %>%
-  filter(regio == "Oostelijke leemstreek",
-         jaar == 2022) %>%
-  distinct(plotnaam) %>%
-  arrange(plotnaam) %>%
-  pull()
-
-plotnaam_2023 <- mas_data_full %>%
-  filter(regio == "Oostelijke leemstreek",
-         jaar == 2023) %>%
-  distinct(plotnaam) %>%
-  arrange(plotnaam) %>%
-  pull()
-```
-
-We vergelijken met de telpunten van 2022.
-We zien dat het gaat om oude punten die hergebruikt worden die niet in de avimap dataset zitten.
-
-```{r}
-waldo::compare(sort(plotnaam_2022),
-               sort(steekproef_ol_avimap_raw$definitief_punt),
-               max_diffs = Inf)
-```
-
-We vergelijken met de telpunten van 2023.
-We zien opnieuw dat het gaat om oude punten die hergebruikt worden die niet in de avimap dataset zitten, maar ook 1 recent punt dat niet meer is geteld in 2023.
-
-```{r}
-waldo::compare(sort(plotnaam_2023),
-               sort(steekproef_ol_avimap_raw$definitief_punt),
-               max_diffs = Inf)
-```
-
-Als we de punten van 2022 en 2023 onderling vergelijken, zien we verschil in 3 punten.
-Ol_2954.5 is niet meer geteld in 2023 en VL0363 en VL0605 waren niet geteld in 2022.
-
-```{r}
-waldo::compare(sort(plotnaam_2022), sort(plotnaam_2023),
-               max_diffs = Inf)
-```
-
-We vergelijken met de ruwe data.
-Misschien zijn deze wel geteld, maar buiten telperiodes of dergelijke.
-
-```{r}
-export_mas <- st_read(
-  here(
-    "data", "mas", "20230509_qgis_export_sovon_wfs.geojson")
-  )
-
-export_mas_2023 <- st_read(
-  here(
-    "data", "mas", "20230810_qgis_export_sovon_wfs_2023.geojson")
-  )
-```
-
-Ol_2954.5: geen data in 2023
-
-```{r}
-export_mas_2023 %>%
-  filter(plotnaam == "Ol_2954.5")
-```
-
-
-VL0363: geen data in 2022
-
-```{r}
-export_mas %>%
-  filter(plotnaam == "VL0363",
-         jaar == 2022)
-```
-
-VL0605: geen data in 2022
-
-```{r}
-export_mas %>%
-  filter(plotnaam == "VL0605",
-         jaar == 2022)
-```
-
-Welke punten nemen we op?
-
-> Voorlopig nemen we de geclaimde punten.
-
 We nemen de gerecycleerde punten en berekenen de SBP variabele.
 
 ```{r}
+old_points <- st_read(file.path(
+    "data", "SOVON", "avimap_601_0_MAS_Vlaanderen_telpunten_xy.shp"))
+
+oostelijke_leemstreek <- st_read(path_to_perimeters()) %>%
+  filter(Naam == "Oostelijke leemstreek")
+
 # We need to calculate SBP variable for the old points
-old_points_ol_avimap_sf <- steekproef_ol_avimap_raw %>%
-  filter(!grepl("^Ol", definitief_punt)) %>%
-  separate_wider_delim(stratum, " ",
-                       names = c("openheid_klasse", "sbp", "plan")) %>%
-  mutate(batch = NA,
-         area_prop_sb = NA) %>%
-  select(pointid = definitief_punt, sample_order, batch, regio, area_prop_sb,
-         openheid_klasse, x_coord = X, y_coord = Y) %>%
-  st_as_sf(coords = c("x_coord", "y_coord"), crs = 31370)
+old_points_ol_avimap_sf <- old_points %>%
+  filter(grepl("^VL", naam)) %>%
+  rename("pointid" = "naam") %>%
+  st_transform(crs = 31370)
 
 old_points_ol_avimap_sf2 <- add_stratum_sbp(
       punten_sf = old_points_ol_avimap_sf,
       sbp = sbp_akkervogels
+      ) %>%
+  st_join(oostelijke_leemstreek) %>%
+  filter(!is.na(Naam)) %>%
+  select(-"regio") %>%
+  rename("regio" = "Naam")
+
+# We need to calculate openheid variable for the old points
+old_points_ol_sbp <- add_openheid_landschap_to_frame(
+      path = path_to_openheid_landschap(),
+      punten_sf = old_points_ol_avimap_sf2,
+      gebied = oostelijke_leemstreek,
+      cutlevels = c(1.25, 1.35, 1.51),
+      class_labels = c("GL", "HGL", "HOL", "OL")
       )
 
-old_points_ol_avimap <- old_points_ol_avimap_sf2 %>%
+old_points_ol_avimap <- old_points_ol_sbp %>%
   mutate(x_coord = st_coordinates(geometry)[,1],
          y_coord = st_coordinates(geometry)[,2]) %>%
   st_drop_geometry() %>%
   mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
          crs = 31370) %>%
-  select(pointid, sample_order, batch, regio, area_prop_sb, openheid_klasse,
-         sbp, x_coord, y_coord, crs)
+  select(pointid, regio, openheid_klasse, sbp, x_coord, y_coord, crs)
+
+old_points_ol_avimap %>%
+  write_csv(file.path(data_path, "old_points_ol_strata.csv"))
 ```
 
 We voegen deze toe aan de andere punten om tot een finale dataset te komen.
 
 ```{r}
+old_points_to_add <- old_points_ol_avimap %>%
+  filter(pointid %in% final_points_ol) %>%
+  left_join(beslissingen_ol %>% select(-"pointid"),
+            by = join_by("pointid" == "vervanging_id")) %>%
+  mutate(area_prop_sb = NA,
+         sample_order = as.numeric(sample_order)) %>%
+  select("pointid", "sample_order", "batch", "regio", "area_prop_sb",
+         "openheid_klasse", "sbp",   "x_coord", "y_coord", "crs")
+
 steekproef_ol_avimap <- steekproef_ol %>%
-  filter(pointid %in% unique(steekproef_ol_avimap_raw$definitief_punt)) %>%
-  bind_rows(old_points_ol_avimap)
+  filter(pointid %in% final_points_ol) %>%
+  bind_rows(old_points_to_add)
 
 head(steekproef_ol_avimap) %>%
   kable(digits = 2)
@@ -586,6 +508,11 @@ Zijn dit effectief de punten die vorig jaar zijn geteld?
 
 ```{r}
 # Get names of plots from data
+export_mas_2023 <- st_read(
+  here(
+    "data", "mas", "20230810_qgis_export_sovon_wfs_2023.geojson")
+  )
+
 plotnaam_wl <- export_mas_2023 %>%
   st_drop_geometry() %>%
   filter(grepl("^Lm", plotnaam)) %>%
