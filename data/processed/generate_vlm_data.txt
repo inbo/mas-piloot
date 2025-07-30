@@ -1,0 +1,7 @@
+library(tidyverse)
+test <- read_csv(here::here("C:\\R\\git_repositories\\projecten\\mas-piloot", "data", "processed", "MAS_data_full_2018_2023.csv"))
+out_data <- test %>%
+    select(-broedcode, -clterr, -clterrid, -inplot, -periodeid, -periode) %>%
+    select(oid, projectid, plotid, plotnaam, x_amersfoort = x_amersfoord, y_amersfoort = y_amersfoord, x_lambert, y_lambert, regio, distance2plot, soortgrp, soortnr, naam, aantal, jaar, maand, dag, doy, datum, periode_in_jaar, wrntype, wrntype_omschrijving, opmerk, waarnemer, status_teller, everything()) %>%
+    arrange(regio, datum, plotid, oid)
+write_csv(out_data, here::here("C:\\R\\git_repositories\\projecten\\mas-piloot", "data", "processed", "mas_piloot_data_vlm", "mas_piloot_data_2018_2023.csv"))
