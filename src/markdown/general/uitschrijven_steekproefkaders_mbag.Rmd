@@ -1,0 +1,859 @@
+---
+title: "Uitschrijven steekproefkaders MBAG"
+author: "Ward Langeraert"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+# renv
+# renv::restore()
+
+# Set up
+library(knitr)
+library(here)
+opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE)
+opts_knit$set(root.dir = here())
+
+# Conflicting packages
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(dplyr::lag)
+
+# Packages
+library(tidyverse)
+library(sf)
+library(nngeo)
+library(mapview)
+library(terra)
+
+# Source
+mbag_dir <- here()
+source(file.path(mbag_dir, "src", "R", "steekproefkader.R"))
+source(file.path(mbag_dir, "src", "R", "berekening_hulpvariabelen.R"))
+```
+
+# Doel
+
+We willen voor het MBAG project een duidelijk overzicht van het steekproefkader en de steekproef.
+Hiervoor schrijven we uit het pilootproject voor de Leemstreek en de Zandleemstreek 4 bestanden weg (als CSV-bestanden):
+
+1.  steekproefkader
+
+2.  gewichten steekproefkader
+
+3.  steekproef
+
+4.  finale steekproef na manuele controle (punten die effectief zijn geteld)
+
+# Leemstreek
+
+We splitsen de Leemstreek op in twee delen aangezien de Oostelijke leemstreek deel uitmaakte van het pilootproject.
+
+## Oostelijke leemstreek
+### Steekproefkader
+
+Voor de Oostelijke leemstreek moeten we de variabele SBP opnieuw berekenen omdat we voor het MAS vlaanderen ook andere SBP lagen gebruiken.
+Bovendien werd `area_prop_sb` berekend op basis van de kaart van 2021, maar hier werd geen gebruik van gemaakt bij de steekproeftrekking (in het geval van MBAG wordt deze berekend op basis van de kaart van 2022 en wel in rekening genomen voor een gebalanceerde steekproef).
+We zetten deze variabele hier op `NA` omdat deze niet is gebruikt.
+We lezen het steekproefkader in van de pilootstudie en selecteren de Oostelijke leemstreek.
+
+```{r}
+# Read in steekproefkader pilot study
+steekproefkader_piloot <- git2rdata::read_vc(
+  file.path(
+    "data", "processed", "steekproefkader_piloot")
+  )
+
+# Select Oostelijke leemstreek
+steekproefkader_ol_raw <- steekproefkader_piloot %>%
+  filter(Naam == "Oostelijke leemstreek")
+
+steekproefkader_ol_raw_sf <- steekproefkader_ol_raw %>%
+  st_as_sf(coords = c("X", "Y"), crs = st_crs(31370))
+```
+
+We herberekenen `is_sbp`.
+
+```{r}
+# Get perimeter Oostelijke leemstreek
+perimeters_piloot <- st_read(path_to_perimeters())
+
+perimeters_ol <- perimeters_piloot %>%
+  filter(Naam == "Oostelijke leemstreek")
+
+# Get sbp areas for perimeter
+sbp_akkervogels <- read_sbp_akkervogels(
+      path = path_to_sbp_akkervogels(
+        file = "akkervogelgebieden2022.shp"),
+      gebied = perimeters_ol,
+      path_extra_soorten = path_to_sbp_akkervogels(
+        file = "sbp_overige_soorten.shp"),
+      extra_soorten = c("hamster",
+                        "bruine kiekendief",
+                        "zomertortel", 
+                        "grauwe kiekendief")
+      )
+
+# Calculate variable sbp
+steekproefkader_ol_sbp <- add_stratum_sbp(
+      punten_sf = steekproefkader_ol_raw_sf,
+      sbp = sbp_akkervogels
+      )
+
+# Prepare final dataframe
+steekproefkader_ol <- steekproefkader_ol_sbp %>%
+  mutate(x_coord = st_coordinates(geometry)[,1],
+         y_coord = st_coordinates(geometry)[,2]) %>%
+  st_drop_geometry() %>%
+  mutate(area_prop_sb = NA,
+         sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370) %>%
+  select(pointid, regio = Naam, area_prop_sb, openheid_klasse, sbp, x_coord,
+         y_coord, crs) %>%
+  filter(openheid_klasse %in% c("OL", "HOL"))
+```
+
+Controle berekeningen.
+
+```{r}
+steekproefkader_ol_sf <- steekproefkader_ol %>%
+  st_as_sf(coords = c("x_coord", "y_coord"), crs = st_crs(31370)) %>%
+  mutate(stratum = paste(openheid_klasse, sbp, sep = " - "))
+
+# Visualise
+mapview(steekproefkader_ol_sf,
+        zcol = "sbp", layer = "sbp") +
+  mapview(sbp_akkervogels, col.regions = "red",
+          alpha.regions = 0.5, legend = FALSE)
+```
+
+```{r}
+head(steekproefkader_ol) %>%
+  kable(digits = 2)
+```
+
+### Gewichten steekproefkader
+
+Deze zullen niet hetzelfde zijn als in de oorspronkelijke allocatietabel omdat we sbp hebben herberekend.
+
+```{r}
+gewichten_ol <- steekproefkader_ol %>%
+  count(regio, openheid_klasse, sbp) %>%
+  group_by(openheid_klasse) %>%
+  mutate(prop_openheid = sum(n) / nrow(steekproefkader_ol)) %>%
+  group_by(sbp) %>%
+  mutate(prop_sbp = sum(n) / nrow(steekproefkader_ol)) %>%
+  ungroup() %>%
+  mutate(prop = n / nrow(steekproefkader_ol))
+
+gewichten_ol %>%
+  kable(digits = 5)
+```
+
+### Steekproef
+
+```{r}
+# Read in steekproef pilot study
+steekproef_piloot <- git2rdata::read_vc(
+  file.path(
+    "data", "processed", "steekproef_piloot")
+  )
+
+# Select Oostelijke leemstreek
+steekproef_ol_raw <- steekproef_piloot %>%
+  filter(Naam == "Oostelijke leemstreek")
+```
+
+We voegen de SBP variabele toe door te joinen met het steekproefkader.
+
+```{r}
+# Prepare dataframe
+steekproef_ol <- steekproef_ol_raw %>%
+  select(pointid, sample_order, batch) %>%
+  left_join(steekproefkader_ol, by = join_by(pointid))
+
+head(steekproef_ol) %>%
+  kable(digits = 2)
+```
+
+### Finale steekproef na manuele controle
+
+We selecteren 4 types punten:
+
+- behouden, eerste set
+- punten die worden vervangen door reserve
+- punten die worden vervangen door reserve, die op hun plaats worden vervangen door een bestaand
+- vervangen door bestaand
+
+Totaal aantal punten per batch.
+
+```{r}
+# Create data path
+data_path <- here("data", "mas")
+
+# Source R function to read KML
+source_path <- here("src", "R")
+source(paste(source_path, "read_KML.R", sep = "/"))
+
+# Read data
+kml_file <- paste(data_path, "MAS punten 2022 per teller.kml", sep = "/")
+beslissingen_ol <- read_KML(kml_file) %>%
+  st_drop_geometry() %>%
+  filter(Naam == "Oostelijke leemstreek")
+
+beslissingen_ol %>%
+  filter(beslissing != "dubbel") %>%
+  count(batch)
+```
+
+We hebben 10 punten tekort in eerste batch.
+
+```{r}
+# behouden, eerste set
+behouden <- beslissingen_ol %>%
+  filter(beslissing == "behouden" & batch == "eerste set")
+
+# punten die worden vervangen door reserve
+vervangpunten_reserve <- beslissingen_ol %>%
+  filter(beslissing == "vervangen door reserve" & batch == "eerste set") %>%
+  filter(!is.na(vervanging_id)) %>%
+  pull(vervanging_id) %>%
+  unique()
+
+vervangen_door_reserve <- beslissingen_ol %>%
+  filter(pointid %in% vervangpunten_reserve) %>%
+  filter(is.na(vervanging_id))
+
+# punten die worden vervangen door reserve, die op hun plaats worden vervangen
+# door een bestaand
+vervangen_door_reserve_door_oud <- beslissingen_ol %>%
+  filter(pointid %in% vervangpunten_reserve) %>%
+  filter(!is.na(vervanging_id))
+
+# vervangen door oud
+vervangen_door_oud <- beslissingen_ol %>%
+  filter(beslissing %in% c("vervangen door bestaand",
+                           "vervanging, vervangen door bestaand") & 
+           batch == "eerste set")
+
+final_points_ol <- unique(
+  c(behouden$pointid,
+    vervangen_door_oud$vervanging_id,
+    vervangen_door_reserve$pointid,
+    vervangen_door_reserve_door_oud$vervanging_id))
+final_points_ol <- final_points_ol[!is.na(final_points_ol)]
+
+length(final_points_ol)
+```
+
+Waar zitten de missende punten?
+
+```{r}
+# We komen nog 9 te kort
+beslissingen_ol %>%
+  filter(beslissing != "dubbel") %>%
+  filter(batch == "eerste set") %>%
+  count(beslissing)
+```
+
+Behouden ok.
+
+```{r}
+# behouden?
+length(unique(behouden$pointid))
+sum(is.na(behouden$pointid))
+# ok
+```
+
+We missen 1 punt dat niet vervangen is door een bestaand.
+
+```{r}
+# vervangen door bestaand?
+length(unique(vervangen_door_oud$vervanging_id))
+sum(is.na(vervangen_door_oud$vervanging_id))
+niet_vervangen_door_oud <- vervangen_door_oud %>%
+  filter(is.na(vervanging_id))
+niet_vervangen_door_oud
+# We missen 1 punt dat niet vervangen is
+```
+
+Ol_4871.5
+
+> vervangen door VL0056
+
+```{r}
+final_points_ol <- c(final_points_ol, "VL0056")
+```
+
+We missen 5 punten die niet vervangen zijn door reserve.
+
+```{r}
+# vervangen door reserve?
+niet_vervangen_door_reserve <- beslissingen_ol %>%
+  filter(beslissing == "vervangen door reserve" & batch == "eerste set") %>%
+  filter(is.na(vervanging_id))
+niet_vervangen_door_reserve
+# We missen 5 punten die niet vervangen zijn
+```
+
+Ol_2364.5
+
+> vervangen door VL0555
+
+Ol_6358.22
+
+> vervangen door VL0199
+
+Ol_9621.5
+
+> vervangen door VL0294
+
+Ol_5786
+
+> vervangen door VL0294
+
+Ol_6365.12
+
+> vervangen door VL0199
+
+```{r}
+final_points_ol <- unique(
+  c(final_points_ol, "VL0555", "VL0199", "VL0294", "VL0294", "VL0199")
+)
+```
+
+We hebben 3 punten die 2x als vervanging dienen.
+
+```{r}
+beslissingen_ol %>%
+  filter(beslissing == "vervangen door reserve" & batch == "eerste set") %>%
+  filter(!is.na(vervanging_id)) %>%
+  count(vervanging_id) %>%
+  filter(n != 1)
+# We hebben 3 punten die zogezegd 2x als vervanging dienen
+```
+
+Ol_1069.8
+
+> vervangen door VL0141
+
+Ol_3041.8
+
+> vervangen door VL0154
+
+Ol_3242.2
+
+> niet vervangen, behouden
+
+```{r}
+final_points_ol <- c(final_points_ol, "VL0141", "VL0154")
+```
+
+We schrijven deze punten weg.
+
+```{r}
+double_vervanging_id <- beslissingen_ol %>%
+  filter(beslissing == "vervangen door reserve" & batch == "eerste set") %>%
+  filter(!is.na(vervanging_id)) %>%
+  count(vervanging_id) %>%
+  filter(n != 1) %>%
+  pull(vervanging_id)
+
+beslissingen_ol %>%
+  filter(vervanging_id %in% double_vervanging_id |
+           pointid %in% double_vervanging_id) %>%
+  arrange(vervanging_id) %>%
+  write_csv(file.path(data_path, "dubbele_vervangingen.csv"))
+
+write_csv(rbind.data.frame(niet_vervangen_door_oud,
+                           niet_vervangen_door_reserve),
+          file.path(data_path, "niet_vervangen_oostelijke_leemstreek.csv"))
+```
+
+Verdere controle en overleg toonde nog drie punten die niet geteld worden en moeten vervangen worden:
+
+Ol_815.5
+
+> vervangen door VL0322
+
+Ol_5760.2.14
+
+> vervangen door VL0555
+
+Ol_2025.4
+
+> niet vervangen
+
+```{r}
+final_points_ol <- unique(c(final_points_ol, "VL0322", "VL0555"))
+final_points_ol <- final_points_ol[
+  -which(final_points_ol %in% c("Ol_815.5", "Ol_5760.2.14", "Ol_2025.4"))
+]
+```
+
+We nemen de gerecycleerde punten en berekenen de SBP variabele.
+
+```{r}
+old_points <- st_read(file.path(
+    "data", "SOVON", "avimap_601_0_MAS_Vlaanderen_telpunten_xy.shp"))
+
+oostelijke_leemstreek <- st_read(path_to_perimeters()) %>%
+  filter(Naam == "Oostelijke leemstreek")
+
+# We need to calculate SBP variable for the old points
+old_points_ol_avimap_sf <- old_points %>%
+  filter(grepl("^VL", naam)) %>%
+  rename("pointid" = "naam") %>%
+  st_transform(crs = 31370)
+
+old_points_ol_avimap_sf2 <- add_stratum_sbp(
+    punten_sf = old_points_ol_avimap_sf,
+    sbp = sbp_akkervogels
+) %>%
+  st_join(oostelijke_leemstreek) %>%
+  filter(!is.na(Naam)) %>%
+  select(-"regio") %>%
+  rename("regio" = "Naam")
+
+# We need to calculate openheid variable for the old points
+old_points_ol_sbp <- add_openheid_landschap_to_frame(
+      path = path_to_openheid_landschap(),
+      punten_sf = old_points_ol_avimap_sf2,
+      gebied = oostelijke_leemstreek,
+      cutlevels = c(1.25, 1.35, 1.51),
+      class_labels = c("GL", "HGL", "HOL", "OL")
+      )
+
+old_points_ol_avimap <- old_points_ol_sbp %>%
+  mutate(x_coord = st_coordinates(geometry)[,1],
+         y_coord = st_coordinates(geometry)[,2]) %>%
+  st_drop_geometry() %>%
+  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370) %>%
+  select(pointid, regio, openheid_klasse, sbp, x_coord, y_coord, crs)
+
+old_points_ol_avimap %>%
+  write_csv(file.path(data_path, "old_points_ol_strata.csv"))
+```
+
+We voegen deze toe aan de andere punten om tot een finale dataset te komen.
+
+```{r}
+old_points_to_add <- old_points_ol_avimap %>%
+  filter(pointid %in% final_points_ol) %>%
+  left_join(beslissingen_ol %>% select(-"pointid"),
+            by = join_by("pointid" == "vervanging_id")) %>%
+  mutate(area_prop_sb = NA,
+         sample_order = as.numeric(sample_order)) %>%
+  select("pointid", "sample_order", "batch", "regio", "area_prop_sb",
+         "openheid_klasse", "sbp",   "x_coord", "y_coord", "crs")
+
+steekproef_ol_avimap <- steekproef_ol %>%
+  filter(pointid %in% final_points_ol) %>%
+  bind_rows(old_points_to_add)
+
+head(steekproef_ol_avimap) %>%
+  kable(digits = 2)
+```
+
+Dit zijn `r nrow(steekproef_ol_avimap)` punten.
+
+## Westelijke leemstreek
+### Steekproefkader
+
+We lezen het steekproefkader in van de Leemstreek. We lezen ook de perimeters van de Oostelijke leemstreek in zodat we de punten van de Westelijke leemstreek kunnen selecteren.
+
+```{r}
+# Read in steekproefkader Leemstreek, Zandleemstreek
+steekproefkader_zavelberg <- git2rdata::read_vc(
+  file.path(
+    "src", "targets", "mas_steekproef_zavelberg", "output", "steekproefkader")
+  )
+
+# Select Leemstreek
+steekproefkader_leemstreek <- steekproefkader_zavelberg %>%
+   filter(Naam == "Leemstreek") 
+
+# Convert to sf
+steekproefkader_leemstreek_sf <- steekproefkader_leemstreek %>%
+  st_as_sf(coords = c("X", "Y"), crs = st_crs(31370))
+
+# Use perimeter to select points Westelijke leemstreek
+steekproefkader_wl_sf <- st_difference(steekproefkader_leemstreek_sf,
+                                       perimeters_ol)
+
+# Prepare final dataframe
+steekproefkader_wl <- steekproefkader_wl_sf %>%
+  mutate(x_coord = st_coordinates(geometry)[,1],
+         y_coord = st_coordinates(geometry)[,2]) %>%
+  st_drop_geometry() %>%
+  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370,
+         regio = "Westelijke leemstreek") %>%
+  select(pointid, regio, area_prop_sb, openheid_klasse, sbp, x_coord, y_coord,
+         crs) %>%
+  filter(openheid_klasse %in% c("OL", "HOL"))
+```
+
+```{r}
+head(steekproefkader_wl) %>%
+  kable(digits = 2)
+```
+
+### Gewichten steekproefkader
+
+Deze zullen niet hetzelfde zijn als in de oorspronkelijke allocatietabel omdat we een subset van de Leemstreek hebben
+
+```{r}
+gewichten_wl <- steekproefkader_wl %>%
+  count(regio, openheid_klasse, sbp) %>%
+  group_by(openheid_klasse) %>%
+  mutate(prop_openheid = sum(n) / nrow(steekproefkader_wl)) %>%
+  group_by(sbp) %>%
+  mutate(prop_sbp = sum(n) / nrow(steekproefkader_wl)) %>%
+  ungroup() %>%
+  mutate(prop = n / nrow(steekproefkader_wl))
+
+gewichten_wl %>%
+  kable(digits = 5)
+```
+
+### Steekproef
+
+We maken weer een overlay zodat we enkel de punten van de Westelijke leemstreek selecteren.
+
+```{r}
+# Read in steekproef Leemstreek, Zandleemstreek
+steekproef_zavelberg <- git2rdata::read_vc(
+  file.path(
+    "src", "targets", "mas_steekproef_zavelberg", "output", "steekproef")
+  )
+
+# Select Leemstreek
+steekproef_leemstreek <- steekproef_zavelberg %>%
+  filter(Naam == "Leemstreek")
+```
+
+```{r}
+# Convert to sf
+steekproef_leemstreek_sf <- steekproef_leemstreek %>%
+  st_as_sf(coords = c("X", "Y"), crs = st_crs(31370))
+
+# Use perimeter to select points Westelijke leemstreek
+steekproef_wl_sf <- st_difference(steekproef_leemstreek_sf, perimeters_ol)
+
+# Prepare final dataframe
+steekproef_wl <- steekproef_wl_sf %>%
+  st_drop_geometry() %>%
+  select(pointid, sample_order, batch) %>%
+  left_join(steekproefkader_wl, by = join_by(pointid))
+
+head(steekproef_wl) %>%
+  kable(digits = 2)
+```
+
+### Finale steekproef na manuele controle
+
+Dit zijn de punten die in avimap zijn ingevoerd en zijn geteld.
+
+```{r}
+# Read in final steekproef Leemstreek
+steekproef_wl_avimap_raw <- st_read(
+  here(
+    "data", "processed", "steekproef_leemstreek_avimap.gpkg")
+  )
+```
+
+Zijn dit effectief de punten die vorig jaar zijn geteld?
+
+```{r}
+# Get names of plots from data
+export_mas_2023 <- st_read(
+  here(
+    "data", "mas", "20230810_qgis_export_sovon_wfs_2023.geojson")
+  )
+
+plotnaam_wl <- export_mas_2023 %>%
+  st_drop_geometry() %>%
+  filter(grepl("^Lm", plotnaam)) %>%
+  distinct(plotnaam) %>%
+  pull()
+
+# Make comparison
+waldo::compare(sort(plotnaam_wl),
+               sort(steekproef_wl_avimap_raw$pointid))
+```
+
+Yes.
+
+```{r}
+steekproef_wl_avimap <- steekproef_wl %>%
+  filter(pointid %in% plotnaam_wl)
+
+head(steekproef_wl_avimap) %>%
+  kable(digits = 2)
+```
+
+# Zandleemstreek
+## Steekproefkader
+
+We lezen het steekproefkader in van de Zandeemstreek.
+
+```{r}
+# Select Zandleemstreek
+steekproefkader_zandleemstreek <- steekproefkader_zavelberg %>%
+   filter(Naam == "Zandleemstreek") 
+
+# Prepare final dataframe
+steekproefkader_zn <- steekproefkader_zandleemstreek %>%
+  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370) %>%
+  select(pointid, regio = Naam, area_prop_sb, openheid_klasse, sbp, x_coord = X,
+         y_coord = Y, crs) %>%
+  filter(openheid_klasse %in% c("OL", "HOL"))
+```
+
+```{r}
+head(steekproefkader_zn) %>%
+  kable(digits = 2)
+```
+
+## Gewichten steekproefkader
+
+De aantallen zijn hetzelfde als in de oorspronkelijke allocatietabel.
+
+```{r}
+gewichten_zn <- steekproefkader_zn %>%
+  count(regio, openheid_klasse, sbp) %>%
+  group_by(openheid_klasse) %>%
+  mutate(prop_openheid = sum(n) / nrow(steekproefkader_zn)) %>%
+  group_by(sbp) %>%
+  mutate(prop_sbp = sum(n) / nrow(steekproefkader_zn)) %>%
+  ungroup() %>%
+  mutate(prop = n / nrow(steekproefkader_zn))
+
+gewichten_zn %>%
+  kable(digits = 5)
+```
+
+## Steekproef
+
+```{r}
+# Select Zandleemstreek
+steekproef_zandleemstreek <- steekproef_zavelberg %>%
+  filter(Naam == "Zandleemstreek")
+
+# Prepare final dataframe
+steekproef_zn <- steekproef_zandleemstreek %>%
+  st_drop_geometry() %>%
+  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370) %>%
+  select(pointid, sample_order, batch, regio = Naam, area_prop_sb,
+         openheid_klasse, sbp, x_coord = X, y_coord = Y, crs)
+
+head(steekproef_zn) %>%
+  kable(digits = 2)
+```
+
+## Finale steekproef na manuele controle
+
+Dit zijn de punten die in avimap zijn ingevoerd.
+
+```{r}
+# Read in final steekproef Zandleemstreek
+steekproef_zn_avimap_raw <- st_read(
+  here(
+    "data", "processed", "steekproef_zandleemstreek_avimap.gpkg")
+  )
+```
+
+Zijn dit effectief de punten die vorig jaar zijn geteld?
+
+```{r}
+# Get names of plots from data
+plotnaam_zn <- export_mas_2023 %>%
+  st_drop_geometry() %>%
+  filter(grepl("^Zn", plotnaam)) %>%
+  distinct(plotnaam) %>%
+  pull()
+
+# Make comparison
+waldo::compare(sort(plotnaam_zn),
+               sort(steekproef_zn_avimap_raw$pointid))
+```
+
+Yes. De mismatch is een punt die wel geteld is maar is overgenomen van de pilootstudie in De Moeren.
+
+```{r}
+old_points <- export_mas_2023 %>%
+  st_drop_geometry() %>%
+  distinct(plotnaam) %>%
+  pull()
+
+"DM_386.7" %in%  old_points
+```
+
+We hebben enkele probleem gevallen:
+
+Zn_16017.18
+
+> vervangen door VL0614
+
+Zn_91647.2
+
+> vervangen door VL0612
+
+Nieuwe punten:
+VL0617
+VL0608
+VL0611
+VL0616
+
+```{r}
+final_points_zn <- sort(plotnaam_zn)
+
+final_points_zn <- unique(
+  c(final_points_zn, "VL0614", "VL0612", "VL0617", "VL0608", "VL0611", "VL0616")
+)
+```
+
+We nemen de gerecycleerde punten en berekenen de SBP variabele.
+
+```{r}
+zandleemstreek <- st_read(
+  path_to_perimeters("zandleemstreek_perimeters.gpkg")
+) %>%
+  filter(Naam == "Zandleemstreek")
+
+sbp_akkervogels <- read_sbp_akkervogels(
+  path = path_to_sbp_akkervogels(file = "akkervogelgebieden2022.shp"),
+  gebied = zandleemstreek,
+  path_extra_soorten = path_to_sbp_akkervogels(file = "sbp_overige_soorten.shp"),
+  extra_soorten = c("hamster", "bruine kiekendief", "zomertortel",
+                    "grauwe kiekendief")
+)
+
+# We need to calculate SBP variable for the old points
+old_points_zn_avimap_sf2 <- add_stratum_sbp(
+    punten_sf = old_points_ol_avimap_sf,
+    sbp = sbp_akkervogels
+) %>%
+  st_join(zandleemstreek) %>%
+  filter(!is.na(Naam)) %>%
+  select(-"regio") %>%
+  rename("regio" = "Naam")
+
+# We need to calculate openheid variable for the old points
+old_points_zn_sbp <- add_openheid_landschap_to_frame(
+      path = path_to_openheid_landschap(),
+      punten_sf = old_points_zn_avimap_sf2,
+      gebied = zandleemstreek,
+      cutlevels = c(1.25, 1.35, 1.51),
+      class_labels = c("GL", "HGL", "HOL", "OL")
+      )
+
+old_points_zn_avimap <- old_points_zn_sbp %>%
+  mutate(x_coord = st_coordinates(geometry)[,1],
+         y_coord = st_coordinates(geometry)[,2]) %>%
+  st_drop_geometry() %>%
+  mutate(sbp = ifelse(is_sbp, "binnen", "buiten"),
+         crs = 31370) %>%
+  select(pointid, regio, openheid_klasse, sbp, x_coord, y_coord, crs)
+
+old_points_zn_avimap %>%
+  write_csv(file.path(data_path, "old_points_zn_strata.csv"))
+```
+
+We voegen deze toe aan de andere punten om tot een finale dataset te komen.
+
+```{r}
+old_points_to_add_zn <- old_points_zn_avimap %>%
+  filter(pointid %in% final_points_zn) %>%
+  left_join(beslissingen_ol %>% select(-"pointid"),
+            by = join_by("pointid" == "vervanging_id")) %>%
+  mutate(area_prop_sb = NA,
+         sample_order = as.numeric(sample_order)) %>%
+  select("pointid", "sample_order", "batch", "regio", "area_prop_sb",
+         "openheid_klasse", "sbp",   "x_coord", "y_coord", "crs")
+
+steekproef_zn_avimap <- steekproef_zn %>%
+  filter(pointid %in% final_points_zn) %>%
+  bind_rows(old_points_to_add_zn)
+
+head(steekproef_zn_avimap) %>%
+  kable(digits = 2)
+```
+
+# Uitschrijven datasets
+
+```{r}
+dir.create(here("data", "steekproefkaders"), showWarnings = FALSE)
+```
+
+
+## Steekproefkader
+
+Dit is een CSV-bestand van alle steekproefkaders.
+In het MBAG project worden deze van andere landbouwregio's hieraan toegevoegd.
+
+```{r}
+bind_rows(
+    steekproefkader_ol,
+    steekproefkader_wl,
+    steekproefkader_zn) %>%
+  write_csv(here("data", "steekproefkaders", "steekproefkader_mbag_piloot.csv"))
+```
+
+## Gewichten steekproefkader
+
+Dit zijn aparte CSV-bestanden voor elke regio.
+
+```{r}
+write_csv(gewichten_ol, 
+          here("data", "steekproefkaders",
+               "gewichten_oostelijke_leemstreek.csv"))
+write_csv(gewichten_wl, 
+          here("data", "steekproefkaders",
+               "gewichten_westelijke_leemstreek.csv"))
+write_csv(gewichten_zn, 
+          here("data", "steekproefkaders",
+               "gewichten_zandleemstreek.csv"))
+```
+
+## Steekproef
+
+Dit is een CSV-bestand van alle steekproeven.
+In het MBAG project worden deze van andere landbouwregio's hieraan toegevoegd.
+
+```{r}
+bind_rows(
+    steekproef_ol,
+    steekproef_wl,
+    steekproef_zn) %>%
+  write_csv(here("data", "steekproefkaders", "steekproef_mbag_piloot.csv"))
+```
+
+## Finale steekproef na manuele controle
+
+Dit is een CSV-bestand van alle finale telpunten.
+In het MBAG project worden deze van andere landbouwregio's hieraan toegevoegd.
+
+```{r}
+bind_rows(
+    steekproef_ol_avimap,
+    steekproef_wl_avimap,
+    steekproef_zn_avimap) %>%
+  write_csv(here("data", "steekproefkaders",
+                 "steekproef_avimap_mbag_piloot.csv"))
+```
