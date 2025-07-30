@@ -731,6 +731,14 @@ zandleemstreek <- st_read(
 ) %>%
   filter(Naam == "Zandleemstreek")
 
+sbp_akkervogels <- read_sbp_akkervogels(
+  path = path_to_sbp_akkervogels(file = "akkervogelgebieden2022.shp"),
+  gebied = zandleemstreek,
+  path_extra_soorten = path_to_sbp_akkervogels(file = "sbp_overige_soorten.shp"),
+  extra_soorten = c("hamster", "bruine kiekendief", "zomertortel",
+                    "grauwe kiekendief")
+)
+
 # We need to calculate SBP variable for the old points
 old_points_zn_avimap_sf2 <- add_stratum_sbp(
     punten_sf = old_points_ol_avimap_sf,
@@ -774,17 +782,9 @@ old_points_to_add_zn <- old_points_zn_avimap %>%
   select("pointid", "sample_order", "batch", "regio", "area_prop_sb",
          "openheid_klasse", "sbp",   "x_coord", "y_coord", "crs")
 
-steekproef_ol_avimap <- steekproef_zn %>%
+steekproef_zn_avimap <- steekproef_zn %>%
   filter(pointid %in% final_points_zn) %>%
   bind_rows(old_points_to_add_zn)
-
-head(steekproef_ol_avimap) %>%
-  kable(digits = 2)
-```
-
-```{r}
-steekproef_zn_avimap <- steekproef_zn %>%
-  filter(pointid %in% unique(steekproef_zn_avimap_raw$pointid))
 
 head(steekproef_zn_avimap) %>%
   kable(digits = 2)
