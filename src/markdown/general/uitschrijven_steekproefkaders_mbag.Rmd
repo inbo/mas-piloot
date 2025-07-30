@@ -381,7 +381,7 @@ write_csv(rbind.data.frame(niet_vervangen_door_oud,
           file.path(data_path, "niet_vervangen_oostelijke_leemstreek.csv"))
 ```
 
-Verdere controle en overleg toonde nog twee punten die niet geteld worden en moeten vervangen worden:
+Verdere controle en overleg toonde nog drie punten die niet geteld worden en moeten vervangen worden:
 
 Ol_815.5
 
@@ -391,10 +391,15 @@ Ol_5760.2.14
 
 > vervangen door VL0555
 
+Ol_2025.4
+
+> niet vervangen
+
 ```{r}
 final_points_ol <- unique(c(final_points_ol, "VL0322", "VL0555"))
-final_points_ol <- final_points_ol[-which(final_points_ol %in%
-                                            c("Ol_815.5", "Ol_5760.2.14"))]
+final_points_ol <- final_points_ol[
+  -which(final_points_ol %in% c("Ol_815.5", "Ol_5760.2.14", "Ol_2025.4"))
+]
 ```
 
 We nemen de gerecycleerde punten en berekenen de SBP variabele.
